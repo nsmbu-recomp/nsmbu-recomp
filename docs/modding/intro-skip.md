@@ -1,6 +1,6 @@
 # Intro skip
 
-Investigation for `modding/examples/example.intro-skip`.
+Investigation for `modding/examples/example-intro-skip`.
 
 Addresses are USA v1.3.0.
 
@@ -143,7 +143,7 @@ The decide chain, decoded:
    Confirming the popup kicks a full `save://rp_savedata.dat` write before the flow moves on.
 
 The mod's `nsmbu.Input.press("A", 3)` reaches the game through the padscore HLE sampling
-(`runtime/src/mods/luau_press.cpp`), which is what drives the layout animation that sets the `0x2000` bit.
+(`runtime/src/mods/lua_press.cpp`), which is what drives the layout animation that sets the `0x2000` bit.
 The writer of that bit inside the layout stack is not traced yet.
 
 ### Boot save-file load
@@ -160,7 +160,7 @@ The task state `0x0298A054` runs the boot save chain:
 | Approach | How | Pros | Cons |
 | --- | --- | --- | --- |
 | **A. Input inject** | While `scene.file_select()`, call `nsmbu.Input.press("A", n)` (or the confirm button the layout uses) until `title()` | No new SDK; matches real UI | Need the right button and a few steps; fragile if layout changes |
-| **B. Force title** | From `file_select()`, call `Scene::setNextScene` with `kCreatorTitle` when the fader is idle | Fast; no pad | No Luau wrapper for an arbitrary factory today; must respect `scene busy` / fader |
+| **B. Force title** | From `file_select()`, call `Scene::setNextScene` with `kCreatorTitle` when the fader is idle | Fast; no pad | No Lua wrapper for an arbitrary factory today; must respect `scene busy` / fader |
 | **C. Native helper** | Add e.g. `scene.skip_setup()` that sets the known gate / advances state, or wraps B | Clean API for the example | Needs a small runtime change and a short RE pass on the decide path |
 | **D. Leave as-is** | Keep waiting for title / map | Zero work when the popup auto-clears | Breaks scripted boots that need no host input |
 
@@ -314,9 +314,9 @@ Guest `0x024D3AD4` is a save-nibble helper.
 It is not the filename builder.
 Older notes that pointed at ROM tables near `0x100C97xx` for the pack filename were wrong.
 
-The Luau API exposes:
+The Lua API exposes:
 
-```luau
+```lua
 scene.load_story(world_no, course_no)
 scene.load_pack("1-23")
 ```

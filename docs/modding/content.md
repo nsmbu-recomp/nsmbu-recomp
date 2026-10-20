@@ -1,13 +1,13 @@
-# File replacements (`content_dir` on Luau packages)
+# File replacements (`content_dir` on Lua packages)
 
 Status: **live**.
-File replacements (models, textures, UI, language packs) ship as Luau packages with an optional `content_dir`.
-`kind: content` is a one-release read-only alias and migrates to `kind: luau` on scan.
-See [luau-mods.md](luau-mods.md) for the package model.
+File replacements (models, textures, UI, language packs) ship as Lua packages with an optional `content_dir`.
+`kind: content` is a one-release read-only alias and migrates to `kind: lua` on scan.
+See [lua-mods.md](lua-mods.md) for the package model.
 See [mod-manager.md](mod-manager.md) for install and shared manifest fields.
 
 Packages may be content-only: a manifest and a `content/` tree, with no script.
-They do not run host or guest code unless they also ship a Luau entry.
+They do not run host or guest code unless they also ship a Lua entry.
 
 ## Player workflow
 
@@ -16,7 +16,7 @@ Enable the package and restart the game.
 Disable it and restart to restore original reads; then replace or remove the folder.
 `enabled` in `mods.json` chooses the next launch's content set.
 Active content is deliberately immutable for the session.
-Script-only Luau packages (no `content_dir`) still load live; a package with `content_dir` always needs a restart.
+Script-only Lua packages (no `content_dir`) still load live; a package with `content_dir` always needs a restart.
 
 There is no in-game file picker or import step.
 Build the package layout yourself, or drop in a Cemu file-only pack root as in [cemu-content.md](cemu-content.md) (Definition-only `rules.txt` + `content/`; the host detects the pack on scan without writing into the folder).
@@ -25,7 +25,7 @@ Build the package layout yourself, or drop in a Cemu file-only pack root as in [
 
 A content package is a folder the player copies into the mods directory:
 
-- `mods/<folder>/manifest.json` with `kind: luau` and `content_dir`
+- `mods/<folder>/manifest.json` with `kind: lua` and `content_dir`
 - `mods/<folder>/<content_dir>/...` game-relative replacements (usually `content/`)
 
 Tests and tooling may still call the legacy importer helpers for SDCafiine trees, Definition-only Cemu packs, and loose known `.pack` files.
@@ -66,12 +66,12 @@ These conventions follow the upstream [SDCafiine documentation](https://github.c
   "version": "1.0.0",
   "game_id": "nsmbu-usa",
   "minimum_manager_version": "1.0.0",
-  "kind": "luau",
+  "kind": "lua",
   "content_dir": "content"
 }
 ```
 
-No `luau.entry` or `main.luau` is required for a content-only package.
+No `lua.entry` or `main.lua` is required for a content-only package.
 Keep the original game-relative filenames and directory structure under `content`.
 The game must already be able to load the replacement format: archive/model sizes, joints, animations, and resource names must match the mod's target.
 Raw PNG/DDS texture packs that expect Cemu's renderer interception are not equivalent to replacements of game archives and need a separate adapter.
@@ -80,14 +80,14 @@ A manifest marked compatible only means the host can load the package, not that 
 ## Runtime behaviour
 
 `runtime/src/mods/content.cpp` validates and indexes files at startup.
-Enabled Luau packages that set `content_dir` feed the same immutable case-insensitive map.
+Enabled Lua packages that set `content_dir` feed the same immutable case-insensitive map.
 Read-only FS opens, path stats, and read-only savestate handle reopens consult that map.
 Writes, saves, code, and meta paths use the original resolver.
 Missing paths fall through unchanged.
 Directory enumeration retains original names but reports replacement sizes for replaced entries.
 This adapter targets replacement of existing resources, not discovery of new files or deletion/hiding.
 Conflicting enabled packages are rejected, rather than silently choosing a load order.
-Content-only Luau packages cannot declare runtime options or dependencies unless they also ship a script entry that uses them.
+Content-only Lua packages cannot declare runtime options or dependencies unless they also ship a script entry that uses them.
 
 Installed payloads should not be edited externally while the game runs.
 Savestates must be used with the same active content set; savestate metadata does not record an asset fingerprint yet.

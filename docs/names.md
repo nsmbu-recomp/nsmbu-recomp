@@ -20,6 +20,7 @@ Use `references/decomp` for the body of a function, the member order, and the la
 `references/decomp` uses the same class names as `references/headers`.
 Use `references/Cemu` for HLE behaviour, not for names.
 
+`vendor/luajit` is a submodule; run `git submodule update --init vendor/luajit` before a build.
 These checkouts are gitignored.
 They are not name sources.
 Open one when the task is in that library.

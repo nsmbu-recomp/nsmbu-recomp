@@ -31,6 +31,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: LuaJIT submodule
+        run: git submodule update --init vendor/luajit
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

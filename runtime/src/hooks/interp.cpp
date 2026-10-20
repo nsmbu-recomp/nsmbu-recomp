@@ -862,7 +862,7 @@ extern "C" void hook_025DE788(Cpu* c) {
     g_in_execute = true;
     f_025DE788_orig(c);
     if (!interp::g_hold_frame) {
-        mods::luau_sdk::set_cpu(c);
+        mods::lua_sdk::set_cpu(c);
         mods::packages::frame(interp::g_logic_steps);
     }
     g_in_execute = false;

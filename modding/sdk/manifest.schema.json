@@ -15,7 +15,7 @@
     "author": { "type": "string", "maxLength": 256 },
     "description": { "type": "string", "maxLength": 8192 },
     "minimum_manager_version": { "$ref": "#/$defs/semver" },
-    "kind": { "enum": ["luau", "cemu", "content"] },
+    "kind": { "enum": ["lua", "cemu", "content"] },
     "dependencies": {
       "type": "array",
       "items": { "$ref": "#/$defs/dependency" }
@@ -36,7 +36,7 @@
         { "$ref": "#/$defs/relPath" }
       ]
     },
-    "luau": {
+    "lua": {
       "type": "object",
       "additionalProperties": false,
       "required": ["api_version"],
@@ -47,7 +47,7 @@
     }
   },
   "allOf": [
-    { "$ref": "#/$defs/luauPackage" },
+    { "$ref": "#/$defs/luaPackage" },
     { "$ref": "#/$defs/cemuPackage" },
     { "$ref": "#/$defs/contentPackage" }
   ],
@@ -171,9 +171,9 @@
       },
       "description": "labels has one label for each choice. The script reads the choice, not the label."
     },
-    "luauPackage": {
+    "luaPackage": {
       "if": {
-        "properties": { "kind": { "const": "luau" } },
+        "properties": { "kind": { "const": "lua" } },
         "required": ["kind"]
       },
       "then": {
@@ -191,9 +191,9 @@
         "anyOf": [
           { "required": ["content_dir"] },
           {
-            "required": ["luau"],
+            "required": ["lua"],
             "properties": {
-              "luau": { "required": ["entry"] }
+              "lua": { "required": ["entry"] }
             }
           }
         ]
@@ -211,7 +211,7 @@
         "required": ["cemu_dir"],
         "not": {
           "anyOf": [
-            { "required": ["luau"] },
+            { "required": ["lua"] },
             { "required": ["content_dir"] }
           ]
         }
@@ -231,7 +231,7 @@
         "required": ["content_dir"],
         "not": {
           "anyOf": [
-            { "required": ["luau"] },
+            { "required": ["lua"] },
             { "required": ["cemu_dir"] }
           ]
         }

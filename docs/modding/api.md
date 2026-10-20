@@ -1,27 +1,31 @@
-# Luau API (version 1)
+# Lua API (version 1)
 
 Status: **Phase 2 partial**.
-Lifecycle fields on `nsmbu.Hooks` (`onLoaded`, `onLogicStep`, `onSceneChange`, `onConfigChanged`, and `onUnload`), package metadata, log and status, time, config, guest memory, high-level `nsmbu.Level` / `nsmbu.Player` helpers, level actor reads / spawns, and `nsmbu.Scene` flow probes and transitions are implemented with embedded Luau.
+Lifecycle fields on `nsmbu.Hooks` (`onLoaded`, `onLogicStep`, `onSceneChange`, `onConfigChanged`, and `onUnload`), package metadata, log and status, time, config, guest memory, high-level `nsmbu.Level` / `nsmbu.Player` helpers, level actor reads / spawns, and `nsmbu.Scene` flow probes and transitions are implemented with embedded LuaJIT 2.1.
 Function hooks (`hook` / `replace` / `call` on `nsmbu.Hooks`), input pad reads, data files, guest heap alloc, and `nsmbu.Fn` stay proposal until later phases.
-Package plan: [luau-mods.md](luau-mods.md).
+Package plan: [lua-mods.md](lua-mods.md).
 Cemu packs do not use this API.
 
 The runtime exposes one global, `nsmbu`.
 It holds the lifecycle fields, the log and status helpers, and one field per module.
 
-```luau
+```lua
 nsmbu.Guest.read_u32(0x105E2C80)
 nsmbu.Level.set_time(999)
-nsmbu.Player(0)
+nsmbu.Player.get_player(0)
 ```
 
-Luau type definitions for editors live in [../../modding/sdk/nsmbu.d.luau](../../modding/sdk/nsmbu.d.luau).
-The definitions are editor-only; the runtime builds the same table.
+Mods are authored in TypeScript and compiled to Lua with TypeScriptToLua.
+The definitions for the global live in [../../modding/sdk/nsmbu.d.ts](../../modding/sdk/nsmbu.d.ts).
+`modding/tsconfig.json` sets the Lua 5.1 target with inlined helpers, so the compiled `main.lua` loads in the runtime LuaJIT without extra files.
+See [../../modding/README.md](../../modding/README.md) for the build commands.
+The snippets below show the Lua surface that the compiled scripts call.
+A host function that can fail returns `nil` and a message; TypeScript models that pair with `LuaMultiReturn<[T | undefined, string | undefined]>`.
 The runtime wiring that builds that table lives in [../../runtime/src/mods/sdk/nsmbu.cpp](../../runtime/src/mods/sdk/nsmbu.cpp) and mirrors the declaration module by module.
 
 `require("nsmbu")` and `require("nsmbu.*")` still resolve to the same tables, but new mods use the global.
 Names that start with `nsmbu` are reserved for the runtime.
-Each package has its own Luau state, so one package cannot replace another package's global.
+Each package has its own Lua state, so one package cannot replace another package's global.
 
 | Module | Role | Status |
 | --- | --- | --- |
@@ -41,10 +45,10 @@ Each package has its own Luau state, so one package cannot replace another packa
 
 - Call these functions on the game thread only.
 - A host function returns `nil` and a string message on failure.
-- It does not raise a Luau error for a bad address, a missing file, or a full heap.
+- It does not raise a Lua error for a bad address, a missing file, or a full heap.
 - A raised error inside a callback unloads that package only.
 - Integer registers and guest integers are in the range `0` .. `4294967295`, except the signed read helpers.
-- Float registers are Luau numbers.
+- Float registers are Lua numbers.
 - Guest multi-byte values are big-endian.
 - One guest read or write is at most 1 MiB.
 - Strings passed to the host are copied before the call returns.
@@ -57,7 +61,7 @@ Implemented in phase 2.
 Assign one function per event on `nsmbu.Hooks`.
 Omit a field when the package does not need that event.
 
-```luau
+```lua
 function nsmbu.Hooks.onLogicStep(step)
 end
 
@@ -103,7 +107,7 @@ The next host call replaces the table if a script overwrites it.
 
 Implemented in phase 2.
 
-```luau
+```lua
 nsmbu.log("ready")
 nsmbu.log_int("coins", 12)
 nsmbu.log_hex("addr", 0x105E2C80)
@@ -126,7 +130,7 @@ A bad type returns `nil` and a message.
 
 Implemented in phase 2.
 
-```luau
+```lua
 local step = nsmbu.logic_step()
 local seconds = nsmbu.logic_dt()
 ```
@@ -143,7 +147,7 @@ Implemented in phase 2.
 Values come from the Mods tab.
 They match the manifest `options` entry.
 
-```luau
+```lua
 local name = nsmbu.Config.string("label", "Coins")
 local every = nsmbu.Config.number("poll_every", 30)
 local on = nsmbu.Config.bool("enabled", true)
@@ -169,7 +173,7 @@ The script options themselves do not wait for that restart.
 Implemented in phase 2 (reads and writes).
 Guest heap alloc is still proposal.
 
-```luau
+```lua
 local value = nsmbu.Guest.read_u32(0x105E2C80)
 nsmbu.Guest.write_u32(0x105E2C80, value + 1)
 
@@ -189,15 +193,15 @@ A size above 1 MiB returns `nil` and `"size too large"`.
 | `read_s16(addr)` | Integer `-32768` .. `32767`. Big-endian. |
 | `read_u32(addr)` | Integer `0` .. `4294967295`. Big-endian. |
 | `read_s32(addr)` | Signed 32-bit integer. Big-endian. |
-| `read_f32(addr)` | Luau number. Big-endian IEEE-754 binary32. |
-| `read_f64(addr)` | Luau number. Big-endian IEEE-754 binary64. |
+| `read_f32(addr)` | Lua number. Big-endian IEEE-754 binary32. |
+| `read_f64(addr)` | Lua number. Big-endian IEEE-754 binary64. |
 | `write_u8(addr, value)` | `true` on success. The value is truncated to 8 bits. |
 | `write_s8(addr, value)` | `true`. Truncated to 8 bits. |
 | `write_u16` / `write_s16` | `true`. Truncated to 16 bits. Big-endian. |
 | `write_u32` / `write_s32` | `true`. Truncated to 32 bits. Big-endian. |
 | `write_f32` / `write_f64` | `true`. Big-endian. |
-| `read(addr, size)` | A Luau string of `size` bytes. |
-| `write(addr, data)` | `true`. `data` is a Luau string. |
+| `read(addr, size)` | A Lua string of `size` bytes. |
+| `write(addr, data)` | `true`. `data` is a Lua string. |
 
 Alignment is not required.
 A partial object that crosses a valid region boundary fails the whole call.
@@ -207,9 +211,9 @@ A partial object that crosses a valid region boundary fails the whole call.
 Proposal (not in phase 2).
 
 Use this only when game code must hold a pointer to bytes you own.
-Luau tables do not need it.
+Lua tables do not need it.
 
-```luau
+```lua
 local block = nsmbu.Guest.alloc(256)
 if block then
   nsmbu.Guest.write_u32(block, 1)
@@ -223,7 +227,7 @@ end
 | `free(addr)` | `true`. `free(0)` is `true`. A pointer this package did not allocate returns `nil` and a message. |
 
 The default heap is 256 KiB.
-`luau.heap_size` in the manifest raises it, up to 8 MiB.
+`lua.heap_size` in the manifest raises it, up to 8 MiB.
 `alloc(0)` returns `nil` and a message.
 The heap is per package.
 Save states store it with that package id when this function exists.
@@ -236,14 +240,14 @@ These helpers wrap USA v1.3.0 guest layout for common course scripts.
 Prefer them over raw `nsmbu.Guest` reads when they cover the job.
 Addresses stay inside the host.
 
-```luau
+```lua
 if nsmbu.Level.active() then
   nsmbu.Level.set_time(999)
   nsmbu.Level.set_coins(0)
   nsmbu.Level.set_score(0)
 end
 
-local p = nsmbu.Player(0)
+local p = nsmbu.Player.get_player(0)
 if p and p:entered() then
   p:set_lives(99)
   p:set_mode(p:mode())
@@ -299,7 +303,7 @@ Call `nsmbu.Player` / `nsmbu.Player.get` or `nsmbu.Player.players` again each lo
 Live course actors, actor handles, and spawning.
 These wrap `ActorMgr`, `ActorBase`, and `Profile` from the USA v1.3.0 layout.
 
-```luau
+```lua
 for _, a in nsmbu.Level.actors() do
   local pid = a:profile_id()
   if pid == 467 then
@@ -384,7 +388,7 @@ Call the same transition again on a later logic step when it returns `"scene bus
 
 Proposal (phase 4 with hooks).
 
-```luau
+```lua
 local addr = nsmbu.Fn.dScnPly_Execute
 ```
 
@@ -398,14 +402,14 @@ Do not write `fn`.
 The runtime does not accept a raw USA address on a European build unless that address is in the map.
 Prefer `fn`.
 
-There is no guest address for a Luau function.
-The game cannot call a Luau function through a function pointer.
+There is no guest address for a Lua function.
+The game cannot call a Lua function through a function pointer.
 
 ## Hooks
 
 Proposal (phase 4).
 
-```luau
+```lua
 local id = nsmbu.Hooks.hook(nsmbu.Fn.dScnPly_Execute, "entry", function(ctx)
   nsmbu.log_hex("r3", ctx.r3)
 end)
@@ -454,7 +458,7 @@ An entry hook that only reads `ctx` must not set `skip`.
 
 ### `original`
 
-```luau
+```lua
 nsmbu.Hooks.replace(nsmbu.Fn.cLib_addCalc2, function(ctx)
   nsmbu.Hooks.original()
   nsmbu.log_int("result", ctx.r3)
@@ -474,7 +478,7 @@ Entry and return hooks cannot call `original`.
 
 Proposal (phase 4).
 
-```luau
+```lua
 local ok, err = nsmbu.Hooks.call(nsmbu.Fn.cLib_addCalc2, {
   r3 = object,
   f1 = 1.0,
@@ -489,7 +493,7 @@ The return registers are not returned as a second table.
 Read them with a return hook, or with `original` inside a replacement.
 `call` is for a script that wants to invoke a game function from a logic-step callback or from a hook.
 
-```luau
+```lua
 local result = nsmbu.Hooks.call_result(nsmbu.Fn.cLib_addCalc2, { r3 = object, f1 = 1.0 })
 if result then
   nsmbu.log_int("r3", result.r3)
@@ -511,7 +515,7 @@ Replace that function instead.
 
 `press` is live. The pad snapshot and button read helpers stay proposal.
 
-```luau
+```lua
 nsmbu.Input.press("A", 3)
 nsmbu.Input.press({ "Down", "Down" }, 2)
 ```
@@ -521,9 +525,9 @@ nsmbu.Input.press({ "Down", "Down" }, 2)
 | `press(buttons, steps)` | Injects those buttons into the pad for the next `steps` logic steps. `buttons` is one name or a mixed list of names (`"A"`, `"Down"`, `"Plus"`, ...). Returns `true`, or `nil` and a message for a bad type. Presses stack with host input; they end on their own. |
 
 
-```luau
+```lua
 local pad = nsmbu.Input()
-if pad.buttons & nsmbu.Input.button.A ~= 0 then
+if bit.band(pad.buttons, nsmbu.Input.button.A) ~= 0 then
   nsmbu.log("A")
 end
 ```
@@ -562,7 +566,7 @@ It does not change the pad.
 | `StickL` | `0x00040000` |
 | `StickR` | `0x00020000` |
 
-```luau
+```lua
 local down = nsmbu.Input.button.held("A")
 ```
 
@@ -584,7 +588,7 @@ The name is one path segment.
 The host rejects symlinks and Windows device names.
 One call moves at most 1 MiB.
 
-```luau
+```lua
 nsmbu.Data.write("counter.txt", "3")
 local text = nsmbu.Data.read("counter.txt")
 nsmbu.Data.remove("counter.txt")
@@ -596,7 +600,7 @@ nsmbu.Data.remove("counter.txt")
 | `write(name, data)` | The number of bytes written. The write replaces the whole file. |
 | `remove(name)` | `true`. A missing file is `true`. |
 
-`data` is a Luau string and may contain zero bytes.
+`data` is a Lua string and may contain zero bytes.
 
 ## Content files
 
@@ -606,17 +610,23 @@ Scripts do not register file replacements.
 Put files under `content_dir` in the manifest.
 The map is fixed until the next process start.
 A package with `content_dir` needs a restart; a script-only package does not.
-See [luau-mods.md](luau-mods.md) and [content.md](content.md).
+See [lua-mods.md](lua-mods.md) and [content.md](content.md).
 
 There is no `nsmbu.content` module in API v1.
 
 ## Standard library
 
+The interpreter is LuaJIT 2.1, a git submodule at `vendor/luajit` built static with FFI disabled.
+It follows Lua 5.1 semantics.
+The standard library is base, `coroutine`, `string`, `table`, `math`, and `bit`.
+There is no `utf8` library and no `bit32` library.
+Do not use syntax or helpers from other Lua dialects: no type annotations, no `continue`, no `+=`, no generalized iteration (`for k, v in t` is invalid; use `ipairs` / `pairs`), and no `table.create`, `table.clone`, `string.split`, or `math.clamp`.
+
 | Available | Absent |
 | --- | --- |
-| `string`, `table`, `math`, `coroutine`, `bit32`, `utf8` | `io`, `os`, `debug`, `package.loadlib`, FFI |
+| `string`, `table`, `math`, `coroutine`, `bit` | `utf8`, `bit32`, `io`, `os`, `debug`, `package.loadlib`, FFI |
 | `require` of host `nsmbu` / `nsmbu.*` modules | `require` of an unknown `nsmbu.*` name |
-| `require` of another `.luau` file in this package | `require` of a path with `..` or an absolute path |
+| `require` of another `.lua` file in this package | `require` of a path with `..` or an absolute path |
 | Host modules as described here | A native library, a PowerPC ELF, a Cemu `rules.txt` |
 
 `coroutine` may yield only inside the callback that resumed it.
@@ -627,12 +637,12 @@ Prefer no coroutines in hooks.
 
 A status line from an option and player coins (phase 2):
 
-```luau
+```lua
 function nsmbu.Hooks.onLogicStep(step)
   if step % nsmbu.Config.number("every", 30) ~= 0 then
     return
   end
-  local p = nsmbu.Player(0)
+  local p = nsmbu.Player.get_player(0)
   if not p or not p:entered() then
     return
   end
@@ -647,7 +657,7 @@ end
 
 Count calls to a play-scene function, then leave the game body unchanged (proposal until phase 4):
 
-```luau
+```lua
 local calls = 0
 
 nsmbu.Hooks.hook(nsmbu.Fn.dScnPly_Execute, "entry", function(ctx)
@@ -663,7 +673,7 @@ end)
 
 Save a counter beside the package (proposal until data files land):
 
-```luau
+```lua
 function nsmbu.Hooks.onUnload()
   nsmbu.Data.write("calls.txt", tostring(calls))
 end
@@ -675,7 +685,7 @@ end
 - Button injection, rumble, or touch injection.
 - Audio playback.
 - Changing the content file map without a restart.
-- A guest function pointer that enters Luau.
+- A guest function pointer that enters Lua.
 - Loading a `.so`, `.dll`, or `.dylib`.
 - Shader or resolution overrides. Those stay in Cemu packages.
 - Named C parameters generated from header signatures. Hooks use registers.
@@ -688,7 +698,7 @@ end
 | `address out of range` | Guest address is outside MEM1, MEM2, and the foreground bucket. |
 | `size too large` | Read or write is above 1 MiB, or the heap request is above the package cap. |
 | `out of memory` | The package guest heap is full. |
-| `bad type` | A host function received the wrong Luau type. |
+| `bad type` | A host function received the wrong Lua type. |
 | `unknown option` | Not used. Config returns `fallback` instead. |
 | `unknown function` | `nsmbu.Fn` name or `call` target is not a game function on this build. |
 | `already replaced` | This function already has a replacement. Enable fails before the script runs when another package owns it. |

@@ -57,7 +57,7 @@ No HTTP server.
 
 ### Input model
 
-Live pad overlay merged in `input::read()` in `runtime/src/platform/input_sdl.cpp` (same layering idea as `mods::luau_press`).
+Live pad overlay merged in `input::read()` in `runtime/src/platform/input_sdl.cpp` (same layering idea as `mods::lua_press`).
 Hold bits or stick axes until released or until a short pulse duration (default about 20 frames).
 Does not write replay files.
 `nsmbu record` and `nsmbu replay` keep using env and launch as today.
@@ -83,7 +83,7 @@ The CLI exports `NSMBU_USER_DIR=<repo>/nsmbu` on every dev command (same layout 
 | `nsmbu extract` | `tools/extract.py` |
 | `nsmbu record <course>` / `replay [--release] [--uncapped] [--exit-at N] [--log PATH] <course>` | env + launch (see [automation.md](automation.md)) |
 | `nsmbu profile` / `perf` | profiling helpers |
-| `nsmbu installer` / `lint` / `recomp` | installer, Luau lint, recomp only |
+| `nsmbu installer` / `lint` / `recomp` | installer, TypeScript mod build, recomp only |
 | `nsmbu scripted <name>` | wraps `tools/scripted-run.sh` |
 
 Run `nsmbu` with no arguments (or `--help`) for the full list.

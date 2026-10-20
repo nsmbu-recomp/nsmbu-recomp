@@ -149,7 +149,7 @@ static void reapply_world_course_textbox(Cpu* c) {
 }
 
 static void fill_course_banner_digits(Cpu* c, uint32_t glyph_base, bool refresh) {
-    if (mods::luau_sdk::story_leave_pending()) return;
+    if (mods::lua_sdk::story_leave_pending()) return;
     uint8_t g[3];
     uint8_t world = 0;
     uint8_t course = 0;
@@ -200,7 +200,7 @@ extern "C" void hook_02994164(Cpu* c) {
 extern "C" void hook_029CBBB4(Cpu*) {}
 
 extern "C" void hook_024BD86C(Cpu* c) {
-    if (mods::luau_sdk::story_leave_pending() && ld32(kCourseTask) != 0) return;
+    if (mods::lua_sdk::story_leave_pending() && ld32(kCourseTask) != 0) return;
     f_024BD86C_orig(c);
 }
 
@@ -227,7 +227,7 @@ extern "C" void hook_025D8B28(Cpu* c) {
 }
 
 extern "C" void hook_0267CB3C(Cpu* c) {
-    if (mods::luau_sdk::story_leave_pending()) return;
+    if (mods::lua_sdk::story_leave_pending()) return;
     uint8_t course = 0;
     uint32_t before = c->r[4];
     if (read_course_info(nullptr, &course)) {
@@ -243,7 +243,7 @@ extern "C" void hook_0267CB3C(Cpu* c) {
 }
 
 extern "C" void hook_02681BFC(Cpu* c) {
-    if (mods::luau_sdk::story_leave_pending()) return;
+    if (mods::lua_sdk::story_leave_pending()) return;
     uint32_t textbox = c->r[3];
     uint8_t world = 0;
     uint8_t course = 0;

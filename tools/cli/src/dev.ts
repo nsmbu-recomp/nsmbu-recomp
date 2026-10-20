@@ -193,9 +193,10 @@ export function cmdInstaller(repo: string, rest: string[]): void {
 }
 
 export function cmdLint(repo: string): void {
+    const verify = existsSync(join(repo, "modding", "node_modules", "typescript-to-lua")) ? "" : "npm --prefix modding ci && ";
     runShell(
         repo,
-        'stylua --config-path modding/.stylua.toml modding/examples && find modding/examples -type f -name \'*.luau\' -print0 | xargs -0 luau-lsp analyze --definitions:@nsmbu=modding/sdk/nsmbu.d.luau',
+        `${verify}npm --prefix modding run --silent build && stylua --config-path modding/.stylua.toml modding/examples`,
     );
 }
 

@@ -18,7 +18,7 @@ REQUIRED_TESTS = (
     "mod_cemu_startup",
     "mod_cemu_backend",
     "mod_packages",
-    "mod_luau",
+    "mod_lua",
     "mod_content_fs_on",
     "mod_content_fs_off",
 )

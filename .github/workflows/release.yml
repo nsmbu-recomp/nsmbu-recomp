@@ -67,6 +67,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: LuaJIT submodule
+        run: git submodule update --init vendor/luajit
+
       - name: Install build tools
         run: brew install ninja
 
@@ -141,6 +144,9 @@ jobs:
       TOOLCHAIN: ${{ matrix.toolchain }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: LuaJIT submodule
+        run: git submodule update --init vendor/luajit
 
       - name: Install dependencies
         run: |
@@ -291,6 +297,9 @@ jobs:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: LuaJIT submodule
+        run: git submodule update --init vendor/luajit
 
       - name: Pinned llvm-mingw toolchain (tools/installer/toolchains.json)
         run: |

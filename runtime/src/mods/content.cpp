@@ -98,7 +98,7 @@ json::Value content_manifest_value(const fs::path& stage,const std::string& fold
     if(description.empty())description="Imported local content replacement. Requires restart. Model and archive compatibility must be checked in game.";
     if(!mapped.empty())description+=" Loose files placed at: "+mapped+".";
     if(!ignored.empty())description+=" Not used: "+ignored+".";
-    json::Value m;m["format_version"]=2;m["id"]=id;m["name"]=name;m["version"]=version;m["game_id"]="nsmbu-usa";m["kind"]="luau";m["minimum_manager_version"]="1.0.0";
+    json::Value m;m["format_version"]=2;m["id"]=id;m["name"]=name;m["version"]=version;m["game_id"]="nsmbu-usa";m["kind"]="lua";m["minimum_manager_version"]="1.0.0";
     m["content_dir"]=content_dir.lexically_relative(stage).generic_string();
     m["description"]=description;
     return m;

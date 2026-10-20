@@ -19,13 +19,13 @@ See live file-replacement behaviour in [content.md](content.md) and graphics-onl
 6. Reads under `/vol/content/` use the replacements until you disable and restart again.
 
 Graphics and shader packs stay on `kind: cemu` ([cemu.md](cemu.md)).
-Scripted mods stay on `kind: luau` ([luau-mods.md](luau-mods.md)).
+Scripted mods stay on `kind: lua` ([lua-mods.md](lua-mods.md)).
 
 ## Detection (no player JSON)
 
 When scanning `mods/<entry>/`, classify as follows.
 
-1. If the tree has a valid `manifest.json` with `kind` / `content_dir` / `luau` / `cemu`, keep the existing package path.
+1. If the tree has a valid `manifest.json` with `kind` / `content_dir` / `lua` / `cemu`, keep the existing package path.
 2. Else if `rules.txt` has graphics sections (`[Texture…]`, `[Control…]`, `[Preset…]`, shaders, and so on), treat it as `kind: cemu` and synthesize the graphics manifest ([cemu.md](cemu.md)).
 3. Else if `rules.txt` is Definition-only (or Definition plus ignored non-load sections) **and** exactly one `content/` tree exists under the pack, treat it as a **Cemu content pack**.
 4. Else leave the folder as a broken package with a clear problem string (same as a missing manifest today).
@@ -41,7 +41,7 @@ Fields from `[Definition]`:
 | `version` (Cemu pack version integer or string) | `version` as three-part semver when possible; else `1.0.0` with the raw value in `description` |
 | `titleIds` | Must include USA NSMBU `0005000010101d00` (same check as today) |
 | (none) | `id` = the folder name when it is already a valid id; else a `content.` slug from `name` |
-| (none) | `kind` = `luau`, `content_dir` = relative path to the detected `content/` |
+| (none) | `kind` = `lua`, `content_dir` = relative path to the detected `content/` |
 | `description` | Optional `description` |
 
 An optional player-supplied `manifest.json` in the pack may still override id or display fields when present and valid.
@@ -64,7 +64,7 @@ Rules:
 - Reject `code/`, non-empty patch payloads (`.asm`, `patches.txt`), shader files, and mixed graphics+content in one folder (same refusal policy as [content.md](content.md): do not drop half the pack silently).
 - Title ID checks stay on supported 1.3.0 builds (USA or Europe).
 - The folder name may differ from the package `id`.
-- Content-only Luau packages may keep a pack-root Definition-only `rules.txt`.
+- Content-only Lua packages may keep a pack-root Definition-only `rules.txt`.
 
 ## Size limits
 
@@ -89,7 +89,7 @@ Symlinks and path traversal stay rejected.
 
 - Applying Cemu PPC / `.asm` code patches or randomizers.
 - Mapping `meta/` into the host window icon or boot splash.
-- Folding graphics packs into Luau.
+- Folding graphics packs into Lua.
 - Guaranteeing every fan level archive loads; the host only replaces files the game already opens.
 - An in-game file picker or ZIP import UI.
 

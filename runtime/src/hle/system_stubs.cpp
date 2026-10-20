@@ -5,7 +5,7 @@
 #include "input/input.h"
 #include "input/rumble.h"
 #include "../input/motion/motion.h"
-#include "../mods/luau_press.h"
+#include "../mods/lua_press.h"
 
 #include "core/env.h"
 namespace interp { bool repeat_input(); void trace_read(const char*); uint64_t logic_steps(); }
@@ -137,7 +137,7 @@ HLE(vpad, VPADRead) {
     } else if (!repeat) {
         motion::right_stick(p.rx, p.ry);
     }
-    if (!repeat) p.buttons |= mods::luau_press::active(interp::logic_steps());
+    if (!repeat) p.buttons |= mods::lua_press::active(interp::logic_steps());
     uint32_t hold = p.buttons;
     auto stick_dirs = [&](float x, float y, uint32_t up, uint32_t down, uint32_t left, uint32_t right) {
 

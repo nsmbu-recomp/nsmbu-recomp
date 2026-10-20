@@ -16,6 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: LuaJIT submodule
+        run: git submodule update --init vendor/luajit
+
       - name: Install dependencies
         run: |
           sudo apt-get update

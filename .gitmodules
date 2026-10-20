@@ -1,3 +1,6 @@
 [submodule "decomp"]
 	path = decomp
 	url = https://github.com/nsmbu-recomp/decomp.git
+[submodule "vendor/luajit"]
+	path = vendor/luajit
+	url = https://github.com/LuaJIT/LuaJIT.git

@@ -2,7 +2,7 @@
 #include "mod_archive.h"
 #include "content.h"
 #include "cemu_pack.h"
-#include "luau_runtime.h"
+#include "lua_runtime.h"
 #include "../platform/host.h"
 #include <algorithm>
 #include <array>
@@ -67,13 +67,13 @@ bool valid_option(const Option& o,const Value& v){
     if(o.type=="enum"||o.type=="radio")return v.type==Value::String&&std::find(o.choices.begin(),o.choices.end(),v.text)!=o.choices.end();
     return false;
 }
-void reject_luau_files(const fs::path& root,bool allow_rules_txt){
+void reject_lua_files(const fs::path& root,bool allow_rules_txt){
     for(const auto& file:fs::recursive_directory_iterator(root)){
         if(!file.is_regular_file()&&!file.is_symlink())continue;
         auto name=file.path().filename().string();
         auto lower=name;for(char& c:lower)if(c>='A'&&c<='Z')c+='a'-'A';
         bool bad=lower.ends_with(".so")||lower.ends_with(".dll")||lower.ends_with(".dylib")||lower.ends_with(".elf")||lower.ends_with(".rpx")||lower=="patches.txt"||(lower=="rules.txt"&&!allow_rules_txt)||lower.ends_with("_vs.txt")||lower.ends_with("_ps.txt");
-        require(!bad,"Luau package may not contain "+name);
+        require(!bad,"Lua package may not contain "+name);
     }
 }
 void index_content_dir(Manifest& m,const fs::path& path,const std::string& folder){
@@ -82,12 +82,12 @@ void index_content_dir(Manifest& m,const fs::path& path,const std::string& folde
     m.files=content::index(path/folder);
 }
 bool has_content_files(const Manifest& m){return !m.files.empty();}
-bool startup_only(const Manifest& m){return m.kind=="cemu"||m.kind=="content"||(m.kind=="luau"&&has_content_files(m));}
+bool startup_only(const Manifest& m){return m.kind=="cemu"||m.kind=="content"||(m.kind=="lua"&&has_content_files(m));}
 bool content_lifecycle(const Manifest& m){return m.kind=="cemu"||m.kind=="content"||has_content_files(m);}
 void migrate_content_alias(const fs::path& path){
     auto v=json::parse(read_text(path/"manifest.json"));
     if(v.get("kind").type!=Value::String||v.get("kind").text!="content")return;
-    v["kind"]="luau";
+    v["kind"]="lua";
     v["format_version"]=2;
     auto tmp=path/"manifest.json.tmp";
     std::ofstream f(tmp,std::ios::binary|std::ios::trunc);
@@ -105,9 +105,9 @@ Manifest manifest(const fs::path& path,Value v){
     require(m.kind!="guest","Guest mods are not supported");
     require(m.kind!="native","Native mods are not supported");
     require(m.kind!="settings","Settings mods are not supported");
-    require(m.kind=="content"||m.kind=="cemu"||m.kind=="luau","Unsupported mod kind");
+    require(m.kind=="content"||m.kind=="cemu"||m.kind=="lua","Unsupported mod kind");
     const auto& fv=v.get("format_version");
-    require(fv.type==Value::Number&&((m.kind=="luau"&&(fv.number==1||fv.number==2))||(m.kind!="luau"&&fv.number==1)),"Unsupported manifest format");
+    require(fv.type==Value::Number&&((m.kind=="lua"&&(fv.number==1||fv.number==2))||(m.kind!="lua"&&fv.number==1)),"Unsupported manifest format");
     if(string_field(v,"game_id",false,64)!=kGameId)m.problem="This package targets another game";
     auto minimum=string_field(v,"minimum_manager_version",true,64);
     if(!minimum.empty()&&version(minimum)>version(kManagerVersion))m.problem="Requires mod manager "+minimum;
@@ -117,27 +117,27 @@ Manifest manifest(const fs::path& path,Value v){
         auto checked=path;for(const auto& part:fs::path(folder)){checked/=part;require(!fs::is_symlink(checked),"Cemu paths may not use symlinks");}
         m.graphics=std::make_shared<cemu::Pack>(cemu::parse(path/folder));
         auto schema=cemu::options(*m.graphics);if(v.get("options").type==Value::Null)v["options"]=schema;else require(v.get("options")==schema,"Cemu preset options do not match rules.txt");
-    } else if(m.kind=="luau") {
-        require(v.get("abi_version").type==Value::Null,"Luau packages do not use abi_version");
-        require(v.get("binaries").type==Value::Null,"Luau packages do not use binaries");
-        require(v.get("guest").type==Value::Null,"Luau packages do not use guest");
+    } else if(m.kind=="lua") {
+        require(v.get("abi_version").type==Value::Null,"Lua packages do not use abi_version");
+        require(v.get("binaries").type==Value::Null,"Lua packages do not use binaries");
+        require(v.get("guest").type==Value::Null,"Lua packages do not use guest");
         auto folder=string_field(v,"content_dir",true,512);
         if(!folder.empty())index_content_dir(m,path,folder);
-        const auto& luau=v.get("luau");
-        if(luau.type==Value::Null){
-            require(has_content_files(m),"Luau package requires a script entry or content_dir");
+        const auto& lua=v.get("lua");
+        if(lua.type==Value::Null){
+            require(has_content_files(m),"Lua package requires a script entry or content_dir");
         }else{
-            require(luau.type==Value::Object,"Invalid luau object");
-            require(luau.get("api_version").type==Value::Number&&luau.get("api_version").number==1,"Unsupported Luau API version");
-            m.entry=string_field(luau,"entry",true,512);
+            require(lua.type==Value::Object,"Invalid lua object");
+            require(lua.get("api_version").type==Value::Number&&lua.get("api_version").number==1,"Unsupported Lua API version");
+            m.entry=string_field(lua,"entry",true,512);
             if(!m.entry.empty()){
-                require(archive::relative_path(m.entry),"Invalid Luau entry path");
-                auto entry_path=path;for(const auto& part:fs::path(m.entry)){entry_path/=part;require(!fs::is_symlink(entry_path),"Luau entry may not use symlinks");}
-                require(fs::is_regular_file(entry_path)&&!fs::is_symlink(entry_path),"Luau entry is missing: "+m.entry);
+                require(archive::relative_path(m.entry),"Invalid Lua entry path");
+                auto entry_path=path;for(const auto& part:fs::path(m.entry)){entry_path/=part;require(!fs::is_symlink(entry_path),"Lua entry may not use symlinks");}
+                require(fs::is_regular_file(entry_path)&&!fs::is_symlink(entry_path),"Lua entry is missing: "+m.entry);
             }
-            require(!m.entry.empty()||has_content_files(m),"Luau package requires a script entry or content_dir");
+            require(!m.entry.empty()||has_content_files(m),"Lua package requires a script entry or content_dir");
         }
-        reject_luau_files(path,!folder.empty()&&m.entry.empty());
+        reject_lua_files(path,!folder.empty()&&m.entry.empty());
     } else {
         auto folder=string_field(v,"content_dir",false,512);
         index_content_dir(m,path,folder);
@@ -188,8 +188,8 @@ void normalize_database(){
 }
 bool hot_reload_flag(){const auto& v=database.get("hot_reload");return v.type==Value::Bool&&v.boolean;}
 bool content_folder_name(std::string n){for(char& c:n)if(c>='A'&&c<='Z')c+='a'-'A';return n=="content";}
-bool luau_file_name(std::string n){for(char& c:n)if(c>='A'&&c<='Z')c+='a'-'A';return n.size()>=5&&n.compare(n.size()-5,5,".luau")==0;}
-std::map<std::string,std::int64_t> scan_luau_mtimes(const fs::path& package){
+bool lua_file_name(std::string n){for(char& c:n)if(c>='A'&&c<='Z')c+='a'-'A';return n.size()>=4&&n.compare(n.size()-4,4,".lua")==0;}
+std::map<std::string,std::int64_t> scan_lua_mtimes(const fs::path& package){
     std::map<std::string,std::int64_t> out;
     std::error_code ec;
     if(!fs::is_directory(package,ec))return out;
@@ -203,15 +203,15 @@ std::map<std::string,std::int64_t> scan_luau_mtimes(const fs::path& package){
             continue;
         }
         if(!entry.is_regular_file())continue;
-        if(!luau_file_name(entry.path().filename().string()))continue;
+        if(!lua_file_name(entry.path().filename().string()))continue;
         auto t=fs::last_write_time(entry.path(),ec);
         if(ec){ec.clear();continue;}
         out[rel.generic_string()]=static_cast<std::int64_t>(t.time_since_epoch().count());
     }
     return out;
 }
-mods::luau_mod::LoadInfo load_info_for(const Record& record,const Value& cfg){
-    mods::luau_mod::LoadInfo info;
+mods::lua_mod::LoadInfo load_info_for(const Record& record,const Value& cfg){
+    mods::lua_mod::LoadInfo info;
     info.id=record.manifest.id;
     info.version=record.manifest.version;
     info.path=record.path.string();
@@ -252,7 +252,7 @@ void validate_conflicts(const std::set<std::string>& enabled){
 }
 template<class Fn> bool operation(std::string& error,Fn fn){try{std::lock_guard guard(mutex);require(supported(),unsupported_reason());require(ready,"Mod manager storage is unavailable");fn();error.clear();return true;}catch(const std::exception& e){error=e.what();return false;}}
 struct Live {
-    std::unique_ptr<mods::luau_mod::Instance> luau;
+    std::unique_ptr<mods::lua_mod::Instance> lua;
     std::string kind;
     Value last_config;
     std::map<std::string,std::int64_t> script_mtimes;
@@ -264,18 +264,18 @@ std::vector<std::string> live_order;
 bool reload_live(const std::string& id,const Record& record,const Value& cfg){
     auto it=live.find(id);
     if(it==live.end())return false;
-    if(it->second.luau)mods::luau_mod::unload(*it->second.luau);
+    if(it->second.lua)mods::lua_mod::unload(*it->second.lua);
     Live item;item.kind=record.manifest.kind;item.last_config=cfg;
     try{
-        item.luau=mods::luau_mod::load(load_info_for(record,cfg));
-        item.script_mtimes=scan_luau_mtimes(record.path);
+        item.lua=mods::lua_mod::load(load_info_for(record,cfg));
+        item.script_mtimes=scan_lua_mtimes(record.path);
         item.pending_change=false;
         item.pending_mtimes.clear();
         live[id]=std::move(item);
         fprintf(stderr,"[mod-manager] reloaded %s (%s)\n",id.c_str(),record.manifest.kind.c_str());
         return true;
     }catch(const std::exception& e){
-        if(item.luau)mods::luau_mod::unload(*item.luau);
+        if(item.lua)mods::lua_mod::unload(*item.lua);
         live.erase(id);
         std::erase(live_order,id);
         std::lock_guard guard(mutex);
@@ -312,7 +312,7 @@ void initialize(){
     try{fs::create_directories(root);auto path=root/"mods.json";if(!fs::exists(path)&&fs::exists(root/"profiles.json"))path=root/"profiles.json";if(fs::exists(path)){database=json::parse(read_text(path));normalize_database();}scan();
         try { auto enabled=enabled_set();auto sequence=order(enabled);validate_conflicts(enabled);
             content::Files files;
-            for(const auto& id:sequence){auto& record=records.at(id);if(record.manifest.kind=="content"||(record.manifest.kind=="luau"&&has_content_files(record.manifest))){
+            for(const auto& id:sequence){auto& record=records.at(id);if(record.manifest.kind=="content"||(record.manifest.kind=="lua"&&has_content_files(record.manifest))){
                 files.insert(record.manifest.files.begin(),record.manifest.files.end());record.active=true;
                 record.status=std::to_string(record.manifest.files.size())+" replacement files";
             }}
@@ -323,14 +323,14 @@ void initialize(){
             }}
             cemu::activate(graphics);
             content::activate(std::move(files));
-            for(const auto& id:sequence){auto& record=records.at(id);if(record.manifest.kind!="luau"||!has_content_files(record.manifest)||record.manifest.entry.empty())continue;
+            for(const auto& id:sequence){auto& record=records.at(id);if(record.manifest.kind!="lua"||!has_content_files(record.manifest)||record.manifest.entry.empty())continue;
                 Live item;item.kind=record.manifest.kind;try{
                     auto cfg=config(record.manifest);
-                    item.luau=mods::luau_mod::load(load_info_for(record,cfg));item.last_config=std::move(cfg);
-                    item.script_mtimes=scan_luau_mtimes(record.path);
+                    item.lua=mods::lua_mod::load(load_info_for(record,cfg));item.last_config=std::move(cfg);
+                    item.script_mtimes=scan_lua_mtimes(record.path);
                     live.emplace(id,std::move(item));live_order.push_back(id);
                     fprintf(stderr,"[mod-manager] loaded %s (%s)\n",id.c_str(),record.manifest.kind.c_str());
-                }catch(const std::exception& e){if(item.luau)mods::luau_mod::unload(*item.luau);record.error=e.what();fprintf(stderr,"[mod-manager] luau fail %s: %s\n",id.c_str(),e.what());database["enabled"][id]=false;try{save();}catch(...){}}}
+                }catch(const std::exception& e){if(item.lua)mods::lua_mod::unload(*item.lua);record.error=e.what();fprintf(stderr,"[mod-manager] lua fail %s: %s\n",id.c_str(),e.what());database["enabled"][id]=false;try{save();}catch(...){}}}
             running=!live.empty();
         } catch(const std::exception& e) {last_problem=e.what();}
         dirty=true;
@@ -377,13 +377,13 @@ void frame(uint64_t step){
         for(auto it=live_order.rbegin();it!=live_order.rend();++it){
             bool file_backed=false;{std::lock_guard guard(mutex);if(records.contains(*it))file_backed=has_content_files(records.at(*it).manifest);}
             if(file_backed){if(live.contains(*it))preserved.push_back(*it);continue;}
-            if(!desired.contains(*it)){auto found=live.find(*it);if(found!=live.end()){if(found->second.luau)mods::luau_mod::unload(*found->second.luau);live.erase(found);}std::lock_guard guard(mutex);if(records.contains(*it)){records.at(*it).active=false;records.at(*it).status.clear();}}
+            if(!desired.contains(*it)){auto found=live.find(*it);if(found!=live.end()){if(found->second.lua)mods::lua_mod::unload(*found->second.lua);live.erase(found);}std::lock_guard guard(mutex);if(records.contains(*it)){records.at(*it).active=false;records.at(*it).status.clear();}}
         }
         live_order.assign(preserved.rbegin(),preserved.rend());
         for(const auto& id:sequence){const auto& [record,cfg]=desired.at(id);bool deps_ok=true;for(const auto& dep:record.manifest.dependencies)if(!live.contains(dep.id)){std::lock_guard guard(mutex);if(!records.contains(dep.id)||!records.at(dep.id).active)deps_ok=false;}
             if(!deps_ok){std::lock_guard guard(mutex);records.at(id).loading=false;records.at(id).error="A dependency is unavailable (content dependencies may require restart)";continue;}
             auto it=live.find(id);
-            if(it==live.end()){Live item;item.kind=record.manifest.kind;try{item.luau=mods::luau_mod::load(load_info_for(record,cfg));item.last_config=cfg;item.script_mtimes=scan_luau_mtimes(record.path);live.emplace(id,std::move(item));fprintf(stderr,"[mod-manager] loaded %s (%s)\n",id.c_str(),record.manifest.kind.c_str());}catch(const std::exception& e){if(item.luau)mods::luau_mod::unload(*item.luau);std::lock_guard guard(mutex);records.at(id).loading=false;records.at(id).error=e.what();database["enabled"][id]=false;try{save();}catch(...){}continue;}}
+            if(it==live.end()){Live item;item.kind=record.manifest.kind;try{item.lua=mods::lua_mod::load(load_info_for(record,cfg));item.last_config=cfg;item.script_mtimes=scan_lua_mtimes(record.path);live.emplace(id,std::move(item));fprintf(stderr,"[mod-manager] loaded %s (%s)\n",id.c_str(),record.manifest.kind.c_str());}catch(const std::exception& e){if(item.lua)mods::lua_mod::unload(*item.lua);std::lock_guard guard(mutex);records.at(id).loading=false;records.at(id).error=e.what();database["enabled"][id]=false;try{save();}catch(...){}continue;}}
             live_order.push_back(id);std::lock_guard guard(mutex);records.at(id).active=true;records.at(id).loading=false;records.at(id).error.clear();
         }
         running=!live.empty();
@@ -400,7 +400,7 @@ void frame(uint64_t step){
                 else path=records.at(id).path;}
             if(skip)continue;
             auto& item=live.at(id);
-            auto now=scan_luau_mtimes(path);
+            auto now=scan_lua_mtimes(path);
             if(item.script_mtimes.empty()){item.script_mtimes=std::move(now);item.pending_change=false;item.pending_mtimes.clear();continue;}
             if(now==item.script_mtimes){item.pending_change=false;item.pending_mtimes.clear();continue;}
             if(item.pending_change&&item.pending_mtimes==now)reload_ids.push_back(id);
@@ -421,13 +421,13 @@ void frame(uint64_t step){
     for(size_t i=0;i<live_order.size();){
         auto id=live_order[i];auto& item=live.at(id);
         Value cfg;{std::lock_guard guard(mutex);cfg=records.contains(id)?config(records.at(id).manifest):Value{};}
-        if(item.luau&&!(item.last_config==cfg)){mods::luau_mod::set_config(*item.luau,cfg);mods::luau_mod::config_changed(*item.luau);item.last_config=std::move(cfg);}
-        if(item.luau)mods::luau_mod::logic_step(*item.luau,step);
-        if(!item.luau||!mods::luau_mod::faulted(*item.luau)){
-            if(item.luau){auto st=mods::luau_mod::status(*item.luau);std::lock_guard guard(mutex);if(records.contains(id))records.at(id).status=std::move(st);}
+        if(item.lua&&!(item.last_config==cfg)){mods::lua_mod::set_config(*item.lua,cfg);mods::lua_mod::config_changed(*item.lua);item.last_config=std::move(cfg);}
+        if(item.lua)mods::lua_mod::logic_step(*item.lua,step);
+        if(!item.lua||!mods::lua_mod::faulted(*item.lua)){
+            if(item.lua){auto st=mods::lua_mod::status(*item.lua);std::lock_guard guard(mutex);if(records.contains(id))records.at(id).status=std::move(st);}
             ++i;continue;
         }
-        auto msg=mods::luau_mod::fault_message(*item.luau);mods::luau_mod::unload(*item.luau);live.erase(id);live_order.erase(live_order.begin()+static_cast<std::ptrdiff_t>(i));
+        auto msg=mods::lua_mod::fault_message(*item.lua);mods::lua_mod::unload(*item.lua);live.erase(id);live_order.erase(live_order.begin()+static_cast<std::ptrdiff_t>(i));
         {std::lock_guard guard(mutex);if(records.contains(id)){records.at(id).active=false;records.at(id).status.clear();records.at(id).error=msg;database["enabled"][id]=false;try{save();}catch(...){}}}
         running=!live.empty();
     }
@@ -444,12 +444,12 @@ void scene_change(uint32_t factory){
         queued.erase(queued.begin());
         for(size_t i=0;i<live_order.size();){
             auto id=live_order[i];auto& item=live.at(id);
-            if(item.luau)mods::luau_mod::scene_change(*item.luau,next);
-            if(!item.luau||!mods::luau_mod::faulted(*item.luau)){
-                if(item.luau){auto st=mods::luau_mod::status(*item.luau);std::lock_guard guard(mutex);if(records.contains(id))records.at(id).status=std::move(st);}
+            if(item.lua)mods::lua_mod::scene_change(*item.lua,next);
+            if(!item.lua||!mods::lua_mod::faulted(*item.lua)){
+                if(item.lua){auto st=mods::lua_mod::status(*item.lua);std::lock_guard guard(mutex);if(records.contains(id))records.at(id).status=std::move(st);}
                 ++i;continue;
             }
-            auto msg=mods::luau_mod::fault_message(*item.luau);mods::luau_mod::unload(*item.luau);live.erase(id);live_order.erase(live_order.begin()+static_cast<std::ptrdiff_t>(i));
+            auto msg=mods::lua_mod::fault_message(*item.lua);mods::lua_mod::unload(*item.lua);live.erase(id);live_order.erase(live_order.begin()+static_cast<std::ptrdiff_t>(i));
             {std::lock_guard guard(mutex);if(records.contains(id)){records.at(id).active=false;records.at(id).status.clear();records.at(id).error=msg;database["enabled"][id]=false;try{save();}catch(...){}}}
             running=!live.empty();
         }

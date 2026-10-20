@@ -50,7 +50,7 @@ The change is to stop using Python as the orchestration language around them.
 | `recomp` | `tools/recomp/recomp.py` | RPX → `build/gen` |
 | `open` (spawn path) | `launch.py` again | Agent control loop itself is already TS |
 
-Also shell, not Python: `nsmbu scripted` → `tools/scripted-run.sh`, `nsmbu lint` → stylua / luau-lsp.
+Also shell, not Python: `nsmbu scripted` → `tools/scripted-run.sh`, `nsmbu lint` → TypeScriptToLua / StyLua.
 
 ### Not on `nsmbu` yet (still direct `python3 …`)
 

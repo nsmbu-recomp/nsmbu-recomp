@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "lib": ["ESNext"],
+        "module": "CommonJS",
+        "moduleResolution": "Bundler",
+        "strict": true,
+        "skipLibCheck": true,
+        "types": ["lua-types/5.1", "@typescript-to-lua/language-extensions"]
+    },
+    "tstl": {
+        "luaTarget": "5.1",
+        "luaLibImport": "inline",
+        "noHeader": true,
+        "noImplicitSelf": true
+    },
+    "include": ["sdk/**/*.d.ts", "examples/**/*.ts"]
+}

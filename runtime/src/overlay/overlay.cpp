@@ -884,7 +884,7 @@ void package_controls() {
         if (expanded) {
             note("%s · %s",
                  mod.kind == "cemu" ? "Cemu graphics / shader pack"
-                     : mod.kind == "luau" ? "Luau script (can change guest memory)"
+                     : mod.kind == "lua" ? "Lua script (can change guest memory)"
                                         : "Model / texture / UI replacement",
                  mod.pending_restart ? "Restart required" : mod.active ? "Active" : mod.enabled ? "Waiting for game update" : "Disabled");
             if (!mod.author.empty()) note("By %s", mod.author.c_str());
@@ -1649,7 +1649,7 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
             }
             if (sscanf(spec.c_str(), "%d,%d", &w, &c) == 2 && render::frame_count() + 1 >= at) {
                 test_load_done = true;
-                mods::luau_sdk::request_load_story(w, c);
+                mods::lua_sdk::request_load_story(w, c);
                 LOG("[overlay] test load story %d-%d", w + 1, c + 1);
             }
         }

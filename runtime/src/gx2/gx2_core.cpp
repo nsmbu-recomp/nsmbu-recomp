@@ -856,7 +856,7 @@ HLE(gx2, GX2SwapScanBuffers) {
     const bool hold = steps == lastSteps;
     lastSteps = steps;
     if (!hold) {
-        mods::luau_sdk::set_cpu(c);
+        mods::lua_sdk::set_cpu(c);
         mods::packages::frame(steps);
     }
 

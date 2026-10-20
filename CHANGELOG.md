@@ -8,6 +8,12 @@ Use the `changelog` skill when editing.
 
 ## [Unreleased]
 
+### Changed
+
+- Mods run on LuaJIT and load `.lua` scripts.
+  Luau mods with `.luau` files do not load until the scripts are converted.
+- The mod examples and the SDK ship TypeScript source compiled to Lua.
+
 ## [0.5.0] - 2026-10-19
 
 ### Added

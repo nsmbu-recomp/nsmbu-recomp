@@ -43,4 +43,4 @@ Read `docs/names.md` to name guest symbols (USA v1.3.0 address is the key), or f
 Read `docs/how-it-works.md` for the runtime split.
 Read `docs/builds.md` for regional address maps.
 Read `docs/vulkan.md` when you change the Vulkan backend.
-Read `docs/modding/README.md` when you change mod load, content redirects, or the Luau API.
+Read `docs/modding/README.md` when you change mod load, content redirects, or the Lua API.

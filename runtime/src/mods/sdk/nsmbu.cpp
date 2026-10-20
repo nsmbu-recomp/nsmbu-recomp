@@ -1,7 +1,7 @@
 #include "nsmbu.h"
-#include "mods/luau_runtime.h"
-#include "mods/luau_guest.h"
-#include "mods/luau_press.h"
+#include "mods/lua_runtime.h"
+#include "mods/lua_guest.h"
+#include "mods/lua_press.h"
 #include "guest_addr.h"
 #include "input/input.h"
 #include "core/runtime.h"
@@ -13,15 +13,18 @@
 #include <string>
 #include <vector>
 
+extern "C" {
 #include "lua.h"
+#include "lauxlib.h"
 #include "lualib.h"
+}
 
 extern "C" void nsmbu_fill_course_banner_digits(void);
 
-namespace mods::luau_sdk {
+namespace mods::lua_sdk {
 std::atomic<bool> g_story_leave_queued{false};
 namespace {
-using luau_mod::Instance;
+using lua_mod::Instance;
 using json::Value;
 
 Instance* self(lua_State* L) {
@@ -91,12 +94,12 @@ void refresh_package(Instance& inst) {
 
 void bind(lua_State* L, Instance* inst, const char* name, lua_CFunction fn) {
     lua_pushlightuserdata(L, inst);
-    lua_pushcclosure(L, fn, name, 1);
+    lua_pushcclosure(L, fn, 1);
     lua_setfield(L, -2, name);
 }
 
 void bind_guest(lua_State* L, const char* name, lua_CFunction fn) {
-    lua_pushcfunction(L, fn, name);
+    lua_pushcfunction(L, fn);
     lua_setfield(L, -2, name);
 }
 
@@ -214,56 +217,56 @@ uint32_t addr_arg(lua_State* L, int idx) { return (uint32_t)(int64_t)luaL_checkn
 int guest_read_u8(lua_State* L) {
     std::string err;
     uint8_t v;
-    if (!luau_guest::read_u8(addr_arg(L, 1), v, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u8(addr_arg(L, 1), v, err)) return fail(L, err.c_str());
     lua_pushinteger(L, v);
     return 1;
 }
 int guest_read_s8(lua_State* L) {
     std::string err;
     int8_t v;
-    if (!luau_guest::read_s8(addr_arg(L, 1), v, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_s8(addr_arg(L, 1), v, err)) return fail(L, err.c_str());
     lua_pushinteger(L, v);
     return 1;
 }
 int guest_read_u16(lua_State* L) {
     std::string err;
     uint16_t v;
-    if (!luau_guest::read_u16(addr_arg(L, 1), v, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u16(addr_arg(L, 1), v, err)) return fail(L, err.c_str());
     lua_pushinteger(L, v);
     return 1;
 }
 int guest_read_s16(lua_State* L) {
     std::string err;
     int16_t v;
-    if (!luau_guest::read_s16(addr_arg(L, 1), v, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_s16(addr_arg(L, 1), v, err)) return fail(L, err.c_str());
     lua_pushinteger(L, v);
     return 1;
 }
 int guest_read_u32(lua_State* L) {
     std::string err;
     uint32_t v;
-    if (!luau_guest::read_u32(addr_arg(L, 1), v, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u32(addr_arg(L, 1), v, err)) return fail(L, err.c_str());
     lua_pushnumber(L, (lua_Number)v);
     return 1;
 }
 int guest_read_s32(lua_State* L) {
     std::string err;
     int32_t v;
-    if (!luau_guest::read_s32(addr_arg(L, 1), v, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_s32(addr_arg(L, 1), v, err)) return fail(L, err.c_str());
     lua_pushnumber(L, (lua_Number)v);
     return 1;
 }
 int guest_read_f32(lua_State* L) {
     std::string err;
     float v;
-    if (!luau_guest::read_f32(addr_arg(L, 1), v, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_f32(addr_arg(L, 1), v, err)) return fail(L, err.c_str());
     lua_pushnumber(L, v);
     return 1;
 }
 int guest_read_f64(lua_State* L) {
     std::string err;
     double v;
-    if (!luau_guest::read_f64(addr_arg(L, 1), v, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_f64(addr_arg(L, 1), v, err)) return fail(L, err.c_str());
     lua_pushnumber(L, v);
     return 1;
 }
@@ -271,63 +274,63 @@ int guest_read(lua_State* L) {
     uint32_t addr = addr_arg(L, 1);
     size_t size = (size_t)luaL_checkinteger(L, 2);
     std::string err, out;
-    if (!luau_guest::read_bytes(addr, size, out, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_bytes(addr, size, out, err)) return fail(L, err.c_str());
     lua_pushlstring(L, out.data(), out.size());
     return 1;
 }
 
 int guest_write_u8(lua_State* L) {
     std::string err;
-    if (!luau_guest::write_u8(addr_arg(L, 1), (uint8_t)(uint32_t)luaL_checknumber(L, 2), err))
+    if (!lua_guest::write_u8(addr_arg(L, 1), (uint8_t)(uint32_t)luaL_checknumber(L, 2), err))
         return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
 int guest_write_s8(lua_State* L) {
     std::string err;
-    if (!luau_guest::write_s8(addr_arg(L, 1), (int8_t)(int32_t)luaL_checknumber(L, 2), err))
+    if (!lua_guest::write_s8(addr_arg(L, 1), (int8_t)(int32_t)luaL_checknumber(L, 2), err))
         return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
 int guest_write_u16(lua_State* L) {
     std::string err;
-    if (!luau_guest::write_u16(addr_arg(L, 1), (uint16_t)(uint32_t)luaL_checknumber(L, 2), err))
+    if (!lua_guest::write_u16(addr_arg(L, 1), (uint16_t)(uint32_t)luaL_checknumber(L, 2), err))
         return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
 int guest_write_s16(lua_State* L) {
     std::string err;
-    if (!luau_guest::write_s16(addr_arg(L, 1), (int16_t)(int32_t)luaL_checknumber(L, 2), err))
+    if (!lua_guest::write_s16(addr_arg(L, 1), (int16_t)(int32_t)luaL_checknumber(L, 2), err))
         return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
 int guest_write_u32(lua_State* L) {
     std::string err;
-    if (!luau_guest::write_u32(addr_arg(L, 1), (uint32_t)(int64_t)luaL_checknumber(L, 2), err))
+    if (!lua_guest::write_u32(addr_arg(L, 1), (uint32_t)(int64_t)luaL_checknumber(L, 2), err))
         return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
 int guest_write_s32(lua_State* L) {
     std::string err;
-    if (!luau_guest::write_s32(addr_arg(L, 1), (int32_t)(int64_t)luaL_checknumber(L, 2), err))
+    if (!lua_guest::write_s32(addr_arg(L, 1), (int32_t)(int64_t)luaL_checknumber(L, 2), err))
         return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
 int guest_write_f32(lua_State* L) {
     std::string err;
-    if (!luau_guest::write_f32(addr_arg(L, 1), (float)luaL_checknumber(L, 2), err))
+    if (!lua_guest::write_f32(addr_arg(L, 1), (float)luaL_checknumber(L, 2), err))
         return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
 int guest_write_f64(lua_State* L) {
     std::string err;
-    if (!luau_guest::write_f64(addr_arg(L, 1), (double)luaL_checknumber(L, 2), err))
+    if (!lua_guest::write_f64(addr_arg(L, 1), (double)luaL_checknumber(L, 2), err))
         return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
@@ -337,7 +340,7 @@ int guest_write(lua_State* L) {
     size_t len = 0;
     const char* data = luaL_checklstring(L, 2, &len);
     std::string err;
-    if (!luau_guest::write_bytes(addr, data, len, err)) return fail(L, err.c_str());
+    if (!lua_guest::write_bytes(addr, data, len, err)) return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -389,7 +392,7 @@ int l_input_press(lua_State* L) {
     double steps = lua_tonumber(L, 2);
     if (steps < 1) steps = 1;
     if (steps > 600) steps = 600;
-    luau_press::press(inst, mask, (uint64_t)steps, inst->step);
+    lua_press::press(inst, mask, (uint64_t)steps, inst->step);
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -507,12 +510,12 @@ thread_local Cpu* t_guest_cpu = nullptr;
 bool g_actor_shape_warned = false;
 
 bool guest_ok(uint32_t addr, size_t size, std::string& err) {
-    return luau_guest::check(addr, size, err);
+    return lua_guest::check(addr, size, err);
 }
 
 bool read_ptr(uint32_t addr, uint32_t& out, std::string& err) {
     uint32_t p = 0;
-    if (!luau_guest::read_u32(addr, p, err)) return false;
+    if (!lua_guest::read_u32(addr, p, err)) return false;
     if (p == 0 || !guest_ok(p, 4, err)) {
         err = "not available";
         return false;
@@ -552,7 +555,7 @@ bool actor_addr(int index, uint32_t& out, std::string& err) {
     uint32_t mgr = 0;
     if (!player_mgr(mgr, err)) return false;
     uint32_t actor = 0;
-    if (!luau_guest::read_u32(mgr + kPlayerObjects + (uint32_t)index * 4u, actor, err)) return false;
+    if (!lua_guest::read_u32(mgr + kPlayerObjects + (uint32_t)index * 4u, actor, err)) return false;
     if (actor == 0 || !guest_ok(actor, 4, err)) {
         err = "no player actor";
         return false;
@@ -565,7 +568,7 @@ bool player_entered(int index, bool& out, std::string& err) {
     uint32_t slot = 0;
     if (!slot_addr(index, slot, err)) return false;
     uint8_t entry = 0;
-    if (!luau_guest::read_u8(slot + kEntryOff, entry, err)) return false;
+    if (!lua_guest::read_u8(slot + kEntryOff, entry, err)) return false;
     out = entry != 0;
     return true;
 }
@@ -637,17 +640,17 @@ bool read_xyz(lua_State* L, int arg, float& x, float& y, float& z, std::string& 
 
 bool read_vec3(uint32_t base, uint32_t ox, uint32_t oy, uint32_t oz, float& x, float& y, float& z,
                std::string& err) {
-    if (!luau_guest::read_f32(base + ox, x, err)) return false;
-    if (!luau_guest::read_f32(base + oy, y, err)) return false;
-    if (!luau_guest::read_f32(base + oz, z, err)) return false;
+    if (!lua_guest::read_f32(base + ox, x, err)) return false;
+    if (!lua_guest::read_f32(base + oy, y, err)) return false;
+    if (!lua_guest::read_f32(base + oz, z, err)) return false;
     return true;
 }
 
 bool write_vec3(uint32_t base, uint32_t ox, uint32_t oy, uint32_t oz, float x, float y, float z,
                 std::string& err) {
-    if (!luau_guest::write_f32(base + ox, x, err)) return false;
-    if (!luau_guest::write_f32(base + oy, y, err)) return false;
-    if (!luau_guest::write_f32(base + oz, z, err)) return false;
+    if (!lua_guest::write_f32(base + ox, x, err)) return false;
+    if (!lua_guest::write_f32(base + oy, y, err)) return false;
+    if (!lua_guest::write_f32(base + oz, z, err)) return false;
     return true;
 }
 
@@ -663,7 +666,7 @@ int l_course_time(lua_State* L) {
     std::string err;
     if (!singleton(kCourseTimerSingleton, timer, err)) return fail(L, err.c_str());
     uint32_t units = 0;
-    if (!luau_guest::read_u32(timer + kTimerTime, units, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u32(timer + kTimerTime, units, err)) return fail(L, err.c_str());
     lua_pushnumber(L, (lua_Number)(units >> 12));
     return 1;
 }
@@ -677,7 +680,7 @@ int l_course_set_time(lua_State* L) {
     std::string err;
     if (!singleton(kCourseTimerSingleton, timer, err)) return fail(L, err.c_str());
     uint32_t units = ((uint32_t)seconds) << 12;
-    if (!luau_guest::write_u32(timer + kTimerTime, units, err)) return fail(L, err.c_str());
+    if (!lua_guest::write_u32(timer + kTimerTime, units, err)) return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -689,12 +692,12 @@ int l_course_add_time(lua_State* L) {
     std::string err;
     if (!singleton(kCourseTimerSingleton, timer, err)) return fail(L, err.c_str());
     uint32_t units = 0;
-    if (!luau_guest::read_u32(timer + kTimerTime, units, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u32(timer + kTimerTime, units, err)) return fail(L, err.c_str());
     double seconds = (double)(units >> 12) + delta;
     if (seconds < 0) seconds = 0;
     if (seconds > 999) seconds = 999;
     units = ((uint32_t)seconds) << 12;
-    if (!luau_guest::write_u32(timer + kTimerTime, units, err)) return fail(L, err.c_str());
+    if (!lua_guest::write_u32(timer + kTimerTime, units, err)) return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -704,7 +707,7 @@ int l_course_coins(lua_State* L) {
     std::string err;
     if (!field_game(field, err)) return fail(L, err.c_str());
     int32_t coins = 0;
-    if (!luau_guest::read_s32(field + kCourseCoinNum, coins, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_s32(field + kCourseCoinNum, coins, err)) return fail(L, err.c_str());
     lua_pushnumber(L, (lua_Number)coins);
     return 1;
 }
@@ -715,7 +718,7 @@ int l_course_set_coins(lua_State* L) {
     std::string err;
     if (!field_game(field, err)) return fail(L, err.c_str());
     int32_t coins = (int32_t)lua_tonumber(L, 1);
-    if (!luau_guest::write_s32(field + kCourseCoinNum, coins, err)) return fail(L, err.c_str());
+    if (!lua_guest::write_s32(field + kCourseCoinNum, coins, err)) return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -725,7 +728,7 @@ int l_course_score(lua_State* L) {
     std::string err;
     if (!field_game(field, err)) return fail(L, err.c_str());
     uint32_t score = 0;
-    if (!luau_guest::read_u32(field + kCurrentScore, score, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u32(field + kCurrentScore, score, err)) return fail(L, err.c_str());
     lua_pushnumber(L, (lua_Number)score);
     return 1;
 }
@@ -736,7 +739,7 @@ int l_course_set_score(lua_State* L) {
     std::string err;
     if (!field_game(field, err)) return fail(L, err.c_str());
     uint32_t score = (uint32_t)lua_tonumber(L, 1);
-    if (!luau_guest::write_u32(field + kCurrentScore, score, err)) return fail(L, err.c_str());
+    if (!lua_guest::write_u32(field + kCurrentScore, score, err)) return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -783,7 +786,7 @@ int l_player_lives(lua_State* L) {
     uint32_t slot = 0;
     if (!slot_addr(index, slot, err)) return fail(L, err.c_str());
     int32_t lives = 0;
-    if (!luau_guest::read_s32(slot + kLifeOff, lives, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_s32(slot + kLifeOff, lives, err)) return fail(L, err.c_str());
     lua_pushnumber(L, (lua_Number)lives);
     return 1;
 }
@@ -798,7 +801,7 @@ int l_player_set_lives(lua_State* L) {
     uint32_t slot = 0;
     if (!slot_addr(index, slot, err)) return fail(L, err.c_str());
     int32_t lives = (int32_t)lua_tonumber(L, 2);
-    if (!luau_guest::write_s32(slot + kLifeOff, lives, err)) return fail(L, err.c_str());
+    if (!lua_guest::write_s32(slot + kLifeOff, lives, err)) return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -812,11 +815,11 @@ int l_player_mode(lua_State* L) {
     uint32_t slot = 0;
     if (!slot_addr(index, slot, err)) return fail(L, err.c_str());
     int32_t mode = 0;
-    if (!luau_guest::read_s32(slot + kModeOff, mode, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_s32(slot + kModeOff, mode, err)) return fail(L, err.c_str());
     uint32_t actor = 0;
     if (actor_addr(index, actor, err)) {
         int32_t actor_mode = 0;
-        if (luau_guest::read_s32(actor + kActorMode, actor_mode, err) && actor_mode >= 0 &&
+        if (lua_guest::read_s32(actor + kActorMode, actor_mode, err) && actor_mode >= 0 &&
             actor_mode <= 8)
             mode = actor_mode;
     }
@@ -836,10 +839,10 @@ int l_player_set_mode(lua_State* L) {
     if (!entered) return fail(L, "not entered");
     uint32_t slot = 0;
     if (!slot_addr(index, slot, err)) return fail(L, err.c_str());
-    if (!luau_guest::write_s32(slot + kModeOff, mode, err)) return fail(L, err.c_str());
+    if (!lua_guest::write_s32(slot + kModeOff, mode, err)) return fail(L, err.c_str());
     uint32_t actor = 0;
     if (actor_addr(index, actor, err)) {
-        if (!luau_guest::write_s32(actor + kActorMode, mode, err)) return fail(L, err.c_str());
+        if (!lua_guest::write_s32(actor + kActorMode, mode, err)) return fail(L, err.c_str());
     }
     lua_pushboolean(L, 1);
     return 1;
@@ -854,7 +857,7 @@ int l_player_coins(lua_State* L) {
     uint32_t slot = 0;
     if (!slot_addr(index, slot, err)) return fail(L, err.c_str());
     int32_t coins = 0;
-    if (!luau_guest::read_s32(slot + kCoinOff, coins, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_s32(slot + kCoinOff, coins, err)) return fail(L, err.c_str());
     lua_pushnumber(L, (lua_Number)coins);
     return 1;
 }
@@ -869,7 +872,7 @@ int l_player_set_coins(lua_State* L) {
     uint32_t slot = 0;
     if (!slot_addr(index, slot, err)) return fail(L, err.c_str());
     int32_t coins = (int32_t)lua_tonumber(L, 2);
-    if (!luau_guest::write_s32(slot + kCoinOff, coins, err)) return fail(L, err.c_str());
+    if (!lua_guest::write_s32(slot + kCoinOff, coins, err)) return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -880,7 +883,7 @@ int l_player_speed_y(lua_State* L) {
     std::string err;
     if (!actor_addr(index, actor, err)) return fail(L, err.c_str());
     float speed = 0;
-    if (!luau_guest::read_f32(actor + kSpeedY, speed, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_f32(actor + kSpeedY, speed, err)) return fail(L, err.c_str());
     lua_pushnumber(L, speed);
     return 1;
 }
@@ -892,7 +895,7 @@ int l_player_set_speed_y(lua_State* L) {
     std::string err;
     if (!actor_addr(index, actor, err)) return fail(L, err.c_str());
     float speed = (float)lua_tonumber(L, 2);
-    if (!luau_guest::write_f32(actor + kSpeedY, speed, err)) return fail(L, err.c_str());
+    if (!lua_guest::write_f32(actor + kSpeedY, speed, err)) return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -949,7 +952,7 @@ int l_player_grounded(lua_State* L) {
     std::string err;
     if (!actor_addr(index, actor, err)) return fail(L, err.c_str());
     uint32_t cross = 0;
-    if (!luau_guest::read_u32(actor + kNowBgCross, cross, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u32(actor + kNowBgCross, cross, err)) return fail(L, err.c_str());
     lua_pushboolean(L, (cross & kBgCrossIsFoot) ? 1 : 0);
     return 1;
 }
@@ -972,9 +975,9 @@ bool live_actor_range(uint32_t& begin, uint32_t& end, std::string& err) {
     if (!actor_mgr(mgr, err)) return false;
     uint32_t cache = mgr + kActorMgrPtrCache;
     uint32_t array = 0, size = 0, live = 0;
-    if (!luau_guest::read_u32(cache + kCacheArray, array, err)) return false;
-    if (!luau_guest::read_u32(cache + kCacheArraySize, size, err)) return false;
-    if (!luau_guest::read_u32(cache + kCacheLiveEnd, live, err)) return false;
+    if (!lua_guest::read_u32(cache + kCacheArray, array, err)) return false;
+    if (!lua_guest::read_u32(cache + kCacheArraySize, size, err)) return false;
+    if (!lua_guest::read_u32(cache + kCacheLiveEnd, live, err)) return false;
     if (size != kActorArraySize || array == 0 || !guest_ok(array, size * 4, err)) {
         if (!g_actor_shape_warned) {
             g_actor_shape_warned = true;
@@ -1020,12 +1023,12 @@ bool handle_addr(lua_State* L, uint32_t& out, std::string& err) {
 
 bool actor_profile_id(uint32_t actor, uint32_t& out, std::string& err) {
     uint32_t profile = 0;
-    if (!luau_guest::read_u32(actor + kActorProfile, profile, err)) return false;
+    if (!lua_guest::read_u32(actor + kActorProfile, profile, err)) return false;
     if (profile == 0 || !guest_ok(profile, 0x14, err)) {
         err = "actor gone";
         return false;
     }
-    if (!luau_guest::read_u32(profile + kActorId, out, err)) return false;
+    if (!lua_guest::read_u32(profile + kActorId, out, err)) return false;
     return true;
 }
 
@@ -1035,13 +1038,13 @@ bool actor_is_actor(uint32_t actor, bool& out, std::string& err) {
         return false;
     }
     uint32_t vt = 0;
-    if (!luau_guest::read_u32(actor + kActorVptr, vt, err)) return false;
+    if (!lua_guest::read_u32(actor + kActorVptr, vt, err)) return false;
     if (vt == 0 || !guest_ok(vt, kDerivedCheckSlot + 4, err)) {
         out = false;
         return true;
     }
     uint32_t fn = 0;
-    if (!luau_guest::read_u32(vt + kDerivedCheckSlot, fn, err)) return false;
+    if (!lua_guest::read_u32(vt + kDerivedCheckSlot, fn, err)) return false;
     if (fn == 0 || !guest_code_valid(fn)) {
         out = false;
         return true;
@@ -1058,7 +1061,7 @@ int l_level_actors(lua_State* L) {
     int n = 0;
     for (uint32_t slot = begin; slot < end; slot += kActorIdxToPtr) {
         uint32_t actor = 0;
-        if (!luau_guest::read_u32(slot, actor, err) || actor == 0 ||
+        if (!lua_guest::read_u32(slot, actor, err) || actor == 0 ||
             !guest_ok(actor, kActorVptr + 4, err))
             continue;
         push_actor(L, actor);
@@ -1076,7 +1079,7 @@ int l_level_count(lua_State* L) {
     int count = 0;
     for (uint32_t slot = begin; slot < end; slot += kActorIdxToPtr) {
         uint32_t actor = 0;
-        if (!luau_guest::read_u32(slot, actor, err) || actor == 0 ||
+        if (!lua_guest::read_u32(slot, actor, err) || actor == 0 ||
             !guest_ok(actor, kActorVptr + 4, err))
             continue;
         if (filter) {
@@ -1113,11 +1116,11 @@ int l_level_spawn(lua_State* L) {
     uint32_t mgr = 0;
     if (!actor_mgr(mgr, err)) return fail(L, err.c_str());
     uint32_t profile = 0;
-    if (!luau_guest::read_u32(kProfileList + (uint32_t)id * 4, profile, err))
+    if (!lua_guest::read_u32(kProfileList + (uint32_t)id * 4, profile, err))
         return fail(L, err.c_str());
     if (profile == 0 || !guest_ok(profile, 0x14, err)) return fail(L, "unknown profile");
     uint32_t registered = 0;
-    if (!luau_guest::read_u32(profile + kActorId, registered, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u32(profile + kActorId, registered, err)) return fail(L, err.c_str());
     if (registered != (uint32_t)id) return fail(L, "unknown profile");
     static const uint32_t s_param = mem::host_alloc(0x2C, 0x20);
     if (s_param == 0) return fail(L, "out of memory");
@@ -1154,7 +1157,7 @@ int l_actor_id(lua_State* L) {
     std::string err;
     if (!handle_addr(L, actor, err)) return fail(L, err.c_str());
     uint32_t id = 0;
-    if (!luau_guest::read_u32(actor + kActorId, id, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u32(actor + kActorId, id, err)) return fail(L, err.c_str());
     lua_pushnumber(L, (lua_Number)id);
     return 1;
 }
@@ -1184,7 +1187,7 @@ int l_actor_is_map(lua_State* L) {
     std::string err;
     if (!handle_addr(L, actor, err)) return fail(L, err.c_str());
     uint8_t map = 0;
-    if (!luau_guest::read_u8(actor + kActorIsMap, map, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u8(actor + kActorIsMap, map, err)) return fail(L, err.c_str());
     lua_pushboolean(L, map ? 1 : 0);
     return 1;
 }
@@ -1194,7 +1197,7 @@ int l_actor_active(lua_State* L) {
     std::string err;
     if (!handle_addr(L, actor, err)) return fail(L, err.c_str());
     uint8_t active = 0;
-    if (!luau_guest::read_u8(actor + kActorIsActive, active, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u8(actor + kActorIsActive, active, err)) return fail(L, err.c_str());
     lua_pushboolean(L, active ? 1 : 0);
     return 1;
 }
@@ -1204,7 +1207,7 @@ int l_actor_layer(lua_State* L) {
     std::string err;
     if (!handle_addr(L, actor, err)) return fail(L, err.c_str());
     uint8_t layer = 0;
-    if (!luau_guest::read_u8(actor + kLayer, layer, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u8(actor + kLayer, layer, err)) return fail(L, err.c_str());
     lua_pushnumber(L, layer);
     return 1;
 }
@@ -1214,7 +1217,7 @@ int l_actor_player_no(lua_State* L) {
     std::string err;
     if (!handle_addr(L, actor, err)) return fail(L, err.c_str());
     int8_t no = 0;
-    if (!luau_guest::read_s8(actor + kPlayerNo, no, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_s8(actor + kPlayerNo, no, err)) return fail(L, err.c_str());
     lua_pushnumber(L, no);
     return 1;
 }
@@ -1224,7 +1227,7 @@ int l_actor_param0(lua_State* L) {
     std::string err;
     if (!handle_addr(L, actor, err)) return fail(L, err.c_str());
     uint32_t param = 0;
-    if (!luau_guest::read_u32(actor + kActorParam0, param, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u32(actor + kActorParam0, param, err)) return fail(L, err.c_str());
     lua_pushnumber(L, (lua_Number)param);
     return 1;
 }
@@ -1234,7 +1237,7 @@ int l_actor_param1(lua_State* L) {
     std::string err;
     if (!handle_addr(L, actor, err)) return fail(L, err.c_str());
     uint32_t param = 0;
-    if (!luau_guest::read_u32(actor + kActorParam1, param, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u32(actor + kActorParam1, param, err)) return fail(L, err.c_str());
     lua_pushnumber(L, (lua_Number)param);
     return 1;
 }
@@ -1324,7 +1327,7 @@ int l_actor_delete(lua_State* L) {
     uint32_t actor = 0;
     std::string err;
     if (!handle_addr(L, actor, err)) return fail(L, err.c_str());
-    if (!luau_guest::write_u8(actor + kActorDeleteFlag, 1, err)) return fail(L, err.c_str());
+    if (!lua_guest::write_u8(actor + kActorDeleteFlag, 1, err)) return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -1385,14 +1388,14 @@ void install_actor_meta(lua_State* L) {
 int l_scene_installed(lua_State* L, uint32_t where) {
     uint32_t inst;
     std::string err;
-    if (!luau_guest::read_u32(where, inst, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u32(where, inst, err)) return fail(L, err.c_str());
     lua_pushboolean(L, inst != 0);
     return 1;
 }
 
 bool scene_object(uint32_t& out, std::string& err) {
     uint32_t scene = 0;
-    if (!luau_guest::read_u32(kSceneSingleton, scene, err)) return false;
+    if (!lua_guest::read_u32(kSceneSingleton, scene, err)) return false;
     if (scene == 0) {
         err = "scene not ready";
         return false;
@@ -1405,7 +1408,7 @@ bool scene_now_creator(uint32_t& out, std::string& err) {
     uint32_t scene = 0;
     if (!scene_object(scene, err)) return false;
     uint32_t creator = 0;
-    if (!luau_guest::read_u32(scene + kSceneNowCreatorOff, creator, err)) return false;
+    if (!lua_guest::read_u32(scene + kSceneNowCreatorOff, creator, err)) return false;
     if (creator == 0) {
         err = "scene not ready";
         return false;
@@ -1433,13 +1436,13 @@ int l_scene_course_task(lua_State* L) { return scene_state_is(L, kCreatorCourseT
 int l_scene_file_index(lua_State* L) {
     uint32_t mgr = 0;
     std::string err;
-    if (!luau_guest::read_u32(kSubjectMgr, mgr, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u32(kSubjectMgr, mgr, err)) return fail(L, err.c_str());
     if (mgr == 0) return fail(L, "scene not ready");
     uint8_t mode = 0;
-    if (!luau_guest::read_u8(mgr + kSubjectModeOff, mode, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u8(mgr + kSubjectModeOff, mode, err)) return fail(L, err.c_str());
     if (mode != kSubjectModeActive) return fail(L, "file not ready");
     uint8_t file = 0;
-    if (!luau_guest::read_u8(mgr + kSubjectFileOff, file, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u8(mgr + kSubjectFileOff, file, err)) return fail(L, err.c_str());
     lua_pushnumber(L, (lua_Number)file);
     return 1;
 }
@@ -1473,13 +1476,13 @@ extern "C" void nsmbu_note_scene_src(uint32_t src, uint32_t factory) {
 bool task_is_flow(uint32_t task, bool& match, std::string& err) {
     match = false;
     uint32_t vt = 0;
-    if (!luau_guest::read_u32(task + kTaskVtblOff, vt, err)) return false;
+    if (!lua_guest::read_u32(task + kTaskVtblOff, vt, err)) return false;
     if (vt == kFlowVtbl) {
         match = true;
         return true;
     }
     uint32_t factory = 0;
-    if (!luau_guest::read_u32(task + kTaskClassFactoryOff, factory, err)) return false;
+    if (!lua_guest::read_u32(task + kTaskClassFactoryOff, factory, err)) return false;
     match = factory == kCreatorFlow;
     return true;
 }
@@ -1487,13 +1490,13 @@ bool task_is_flow(uint32_t task, bool& match, std::string& err) {
 bool task_is_menu(uint32_t task, bool& match, std::string& err) {
     match = false;
     uint32_t vt = 0;
-    if (!luau_guest::read_u32(task + kTaskVtblOff, vt, err)) return false;
+    if (!lua_guest::read_u32(task + kTaskVtblOff, vt, err)) return false;
     if (vt == kMenuVtbl) {
         match = true;
         return true;
     }
     uint32_t factory = 0;
-    if (!luau_guest::read_u32(task + kTaskClassFactoryOff, factory, err)) return false;
+    if (!lua_guest::read_u32(task + kTaskClassFactoryOff, factory, err)) return false;
     match = factory == kCreatorMenu;
     return true;
 }
@@ -1504,7 +1507,7 @@ bool find_task_in_tree(uint32_t start, bool (*is_match)(uint32_t, bool&, std::st
     uint32_t root = start;
     for (int i = 0; i < 16; i++) {
         uint32_t parent = 0;
-        if (!luau_guest::read_u32(root + kTaskParentOff, parent, err)) return false;
+        if (!lua_guest::read_u32(root + kTaskParentOff, parent, err)) return false;
         if (parent == 0 || parent == root) break;
         root = parent;
     }
@@ -1529,8 +1532,8 @@ bool find_task_in_tree(uint32_t start, bool (*is_match)(uint32_t, bool&, std::st
         }
         uint32_t child = 0;
         uint32_t sibling = 0;
-        if (!luau_guest::read_u32(task + kTaskChildOff, child, err)) return false;
-        if (!luau_guest::read_u32(task + kTaskSiblingOff, sibling, err)) return false;
+        if (!lua_guest::read_u32(task + kTaskChildOff, child, err)) return false;
+        if (!lua_guest::read_u32(task + kTaskSiblingOff, sibling, err)) return false;
         if (sibling != 0 && n < 48) stack[n++] = sibling;
         if (child != 0 && n < 48) stack[n++] = child;
     }
@@ -1548,11 +1551,11 @@ bool find_menu_in_tree(uint32_t start, uint32_t& out, std::string& err) {
 bool find_task_in_list(uint32_t sentinel, bool (*is_match)(uint32_t, bool&, std::string&), uint32_t prefer,
                       uint32_t& out, bool& saw_prefer, std::string& err) {
     uint32_t node = 0;
-    if (!luau_guest::read_u32(sentinel + kTaskListNextOff, node, err)) return false;
+    if (!lua_guest::read_u32(sentinel + kTaskListNextOff, node, err)) return false;
     for (int i = 0; i < 64; i++) {
         if (node == 0 || node == sentinel) return false;
         uint32_t task = 0;
-        if (!luau_guest::read_u32(node + kTaskListDataOff, task, err)) return false;
+        if (!lua_guest::read_u32(node + kTaskListDataOff, task, err)) return false;
         if (task != 0) {
             bool match = false;
             if (!is_match(task, match, err)) return false;
@@ -1562,7 +1565,7 @@ bool find_task_in_list(uint32_t sentinel, bool (*is_match)(uint32_t, bool&, std:
             }
             if (task == prefer) saw_prefer = true;
         }
-        if (!luau_guest::read_u32(node + kTaskListNextOff, node, err)) return false;
+        if (!lua_guest::read_u32(node + kTaskListNextOff, node, err)) return false;
     }
     return false;
 }
@@ -1579,7 +1582,7 @@ bool scene_app_object(uint32_t& out, std::string& err) {
     uint32_t scene = 0;
     if (!scene_object(scene, err)) return false;
     uint32_t mgr = 0;
-    if (!luau_guest::read_u32(scene + kSceneTaskMgrOff, mgr, err)) return false;
+    if (!lua_guest::read_u32(scene + kSceneTaskMgrOff, mgr, err)) return false;
     bool saw_prefer = false;
     if (mgr != 0) {
         const uint32_t lists[] = {
@@ -1590,12 +1593,12 @@ bool scene_app_object(uint32_t& out, std::string& err) {
             if (!err.empty()) return false;
         }
         uint32_t root = 0;
-        if (!luau_guest::read_u32(mgr + kTaskMgrRootOff, root, err)) return false;
+        if (!lua_guest::read_u32(mgr + kTaskMgrRootOff, root, err)) return false;
         if (find_flow_in_tree(root, out, err)) return true;
         if (!err.empty()) return false;
     }
     uint32_t area = 0;
-    if (!luau_guest::read_u32(kAreaTaskInstance, area, err)) return false;
+    if (!lua_guest::read_u32(kAreaTaskInstance, area, err)) return false;
     if (find_flow_in_tree(area, out, err)) return true;
     if (!err.empty()) return false;
     if (saw_prefer && g_scene_request_src != 0) {
@@ -1610,7 +1613,7 @@ bool scene_menu_object(uint32_t& out, std::string& err) {
     uint32_t scene = 0;
     if (!scene_object(scene, err)) return false;
     uint32_t mgr = 0;
-    if (!luau_guest::read_u32(scene + kSceneTaskMgrOff, mgr, err)) return false;
+    if (!lua_guest::read_u32(scene + kSceneTaskMgrOff, mgr, err)) return false;
     bool saw_prefer = false;
     if (mgr != 0) {
         const uint32_t lists[] = {
@@ -1621,12 +1624,12 @@ bool scene_menu_object(uint32_t& out, std::string& err) {
             if (!err.empty()) return false;
         }
         uint32_t root = 0;
-        if (!luau_guest::read_u32(mgr + kTaskMgrRootOff, root, err)) return false;
+        if (!lua_guest::read_u32(mgr + kTaskMgrRootOff, root, err)) return false;
         if (find_menu_in_tree(root, out, err)) return true;
         if (!err.empty()) return false;
     }
     uint32_t area = 0;
-    if (!luau_guest::read_u32(kAreaTaskInstance, area, err)) return false;
+    if (!lua_guest::read_u32(kAreaTaskInstance, area, err)) return false;
     if (find_menu_in_tree(area, out, err)) return true;
     if (!err.empty()) return false;
     err = "menu missing";
@@ -1635,22 +1638,22 @@ bool scene_menu_object(uint32_t& out, std::string& err) {
 
 bool menu_state_ready(uint32_t menu, std::string& err) {
     uint32_t factory = 0;
-    if (!luau_guest::read_u32(menu + kAppStateMethodOff, factory, err)) return false;
+    if (!lua_guest::read_u32(menu + kAppStateMethodOff, factory, err)) return false;
     if (factory == 0) {
         err = "state not ready";
         return false;
     }
     uint32_t factory_vt = 0;
-    if (!luau_guest::read_u32(factory, factory_vt, err)) return false;
+    if (!lua_guest::read_u32(factory, factory_vt, err)) return false;
     if (factory_vt == 0) {
         err = "state not ready";
         return false;
     }
     uint32_t state = 0;
-    if (!luau_guest::read_u32(menu + kAppStateMethodOff + 8, state, err)) return false;
+    if (!lua_guest::read_u32(menu + kAppStateMethodOff + 8, state, err)) return false;
     if (state != 0) {
         uint32_t state_vt = 0;
-        if (!luau_guest::read_u32(state, state_vt, err)) return false;
+        if (!lua_guest::read_u32(state, state_vt, err)) return false;
         if (state_vt == 0) {
             err = "state not ready";
             return false;
@@ -1667,7 +1670,7 @@ bool scene_change_open(std::string& err) {
     uint32_t scene = 0;
     if (!scene_object(scene, err)) return false;
     uint32_t next_type = 0;
-    if (!luau_guest::read_u32(scene + kSceneNextTypeOff, next_type, err)) return false;
+    if (!lua_guest::read_u32(scene + kSceneNextTypeOff, next_type, err)) return false;
     if (next_type != 0) {
         char buf[64];
         snprintf(buf, sizeof buf, "scene busy next=%08X", next_type);
@@ -1675,7 +1678,7 @@ bool scene_change_open(std::string& err) {
         return false;
     }
     uint32_t fader = 0;
-    if (!luau_guest::read_u32(scene + kSceneFaderOff, fader, err)) return false;
+    if (!lua_guest::read_u32(scene + kSceneFaderOff, fader, err)) return false;
     if (fader == 0) {
         err = "scene busy fader=none";
         return false;
@@ -1715,13 +1718,13 @@ int l_scene_open_title(lua_State* L) {
 
 bool continue_source(uint32_t& out, std::string& err) {
     uint32_t course = 0;
-    if (!luau_guest::read_u32(kCourseTaskInstance, course, err)) return false;
+    if (!lua_guest::read_u32(kCourseTaskInstance, course, err)) return false;
     if (course != 0) {
         uint32_t head = 0;
-        if (!luau_guest::read_u32(course, head, err)) return false;
+        if (!lua_guest::read_u32(course, head, err)) return false;
         if (head != 0) {
             uint32_t src = 0;
-            if (!luau_guest::read_u32(head + kCourseTaskSrcOff, src, err)) return false;
+            if (!lua_guest::read_u32(head + kCourseTaskSrcOff, src, err)) return false;
             if (src != 0) {
                 out = src;
                 return true;
@@ -1751,35 +1754,35 @@ bool save_file_arg(lua_State* L, uint32_t& file, std::string& err) {
 bool apply_save_file(uint32_t file, std::string& err) {
     if (!scene_change_open(err)) return false;
     uint32_t mgr = 0;
-    if (!luau_guest::read_u32(kSaveMgr, mgr, err)) return false;
+    if (!lua_guest::read_u32(kSaveMgr, mgr, err)) return false;
     if (mgr == 0) {
         err = "file not ready";
         return false;
     }
     uint32_t savedata = 0;
-    if (!luau_guest::read_u32(mgr + kSaveDataOff, savedata, err)) return false;
+    if (!lua_guest::read_u32(mgr + kSaveDataOff, savedata, err)) return false;
     if (savedata == 0) {
         err = "file not ready";
         return false;
     }
-    if (!luau_guest::write_u8(savedata + kLastFileOff, (uint8_t)file, err)) return false;
+    if (!lua_guest::write_u8(savedata + kLastFileOff, (uint8_t)file, err)) return false;
     uint32_t field = 0;
-    if (!luau_guest::read_u32(kFieldGameSingleton, field, err)) return false;
+    if (!lua_guest::read_u32(kFieldGameSingleton, field, err)) return false;
     if (field == 0) {
         err = "file not ready";
         return false;
     }
     uint32_t gate = 0;
-    if (!luau_guest::read_u32(kSaveApplyFlag, gate, err)) return false;
-    if (gate != 0 && !luau_guest::write_u8(gate + kSaveApplyFlagOff, 0, err)) return false;
+    if (!lua_guest::read_u32(kSaveApplyFlag, gate, err)) return false;
+    if (gate != 0 && !lua_guest::write_u8(gate + kSaveApplyFlagOff, 0, err)) return false;
     guest_call(t_guest_cpu, kApplySaveFile, {mgr, file});
     uint32_t game = 0;
-    if (!luau_guest::read_u32(kMainGame, game, err)) return false;
+    if (!lua_guest::read_u32(kMainGame, game, err)) return false;
     if (game == 0) {
         err = "file not ready";
         return false;
     }
-    if (!luau_guest::write_u8(game + kSinglePlayerDrc, input::pro_controller() ? 0 : 1, err)) return false;
+    if (!lua_guest::write_u8(game + kSinglePlayerDrc, input::pro_controller() ? 0 : 1, err)) return false;
     return true;
 }
 
@@ -1811,7 +1814,7 @@ int l_scene_open_file_select(lua_State* L) {
     if (!scene_menu_object(menu, err)) return fail(L, err.c_str());
     if (!menu_state_ready(menu, err)) return fail(L, err.c_str());
     uint32_t mgr = 0;
-    if (!luau_guest::read_u32(kSubjectMgr, mgr, err)) return fail(L, err.c_str());
+    if (!lua_guest::read_u32(kSubjectMgr, mgr, err)) return fail(L, err.c_str());
     if (mgr == 0) return fail(L, "file not ready");
     if (guest_call(t_guest_cpu, kSubjectSelectFile, {mgr, 0}) == 0) return fail(L, "file not ready");
     guest_call(t_guest_cpu, kAppEnterFileState, {menu});
@@ -1832,8 +1835,8 @@ int l_scene_confirm_file(lua_State* L) {
     uint32_t menu = 0;
     if (!scene_menu_object(menu, err)) return fail(L, err.c_str());
     if (!menu_state_ready(menu, err)) return fail(L, err.c_str());
-    if (!luau_guest::write_u8(menu + kAppGateSelect, 1, err)) return fail(L, err.c_str());
-    if (!luau_guest::write_u8(menu + kAppGateStory, 1, err)) return fail(L, err.c_str());
+    if (!lua_guest::write_u8(menu + kAppGateSelect, 1, err)) return fail(L, err.c_str());
+    if (!lua_guest::write_u8(menu + kAppGateStory, 1, err)) return fail(L, err.c_str());
     guest_call(t_guest_cpu, kAppConfirmFile, {menu});
     lua_pushboolean(L, 1);
     return 1;
@@ -1865,17 +1868,17 @@ bool parse_course_pack(const char* s, size_t len, int32_t& world, int32_t& cours
 bool task_factory_match(uint32_t task, bool& match, std::string& err) {
     match = false;
     uint32_t factory = 0;
-    if (!luau_guest::read_u32(task + kTaskClassFactoryOff, factory, err)) return false;
+    if (!lua_guest::read_u32(task + kTaskClassFactoryOff, factory, err)) return false;
     match = factory != 0 && factory == g_match_factory;
     return true;
 }
 
 bool singleton_task(uint32_t addr, uint32_t& out, std::string& err) {
     uint32_t task = 0;
-    if (!luau_guest::read_u32(addr, task, err)) return false;
+    if (!lua_guest::read_u32(addr, task, err)) return false;
     if (task == 0) return false;
     uint32_t vt = 0;
-    if (!luau_guest::read_u32(task + kTaskVtblOff, vt, err)) return false;
+    if (!lua_guest::read_u32(task + kTaskVtblOff, vt, err)) return false;
     if (vt == 0) return false;
     out = task;
     return true;
@@ -1888,7 +1891,7 @@ bool scene_story_source(uint32_t& out, std::string& err) {
     uint32_t scene = 0;
     if (!scene_object(scene, err)) return false;
     uint32_t creator = 0;
-    if (!luau_guest::read_u32(scene + kSceneNowCreatorOff, creator, err)) return false;
+    if (!lua_guest::read_u32(scene + kSceneNowCreatorOff, creator, err)) return false;
     if (creator == kCreatorCourseSelect && singleton_task(kCourseSelectInstance, out, err)) return true;
     if (!err.empty()) return false;
     if (creator == kCreatorCourseTask && singleton_task(kCourseTaskInstance, out, err)) return true;
@@ -1896,7 +1899,7 @@ bool scene_story_source(uint32_t& out, std::string& err) {
     if (creator != 0) {
         g_match_factory = creator;
         uint32_t mgr = 0;
-        if (!luau_guest::read_u32(scene + kSceneTaskMgrOff, mgr, err)) return false;
+        if (!lua_guest::read_u32(scene + kSceneTaskMgrOff, mgr, err)) return false;
         bool saw = false;
         if (mgr != 0) {
             const uint32_t lists[] = {
@@ -1907,12 +1910,12 @@ bool scene_story_source(uint32_t& out, std::string& err) {
                 if (!err.empty()) return false;
             }
             uint32_t root = 0;
-            if (!luau_guest::read_u32(mgr + kTaskMgrRootOff, root, err)) return false;
+            if (!lua_guest::read_u32(mgr + kTaskMgrRootOff, root, err)) return false;
             if (find_task_in_tree(root, task_factory_match, out, err)) return true;
             if (!err.empty()) return false;
         }
         uint32_t area = 0;
-        if (!luau_guest::read_u32(kAreaTaskInstance, area, err)) return false;
+        if (!lua_guest::read_u32(kAreaTaskInstance, area, err)) return false;
         if (find_task_in_tree(area, task_factory_match, out, err)) return true;
         if (!err.empty()) return false;
     }
@@ -1931,7 +1934,7 @@ bool scene_load_story_transition(int32_t world, int32_t course, std::string& err
     }
     uint32_t live_course = 0;
     std::string live_err;
-    luau_guest::read_u32(kCourseTaskInstance, live_course, live_err);
+    lua_guest::read_u32(kCourseTaskInstance, live_course, live_err);
     if (live_course != 0) {
         if (!g_story_leave_queued.load(std::memory_order_acquire)) {
             if (!scene_change_open(err)) return false;

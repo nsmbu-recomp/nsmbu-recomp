@@ -1,0 +1,14 @@
+{
+    "name": "nsmbu-mods",
+    "private": true,
+    "description": "TypeScript sources for the NSMBU mod examples, compiled to Lua with TypeScriptToLua",
+    "scripts": {
+        "build": "tstl -p tsconfig.json",
+        "watch": "tstl -p tsconfig.json --watch"
+    },
+    "devDependencies": {
+        "lua-types": "^2.14.1",
+        "typescript": "6.0.2",
+        "typescript-to-lua": "^1.37.1"
+    }
+}
