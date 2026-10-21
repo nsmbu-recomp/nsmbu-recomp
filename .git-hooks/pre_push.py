@@ -95,12 +95,16 @@ def ensure_worktree(commit):
             cwd=ROOT,
             check=True,
         )
-        return
+    else:
+        subprocess.run(
+            ["git", "-C", WORKTREE, "checkout", "--detach", "--force", commit],
+            check=True,
+        )
+        subprocess.run(["git", "-C", WORKTREE, "clean", "-fd"], check=True)
     subprocess.run(
-        ["git", "-C", WORKTREE, "checkout", "--detach", "--force", commit],
+        ["git", "-C", WORKTREE, "submodule", "update", "--init", "--recursive"],
         check=True,
     )
-    subprocess.run(["git", "-C", WORKTREE, "clean", "-fd"], check=True)
 
 
 def configure_and_test(tree):
