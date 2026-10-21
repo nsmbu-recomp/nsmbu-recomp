@@ -32,8 +32,10 @@ jobs:
             mingw-w64-clang-x86_64-sdl3
             mingw-w64-clang-x86_64-lz4
             mingw-w64-clang-x86_64-zlib
+            make
 
       - name: LuaJIT submodule
+        shell: pwsh
         run: git submodule update --init vendor/luajit
 
       - name: Configure
