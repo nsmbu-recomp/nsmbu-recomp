@@ -89,11 +89,6 @@ static std::recursive_mutex g_exec_mutex;
 static RegisterBlocks<kNumRegs> g_register_blocks;
 
 uint32* regs() { return g_regs; }
-bool wide_color_target() {
-    float kx, ky;
-    return render::target_aspect_factors(g_regs[mmCB_COLOR0_TILE] & 0xFFFF, g_regs[mmCB_COLOR0_FRAG], kx, ky) &&
-        (kx != 1.0f || ky != 1.0f);
-}
 
 extern "C" { uint64_t g_shader_state_gen = 1; }
 

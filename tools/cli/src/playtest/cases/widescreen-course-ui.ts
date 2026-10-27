@@ -1,3 +1,4 @@
+import { unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { waitCourse, type PlayCase } from "../helpers.ts";
 import { readPng } from "./widescreen-map-ui.ts";
@@ -51,22 +52,45 @@ export const widescreenCourseUi: PlayCase = {
                 await new Promise((r) => setTimeout(r, 50));
             }
         }
-        const left = bandXs(img, 0.02, 0.16, hat, 0, Math.floor(img.w * 0.5));
-        const right = bandXs(img, 0.02, 0.14, ink, Math.floor(img.w * 0.5));
-        if (left.length < 40) throw new Error(`lives icon not found in ${path}`);
-        left.sort((a, b) => a - b);
-        const hatX = left[0];
-        if (right.length < 40) throw new Error(`timer ink not found in ${path} (lives at ${hatX})`);
-        right.sort((a, b) => a - b);
-        const timerX = right[right.length - 1];
-        const limit = img.w * 0.12;
-        if (hatX > limit || img.w - timerX > limit) {
-            throw new Error(
-                `course HUD inset at 21:9: lives ${hatX}px timer ${img.w - timerX}px of ${img.w} (limit ${Math.round(limit)})`,
-            );
+        const measure = (shot: { w: number; h: number; rgb: Uint8Array }) => {
+            const lives = bandXs(shot, 0.02, 0.16, hat, 0, Math.floor(shot.w * 0.5));
+            const timer = bandXs(shot, 0.02, 0.14, ink, Math.floor(shot.w * 0.5));
+            if (lives.length < 40) throw new Error(`lives icon not found in ${path}`);
+            lives.sort((a, b) => a - b);
+            if (timer.length < 40) throw new Error(`timer ink not found in ${path} (lives at ${lives[0]})`);
+            timer.sort((a, b) => a - b);
+            return { hatX: lives[0], timerX: timer[timer.length - 1], w: shot.w };
+        };
+        const first = measure(img);
+        unlinkSync(path);
+        await session.advance(1, 20);
+        await session.screenshot(path);
+        const ready2 = Date.now() + 5000;
+        for (;;) {
+            try {
+                img = readPng(path);
+                break;
+            } catch (err) {
+                if (Date.now() > ready2) throw err;
+                await new Promise((r) => setTimeout(r, 50));
+            }
         }
-        if (hatX < img.w * 0.005 || timerX > img.w - 2) {
-            throw new Error(`course HUD clipped at 21:9: lives ${hatX}px timer ${timerX}px of ${img.w}`);
+        const second = measure(img);
+        const limit = first.w * 0.12;
+        for (const m of [first, second]) {
+            if (m.hatX > limit || m.w - m.timerX > limit) {
+                throw new Error(
+                    `course HUD inset at 21:9: lives ${m.hatX}px timer ${m.w - m.timerX}px of ${m.w} (limit ${Math.round(limit)})`,
+                );
+            }
+            if (m.hatX < m.w * 0.005 || m.timerX > m.w - 2) {
+                throw new Error(`course HUD clipped at 21:9: lives ${m.hatX}px timer ${m.timerX}px of ${m.w}`);
+            }
+        }
+        if (Math.abs(first.hatX - second.hatX) > 12 || Math.abs(first.timerX - second.timerX) > 12) {
+            throw new Error(
+                `course HUD jumped: lives ${first.hatX}->${second.hatX} timer ${first.timerX}->${second.timerX} of ${first.w}`,
+            );
         }
     },
 };

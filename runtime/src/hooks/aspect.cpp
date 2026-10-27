@@ -14,7 +14,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "gx2/gx2.h"
 #include "gx2/gx2_cmd.h"
 #include "core/runtime.h"
 
@@ -190,7 +189,10 @@ bool root_on_tv(uint32_t root) {
 void set_root_tv(uint32_t root, bool tv) {
     std::lock_guard<std::mutex> lk(g_root_mu);
     for (auto& e : g_root_tv)
-        if (e.first == root) { e.second = tv; return; }
+        if (e.first == root) {
+            if (tv) e.second = true;
+            return;
+        }
     if (g_root_tv.size() > 256) g_root_tv.erase(g_root_tv.begin());
     g_root_tv.push_back({root, tv});
 }
@@ -225,16 +227,9 @@ bool name_is(uint32_t pane, const char* n) { return !strncmp((const char*)mem::p
 
 bool is_hud_edge_pane(uint32_t pane) {
     const char* n = (const char*)mem::ptr(pane + kPaneName);
-    return panes::edge_anchor(std::string_view(n, strnlen(n, 24)));
-}
-
-struct DrawShift { uint32_t anchor; float dx, dy; };
-thread_local std::vector<DrawShift> t_draw_shift;
-
-bool under_pane(uint32_t pane, uint32_t ancestor) {
-    for (uint32_t p = pane; p; p = ld32(p + kPaneParent))
-        if (p == ancestor) return true;
-    return false;
+    if (!panes::edge_anchor(std::string_view(n, strnlen(n, 24)))) return false;
+    float x = (float)ldf32(pane + kPaneTrans), y = (float)ldf32(pane + kPaneTrans + 4);
+    return x <= -300.0f || x >= 300.0f || y <= -200.0f || y >= 200.0f;
 }
 
 bool has_world_anchor(uint32_t pane, int depth = 0) {
@@ -393,7 +388,7 @@ extern "C" void hook_02ABCAE8(Cpu* c) {
         for (int i = 0; i < 16 && ld32(root + kPaneParent); i++) { child = root; root = ld32(root + kPaneParent); }
         bool world = !ld32(root + kPaneParent) &&
             (ldf32(root + kPaneTrans) != 0 || ldf32(root + kPaneTrans + 4) != 0) && has_world_anchor(root);
-        if (!ld32(root + kPaneParent) && root_on_tv(root) &&
+        if (!ld32(root + kPaneParent) &&
             (world || is_hud_edge_pane(child) || name_is(child, "L_EnemyHP_00") || name_is(child, "L_CommandA_00"))) {
             auto a = offset_of(child), b = offset_of(root);
             float gx = (float)ldf32(pane + kPaneGlobal + 12) - a.first - b.first;
@@ -401,40 +396,7 @@ extern "C" void hook_02ABCAE8(Cpu* c) {
             if (panes::parked_hud(gx, gy)) return;
         }
     }
-    float dx = 0, dy = 0;
-    bool pushed = false;
-    if (parent && is_hud_edge_pane(pane) && gx2::wide_color_target()) {
-        float kx, ky;
-        factors(g_game, kx, ky);
-        float tx = (float)ldf32(pane + kPaneTrans), ty = (float)ldf32(pane + kPaneTrans + 4);
-        auto placed = panes::transform(panes::Role::Hud, tx, ty, 1, 1, kx, ky);
-        float want_x = placed.x - tx, want_y = placed.y - ty;
-        float baked_x = (float)ldf32(pane + kPaneGlobal + 12) - tx;
-        float baked_y = (float)ldf32(pane + kPaneGlobal + 28) - ty;
-        if ((want_x != 0.0f || want_y != 0.0f) &&
-            (std::fabs(baked_x - want_x) > 2.0f || std::fabs(baked_y - want_y) > 2.0f)) {
-            t_draw_shift.push_back({pane, want_x, want_y});
-            pushed = true;
-            dx = want_x;
-            dy = want_y;
-        }
-    } else if (parent && !t_draw_shift.empty() && under_pane(pane, t_draw_shift.back().anchor)) {
-        dx = t_draw_shift.back().dx;
-        dy = t_draw_shift.back().dy;
-    }
-    float old_x = 0, old_y = 0;
-    if (dx != 0.0f || dy != 0.0f) {
-        old_x = (float)ldf32(pane + kPaneGlobal + 12);
-        old_y = (float)ldf32(pane + kPaneGlobal + 28);
-        stf32(pane + kPaneGlobal + 12, old_x + dx);
-        stf32(pane + kPaneGlobal + 28, old_y + dy);
-    }
     f_02ABCAE8_orig(c);
-    if (dx != 0.0f || dy != 0.0f) {
-        stf32(pane + kPaneGlobal + 12, old_x);
-        stf32(pane + kPaneGlobal + 28, old_y);
-    }
-    if (pushed) t_draw_shift.pop_back();
 }
 
 static thread_local int t_tag = 0;
