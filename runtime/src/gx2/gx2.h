@@ -21,6 +21,7 @@ LatteFetchShader* build_fetch_shader(uint32_t program);
 bool uncapped();
 void set_uncapped(bool on);
 void set_display_vsync_ns(int64_t ns);
+bool wide_color_target();
 }
 
 namespace gx2 {

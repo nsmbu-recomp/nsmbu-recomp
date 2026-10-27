@@ -7,6 +7,7 @@ import { openingCinematic } from "./opening-cinematic.ts";
 import { saveRoundtrip } from "./save-roundtrip.ts";
 import { saveState } from "./save-state.ts";
 import { startup } from "./startup.ts";
+import { widescreenCourseUi } from "./widescreen-course-ui.ts";
 import { widescreenMapUi } from "./widescreen-map-ui.ts";
 import { widescreenTitle } from "./widescreen-title.ts";
 
@@ -23,4 +24,5 @@ export const CASES: PlayCase[] = [
     mapShadow120,
     widescreenMapUi,
     widescreenTitle,
+    widescreenCourseUi,
 ];

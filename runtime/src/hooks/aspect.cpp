@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "gx2/gx2.h"
 #include "gx2/gx2_cmd.h"
 #include "core/runtime.h"
 
@@ -227,6 +228,15 @@ bool is_hud_edge_pane(uint32_t pane) {
     return panes::edge_anchor(std::string_view(n, strnlen(n, 24)));
 }
 
+struct DrawShift { uint32_t anchor; float dx, dy; };
+thread_local std::vector<DrawShift> t_draw_shift;
+
+bool under_pane(uint32_t pane, uint32_t ancestor) {
+    for (uint32_t p = pane; p; p = ld32(p + kPaneParent))
+        if (p == ancestor) return true;
+    return false;
+}
+
 bool has_world_anchor(uint32_t pane, int depth = 0) {
     if (depth > 32) return false;
     const char* name = (const char*)mem::ptr(pane + kPaneName);
@@ -391,7 +401,40 @@ extern "C" void hook_02ABCAE8(Cpu* c) {
             if (panes::parked_hud(gx, gy)) return;
         }
     }
+    float dx = 0, dy = 0;
+    bool pushed = false;
+    if (parent && is_hud_edge_pane(pane) && gx2::wide_color_target()) {
+        float kx, ky;
+        factors(g_game, kx, ky);
+        float tx = (float)ldf32(pane + kPaneTrans), ty = (float)ldf32(pane + kPaneTrans + 4);
+        auto placed = panes::transform(panes::Role::Hud, tx, ty, 1, 1, kx, ky);
+        float want_x = placed.x - tx, want_y = placed.y - ty;
+        float baked_x = (float)ldf32(pane + kPaneGlobal + 12) - tx;
+        float baked_y = (float)ldf32(pane + kPaneGlobal + 28) - ty;
+        if ((want_x != 0.0f || want_y != 0.0f) &&
+            (std::fabs(baked_x - want_x) > 2.0f || std::fabs(baked_y - want_y) > 2.0f)) {
+            t_draw_shift.push_back({pane, want_x, want_y});
+            pushed = true;
+            dx = want_x;
+            dy = want_y;
+        }
+    } else if (parent && !t_draw_shift.empty() && under_pane(pane, t_draw_shift.back().anchor)) {
+        dx = t_draw_shift.back().dx;
+        dy = t_draw_shift.back().dy;
+    }
+    float old_x = 0, old_y = 0;
+    if (dx != 0.0f || dy != 0.0f) {
+        old_x = (float)ldf32(pane + kPaneGlobal + 12);
+        old_y = (float)ldf32(pane + kPaneGlobal + 28);
+        stf32(pane + kPaneGlobal + 12, old_x + dx);
+        stf32(pane + kPaneGlobal + 28, old_y + dy);
+    }
     f_02ABCAE8_orig(c);
+    if (dx != 0.0f || dy != 0.0f) {
+        stf32(pane + kPaneGlobal + 12, old_x);
+        stf32(pane + kPaneGlobal + 28, old_y);
+    }
+    if (pushed) t_draw_shift.pop_back();
 }
 
 static thread_local int t_tag = 0;

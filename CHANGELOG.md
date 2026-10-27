@@ -31,6 +31,8 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ### Fixed
 
+- 21:9 course lives, coins, score, and timer sit on the screen edges.
+  They were staying in the 16:9 frame.
 - The aspect ratio chosen in Settings is restored on the next launch.
   A set `NSMBU_ASPECT` value is used instead of that saved choice.
 - 21:9 button labels stay on the buttons.
