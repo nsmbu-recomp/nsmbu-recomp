@@ -1,6 +1,7 @@
 #include "gfx/aspect.h"
 #include "gfx/aspect_view.h"
 #include "gfx/bg_scroll_wide.h"
+#include "guest_addr.h"
 #include "ppc.h"
 
 extern "C" void f_029A6170_orig(Cpu* c);
@@ -14,7 +15,7 @@ constexpr uint32_t kCenterX = 0x74u;
 constexpr uint32_t kRight = 0x78u;
 constexpr uint32_t kBgLeft = 0x88u;
 constexpr uint32_t kBgRight = 0x90u;
-constexpr uint32_t kCourseInfo = 0x101D18ECu;
+const uint32_t kCourseInfo = GD(0x101D18EC);
 constexpr uint32_t kCourseKind = 0x11u;
 constexpr uint32_t kTitleCourse = 0x26u;
 constexpr float kKxEpsilon = 1.0001f;

@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "gx2/gx2_cmd.h"
+#include "guest_addr.h"
 #include "core/runtime.h"
 
 #include "core/env.h"
@@ -245,7 +246,7 @@ bool has_world_anchor(uint32_t pane, int depth = 0) {
 thread_local uint32_t t_root = 0;
 thread_local bool t_anchor = false;
 
-constexpr uint32_t kTextDrawSelf = 0x02ABE3B8u;
+const uint32_t kTextDrawSelf = GC(0x02ABE3B8);
 struct ScaledText { uint32_t pane; uint32_t info; float proj[16]; };
 std::vector<ScaledText> t_scaled_text;
 

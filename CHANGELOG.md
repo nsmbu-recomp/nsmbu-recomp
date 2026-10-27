@@ -20,6 +20,7 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ### Changed
 
+- Widescreen guest addresses go through the regional address map, and the hook coverage list includes the aspect hooks.
 - Boot recipes, build/launch notes, and profiler docs fold into `docs/automation.md`, `docs/cli.md`, and `docs/performance.md` (drop `shortcuts.md`, `build.md`, and `perf.md`).
 - Aspect ratio moved from Settings → Graphics to Settings → Display and is marked experimental.
 - The window title never shows a live frame rate, including in development builds.

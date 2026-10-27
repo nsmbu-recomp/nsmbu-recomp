@@ -83,7 +83,8 @@ class Hooks(unittest.TestCase):
         self.assertEqual(
             [(site, addr) for site, _, addr, *_ in entries],
             [(False, 0x02ACD218), (False, 0x024D752C), (True, 0x022A79C4),
-             (False, 0x022A7760), (False, 0x02A06818), (False, 0x02A061AC), (False, 0x02A062EC),
+             (False, 0x022A7760), (False, 0x029A6170), (False, 0x029B85C8),
+             (False, 0x02A06818), (False, 0x02A061AC), (False, 0x02A062EC),
              (False, 0x02994164), (False, 0x029CBBB4), (False, 0x024BD86C),
              (True, 0x024B8324), (False, 0x0226FBC4), (True, 0x0226FD14),
              (True, 0x0226FECC), (True, 0x02270310), (True, 0x022703A4),
@@ -96,7 +97,8 @@ class Hooks(unittest.TestCase):
              (False, 0x029D8304), (False, 0x029D82D4), (False, 0x029D8394),
              (False, 0x029872BC), (False, 0x029D8478), (False, 0x029D7648),
              (False, 0x029D8C10), (True, 0x029D8C48), (True, 0x029D71A4),
-             (True, 0x02631BE4), (True, 0x0263ADD8), (True, 0x02641A4C)],
+             (True, 0x02631BE4), (True, 0x0263ADD8), (True, 0x02641A4C),
+             (False, 0x02ABC054), (False, 0x02ABCAE8), (True, 0x02ABCB34), (True, 0x02ABCB38)],
         )
         same_addrs = {0x024D752C, 0x029CBBB4, 0x024BD86C, 0x029872BC}
         for site, canon, addr, where, same in entries:
