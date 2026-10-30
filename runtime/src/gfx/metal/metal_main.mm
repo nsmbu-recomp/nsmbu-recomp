@@ -9,6 +9,7 @@
 #include <atomic>
 #include <set>
 
+#include "gfx/frame_dump.h"
 #include "gfx/renderer.h"
 #include "hooks/interp.h"
 #include "hooks/interp_pacing.h"
@@ -293,11 +294,7 @@ void copy_to_scan(uint32_t cb, uint32_t target) {
 
 static std::set<uint64_t> g_dump_frames = [] {
     std::set<uint64_t> f;
-    if (const char* e = env::DUMP_FRAMES())
-        for (const char* p = e; *p;) {
-            f.insert(strtoull(p, (char**)&p, 10));
-            while (*p == ',') p++;
-        }
+    for (uint64_t n : frame_dump::parse_list(env::DUMP_FRAMES())) f.insert(n);
     return f;
 }();
 
@@ -501,6 +498,16 @@ void swap() {
     latch_res_scale();
     const uint64_t scripted_frame = script_frame::frame(R.frame);
     if (g_dump_frames.count(scripted_frame)) dump_tv(scripted_frame);
+    if (env::DUMP_TITLE.integer_or(0) > 0 && frame_dump::title_characters() && scripted_frame >= 900)
+        frame_dump::title_arm();
+    int title_index = 0;
+    if (frame_dump::title_due(title_index) && R.tv.tex) {
+        const frame_dump::PresentMark mark = frame_dump::current_mark();
+        char name[64];
+        snprintf(name, sizeof name, "title_%04d_%s.png", title_index, mark.blend ? "blend" : "logic");
+        dump_texture(R.tv.tex, name, true, R.tv.srgb);
+        LOG("[gfx] title %04d %s t %.3f", title_index, mark.blend ? "interpolated" : "logic", mark.t);
+    }
     service_tv_dumps();
     const char* capture_begin_frame();
     static std::string pendingCapture;

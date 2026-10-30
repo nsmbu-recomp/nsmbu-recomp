@@ -103,8 +103,9 @@ nsmbu save .tmp/menutr2/save/common/rp_savedata.json
 nsmbu save in.dat out.json
 ```
 
-The JSON keeps every unknown and padding byte, so a JSON to `.dat` to JSON round trip is lossless.
-No CRC32 fields appear in the JSON; the structural checksums are recomputed when writing the `.dat` file so the game still accepts it.
+The JSON keeps every unknown and padding byte.
+Challenge `replayCrc` values in JSON are read for inspection only; they are recomputed when writing the `.dat` file.
+No block CRC32 fields appear in the JSON; those trailers are recomputed when writing the `.dat` file so the game still accepts it.
 Non-finite `f32` values (star coin coordinates) are written as `0x`-prefixed 32-bit hex.
 
 ## Compile

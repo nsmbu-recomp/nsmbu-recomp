@@ -102,11 +102,11 @@ int main(){
  input::held_keys(held);
  for(const char* id:{"F1","F2","F3","F4","F5"})assert(!held[input_map::key_from_id(id)]);
  auto graphicsEvent=[&](SDL_Scancode code,SDL_Window* window, bool repeat=false, Uint32 type=SDL_EVENT_KEY_DOWN,SDL_Keymod mod=SDL_KMOD_NONE){SDL_Event e{};e.type=type;e.key.scancode=code;e.key.windowID=SDL_GetWindowID(window);e.key.repeat=repeat;e.key.mod=mod;input::handle_event(e);};
- for(auto code:{SDL_SCANCODE_R,SDL_SCANCODE_O,SDL_SCANCODE_M,SDL_SCANCODE_N,SDL_SCANCODE_8,SDL_SCANCODE_6,SDL_SCANCODE_7}){
+ for(auto code:{SDL_SCANCODE_R,SDL_SCANCODE_O,SDL_SCANCODE_M,SDL_SCANCODE_N,SDL_SCANCODE_8,SDL_SCANCODE_6,SDL_SCANCODE_7,SDL_SCANCODE_T}){
   int before=graphicsRequests;graphicsEvent(code,game);assert(graphicsRequests==before+1);
-  graphicsEvent(code,game,true);graphicsEvent(code,game,false,SDL_EVENT_KEY_UP);graphicsEvent(code,controls);graphicsEvent(code,game,false,SDL_EVENT_KEY_DOWN,SDL_KMOD_CTRL);assert(graphicsRequests==before+1);
+  graphicsEvent(code,game,true);graphicsEvent(code,game,false,SDL_EVENT_KEY_UP);graphicsEvent(code,game,false,SDL_EVENT_KEY_DOWN,SDL_KMOD_CTRL);graphicsEvent(code,controls);assert(graphicsRequests==before+1);
  }
- assert(graphicsKey=='7');input::release_keys();
+ assert(graphicsKey=='T');input::release_keys();
 
  graphicsEvent(SDL_SCANCODE_F10,game);graphicsEvent(SDL_SCANCODE_F10,game,true);assert(shots==1);
  input::held_keys(held);assert(!held[input_map::key_from_id("F10")]);
@@ -114,7 +114,7 @@ int main(){
  {auto m=input_map::current();m.keys[input_map::kScreenshot]={input_map::key_from_id("F9"),input_map::kNoKey};input_map::set_current(m,false);
   graphicsEvent(SDL_SCANCODE_F10,game);assert(shots==1);graphicsEvent(SDL_SCANCODE_F9,game);assert(shots==2);
   m.keys[input_map::kScreenshot]={input_map::key_from_id("F10"),input_map::kNoKey};input_map::set_current(m,false);input::release_keys();}
- set_env(env::NO_HOST_INPUT,"1");graphicsEvent(SDL_SCANCODE_R,game);assert(graphicsRequests==7);set_env(env::NO_HOST_INPUT,nullptr);
+ set_env(env::NO_HOST_INPUT,"1");graphicsEvent(SDL_SCANCODE_R,game);assert(graphicsRequests==8);set_env(env::NO_HOST_INPUT,nullptr);
 
  promptShown=true;input::update();
  SDL_Event typed{};typed.type=SDL_EVENT_TEXT_INPUT;typed.text.text="Mario";input::handle_event(typed);assert(promptText=="Mario");

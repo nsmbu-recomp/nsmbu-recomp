@@ -128,7 +128,7 @@ constexpr int kRefreshResumeFrames = 48;
 constexpr int kLoadLatchFrames = 300;
 
 inline bool skip_extra_course_draw(bool hold, bool course_play, int frames_queued) {
-    return hold && course_play && frames_queued > 0;
+    return hold && course_play && frames_queued > 1;
 }
 
 inline int logic_step_budget(int frames_queued, int max_steps = kMaxLogicStepsPerWake) {

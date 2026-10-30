@@ -24,6 +24,7 @@ bool player_snapshot(PlayerSnapshot& out, int player = 0);
 bool set_player_mode(int player, int mode);
 uint64_t logic_steps();
 bool hold_pass();
+float pass_t();
 int mode();
 void set_mode(int m);
 int fps();

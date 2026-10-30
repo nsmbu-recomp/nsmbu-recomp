@@ -367,8 +367,10 @@ struct ModelPose {
     uint32_t mtx = 0;
     uint32_t joints = 0;
     uint64_t pass = ~0ull;
+    uint64_t sync_pass = 0;
     uint64_t subst_pass = ~0ull;
     std::vector<uint32_t> pose;
+    std::vector<uint32_t> next;
     std::vector<uint32_t> exact;
     std::vector<uint32_t> mid;
 };
@@ -506,12 +508,12 @@ void model_stats_report() {
     g_mstats = ModelStats{};
 }
 
-bool model_blend_pose(ModelPose& p, uint32_t count, uint32_t words, const std::vector<uint32_t>& cur, std::vector<uint32_t>& mid) {
-    if (p.pose.size() != words || memcmp(p.pose.data(), cur.data(), 4u * words) == 0) return false;
+bool model_blend_pose(ModelPose& p, uint32_t count, uint32_t words, const std::vector<uint32_t>& to, std::vector<uint32_t>& mid) {
+    if (p.pose.size() != words || to.size() != words || memcmp(p.pose.data(), to.data(), 4u * words) == 0) return false;
     const float kCut = (float)env::INTERP_MODEL_CUT.real_or(400.0f);
-    float dx = u32_as_f32(cur[3]) - u32_as_f32(p.pose[3]);
-    float dy = u32_as_f32(cur[7]) - u32_as_f32(p.pose[7]);
-    float dz = u32_as_f32(cur[11]) - u32_as_f32(p.pose[11]);
+    float dx = u32_as_f32(to[3]) - u32_as_f32(p.pose[3]);
+    float dy = u32_as_f32(to[7]) - u32_as_f32(p.pose[7]);
+    float dz = u32_as_f32(to[11]) - u32_as_f32(p.pose[11]);
     if (dx * dx + dy * dy + dz * dz > kCut * kCut) return false;
     const float t = pass_t();
     mid.resize(words);
@@ -519,12 +521,31 @@ bool model_blend_pose(ModelPose& p, uint32_t count, uint32_t words, const std::v
         float a[12], b[12], o[12];
         for (int k = 0; k < 12; k++) {
             a[k] = u32_as_f32(p.pose[12 * m + k]);
-            b[k] = u32_as_f32(cur[12 * m + k]);
+            b[k] = u32_as_f32(to[12 * m + k]);
         }
         model_blend_mtx(a, b, o, t);
         for (int k = 0; k < 12; k++) mid[12 * m + k] = fw(o[k]);
     }
     return true;
+}
+
+void model_commit_step(ModelPose& p, uint32_t mdl, uint32_t mtx, uint32_t count, uint32_t words,
+                       const std::vector<uint32_t>& cur) {
+    p.mdl = mdl;
+    p.mtx = mtx;
+    p.joints = count;
+    if (p.next.empty()) {
+        p.pose = cur;
+        p.next = cur;
+    } else if (p.sync_pass != g_record_passes) {
+        p.pose = p.next;
+        p.next = cur;
+        p.sync_pass = g_record_passes;
+    }
+    p.pass = g_record_passes > 0 ? g_record_passes - 1 : 0;
+    p.subst_pass = ~0ull;
+    p.exact.clear();
+    p.mid.clear();
 }
 
 void model_calc_gpu(Cpu* c) {
@@ -551,48 +572,27 @@ void model_calc_gpu(Cpu* c) {
         f_024F30DC_orig(c);
         return;
     }
-    if (record_pass()) {
-        ModelPose& p = g_models[skel];
-        p.mdl = mdl;
-        p.mtx = arr;
-        p.joints = count;
-        p.pass = g_record_passes > 0 ? g_record_passes - 1 : 0;
-        p.pose = cur;
-        p.subst_pass = ~0ull;
-        p.exact.clear();
-        p.mid.clear();
-        trace_model("record", mdl, skel, count, p.pass, cur.data());
-        f_024F30DC_orig(c);
-        return;
+    ModelPose& p = g_models[skel];
+    if (p.mtx != arr || p.pose.size() != words) {
+        p.pose.clear();
+        p.next.clear();
+        p.sync_pass = 0;
     }
-    if (it == g_models.end() || it->second.mtx != arr || it->second.pose.size() != words) {
-        g_mstats.fresh++;
-        trace_model("fresh", mdl, skel, count, it != g_models.end() ? it->second.pass : ~0ull, cur.data());
-        f_024F30DC_orig(c);
-        return;
-    }
-    ModelPose& p = it->second;
-    if (p.pass + 1 != g_record_passes) {
-        g_mstats.fresh++;
-        trace_model("fresh", mdl, skel, count, p.pass, cur.data());
-        f_024F30DC_orig(c);
-        return;
-    }
-    if (memcmp(p.pose.data(), cur.data(), 4u * words) == 0) {
+    model_commit_step(p, mdl, arr, count, words, cur);
+    if (memcmp(p.pose.data(), p.next.data(), 4u * words) == 0) {
         g_mstats.still++;
-        trace_model("still", mdl, skel, count, p.pass, cur.data());
+        trace_model("still", mdl, skel, count, p.pass, p.next.data());
         f_024F30DC_orig(c);
         return;
     }
     std::vector<uint32_t> mid;
-    if (!model_blend_pose(p, count, words, cur, mid)) {
+    if (!model_blend_pose(p, count, words, p.next, mid)) {
         g_mstats.cut++;
-        trace_model("cut", mdl, skel, count, p.pass, cur.data());
+        trace_model("cut", mdl, skel, count, p.pass, p.next.data());
         f_024F30DC_orig(c);
         return;
     }
-    p.mdl = mdl;
-    p.exact = cur;
+    p.exact = p.next;
     p.mid = mid;
     p.subst_pass = g_passes;
     model_write(arr, mid);
@@ -644,15 +644,13 @@ static void model_record_after_logic(Cpu* c) {
     model_read(arr, words, cur);
     if (!model_pose_sane(cur.data(), count)) return;
     ModelPose& p = g_models[skel];
-    p.mdl = mdl;
-    p.mtx = arr;
-    p.joints = count;
-    p.pass = g_record_passes > 0 ? g_record_passes - 1 : 0;
-    p.pose = std::move(cur);
-    p.subst_pass = ~0ull;
-    p.exact.clear();
-    p.mid.clear();
-    trace_model("record", mdl, skel, count, p.pass, p.pose.data());
+    if (p.mtx != arr || p.pose.size() != words) {
+        p.pose.clear();
+        p.next.clear();
+        p.sync_pass = 0;
+    }
+    model_commit_step(p, mdl, arr, count, words, cur);
+    trace_model("record", mdl, skel, count, p.pass, p.next.data());
 }
 
 extern "C" void hook_024F30DC(Cpu* c) {
@@ -774,6 +772,7 @@ void prepare_wake() {
     g_exact_step = !interpolate || plan.logic_steps > 0;
     g_wake_plan = plan;
     g_wake_hold = interpolate && plan.logic_steps == 0;
+    g_hold = g_wake_hold;
     g_wake_skip = pacing::skip_extra_course_draw(g_wake_hold, course_play_active(), queued);
     g_wake_ready = true;
 }

@@ -561,7 +561,7 @@ void handle_event(const SDL_Event& event){
    case SDL_SCANCODE_R: action='R';break; case SDL_SCANCODE_O: action='O';break;
    case SDL_SCANCODE_M: action='M';break; case SDL_SCANCODE_N: action='N';break;
    case SDL_SCANCODE_8: action='8';break; case SDL_SCANCODE_6: action='6';break;
-   case SDL_SCANCODE_7: action='7';break; default:break;
+   case SDL_SCANCODE_7: action='7';break; case SDL_SCANCODE_T: action='T';break; default:break;
   }
   const bool activate=event.type==SDL_EVENT_KEY_DOWN&&!event.key.repeat;
   if(action && gfxvk::graphics_hotkey(action,activate)){if(activate)hostui::graphics_changed();return;}

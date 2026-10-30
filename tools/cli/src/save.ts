@@ -11,6 +11,10 @@ const SLOT_COUNT = 6;
 const MAIN_OFFSET = 0x10;
 const QUICK_OFFSET = 0xc28;
 const CHALLENGE_OFFSET = 0x1840;
+const CHALLENGE_ENTRY_OFFSET = 0x1848;
+const CHALLENGE_ENTRY_SIZE = 0x6c;
+const CHALLENGE_ENTRY_CRC_AT = 0x68;
+const CHALLENGE_ENTRY_COUNT = 80;
 const CHALLENGE_SIZE = 0x360c;
 const CHALLENGE_CRC_OFFSET = 0x3608;
 const CHALLENGE_UNKNOWN_SIZE = 0x1440;
@@ -416,8 +420,8 @@ function decodeChallenges(reader: Reader): JsonObject[] {
             unknown: reader.hex(2),
             mii: reader.hex(0x60),
             highscore: reader.u32(),
+            replayCrc: reader.u32(),
         });
-        reader.skip(4);
     }
     return challenges;
 }
@@ -432,7 +436,7 @@ function encodeChallenges(writer: Writer, value: unknown, path: string): void {
         writer.raw(asHex(challenge.unknown, `${at}.unknown`, 2));
         writer.raw(asHex(challenge.mii, `${at}.mii`, 0x60));
         writer.u32(asU32(challenge.highscore, `${at}.highscore`));
-        writer.skip(4);
+        writer.u32(0);
     });
 }
 
@@ -710,8 +714,66 @@ export function decodeSave(data: Buffer): JsonObject {
     return save;
 }
 
-function writeCrc(buf: Buffer, offset: number, size: number): void {
+function writeBlockCrc(buf: Buffer, offset: number, size: number): void {
     buf.writeUInt32BE(crc32(buf.subarray(offset, offset + size)), offset + size);
+}
+
+function sealChallengeEntryCrcs(buf: Buffer): void {
+    for (let i = 0; i < CHALLENGE_ENTRY_COUNT; i++) {
+        const off = CHALLENGE_ENTRY_OFFSET + i * CHALLENGE_ENTRY_SIZE;
+        writeBlockCrc(buf, off, CHALLENGE_ENTRY_CRC_AT);
+    }
+}
+
+export function sealSavedataBlockCrcs(buf: Buffer): void {
+    if (buf.length < SAVE_SIZE) {
+        throw new Error(`save data is ${buf.length} bytes; expected at least ${SAVE_SIZE}`);
+    }
+    sealChallengeEntryCrcs(buf);
+    writeBlockCrc(buf, 0, 0xc);
+    for (let i = 0; i < SLOT_COUNT; i++) {
+        writeBlockCrc(buf, MAIN_OFFSET + i * SLOT_SIZE, SLOT_DATA_SIZE);
+        writeBlockCrc(buf, QUICK_OFFSET + i * SLOT_SIZE, SLOT_DATA_SIZE);
+    }
+    writeBlockCrc(buf, CHALLENGE_OFFSET, CHALLENGE_CRC_OFFSET);
+    writeBlockCrc(buf, BOOST_OFFSET, BOOST_CRC_OFFSET);
+    writeBlockCrc(buf, COIN_OFFSET, COIN_CRC_OFFSET);
+    writeBlockCrc(buf, TELEMETRY_OFFSET, TELEMETRY_CRC_OFFSET);
+    writeBlockCrc(buf, MII_OFFSET, MII_CRC_OFFSET);
+}
+
+function blockCrcOk(buf: Buffer, offset: number, payload: number): boolean {
+    return buf.readUInt32BE(offset + payload) === crc32(buf.subarray(offset, offset + payload));
+}
+
+export function verifySavedataBlockCrcs(buf: Buffer): boolean {
+    if (buf.length < SAVE_SIZE) {
+        return false;
+    }
+    if (buf.toString("latin1", 0, 4) !== MAGIC) {
+        return false;
+    }
+    if (buf[4] !== 1 || buf[5] !== 0) {
+        return false;
+    }
+    if (!blockCrcOk(buf, 0, 0xc)) {
+        return false;
+    }
+    for (let i = 0; i < SLOT_COUNT; i++) {
+        if (!blockCrcOk(buf, MAIN_OFFSET + i * SLOT_SIZE, SLOT_DATA_SIZE)) {
+            return false;
+        }
+        if (!blockCrcOk(buf, QUICK_OFFSET + i * SLOT_SIZE, SLOT_DATA_SIZE)) {
+            return false;
+        }
+    }
+    return (
+        blockCrcOk(buf, CHALLENGE_OFFSET, CHALLENGE_CRC_OFFSET) &&
+        blockCrcOk(buf, BOOST_OFFSET, BOOST_CRC_OFFSET) &&
+        blockCrcOk(buf, COIN_OFFSET, COIN_CRC_OFFSET) &&
+        blockCrcOk(buf, TELEMETRY_OFFSET, TELEMETRY_CRC_OFFSET) &&
+        blockCrcOk(buf, MII_OFFSET, MII_CRC_OFFSET)
+    );
 }
 
 export function encodeSave(value: unknown): Buffer {
@@ -770,16 +832,10 @@ export function encodeSave(value: unknown): Buffer {
         writer.raw(trailing);
     }
 
-    writeCrc(buf, 0, 0xc);
-    for (let i = 0; i < SLOT_COUNT; i++) {
-        writeCrc(buf, MAIN_OFFSET + i * SLOT_SIZE, SLOT_DATA_SIZE);
-        writeCrc(buf, QUICK_OFFSET + i * SLOT_SIZE, SLOT_DATA_SIZE);
+    sealSavedataBlockCrcs(buf);
+    if (!verifySavedataBlockCrcs(buf)) {
+        throw new Error("internal error: save block CRC check failed after seal");
     }
-    writeCrc(buf, CHALLENGE_OFFSET, CHALLENGE_CRC_OFFSET);
-    writeCrc(buf, BOOST_OFFSET, BOOST_CRC_OFFSET);
-    writeCrc(buf, COIN_OFFSET, COIN_CRC_OFFSET);
-    writeCrc(buf, TELEMETRY_OFFSET, TELEMETRY_CRC_OFFSET);
-    writeCrc(buf, MII_OFFSET, MII_CRC_OFFSET);
 
     return buf;
 }

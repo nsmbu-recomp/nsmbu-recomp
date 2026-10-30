@@ -220,6 +220,11 @@ Same save and hidden-window setup as the world-map boot.
 `--game` is `game/usa-1.3.0`.
 `NSMBU_ASPECT=21:9` makes the TV target 1707×720.
 `NSMBU_DUMP_FRAMES` writes `frame_<n>.png` in the working directory.
+A value can list frames or inclusive ranges, for example `480,760-767`.
+`NSMBU_DUMP_TITLE=8` writes `title_0000_logic.png` or `title_0000_blend.png` for that many pictures.
+It waits until the title course has a player on screen and the TV picture is open past the iris.
+`logic` is a game step.
+`blend` is an in-between frame drawn at 120 fps.
 `NSMBU_VK_PRESENT_MODE=immediate`, `NSMBU_HIDDEN_WINDOWS=1`, `NSMBU_NO_HOST_INPUT=1`, `NSMBU_NO_AUDIO=1`, and `NSMBU_RES_SCALE=1` keep the boot short.
 
 The controller screen is up by frame 200.

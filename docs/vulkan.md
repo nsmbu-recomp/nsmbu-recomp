@@ -381,6 +381,7 @@ controls remain disabled until the renderer reports support.
 | `N` | Toggle anisotropic filtering up to 16×, bounded by device support, for eligible mipmapped asset textures. |
 | `8` | Toggle FXAA in final screen presentation. This is post-process antialiasing; it does not enable multisampled guest surfaces. |
 | `6` | Toggle 60 FPS interpolation mode. Selecting it does not guarantee its target frame rate. |
+| `T` | Toggle between 60 fps (interpolation off) and 120 fps frame interpolation. |
 | Graphics menu: Scaling | Select smooth, sharp, or integer scaling for presentation. |
 
 Startup overrides match Metal: `NSMBU_RES_SCALE` selects the initial internal scale

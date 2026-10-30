@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "gx2.h"
+#include "gfx/frame_dump.h"
 #include "gx2_cmd.h"
 #include "gx2_regs.h"
 #include "register_blocks.h"
@@ -648,6 +649,7 @@ static void execute_op(Op op, const uint32* p, uint32 n) {
     case OP_SWAP:
         if (n) render::set_frame_aspect(gx2::bitsf(p[0]));
         if (n >= 3 && p[2]) render::request_capture();
+        frame_dump::current_mark() = frame_dump::take_mark();
         render::swap();
         break;
     case OP_SET_PROJ_REGS: {
@@ -1159,6 +1161,22 @@ HLE(gx2, GX2SwapScanBuffers) {
     const uint64_t steps = interp::logic_steps();
     const bool hold = steps == lastSteps;
     lastSteps = steps;
+    frame_dump::push_mark(hold, interp::pass_t());
+    if (frame_dump::title_is_lit() && frame_dump::title_burst().left < 0) {
+        static bool prev_hold = false;
+        static bool prev_valid = false;
+        static int alternations = 0;
+        if (interp::holds_shed()) {
+            alternations = 0;
+            prev_valid = false;
+        } else {
+            if (prev_valid && hold != prev_hold) alternations++;
+            else alternations = 0;
+            prev_hold = hold;
+            prev_valid = true;
+            if (alternations >= 80 && hold) frame_dump::title_arm();
+        }
+    }
     if (!hold) {
         mods::lua_sdk::set_cpu(c);
         mods::packages::frame(steps);

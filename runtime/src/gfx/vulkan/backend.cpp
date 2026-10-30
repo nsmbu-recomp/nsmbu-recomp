@@ -22,6 +22,7 @@
 #include "crash/report_header.h"
 #include "present.h"
 #include "gfx/display.h"
+#include "gfx/frame_dump.h"
 #include "gfx/display_modes.h"
 #include "gx2/gx2.h"
 #include "input/input.h"
@@ -1391,6 +1392,8 @@ void copy_to_scan(uint32_t cb, uint32_t target) {
   mark_gpu_written(s.scan.get());
 }
 
+static void queue_tv_png(const std::string &path);
+
 static void dump_scan(Screen &s, const std::string &path) {
   if (!s.scan || !s.scan->image)
     return;
@@ -1407,15 +1410,7 @@ static void request_present_dump(const std::string& path) { gfx::request_present
 static std::atomic<bool> captureRequested{false};
 void request_capture() { captureRequested = true; }
 static void frame_dumps(uint64_t frame) {
-  static const std::vector<uint64_t> frames = [] {
-    std::vector<uint64_t> f;
-    if (const char *e = env::DUMP_FRAMES())
-      for (const char *p = e; *p;) {
-        f.push_back(strtoull(p, (char **)&p, 10));
-        while (*p == ',') p++;
-      }
-    return f;
-  }();
+  static const std::vector<uint64_t> frames = frame_dump::parse_list(env::DUMP_FRAMES());
   const uint64_t dumpFrame = script_frame::frame(frame);
   if (std::find(frames.begin(), frames.end(), dumpFrame) != frames.end()) {
     dump_scan(R.tv, "frame_" + std::to_string(dumpFrame) + ".png");
@@ -1464,6 +1459,28 @@ static void frame_dumps(uint64_t frame) {
     request_present_dump(dir + "/present.png");
     LOG("[gfx] capture of frame %llu written to %s", (unsigned long long)frame, dir.c_str());
   }
+
+  int title_index = 0;
+  static bool title_lit = false;
+  if (!title_lit && env::DUMP_TITLE.integer_or(0) > 0 && R.tv.scan && R.tv.scan->image &&
+      (frame_dump::title_characters() || interp::course_play_active())) {
+    try {
+      const std::vector<uint8_t> px = read_surface_rgba(*R.tv.scan, R.tv.srgb.load());
+      if (frame_dump::picture_bright(px.data(), (int)R.tv.scan->extent.width, (int)R.tv.scan->extent.height)) {
+        title_lit = true;
+        frame_dump::title_note_lit();
+        if (interp::output_fps() <= 60) frame_dump::title_arm();
+      }
+    } catch (const std::exception&) {
+    }
+  }
+  if (frame_dump::title_due(title_index)) {
+    const frame_dump::PresentMark mark = frame_dump::current_mark();
+    char name[64];
+    snprintf(name, sizeof name, "title_%04d_%s.png", title_index, mark.blend ? "blend" : "logic");
+    queue_tv_png(name);
+    LOG("[gfx] title %04d %s t %.3f", title_index, mark.blend ? "interpolated" : "logic", mark.t);
+  }
 }
 
 namespace {
@@ -1480,6 +1497,21 @@ struct PendingShot {
 std::vector<PendingShot> pendingShots;
 std::mutex shotBuffersMu;
 std::vector<Buffer> shotBuffersDone;
+}
+static void queue_tv_png(const std::string &path) {
+  if (!R.tv.scan || !R.tv.scan->image) return;
+  PendingShot p;
+  p.path = path;
+  p.tv = true;
+  p.frame = R.frame + 1;
+  try {
+    if (!record_screenshot(R.tv, p.buffer, p.width, p.height, p.bgra)) return;
+  } catch (const std::exception &e) {
+    LOG("[gfx] cannot copy %s: %s", path.c_str(), e.what());
+    return;
+  }
+  p.slot = R.activeSubmission;
+  pendingShots.push_back(std::move(p));
 }
 static void take_screenshots(const gfx::PresentPlan &plan) {
   std::string tvPath, drcPath;

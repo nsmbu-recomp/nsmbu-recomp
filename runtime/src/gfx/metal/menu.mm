@@ -419,6 +419,7 @@ bool menu_hotkey(uint16_t code) {
     switch (code) {
     case kVK_ANSI_N: if (render::feature_available(render::kFeatureAniso)) render::set_aniso(!render::aniso()); break;
     case kVK_ANSI_6: interp::toggle_fps(60); break;
+    case kVK_ANSI_T: interp::toggle_fps(120); break;
     case kVK_ANSI_8: if (render::feature_available(render::kFeatureFXAA)) render::set_fxaa(!render::fxaa()); break;
     case kVK_ANSI_R: cycle_res(); break;
     case kVK_ANSI_P: render::request_capture(); return true;

@@ -333,7 +333,8 @@ static void test_hold_shed() {
     CHECK(!skip_extra_course_draw(false, true, 2));
     CHECK(!skip_extra_course_draw(true, false, 2));
     CHECK(!skip_extra_course_draw(true, true, 0));
-    CHECK(skip_extra_course_draw(true, true, 1));
+    CHECK(!skip_extra_course_draw(true, true, 1));
+    CHECK(skip_extra_course_draw(true, true, 2));
     CHECK(logic_step_budget(0) == kMaxLogicStepsPerWake);
     CHECK(logic_step_budget(1) == 1);
     CHECK(logic_step_budget(4, 2) == 1);
