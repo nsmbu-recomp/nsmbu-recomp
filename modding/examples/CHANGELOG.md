@@ -8,6 +8,8 @@ Use the `changelog` skill when editing.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-30
+
 ### Removed
 
 - The Power-up storage example is gone.

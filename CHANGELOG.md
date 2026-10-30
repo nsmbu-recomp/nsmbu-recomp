@@ -7,11 +7,6 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ## [Unreleased]
 
-- macOS builds pass the deployment target when they clean LuaJIT.
-- Release builds download the Android compiler and the AppImage runtime from nsmbu-recomp/ci-assets.
-  A manual workflow in that repo builds the Android compiler.
-- The android-compiler download action reads `build.json` with GNU tar’s `./build.json` member name.
-
 ## [0.8.0] - 2026-10-30
 
 ### Added
