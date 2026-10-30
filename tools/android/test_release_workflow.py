@@ -54,6 +54,7 @@ class ReleaseWorkflow(unittest.TestCase):
         self.assertIn("nsmbu-recomp/ci-assets", action)
         self.assertNotIn("build_toolchain.py --source", action)
         self.assertIn("nsmbu-recomp/ci-assets", (ROOT / "tools/release/appimage.py").read_text())
+        self.assertIn('extractfile("./build.json")', action)
 
 
 if __name__ == "__main__":

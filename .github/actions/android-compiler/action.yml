@@ -49,7 +49,7 @@ runs:
             raise SystemExit("android-clang release was built from a different build_toolchain.py; run the Android compiler workflow in nsmbu-recomp/ci-assets")
         archive = root / ("android-clang-%s.tar.gz" % abi)
         with tarfile.open(archive) as tar:
-            meta = json.load(tar.extractfile("build.json"))
+            meta = json.load(tar.extractfile("./build.json"))
         if meta.get("abi") != abi or meta.get("llvm_revision") != pins.LLVM_REVISION or meta.get("ndk_revision") != pins.NDK_REVISION:
             raise SystemExit("android-clang archive metadata does not match this ABI and the pinned LLVM/NDK")
         PY
