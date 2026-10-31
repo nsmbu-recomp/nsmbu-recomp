@@ -76,6 +76,7 @@ struct Renderer {
  VkPhysicalDeviceFeatures enabledFeatures{};
  bool computeQueue=false;
  bool dynamicRenderingKHR=false;
+ bool attachmentViewUsage=false;
  bool portabilitySubset=false,imageViewSwizzle=true,imageViewReinterpretation=true;
  bool imageView2DOn3DImage=true;
  bool samplerMipLodBias=true,separateStencilMaskRef=true,constantAlphaColorBlendFactors=true,vertexAttributeAccessBeyondStride=true,samplerMirrorClampToEdge=false;
