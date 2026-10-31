@@ -7,6 +7,7 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ## [Unreleased]
 
+- Mods work on the USA and Europe base disc (title version 0), not only on the 1.3.0 update or combo packs.
 - The pre-push hook lives only as `.git-hooks/pre_push.py`.
   Point `.git/hooks/pre-push` at that script.
   The script finds the repository from either path.

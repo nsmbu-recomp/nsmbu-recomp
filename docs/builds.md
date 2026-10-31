@@ -31,10 +31,10 @@ Derive or re-check a map with `tools/recomp/mkbuildmap.py` from your own dumps, 
 python3 tools/recomp/mkbuildmap.py usa/code/red-pro2.rpx eur/code/red-pro2.rpx \
     --name EU --title 0005000010101e00 --title-version 80 --out tools/recomp/builds/eu.json
 python3 tools/recomp/mkbuildmap.py usa-1.3/code/red-pro2.rpx usa-base/code/red-pro2.rpx \
-    --name USA_V0 --title 0005000010101d00 --title-version 0 --no-mods \
+    --name USA_V0 --title 0005000010101d00 --title-version 0 \
     --out tools/recomp/builds/usa_v0.json
 python3 tools/recomp/mkbuildmap.py usa-1.3/code/red-pro2.rpx eur-base/code/red-pro2.rpx \
-    --name EU_V0 --title 0005000010101e00 --title-version 0 --no-mods \
+    --name EU_V0 --title 0005000010101e00 --title-version 0 \
     --out tools/recomp/builds/eu_v0.json
 python3 tools/recomp/mkbuildmap.py usa/code/red-pro2.rpx combo-usa/code/red-pro2.rpx \
     --name NSMBU_NSLU_USA --title 000500001014b700 --out tools/recomp/builds/nsmbu_nslu_usa.json

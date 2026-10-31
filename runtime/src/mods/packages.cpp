@@ -299,7 +299,7 @@ bool supported(){return g_guest_build_mods!=0;}
 std::string unsupported_reason(){
     if(supported())return {};
     return std::string("Mods are not supported on this game build (")+g_guest_build_name
-        +"). Use the 1.3.0 update (USA title version 64 or Europe 80), or an NSMBU+NSLU pack.";
+        +"). Rebuild the game with a current port version.";
 }
 void set_open_pack(std::string pack){std::lock_guard guard(mutex);open_pack=std::move(pack);}
 std::string open_pack_value(){std::lock_guard guard(mutex);return open_pack;}

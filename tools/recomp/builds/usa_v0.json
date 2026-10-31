@@ -2,7 +2,6 @@
  "name": "USA_V0",
  "title_id": "0005000010101d00",
  "title_version": 0,
- "mods": false,
  "rpx_sha256": "ec31a785a16cb6ade4810f2ce8efe10da3501a1a5cf52e5fce8d8c16c54a5069",
  "derived_from": {
   "name": "USA",

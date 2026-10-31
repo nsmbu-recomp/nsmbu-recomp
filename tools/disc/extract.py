@@ -109,8 +109,6 @@ def main():
             game_dump.UPDATE_DIRNAME, build.name, build.title_version))
     else:
         print("extract ok: base disc -> %s (title version %d)" % (build.name, build.title_version))
-    if not build.mods:
-        print("note: mods are not supported on this build; install the 1.3.0 update for mod support")
 
 
 if __name__ == "__main__":

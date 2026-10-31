@@ -35,7 +35,7 @@
 
 029D9E30  # SaveMgr::runState: log which save-thread state is starting (state in r5)
 @029D94C0  # end of loadSavedata: log read result and per-file exists flags
-@029D97B8  # end of saveSavedata: log write result and host file size
+029D9560  # saveSavedata: log write result and host file size
 @029D9CB8  # end of loadPersonalSavedata: log personal save read
 @029D9E2C  # end of savePersonalSavedata: log personal save write
 029D8270  # SaveMgr::startReadGame: log when a main save read is requested

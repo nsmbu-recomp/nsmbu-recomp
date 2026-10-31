@@ -17,6 +17,7 @@ extern "C" void f_029D8270_orig(Cpu* c);
 extern "C" void f_029D8304_orig(Cpu* c);
 extern "C" void f_029D82D4_orig(Cpu* c);
 extern "C" void f_029D8394_orig(Cpu* c);
+extern "C" void f_029D9560_orig(Cpu* c);
 
 static const uint32_t kSaveMgr = GD(0x101E7DA4);
 static const uint32_t kSaveSlotSize = 0x204u;
@@ -217,7 +218,8 @@ extern "C" void site_029D94C0(Cpu*) {
     log_guest_and_host_records("guest after load");
 }
 
-extern "C" void site_029D97B8(Cpu*) {
+extern "C" void hook_029D9560(Cpu* c) {
+    f_029D9560_orig(c);
     log_savedata_summary("write rp_savedata.dat", true);
     LOG("[save] host common/rp_savedata.dat %ld bytes after write", host_save_size("/common/rp_savedata.dat"));
     log_guest_and_host_records("guest after write");
