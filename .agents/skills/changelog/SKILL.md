@@ -8,8 +8,8 @@ description: "Clean Unreleased into a player-facing version block when cutting a
 `CHANGELOG.md` and `modding/examples/CHANGELOG.md` follow [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 GitHub Release bodies copy the matching version block from `CHANGELOG.md` via `tools/release/notes.py`.
 
-Day-to-day appends belong under `## [Unreleased]` per `AGENTS.md` (commit message or short change note; rough wording is fine).
-This skill runs only at release cleanup, when the `release` skill (or an explicit cleanup ask) turns that block into the published version notes.
+Day-to-day appends belong under `## [Unreleased]` per `AGENTS.md` (commit message or short change note, rough wording is fine).
+This skill runs only at release cleanup, when the `pre-release` skill (or an explicit cleanup ask) turns that block into the published version notes.
 
 ## Which file
 
