@@ -286,6 +286,8 @@ class Recompiler:
         for i, slot in enumerate(sorted(s for s, v in self.imports.items() if v[2] == "d")):
             self.data_import_addr[slot] = DATA_IMPORT_BASE + i * DATA_IMPORT_STRIDE
         self._imm_overrides()
+        self._fixpoint()
+        self._build_interior_dispatch()
 
         hook_entries, self.skipped_hooks = game_builds.read_hooks(game_builds.hook_files(), self.build)
         hook_entries = self._check_hooks(hook_entries)
@@ -294,8 +296,6 @@ class Recompiler:
         for site, canon, addr, _ in hook_entries:
             self.canon_of[addr] = canon
             (self.sites if site else self.hooks).add(addr)
-        self._fixpoint()
-        self._build_interior_dispatch()
 
     def _check_hooks(self, hook_entries):
         """A hook is written against the canonical code, so check that it can mean the same thing in
