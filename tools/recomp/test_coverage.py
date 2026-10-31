@@ -83,7 +83,7 @@ class CoverageTests(unittest.TestCase):
              (False, 0x0252F900), (False, 0x025CF020), (False, 0x024EFE58), (False, 0x024F009C),
              (False, 0x029C52CC), (False, 0x024FBF6C),
              (False, 0x029C4FE4), (False, 0x024F30DC), (False, 0x029D9E30), (True, 0x029D94C0),
-             (True, 0x029D97B8), (True, 0x029D9CB8), (True, 0x029D9E2C), (False, 0x029D8270),
+             (False, 0x029D9560), (True, 0x029D9CB8), (True, 0x029D9E2C), (False, 0x029D8270),
              (False, 0x029D8304), (False, 0x029D82D4), (False, 0x029D8394), (False, 0x029872BC),
              (False, 0x029D8478), (False, 0x029D7648), (False, 0x029D8C10), (True, 0x029D8C48),
              (True, 0x029D71A4), (True, 0x02631BE4), (True, 0x0263ADD8), (True, 0x02641A4C),

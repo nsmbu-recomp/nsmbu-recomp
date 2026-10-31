@@ -70,8 +70,8 @@ Default layout:
 
 Addresses in the repo are USA 1.3.0.
 Europe, the USA and Europe base discs, and the NSMBU + NSLU packs use USA→build maps ([docs/builds.md](docs/builds.md)).
-Standalone USA and Europe discs should use their matching 1.3.0 update for full support and mods.
-The USA and Europe base discs alone (title version 0) are playable; mods are not supported on those builds.
+Standalone USA and Europe discs should use their matching 1.3.0 update for full support.
+The USA and Europe base discs alone (title version 0) are playable and support mods.
 Combo packs are title version 0 (no separate update folder) and support mods.
 
 | Region | Title ID | Title version | Status |
@@ -117,14 +117,12 @@ Choose one of these:
 1. **Disc image.**
    Use a `.wux` or `.wud` file and its keys.
    The matching **1.3.0** update folder is optional.
-   Mods need that update.
 2. **Cemu archive.**
    Use a `.wua` file that already has that title version.
    This option needs no keys.
 3. **Extracted folder.**
    Use a game folder with `code`, `content`, and `meta`.
    A 1.3.0 update merged into that folder is optional.
-   Mods need that update.
 
 The installer opens a file window so you can pick that file or folder.
 macOS and Windows use the system file chooser.
@@ -140,7 +138,7 @@ A disc image also needs:
 
 - the disc key
 - the Wii U common key
-- an optional matching 1.3.0 update (mods need it)
+- an optional matching 1.3.0 update
 
 On the Keys screen, type or paste each key's 32 hex digits into its own field.
 The disc key belongs to that disc image.

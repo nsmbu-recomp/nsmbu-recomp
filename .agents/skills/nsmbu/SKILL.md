@@ -66,7 +66,7 @@ Enter `FileSelect` directly when the check is the menu.
 Do not play the title for 1000 frames to reach it.
 
 Issue playtests that use `Scene` open / apply-save need a `*-1.3.0` (or combo) dump.
-Use `*-base` only to check boot and title-version messaging, mods and those Scene paths are unsupported there.
+Use `*-base` to check boot and title-version messaging on the base disc; Scene paths still need a build with those hooks.
 
 Other non-interactive forms:
 

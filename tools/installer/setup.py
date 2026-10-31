@@ -997,8 +997,7 @@ def file_sha256(path):
 
 GAME_VERSION_FIX = ("Use New Super Mario Bros. U USA (title version 64 or base disc 0), Europe (title version 80 "
                     "or base disc 0), or an NSMBU + NSLU pack (USA or Europe, title version 0): a disc image, "
-                    "optionally with the matching 1.3.0 update, a merged game folder, or a Cemu archive. Mods need "
-                    "USA/Europe 1.3.0 or a combo pack, not the standalone base disc.")
+                    "optionally with the matching 1.3.0 update, a merged game folder, or a Cemu archive.")
 
 UPDATE_DIRNAME = "update"
 
@@ -1074,7 +1073,7 @@ def check_update_folder(path):
     if not valid_game_folder(path):
         raise SetupError("%s is not an update folder (needs code/red-pro2.rpx, content/, meta/meta.xml)" % path)
     build = check_game_version(path)
-    if not build.mods:
+    if build.name in ("USA_V0", "EU_V0"):
         raise SetupError("%s is %s (title version %d); a 1.3.0 update is required here, not the base disc"
                          % (path, build.name, build.title_version))
     tid, ver = code_title_version(path)
@@ -1097,7 +1096,7 @@ def apply_update_to(dst, update_dir):
 
 def get_update_dir(image, ui, args):
     """Optional matching 1.3.0 update next to the disc image, --update-dir, chosen interactively,
-    or None to install the base disc alone (mods unsupported when that RPX is USA_V0 or EU_V0)."""
+    or None to install the base disc alone."""
     path = getattr(args, "update_dir", None) or find_sidecar_update(image)
     if path:
         path = os.path.abspath(path)
@@ -1105,11 +1104,9 @@ def get_update_dir(image, ui, args):
         say("  OK: %s 1.3.0 update in %s" % (build.name, path))
         return path
     if not ui.interactive:
-        say("  No 1.3.0 update folder (optional); will use the base disc if its RPX is known "
-            "(mods need the update).")
+        say("  No 1.3.0 update folder (optional); will use the base disc if its RPX is known.")
         return None
-    if not ui.yesno("Use an optional 1.3.0 update folder? (No = base disc alone; mods need the update)",
-                    default=True):
+    if not ui.yesno("Use an optional 1.3.0 update folder? (No = base disc alone)", default=True):
         say("  Continuing without an update folder.")
         return None
     while True:
@@ -1198,9 +1195,6 @@ def extract_game(image, keys, info, data_dir, title=None, update_dir=None):
             say("  Applying 1.3.0 update from %s" % update_dir)
             apply_update_to(tmp, update_dir)
         build = check_game_version(tmp)
-        if not build.mods:
-            say("  Note: mods are not supported on %s (title version %d). Install the 1.3.0 update for mods."
-                % (build.name, build.title_version))
         require_playable_game_folder(tmp)
     except SetupError:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -1916,8 +1910,6 @@ def install(ctx, source, keys=None, info=None, ui=None, check_keys=None):
             check_title(tid)
         build = check_game_version(source[1])
         say("  OK: %s (%s, title version %d)" % (source[1], build.name, build.title_version))
-        if not build.mods:
-            say("  Note: mods are not supported on %s. Install the 1.3.0 update for mods." % build.name)
     elif kind == "installed":
         if not valid_game_folder(ctx.game_dir):
             raise SetupError("no installed game files in %s; run setup with your disc image" % ctx.game_dir)
@@ -1926,8 +1918,6 @@ def install(ctx, source, keys=None, info=None, ui=None, check_keys=None):
         if tid:
             check_title(tid)
         build = check_game_version(ctx.game_dir)
-        if not build.mods:
-            say("  Note: mods are not supported on %s. Install the 1.3.0 update for mods." % build.name)
 
     begin("compiler")
     tc = get_toolchain(manifest["toolchain"], data_dir, ui)
