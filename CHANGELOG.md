@@ -9,6 +9,7 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 - The pre-push hook lives only as `.git-hooks/pre_push.py`.
   Point `.git/hooks/pre-push` at that script.
+  The script finds the repository from either path.
 - In-between frames blend every player's head.
   Luigi and both Toads were staying on the 60 Hz step, including on the title screen.
 - The performance overlay uses a clearer layout with labeled rows for output FPS, logic rate, CPU and GPU timing, and presentation settings.
