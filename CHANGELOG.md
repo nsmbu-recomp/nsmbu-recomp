@@ -10,6 +10,8 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 - Android setup finishes translating when Python has no multiprocessing module.
   It uses one process instead of stopping.
 - Course tiles stay visible on Metal when internal resolution is above 1x.
+- Boost Rush no longer crashes when a Mii is drawn before its shader exists.
+  The opaque and translucent Mii draws return while that program is null.
 - Boost Rush challenges on a USA or Europe base disc no longer crash while the course loads.
   The base-disc stock HUD draw runs while AreaTask is null.
   The 1.3.0 hook does not cover that address.
