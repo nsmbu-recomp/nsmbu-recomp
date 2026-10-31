@@ -167,7 +167,7 @@ python3 tools/installer/test_setup.py
 python3 tools/recomp/test_builds.py
 ```
 
-`.git-hooks/pre_push.py` runs a full local `ctest` before a push.
+`.githooks/pre_push.py` runs a full local `ctest` before a push.
 Profiling follows [performance.md](performance.md).
 
 ## Local userdata

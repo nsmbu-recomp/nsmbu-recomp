@@ -32,7 +32,7 @@ The `release` skill tags `main` and watches `.github/workflows/release.yml` afte
 5. Report the version, branch, both command results, and `git diff --stat`.
    List anything still broken.
    The person reviews this diff, commits, merges into `main` when the work is on another branch, and pushes `main`.
-   Their push runs `.git-hooks/pre_push.py` (`ctest`, `tools/installer/test_setup.py`, and `tools/recomp/test_builds.py`).
+   Their push runs `.githooks/pre_push.py` (`ctest`, `tools/installer/test_setup.py`, and `tools/recomp/test_builds.py`).
    Linux does not compile the macOS or Windows package jobs.
    Those failures show up later in `gh run view <id> --log-failed`.
 
