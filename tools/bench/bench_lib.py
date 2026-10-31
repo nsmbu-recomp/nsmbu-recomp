@@ -1,19 +1,8 @@
 #!/usr/bin/env python3
-"""Fixed-scene renderer benchmark: runs the game headless from a save state with scripted input and
-summarizes the render-thread profiler's reports (runtime/src/gfx/render_prof.h) as JSON and CSV.
+"""Renderer benchmark orchestration and statistics (unit tests only).
 
-Every run uses a fresh COPY of the save, the given save-state folder (read only: the state file is
-loaded, never written), its own shader caches and settings files, no audio, no gamepad and no host
-input. One game process at a time; it is stopped with TERM, then KILL, and checked to be gone.
-
-Example (two variants, interleaved A B B A ..., 6 runs each, 60 fps interpolation, Vulkan):
-
-  tools/bench/run_bench.py --binary build/nsmbu --state-dir my_states \\
-      --fps 60 --renderer vulkan --runs 6 --out bench/sync \\
-      --variant base:NSMBU_VK_LAZY_DRAW_DONE=0,NSMBU_VK_ASYNC_PRESENT=0 --variant new:
-
-Scenes: still = no input (any slot). The state file must be
-<state-dir>/slot<N>.bin, made with the game's own save-state keys.
+Use `nsmbu bench` for checked-in performance scenarios. This module keeps save-state runs,
+profiler parsing, and A/B summaries for regression tests.
 """
 import argparse
 import csv
@@ -64,8 +53,12 @@ def benchmark_pids(process_listing, own_pid):
             argv = shlex.split(command.strip())
         except ValueError:
             continue
-        if argv and os.path.basename(argv[0]).casefold().startswith("python") and any(
-                os.path.basename(arg) == "run_bench.py" for arg in argv[1:]):
+        base = os.path.basename(argv[0])
+        if base == "nsmbu" and len(argv) > 1 and argv[1] == "bench":
+            found.append(int(pid))
+            continue
+        if base.casefold().startswith("python") and any(
+                os.path.basename(arg) in ("bench_lib.py", "run_bench.py") for arg in argv[1:]):
             found.append(int(pid))
     return found
 
@@ -114,7 +107,7 @@ def quiet_reasons(args):
     if args.exclusive_bench:
         others = other_benchmarks()
         if others:
-            reasons.append("another run_bench.py is running: " + ", ".join(map(str, others)))
+            reasons.append("another benchmark is running: " + ", ".join(map(str, others)))
     if getattr(args, "exclusive_work", False):
         others = other_workers()
         if others:
@@ -434,7 +427,7 @@ def main():
     p.add_argument("--timeout", type=float, default=600)
     p.add_argument("--max-load", type=float, default=0, help="wait below this 1-minute load; discard a run if it exceeds the limit (0 disables)")
     p.add_argument("--quiet-load-max", type=float, help="wait until load1 is below this value; discard disturbed runs")
-    p.add_argument("--exclusive-bench", action="store_true", help="wait while any other run_bench.py is running")
+    p.add_argument("--exclusive-bench", action="store_true", help="wait while another nsmbu bench is running")
     p.add_argument("--exclusive-work", action="store_true", help="wait for other builds/test drivers; discard runs if they start")
     p.add_argument("--retry-disturbed", action="store_true",
                    help="retry interrupted samples until quiet, preserving the interleaved order; other failures remain bounded")

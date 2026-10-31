@@ -38,7 +38,6 @@ LIB_EXT = (".a", ".lib", ".tbd", ".dylib", ".so")
 
 TOOL_FILES = [
     "tools/rpx/rpx.py",
-    "tools/disc/wudextract.py",
     "tools/recomp/recomp.py",
     "tools/recomp/analyze.py",
     "tools/recomp/ppc2c.py",

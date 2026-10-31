@@ -4,12 +4,12 @@ import tempfile
 import types
 import unittest
 from unittest.mock import patch
-import run_bench as bench
+import bench_lib as bench
 
 class BenchmarkTests(unittest.TestCase):
     def test_invalid_warmup_stops_before_measured_runs(self):
         with tempfile.TemporaryDirectory() as directory:
-            argv = ['run_bench.py', '--binary', '/unused/game', '--state-dir', '/unused/states',
+            argv = ['bench_lib.py', '--binary', '/unused/game', '--state-dir', '/unused/states',
                     '--warmup', '--runs', '10', '--out', directory]
             with patch.object(bench.sys, 'argv', argv), patch.object(bench.os.path, 'exists', return_value=True),\
                  patch.object(bench, 'run_once', return_value={'status': 'load exceeded limit'}) as run:
@@ -85,8 +85,8 @@ import sys
 import tempfile
 from types import SimpleNamespace
 from unittest import mock
-from run_bench import benchmark_pids, logic_cpu_samples, quiet_reasons, run_statistics, worker_pids
-import run_bench
+from bench_lib import benchmark_pids, logic_cpu_samples, quiet_reasons, run_statistics, worker_pids
+import bench_lib
 
 class BenchmarkStatistics(unittest.TestCase):
     def test_pair_differences_match_pair_numbers_in_ab_ba_order(self):
@@ -97,7 +97,7 @@ class BenchmarkStatistics(unittest.TestCase):
                    sample('hooks', 2, 8), sample('base', 2, 10),
                    sample('base', 3, 10), sample('hooks', 3, 14),
                    sample('base', 4, 10), sample('hooks', 4, 99, 'disturbed')]
-        report = run_bench.paired_statistics(results, ['base', 'hooks'])['metrics']['frame_ms']
+        report = bench_lib.paired_statistics(results, ['base', 'hooks'])['metrics']['frame_ms']
         self.assertEqual([p['difference_ms'] for p in report['pairs']], [2, -2, 4])
         self.assertEqual(report['difference_ms']['median'], 2)
         self.assertEqual(report['difference_ms']['iqr'], 3)
@@ -106,7 +106,7 @@ class BenchmarkStatistics(unittest.TestCase):
         self.assertTrue(report['paired_iqr_exceeds_paired_median'])
 
     def test_worker_detection_checks_programs_not_shell_command_text(self):
-        listing = '''101 /usr/bin/python3 /repo/tools/bench/run_bench.py
+        listing = '''101 /usr/bin/python3 /repo/tools/bench/bench_lib.py
 102 /usr/bin/ninja -j 2
 103 /usr/bin/clang++ -c file.cpp
 104 /usr/bin/cmake --build build
@@ -126,21 +126,21 @@ class BenchmarkStatistics(unittest.TestCase):
         self.assertEqual(result['n'], 10)
 
     def test_benchmark_detection_excludes_self_and_shell_wrappers(self):
-        listing = """101 /usr/bin/python3 /repo/tools/bench/run_bench.py --runs 10
-102 /usr/bin/python3 /other/run_bench.py --runs 2
-103 /bin/zsh -lc 'python3 /repo/tools/bench/run_bench.py'
+        listing = """101 /usr/bin/python3 /repo/tools/bench/bench_lib.py --runs 10
+102 /usr/bin/python3 /other/bench_lib.py --runs 2
+103 /bin/zsh -lc 'python3 /repo/tools/bench/bench_lib.py'
 104 /usr/bin/python3 /repo/tools/bench/test_run_bench.py
 105 /usr/bin/nsmbu --game /game
-106 /Applications/Python.app/Contents/MacOS/Python /other/run_bench.py --runs 10
+106 /Applications/Python.app/Contents/MacOS/Python /other/bench_lib.py --runs 10
 """
         self.assertEqual(benchmark_pids(listing, 101), [102, 106])
 
     def test_quiet_gate_checks_strict_load_and_disk_reserve(self):
         args = SimpleNamespace(quiet_load_max=12, exclusive_bench=False, min_free_gb=15, out='build')
-        with mock.patch('run_bench.load1', return_value=12), mock.patch('run_bench.shutil.disk_usage', return_value=SimpleNamespace(free=14e9)):
+        with mock.patch('bench_lib.load1', return_value=12), mock.patch('bench_lib.shutil.disk_usage', return_value=SimpleNamespace(free=14e9)):
             reasons = quiet_reasons(args)
             self.assertEqual(len(reasons), 2)
-        with mock.patch('run_bench.load1', return_value=11.99), mock.patch('run_bench.shutil.disk_usage', return_value=SimpleNamespace(free=16e9)):
+        with mock.patch('bench_lib.load1', return_value=11.99), mock.patch('bench_lib.shutil.disk_usage', return_value=SimpleNamespace(free=16e9)):
             self.assertEqual(quiet_reasons(args), [])
 
     @unittest.skipIf(os.name == 'nt', 'fixture executables use POSIX shebangs')
@@ -165,7 +165,7 @@ class BenchmarkStatistics(unittest.TestCase):
                                       'print(' + repr(log) + ')\n')
                 executable.chmod(0o755)
                 executables.append(executable)
-            command = [sys.executable, str(repo / 'tools/bench/run_bench.py'),
+            command = [sys.executable, str(repo / 'tools/bench/bench_lib.py'),
                        '--binary', str(executables[0]), '--variant', 'a:', '--variant', 'b:',
                        '--variant-binary', 'b=' + str(executables[1]),
                        '--save', str(root / 'save'), '--state-dir', str(root / 'states'),
@@ -208,11 +208,11 @@ class BenchmarkStatistics(unittest.TestCase):
                         'windows': 3, 'load_before': 11, 'load_after': 13 if disturbed else 11,
                         'summary': {'frame_ms': 6, 'logic_cpu_ms': 4}}
 
-            argv = ['run_bench.py', '--binary', 'fixture', '--state-dir', str(root),
+            argv = ['bench_lib.py', '--binary', 'fixture', '--state-dir', str(root),
                     '--scene', 'still', '--variant', 'a:', '--variant', 'b:', '--runs', '15',
                     '--warmup', '--retry-disturbed', '--out', str(root / 'out')]
-            with mock.patch.object(sys, 'argv', argv), mock.patch('run_bench.run_once', side_effect=sample), contextlib.redirect_stdout(io.StringIO()):
-                run_bench.main()
+            with mock.patch.object(sys, 'argv', argv), mock.patch('bench_lib.run_once', side_effect=sample), contextlib.redirect_stdout(io.StringIO()):
+                bench_lib.main()
             report = json.loads((root / 'out/summary.json').read_text())
             expected = [('warmup', 0)]
             for i in range(1, 16):
@@ -227,8 +227,8 @@ class BenchmarkStatistics(unittest.TestCase):
     def test_other_failures_and_default_retries_remain_bounded(self):
         for retry_disturbed, status in [(False, 'disturbed'), (True, 'timeout')]:
             result = {'status': status, 'windows': 0, 'load_before': 11, 'load_after': 11, 'summary': {}}
-            with mock.patch('run_bench.run_once', return_value=result) as sample, contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(run_bench.run_with_retries(SimpleNamespace(retry_disturbed=retry_disturbed), 'a', {}, 1, 'fixture'), result)
+            with mock.patch('bench_lib.run_once', return_value=result) as sample, contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(bench_lib.run_with_retries(SimpleNamespace(retry_disturbed=retry_disturbed), 'a', {}, 1, 'fixture'), result)
                 self.assertEqual(sample.call_count, 3)
 
 if __name__ == '__main__':

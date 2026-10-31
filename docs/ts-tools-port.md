@@ -29,7 +29,7 @@ Rough size today (line counts, including tests):
 | `tools/installer/` | ~2800 | `setup.py` (~2200) plus `dev_pkg` / tests |
 | Dev wrappers (`build`, `launch`, `extract`, `slot`, …) | ~900 | CLI already wraps most of these |
 | `tools/release/` | ~1000 | package, guard, notes, AppImage |
-| Misc (`shaderprep`, `wudextract`, `bench`, `perf`, …) | ~1900 | mostly not on `nsmbu` yet |
+| Misc (`shaderprep`, `bench`, `perf`, …) | ~1900 | mostly not on `nsmbu` yet |
 | **Total** | **~10k** | **~41 `.py` files** |
 
 `docs/cli.md` still says the CLI should shell out to Python and not reimplement CMake in TypeScript.
@@ -44,7 +44,7 @@ The change is to stop using Python as the orchestration language around them.
 | --- | --- | --- |
 | `build` | `tools/build/build.py` | Configure + build; may call `recomp.py` / `stubgen.py`; clang/`libstdc++` probe |
 | `launch` / `run` / `record` / `replay` | `tools/run/launch.py` (+ `tools/lib/slot.py`, `tools/lib/devdata.py`) | Env, save dir, slot/course args, gdb/lldb, `execve` |
-| `extract` | `tools/disc/extract.py` → `tools/disc/wudextract.py`, `tools/disc/game_dump.py`, `recomp/builds.py` | Disc extract + update merge + SHA check |
+| `extract` | `tools/disc/extract.py` → `nsmbu-extract`, `tools/disc/game_dump.py`, `recomp/builds.py` | Disc extract + update merge + SHA check |
 | `profile` / `perf` | `tools/run/profile.py`, `tools/run/perf.py` | Fixed-scene profile; Linux `perf` wrapper |
 | `installer` | `tools/build/build.py` + `installer/dev_pkg.py` | Local release-shaped package then setup GUI |
 | `recomp` | `tools/recomp/recomp.py` | RPX → `build/gen` |
@@ -62,16 +62,15 @@ Also shell, not Python: `nsmbu scripted` → `tools/run/scripted-run.sh`, `nsmbu
 | `tools/installer/test_setup.py` | CI unit tests |
 | `tools/release/{package,guard,notes,appimage}.py` | Release workflow |
 | `tools/release/test_sdk_package.py` | CMake test |
-| `tools/bench/run_bench.py` | Renderer bench orchestration |
+| `tools/bench/bench_lib.py` | Save-state bench statistics (unit tests; use `nsmbu bench` for scenarios) |
 | `tools/shader/shaderprep.py` | Shader cache head-start |
-| `tools/disc/wudextract.py` | Disc image reader (MPL port of Cemu WUD/FST) |
-| `tools/rpx/rpx.py`, `tools/rpx/rpxinfo.py`, `tools/rpx/ppcdis.py` | RPX inspect / disasm |
+| `tools/rpx/rpx.py`, `tools/rpx/ppcdis.py` | RPX inspect / disasm |
 | `tools/frames/flicker.py` | Frame-dump flicker check ([automation.md](automation.md)) |
 | `.git-hooks/pre_push.py` | Git hook helper (not under `tools/`) |
 | `runtime/test/driver_store_test.py` | CMake test wrapper |
 
-Native C++ already covers part of extract: `nsmbu-extract` (`tools/wudextract/`).
-Prefer driving that binary from TypeScript over re-porting the Python WUD reader unless behaviour still differs.
+Native C++ covers disc extract: `nsmbu-extract` (`tools/wudextract/`).
+`nsmbu extract` / `tools/disc/extract.py` call that binary after a local build.
 
 ## Constraints
 
@@ -84,8 +83,6 @@ Prefer driving that binary from TypeScript over re-porting the Python WUD reader
    Porting setup means either shipping Node with the release, bundling a Node SEA / similar, or rewriting setup as a native `nsmbu-setup` that no longer needs an interpreter.
 7. **CMake custom command** — `guest_stubs.py` is invoked at build time (`CMakeLists.txt`).
    Replace with a small native tool or a `nsmbu` subcommand CMake can call without Python.
-8. **Licensing** — `tools/disc/wudextract.py` is MPL-2.0 (Cemu port).
-   Keep license headers and NOTICE obligations on any TypeScript or C++ replacement of that logic.
 
 ## Target layout
 
@@ -139,13 +136,13 @@ Port `tools/lib/slot.py`, `tools/lib/devdata.py`, `tools/run/launch.py`, `tools/
 
 ### Wave 2 — Extract and disc helpers
 
-Port `tools/disc/game_dump.py`, `tools/disc/extract.py`, and either delete `tools/disc/wudextract.py` in favour of `nsmbu-extract` or port the remaining behaviour.
+`tools/disc/extract.py` already calls `nsmbu-extract`; finish porting layout checks to TypeScript when convenient.
 
-- Wire `nsmbu extract` to the C++ extractor + TS layout/SHA checks against `builds` JSON.
+- Port `tools/disc/game_dump.py` into the CLI tree.
 - Port `tools/frames/flicker.py` as `nsmbu flicker` (or fold into `scripted` docs).
-- Optionally port `tools/shader/shaderprep.py`, `tools/rpx/rpxinfo.py` / `tools/rpx/ppcdis.py` as `nsmbu` subcommands when needed.
+- Optionally port `tools/shader/shaderprep.py`, `tools/rpx/ppcdis.py` as `nsmbu` subcommands when needed.
 
-**Done when:** `nsmbu extract` matches current checks on a real dump; CI/docs no longer mention `tools/disc/wudextract.py` for the happy path.
+**Done when:** `nsmbu extract` is implemented in TypeScript end-to-end; Python extract script removed.
 
 ### Wave 3 — Recompiler
 
@@ -179,7 +176,7 @@ Port `installer/setup.py` and `dev_pkg.py` (and `test_setup.py`).
 
 ### Wave 6 — Leftovers and deletion
 
-- `bench/run_bench.py` → `nsmbu bench` (see [performance.md](performance.md)).
+- `bench/bench_lib.py` statistics only; `nsmbu bench` for scenarios (see [performance.md](performance.md)).
 - `.git-hooks/pre_push.py` → hook calling `nsmbu` or a small TS script.
 - `runtime/test/driver_store_test.py` → native or TS test driver.
 - Port `tools/run/scripted-run.sh` into `nsmbu scripted` if you want zero bash in the agent path (optional).
@@ -200,7 +197,7 @@ Port `installer/setup.py` and `dev_pkg.py` (and `test_setup.py`).
 | `python3 tools/release/package.py …` | `nsmbu release package` |
 | `python3 tools/release/guard.py …` | `nsmbu release guard` |
 | `python3 tools/installer/setup.py` | native or `nsmbu setup` inside the package |
-| `python3 tools/bench/run_bench.py` | `nsmbu bench` |
+| `nsmbu bench` | `nsmbu bench` |
 | `python3 tools/frames/flicker.py …` | `nsmbu flicker` |
 | `python3 tools/shader/shaderprep.py …` | `nsmbu shaderprep` |
 

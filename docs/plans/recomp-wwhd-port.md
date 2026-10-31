@@ -86,10 +86,8 @@ WWHD commit `f0e6fcb7`: rewriting every `code_*.c` / header on each run forced a
 
 ### 3. No-op build check
 
-- Port [`tools/check_noop_build.py`](../../vendor/ZeldaWWHDRecomp/tools/check_noop_build.py) → `tools/check_noop_build.py`.
-- Adapt names: `cking.rpx` → `red-pro2.rpx`, drop `--mod-hooks` unless package 5 lands, replace `wwhd_build_info` filters with NSMBU's build-info / VerifyGlobs step names.
-- Wire as an optional CI / local smoke (`python3 tools/check_noop_build.py build/… --recomp game/…/red-pro2.rpx build/gen`).
-- Skip WWHD's `PipelineRuntimeIdentity.cmake` unless NSMBU grows an equivalent hash of every file under `runtime/`; only port that if a stray `.DS_Store` (or similar) is already forcing Vulkan / runtime rebuilds here.
+Deferred: NSMBU does not ship `check_noop_build.py`.
+Use a second `nsmbu build` locally when debugging unnecessary rebuilds.
 
 ### 4. Plain code for hooked and site functions
 

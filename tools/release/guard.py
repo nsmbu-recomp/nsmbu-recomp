@@ -99,9 +99,9 @@ def check_entry(name, data, problems):
         problems.append("%s: contains recompiled game functions" % name)
 
 ANDROID_TEST_FILES = {
-    "tools/android/debug_fixture_build.py", "tools/android/service_fixture.py",
-    "tools/android/embedding_smoke.py", "tools/recomp/android_fixture.py",
-    "tools/android/extraction-fixture.bin", "tools/android/runtime_fixture.c",
+    "tools/android/debug_fixture_build.py",
+    "tools/recomp/android_fixture.py",
+    "tools/android/runtime_fixture.c",
 }
 
 RUNTIME_LICENSES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "appimage-runtime-licenses")

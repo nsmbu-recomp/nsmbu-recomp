@@ -155,24 +155,9 @@ Linux, Intel Arc + ANV, from 2026-10-13 profiles.
 
 Use `nsmbu run 1-1` and `NSMBU_STATE_LOAD_AT=700:1` (slot 1) in How to profile for the current NSMBU repro.
 
-`tools/bench/run_bench.py` runs the game headless (or with `--visible` windows, which presentation
-and vsync pacing need) from a save state with scripted input, one game at a time, with a fresh copy
-of the save and its own caches and settings files. A/B variants run interleaved:
-
-```sh
-nsmbu build --release
-nsmbu run 1-1
-```
-
-`--fps 60|120|240`, `--display-hz n` (the refresh rate
-120/240 fps are capped to; 0: no cap, for hidden-window runs), `--uncapped` (throughput),
-`--renderer metal`.
-The state is loaded at TV frame 450 (A presses from frame 120 skip the intro), the input starts 200
-frames later and is timed in game seconds, so the fps options see the same input. Each run's
-`[prof]` reports (render-thread profiler, `docs/vulkan.md`) after two warm-up windows are averaged;
-`summary.json` / `summary.csv` hold the per-variant median, min, max and spread of frame time,
-swaps/s, logic steps/s, render-thread CPU and per-phase ms, GPU waits, game-thread waits, uploads by
-kind, unique guest bytes and draw classes. The load average before and after each run is recorded.
+`nsmbu bench` opens one game and records a render trace for a named scenario (`nsmbu bench --list`).
+For headless save-state A/B comparisons with interleaved variants, the statistics and orchestration
+helpers live in `tools/bench/bench_lib.py` (unit tests only; not a supported CLI entry point).
 
 ## Where the time goes
 

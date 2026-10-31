@@ -63,9 +63,8 @@ on the guest thread before the render queue. It uses the ordinary `nsmbu/logs/<t
 and presented capture files. Keep the selected counter and scenario origin identical between
 barrier modes and retain the load/capture logs. Paused menus freeze the game counter; use
 `NSMBU_TEST_CAPTURE_LOAD_STEP=n` instead to select a full-pass swap n logic steps after load.
-With `tools/bench/run_bench.py`, use `--origin-load-steps n` to align both inputs and the
-interpolation mode switch to that restored clock; an absolute startup mode switch can change
-random-seed evolution when a load completes one step later.
+Align both runs on the same restored clock with `NSMBU_TEST_CAPTURE_LOAD_STEP=n` and identical scenario origins.
+An absolute startup mode switch can change random-seed evolution when a load completes one step later.
 
 ## Build
 
@@ -332,8 +331,7 @@ protected regions. Please run a normal play session, or the benchmark scene, onc
   is a bug, please include it),
 - the `page write faults` count of the `[vulkan textures]` lines and the `protect failures` count of
   the `[vulkan buffer cache]` lines,
-- and, if you can, render-thread CPU and FPS with `NSMBU_VK_BUFFER_CACHE=1` against `=0`
-  (`tools/bench/run_bench.py --variant off:NSMBU_VK_BUFFER_CACHE=0 --variant on:NSMBU_VK_BUFFER_CACHE=1`).
+- and, if you can, render-thread CPU and FPS with `NSMBU_VK_BUFFER_CACHE=1` against `=0` on the same scene (two launches with those env vars).
 
 - **Validity without hashing.** An entry is current while none of its pages has a newer stamp in the
   page write tracker (`runtime/src/core/write_watch.h`, shared with the texture checks): the upload arms
@@ -615,8 +613,8 @@ CPU paths not set to `1` and lazy DrawDone / async present when turned off. The 
   nearest existing variant of the same program (texture/sampler words of units the shader samples
   vs. units it does not).
 
-`tools/bench/run_bench.py` runs fixed scenes from a save state and summarizes these reports (see
-`docs/performance.md`, "How to profile").
+`nsmbu bench` runs checked-in performance scenarios and records render traces (see `docs/performance.md`, "How to profile").
+Low-level save-state A/B orchestration remains in `tools/bench/bench_lib.py` for unit tests only.
 
 ## Resource dependencies
 

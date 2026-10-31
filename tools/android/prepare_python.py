@@ -64,8 +64,7 @@ def verified_download(url, archive, expected):
 
 ANDROID_SOURCES = ["tools/android/setup_adapter.py", "tools/android/native_process.py",
                    "tools/android/ondevice_setup.py"]
-FIXTURE_SOURCES = ["tools/android/debug_fixture_build.py", "tools/android/embedding_smoke.py",
-                   "tools/recomp/android_fixture.py"]
+FIXTURE_SOURCES = ["tools/android/debug_fixture_build.py", "tools/recomp/android_fixture.py"]
 
 
 def desktop_files(root):

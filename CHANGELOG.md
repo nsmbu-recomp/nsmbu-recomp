@@ -7,6 +7,10 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ## [Unreleased]
 
+### Changed
+
+- Removed unused developer tools (`tools/check/`, `rpxinfo.py`, Python disc reader, `run_bench.py` CLI).
+  `nsmbu extract` uses `nsmbu-extract`; use `nsmbu bench` for performance scenarios.
 ## [0.8.1] - 2026-10-31
 
 ### Added
