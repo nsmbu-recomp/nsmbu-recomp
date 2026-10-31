@@ -54,11 +54,9 @@ A value below 60 other than the 30 preset is 60.
 Guest logic stays at 60 steps/s.
 The 30 fps preset runs two logic steps per picture.
 `NSMBU_UNCAPPED=1` starts in Fast forward: one game step per picture and no frame limit.
-`NSMBU_INTERP=0` forces interpolation off for that start and takes precedence over Debug.
+`NSMBU_INTERP=0` forces interpolation off for that start.
 `NSMBU_INTERP=1` forces it on.
 When `NSMBU_INTERP` is unset, in-between frames above 60 fps are on.
-Debug can turn them off.
-That choice is saved as `frameInterpolation`.
 Off keeps one picture per game step and paces those pictures at 60 fps.
 The 30 fps preset still runs two logic steps per picture.
 Other interpolation variables (`NSMBU_INTERP_PACED`, and the rest in `env.h`) are listed only in `env.h` unless a feature doc describes them.

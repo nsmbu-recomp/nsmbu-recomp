@@ -781,11 +781,11 @@ void tab_graphics() {
          "fixed 60 Hz logic steps, blended from wall-clock time left in the open step.\n"
          "Custom is any rate from 60 to 1000. Unlocked draws pictures as fast as the machine can while the game stays at 60 logic steps per second.\n"
          "The fps number is that render rate, even when the display cannot show every picture. 30 fps is only the preset. Fast forward (debug) runs the game as fast as this\n"
-         "computer can: each picture is one game step, with no frame limit. Debug can turn the in-between pictures off; pictures then stay at 60 fps. Hotkeys: 6 = 60 fps,\n"
+         "computer can: each picture is one game step, with no frame limit. Hotkeys: 6 = 60 fps,\n"
          "7 = cycle caps, 9 = toggle 60 fps and the last non-60 cap.");
 
     if (!ff && !interp::blend_enabled() && (interp::unlocked() || interp::fps() > 60))
-        note("Frame interpolation is off in Debug, so pictures stay at 60 fps.");
+        note("NSMBU_INTERP=0 is set, so pictures stay at 60 fps.");
     else if (ff)
         note("Fast forward runs the game as fast as this computer can.");
     else if (free)
@@ -1549,16 +1549,6 @@ void restart_button(const char* why) {
 }
 
 void tab_debug() {
-    heading("Frame rate");
-    const bool blend_locked = interp::blend_env_locked();
-    bool blend = interp::blend_enabled();
-    if (check("In-between frames above 60 fps", blend, &blend, !blend_locked)) {
-        interp::set_blend_enabled(blend);
-        hostui::post([blend] { hostui::set("frameInterpolation", blend ? "1" : "0"); });
-    }
-    if (blend_locked) help("NSMBU_INTERP is set for this start and takes precedence.");
-    else help("On by default. Higher frame rates draw pictures between the game's 60 steps. Off keeps one picture per step, drawn at 60 fps. The 30 fps preset is unchanged.");
-
     heading("Overlay");
     bool v;
     if (check("Performance overlay (FPS summary)", perf_shown(), &v)) set_perf_shown(v);

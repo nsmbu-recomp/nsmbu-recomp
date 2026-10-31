@@ -70,10 +70,6 @@ static std::atomic<bool> g_blend{[] {
     if (e && *e) return atoi(e) != 0;
     return true;
 }()};
-bool blend_env_locked() {
-    const char* e = env::INTERP();
-    return e && *e;
-}
 bool blend_enabled() { return g_blend.load(std::memory_order_relaxed); }
 bool interp_on() { return g_on.load(std::memory_order_relaxed); }
 
@@ -93,12 +89,6 @@ void set_fast_forward(bool on) {
 }
 void pose_reset();
 void apply_pose_reset();
-void set_blend_enabled(bool on) {
-    if (blend_env_locked()) return;
-    if (g_blend.exchange(on, std::memory_order_relaxed) == on) return;
-    pose_reset();
-    LOG("[interp] in-between frames %s", on ? "on" : "off");
-}
 void set_unlocked(bool on) {
     if (g_unlocked.exchange(on, std::memory_order_relaxed) == on) return;
     pose_reset();

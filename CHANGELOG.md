@@ -18,10 +18,8 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
   The pose stays with that picture instead of jumping ahead on the next game step.
   Moving with the camera no longer leaves the models half a step behind the view.
   In-between frames follow the drawn bone matrices instead of rebuilding a rotation that lands off the pose.
-- Debug settings include **In-between frames above 60 fps**, on by default.
-  Off keeps the chosen frame rate selected and draws at 60 fps, one picture per game step.
-  The 30 fps preset is unchanged.
-  `NSMBU_INTERP` overrides the option for that start.
+- Debug settings no longer include a switch to turn in-between frames off.
+  `NSMBU_INTERP=0` still turns them off for that start.
 - `nsmbu save` recomputes every `rp_savedata.dat` block CRC and each challenge entry CRC when writing JSON back to `.dat`, so edited saves stay valid in game.
 - Press `T` in the game window to toggle between 60 fps and 120 fps frame interpolation (Vulkan SDL and macOS Metal).
 - World-map shadows no longer flicker at 120 fps.

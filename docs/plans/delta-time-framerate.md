@@ -100,7 +100,6 @@ In [gx2_core.cpp](../../runtime/src/gx2/gx2_core.cpp):
 - Frame menu: keep labeled caps; wire them to `present_cap` instead of `interp::set_fps` ladder semantics.
 - `NSMBU_INTERP_FPS` sets the present cap.
   `NSMBU_INTERP=0` turns interpolation off for that start: one present per logic step, paced at 60 when the chosen rate is above 60.
-  Debug can turn in-between frames off the same way when the variable is unset.
   The 30 fps preset still runs two logic steps per picture.
 - Hotkeys 6/7/9 stay; behavior description in overlay help updates to "present cap".
 

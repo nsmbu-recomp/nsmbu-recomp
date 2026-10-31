@@ -37,8 +37,6 @@ bool fast_forward();
 void set_unlocked(bool on);
 bool unlocked();
 bool blend_enabled();
-void set_blend_enabled(bool on);
-bool blend_env_locked();
 void toggle_fps(int f);
 const char* mode_name();
 int output_fps();
