@@ -7,6 +7,11 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ## [Unreleased]
 
+### Fixed
+
+- Windows Vulkan on older Intel integrated GPUs no longer crashes after the intro when loading the title screen (issue #42).
+  Attachment layer views now name their usage on Intel drivers; `NSMBU_VK_ATTACHMENT_VIEW_USAGE=0` turns that off.
+
 ## [0.8.1] - 2026-10-31
 
 ### Added
