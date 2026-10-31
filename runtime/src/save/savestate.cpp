@@ -168,7 +168,7 @@ std::string state_dir() {
         std::string d;
         if (const char* e = env::STATE_DIR()) d = e;
         else {
-#ifdef __APPLE__
+#if defined(__APPLE__) && !TARGET_OS_IPHONE
             d=std::string(getenv("HOME")?getenv("HOME"):".")+"/Library/Application Support/nsmbu/states";
 #else
             d=host::config_dir()+"/states";

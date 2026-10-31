@@ -9,9 +9,20 @@
 extern "C" {
 #endif
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
+
 #if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 
 #define PPC_MEM_BASE ((uint8_t*)0x1000000000ull)
+#elif defined(__APPLE__) && TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+/* iOS caps an app's address space at 63 GiB, and at far less without the extended-virtual-addressing entitlement,
+   and the shared cache and the app's own mappings move between launches: no fixed address is reliably free, so
+   mem::init lets the kernel place the 4 GiB space and stores where it went here */
+extern uint8_t* g_ppc_mem_base;
+#define PPC_MEM_BASE g_ppc_mem_base
+#define PPC_MEM_BASE_DYNAMIC 1
 #else
 #define PPC_MEM_BASE ((uint8_t*)0x200000000000ull)
 #endif

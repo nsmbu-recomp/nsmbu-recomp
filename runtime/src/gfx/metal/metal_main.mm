@@ -1,7 +1,12 @@
 #include "gfx/depth_peek.h"
 
 #include "core/env.h"
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+#import <Foundation/Foundation.h>
+#else
 #import <AppKit/AppKit.h>
+#endif
 #import <ImageIO/ImageIO.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
@@ -80,12 +85,23 @@ bool fxaa_enabled() { return g_fxaa.load(std::memory_order_relaxed); }
 void set_fxaa(bool v) { g_fxaa = v; LOG("[gfx] edge smoothing (FXAA) %s", v ? "on" : "off"); }
 
 static void map_guest_range(uint32_t base, uint32_t size) {
-    id<MTLBuffer> b = [R.device newBufferWithBytesNoCopy:mem::ptr(base)
-                                                  length:size
-                                                 options:MTLResourceStorageModeShared
-                                             deallocator:nil];
-    if (!b) fatal("cannot map guest memory %08X+%X for the GPU", base, size);
-    R.guest.push_back({base, size, b});
+    // A GPU buffer has a size limit (iPhone and iPad GPUs: possibly less than the 1 GiB MEM2 range). A larger
+    // range becomes overlapping buffers of the largest size, each starting half a buffer after the previous
+    // one: guest_buffer picks the one an address falls in the first half of, so at least half a buffer of
+    // guest memory follows every address
+    const uint64_t page = (uint64_t)getpagesize();
+    const uint64_t most = std::min<uint64_t>(R.device.maxBufferLength, size) & ~(page - 1);
+    const uint64_t step = most >= size ? size : (most / 2) & ~(page - 1);
+    if (step < size) LOG("[gfx] guest memory %08X+%X as buffers of %llu MiB (GPU limit)", base, size, (unsigned long long)(most >> 20));
+    for (uint64_t off = 0; off < size; off += step) {
+        const uint64_t len = std::min<uint64_t>(most >= size ? size : most, size - off);
+        id<MTLBuffer> b = [R.device newBufferWithBytesNoCopy:mem::ptr(base + (uint32_t)off)
+                                                      length:len
+                                                     options:MTLResourceStorageModeShared
+                                                 deallocator:nil];
+        if (!b) fatal("cannot map guest memory %08X+%llX for the GPU", base + (uint32_t)off, (unsigned long long)len);
+        R.guest.push_back({base + (uint32_t)off, (uint32_t)std::min<uint64_t>(step, size - off), b});
+    }
 }
 
 id<MTLBuffer> guest_buffer(uint32_t addr, uint32_t* offset) {
@@ -199,6 +215,8 @@ void init() {
     R.device = MTLCreateSystemDefaultDevice();
     if (!R.device) fatal("no Metal device");
     R.queue = [R.device newCommandQueue];
+    g_bc_native = R.device.supportsBCTextureCompression;
+    if (!g_bc_native) LOG("[gfx] no BC texture compression on this GPU: BC1-5 textures are decoded on upload");
     display_init();
 
     map_guest_range(0x10000000, 0x40000000);
@@ -208,7 +226,9 @@ void init() {
     LOG("[gfx] Metal device: %s", R.device.name.UTF8String);
 }
 
+#if !TARGET_OS_IPHONE
 void run_main_loop() { [NSApp run]; }
+#endif
 
 std::string device_name() { return R.device ? std::string(R.device.name.UTF8String) : std::string(); }
 

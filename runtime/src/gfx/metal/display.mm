@@ -1,7 +1,12 @@
 
 
 #include "core/env.h"
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+#import <UIKit/UIKit.h>
+#else
 #import <AppKit/AppKit.h>
+#endif
 #import <QuartzCore/QuartzCore.h>
 
 #include <atomic>
@@ -36,9 +41,11 @@ namespace mods { bool mouse_captured(); }
 
 namespace gfx {
 extern Renderer R;
+#if !TARGET_OS_IPHONE
 void install_menu(NSWindow* tv);
 Class tv_window_class();
 void install_quit_prompt(NSWindow* tv);
+#endif
 bool fxaa_enabled();
 void dump_texture(id<MTLTexture> src, const char* name, bool async, bool srgbEncode);
 
@@ -91,10 +98,15 @@ static void save_options() {
     g_settings[@"scaleFilter"] = @(kFilterNames[g_filter]);
     save_settings();
 }
+#if TARGET_OS_IPHONE
+static constexpr int kDefaultCorner = 1;  // top right, clear of the on-screen buttons (ios/touch_controls.mm)
+#else
+static constexpr int kDefaultCorner = 3;
+#endif
 static void load_options() {
     g_mode = find_name(kModeNames, kDrcModeCount, g_settings[@"drcMode"], kDrcDefaultMode);
-    if (!drc_mode_offered(g_mode)) g_mode = kDrcWindow;
-    g_corner = find_name(kCornerNames, 4, g_settings[@"pipCorner"], 3);
+    if (!drc_mode_offered(g_mode)) g_mode = kDrcDefaultMode;
+    g_corner = find_name(kCornerNames, 4, g_settings[@"pipCorner"], kDefaultCorner);
     g_filter = find_name(kFilterNames, 3, g_settings[@"scaleFilter"], kSmooth);
     if (NSNumber* n = g_settings[@"pipSize"]) g_pip_size = std::clamp(n.floatValue, 0.1f, 0.5f);
     if (NSNumber* n = g_settings[@"pipOpacity"]) g_pip_opacity = std::clamp(n.floatValue, 0.2f, 1.0f);
@@ -103,6 +115,9 @@ static void load_options() {
 
 }
 
+#if TARGET_OS_IPHONE
+#include "ios/display_ios.inc"
+#else
 @interface NsmbuDrcView : NSView
 @end
 @implementation NsmbuDrcView
@@ -454,6 +469,7 @@ static void create_windows() {
         }];
     }
 }
+#endif  // !TARGET_OS_IPHONE
 
 static const char* kPresentShader = R"(
 #include <metal_stdlib>
@@ -592,12 +608,17 @@ void display_vulkan_started() {
 }
 void display_detach() {
     for (int i = 0; i < 2; i++) {
+#if TARGET_OS_IPHONE
+        [g_layers[i] removeFromSuperlayer];
+#else
         if (g_windows[i]) [g_windows[i].contentView setLayer:nil];
+#endif
         g_layers[i] = nil;
     }
 }
 CAMetalLayer* display_layer(int i) { return g_layers[i]; }
 
+#if !TARGET_OS_IPHONE
 // the main thread's event loop, for either renderer
 void run_appkit_loop() {
     // orderly exit (Quit, Cmd+Q): the renderer writes its caches (Vulkan pipeline / SPIR-V caches)
@@ -660,6 +681,7 @@ void show_startup_notice(const std::string& title, const std::string& text) {
         else [a runModal];
     });
 }
+#endif  // !TARGET_OS_IPHONE
 
 // ---------------------------------------------------------------- composition
 static bool is_srgb(MTLPixelFormat f) { return f == MTLPixelFormatBGRA8Unorm_sRGB || f == MTLPixelFormatRGBA8Unorm_sRGB; }
@@ -838,11 +860,13 @@ static void present_to_layer(Screen& scr, void (^draw)(id<MTLTexture>)) {
     MTLPixelFormat want = scr.srgb ? MTLPixelFormatBGRA8Unorm_sRGB : MTLPixelFormatBGRA8Unorm;
     if (scr.layer.pixelFormat != want) scr.layer.pixelFormat = want;
     // uncapped (gx2::uncapped, debug): presentation does not wait for the display
+#if !TARGET_OS_IPHONE  // iOS always presents in sync with the display
     const bool sync = !gx2::uncapped() && !interp::unlocked();
     if (scr.layer.displaySyncEnabled != sync) {
         scr.layer.displaySyncEnabled = sync;
         if (&scr == &R.tv) interp::set_present_vsync(sync);
     }
+#endif
     if (!hostui::run_in_background() && !hostui::app_focused()) return;
     id<CAMetalDrawable> drawable = scr.visible ? [scr.layer nextDrawable] : nil;
     if (!drawable) return;
@@ -963,6 +987,7 @@ void display_set_pip(int corner, float size, float opacity) {
     g_pip_opacity = std::clamp(opacity, 0.2f, 1.0f);
     save_options();
 }
+#if !TARGET_OS_IPHONE
 void display_set_tv_fullscreen(bool on) {
     if (g_tv_window && is_fullscreen(g_tv_window) != on) [g_tv_window toggleFullScreen:nil];
 }
@@ -978,8 +1003,10 @@ bool drc_overlay_hit(void* window, double wx, double wy) {
     float tx, ty;
     return sz.width > 0 && sz.height > 0 && overlay_hit(p.x / sz.width, 1.0f - p.y / sz.height, &tx, &ty);
 }
+#endif  // !TARGET_OS_IPHONE
 
 // ---------------------------------------------------------------- Display menu
+#if !TARGET_OS_IPHONE
 void menu_options_changed();
 }  // namespace gfx
 
@@ -1113,5 +1140,6 @@ void install_display_menu(NSMenu* bar) {
     add(m, @"GamePad window full screen", @selector(drcFullScreen:));
     top.submenu = m;
 }
+#endif  // !TARGET_OS_IPHONE
 
 }  // namespace gfx

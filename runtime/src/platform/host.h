@@ -21,6 +21,7 @@
 #include <dlfcn.h>
 #endif
 #ifdef __APPLE__
+#include <TargetConditionals.h>
 #include <mach-o/ldsyms.h>
 #include <mach-o/dyld.h>
 #include <climits>
@@ -190,7 +191,10 @@ inline const std::string& portable_user_dir() {
 inline bool portable() { return !portable_user_dir().empty(); }
 inline std::string config_dir() {
  if(portable()) return portable_user_dir();
-#ifdef __APPLE__
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+ // in Documents, so the logs and settings show in the Files app
+ const char* home=getenv("HOME");return std::string(home?home:".")+"/Documents/NSMBU";
+#elif defined(__APPLE__)
  const char* home=getenv("HOME");return std::string(home?home:".")+"/Library/Application Support/NSMBU";
 #elif defined(_WIN32)
  const char* root=getenv("APPDATA");return std::string(root?root:".")+"/NSMBU";

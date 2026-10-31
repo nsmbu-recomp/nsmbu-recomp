@@ -26,6 +26,17 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 - `NSMBU_DUMP_FRAMES` accepts inclusive ranges (`760-767`).
   `NSMBU_DUMP_TITLE=N` writes `title_0000_logic.png` or `title_0000_blend.png` once the title picture is open, marking a logic frame or an interpolated frame.
 
+### Added
+
+- iOS and iPadOS build (`ios/build_ios.sh`, [docs/ios.md](docs/ios.md)): the Metal renderer in a UIKit app with on-screen controls, game controllers and hardware keyboards.
+  Picture-in-picture puts the GamePad picture over the TV picture, where it takes touches.
+- Metal decodes BC1–5 textures on upload when the GPU cannot sample them.
+
+### Fixed
+
+- iOS: the on-screen stick works while the GamePad picture fills the screen, as on the world map.
+- iOS builds give LuaJIT's clean step the iOS SDK, as its build step has.
+
 ## [0.8.0] - 2026-10-30
 
 ### Added

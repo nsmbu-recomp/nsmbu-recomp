@@ -1,4 +1,7 @@
 #include "core/env.h"
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
 #ifndef _WIN32
 #include <dlfcn.h>
 #include <fcntl.h>
@@ -404,6 +407,24 @@ static bool valid_open_pack(const char* s) {
     return course >= 1;
 }
 
+#if defined(__ANDROID__) || TARGET_OS_IPHONE
+// env.txt in the working folder: NAME=value lines for the NSMBU_* settings a phone has no shell for
+static void apply_env_txt() {
+    if (FILE* f = fopen("env.txt", "r")) {
+        char line[512];
+        while (fgets(line, sizeof line, f)) {
+            line[strcspn(line, "\r\n")] = 0;
+            char* eq = strchr(line, '=');
+            if (line[0] == '#' || !eq || eq == line) continue;
+            *eq = 0;
+            setenv(line, eq + 1, 1);
+            LOG("[boot] env.txt: %s=%s", line, eq + 1);
+        }
+        fclose(f);
+    }
+}
+#endif
+
 int main(int argc, char** argv) {
     if (const char* warm = env::SHADER_WARM())
         if (*warm && std::strcmp(warm, "0")) std::setvbuf(stderr, nullptr, _IONBF, 0);
@@ -423,18 +444,15 @@ int main(int argc, char** argv) {
 
         if (!env::INTERP()) interp::set_mode(1);
 
-        if (FILE* f = fopen("env.txt", "r")) {
-            char line[512];
-            while (fgets(line, sizeof line, f)) {
-                line[strcspn(line, "\r\n")] = 0;
-                char* eq = strchr(line, '=');
-                if (line[0] == '#' || !eq || eq == line) continue;
-                *eq = 0;
-                setenv(line, eq + 1, 1);
-                LOG("[boot] env.txt: %s=%s", line, eq + 1);
-            }
-            fclose(f);
-        }
+        apply_env_txt();
+    }
+#endif
+#if TARGET_OS_IPHONE
+    // the app's Documents folder, which the Files app and Finder show: game/, nsmbu/save/, env.txt, logs
+    if (const char* home = getenv("HOME")) {
+        const std::string docs = std::string(home) + "/Documents";
+        if (chdir(docs.c_str()) != 0) fprintf(stderr, "cannot enter %s\n", docs.c_str());
+        apply_env_txt();
     }
 #endif
     bool warm_shaders = false;
@@ -511,7 +529,14 @@ int main(int argc, char** argv) {
     mods::cemu::set_vulkan(render::requested()==render::Api::Vulkan);
     mods::content::set_game_root(config::game_dir);
     mods::packages::initialize();
+#if TARGET_OS_IPHONE
+    if (const std::string why = game_folder::unusable_reason(config::game_dir); !why.empty())
+        game_folder::fail(why + "\n\nCopy the extracted game (the folder with code, content and meta) into this app's "
+                                "Documents as a folder named game: in the Files app under On My iPhone/iPad > NSMBU, or "
+                                "with Finder (your device > Files > NSMBU). Then open the app again.");
+#else
     if (const std::string why = game_folder::unusable_reason(config::game_dir); !why.empty()) game_folder::fail(why);
+#endif
     mem::init();
 
     LoadedModule m{};
