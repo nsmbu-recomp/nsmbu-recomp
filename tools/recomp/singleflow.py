@@ -68,13 +68,23 @@ class _ArrMap:
         return default if i is None else self.arr[i]
 
 
+def _import_mp():
+    try:
+        import multiprocessing as mp
+    except ImportError:
+        return None
+    return mp
+
+
 def _fork_ok():
     if os.environ.get("NSMBU_RECOMP_SPAWN") == "1" or sys.platform == "win32":
         return False
-    import multiprocessing as mp
     try:
+        mp = _import_mp()
+        if mp is None:
+            return False
         mp.get_context("fork")
-    except ValueError:
+    except (ImportError, ValueError):
         return False
     return True
 

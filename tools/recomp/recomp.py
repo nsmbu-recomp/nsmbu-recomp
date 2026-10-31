@@ -105,10 +105,23 @@ def _job_count(requested):
     return requested
 
 
+def _import_mp():
+    try:
+        import multiprocessing as mp
+    except ImportError:
+        return None
+    return mp
+
+
 def _fork_ok():
     if os.environ.get("NSMBU_RECOMP_SPAWN") == "1" or sys.platform == "win32":
         return False
-    import multiprocessing as mp
+    try:
+        mp = _import_mp()
+    except ImportError:
+        return False
+    if mp is None:
+        return False
     try:
         mp.get_context("fork")
     except ValueError:
@@ -153,7 +166,12 @@ def _open_pool(jobs, rc):
     _RC = rc
     if jobs <= 1:
         return _SeqPool(), None
-    import multiprocessing as mp
+    try:
+        mp = _import_mp()
+    except ImportError:
+        return _SeqPool(), None
+    if mp is None:
+        return _SeqPool(), None
     if _fork_ok():
         try:
             return mp.get_context("fork").Pool(jobs), None
