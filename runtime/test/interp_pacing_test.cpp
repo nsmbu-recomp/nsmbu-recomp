@@ -340,6 +340,26 @@ static void test_hold_shed() {
     CHECK(logic_step_budget(4, 2) == 1);
 }
 
+static void test_present_sample_order() {
+    CHECK(present_sample_t(true, 1.f) == 0.f);
+    CHECK(present_sample_t(false, 0.5f) == 0.5f);
+    CHECK(present_sample_t(false, -1.f) == 0.f);
+    CHECK(present_sample_t(false, 2.f) == 1.f);
+    float shown = 0.f;
+    float prev = 0.f, next = 0.f;
+    for (int step = 1; step <= 6; step++) {
+        prev = next;
+        next = float(step);
+        const float logic = lerp_f(prev, next, present_sample_t(true, 1.f));
+        CHECK(logic + 1e-4f >= shown);
+        shown = logic;
+        const float hold = lerp_f(prev, next, present_sample_t(false, 0.5f));
+        CHECK(hold + 1e-4f >= shown);
+        shown = hold;
+    }
+    CHECK_NEAR(shown, 5.5f, 1e-3);
+}
+
 static void test_present_spacing() {
     const int caps[] = {30, 60, 120, 144, 165, 240};
     for (int cap : caps) {
@@ -369,6 +389,7 @@ int main() {
     test_present_gap();
     test_swap_align();
     test_hold_shed();
+    test_present_sample_order();
     test_present_spacing();
     if (g_failed) {
         std::fprintf(stderr, "interp_pacing_test: %d check(s) failed\n", g_failed);

@@ -93,6 +93,13 @@ inline float blend_t(int64_t acc_ns) {
 
 inline float present_t(int logic_steps, float open_t) { return logic_steps > 0 ? 1.f : open_t; }
 
+inline float present_sample_t(bool logic_step, float hold_t) {
+    if (logic_step) return 0.f;
+    if (hold_t < 0.f) return 0.f;
+    if (hold_t > 1.f) return 1.f;
+    return hold_t;
+}
+
 struct WakePlan {
     int logic_steps = 0;
     float t = 1.f;

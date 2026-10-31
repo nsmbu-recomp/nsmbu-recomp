@@ -9,7 +9,8 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 - `nsmbu save` recomputes every `rp_savedata.dat` block CRC and each challenge entry CRC when writing JSON back to `.dat`, so edited saves stay valid in game.
 - Press `T` in the game window to toggle between 60 fps and 120 fps frame interpolation (Vulkan SDL and macOS Metal).
-- 120 fps hold passes blend model poses between logic steps (calcGPU runs on the hold frame's draw, while one frame may still be in flight).
+- 120 fps no longer jitters models and the camera.
+  The logic picture keeps the earlier pose, and the in-between picture is the halfway pose, so motion does not step backward on every other frame.
 - `NSMBU_DUMP_FRAMES` accepts inclusive ranges (`760-767`).
   `NSMBU_DUMP_TITLE=N` writes `title_0000_logic.png` or `title_0000_blend.png` once the title picture is open, marking a logic frame or an interpolated frame.
 
