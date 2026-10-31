@@ -7,7 +7,9 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ## [Unreleased]
 
-- Android setup finishes translating when Python has no multiprocessing module. It uses one process instead of stopping.
+- Android setup finishes translating when Python has no multiprocessing module.
+  It uses one process instead of stopping.
+- Course tiles stay visible on Metal when internal resolution is above 1x.
 - Course pose uploads go through the regional code map.
 - `interp_picture_test` keeps the uniform bytes from submit after the live block changes.
 - In-between frames blend course model animation with the camera.
