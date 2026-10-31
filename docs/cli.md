@@ -115,6 +115,7 @@ Generated C uses `musttail`, so the build uses Clang.
 On Linux, `tools/build/build.py` adds the `libstdc++` path when it finds `libstdc++.so` under `/usr/lib/gcc/`.
 
 `nsmbu build` runs the recompiler when `game/code/red-pro2.rpx` is newer than `build/gen`.
+It also runs the recompiler when `hooks.txt` or a `hooks_*.txt` file is newer than that output.
 When that RPX is absent, the build fills `build/gen` with `tools/recomp/stubgen.py` so the tree still links.
 
 Set `NSMBU_VERBOSE_BUILD=1` to print full CMake configure output (pkg-config checks and other `--` status lines).

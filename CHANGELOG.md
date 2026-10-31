@@ -7,6 +7,10 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ## [Unreleased]
 
+- The recompiler prints each phase while it runs.
+  Float analysis and translation show how far they have got.
+- A rebuild compiles new hooks into the game.
+  Changing `hooks.txt` used to leave the previous guest code in place, so the Mii draw still crashed.
 - Android setup finishes translating when Python has no multiprocessing module.
   It uses one process instead of stopping.
 - Course tiles stay visible on Metal when internal resolution is above 1x.

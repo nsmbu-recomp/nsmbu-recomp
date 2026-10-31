@@ -60,6 +60,22 @@ class BuildConfigureTest(unittest.TestCase):
                 )
             )
 
+    def test_gen_sources_newer_when_hook_file_is_newer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            table = os.path.join(tmp, "table.c")
+            hook = os.path.join(tmp, "hooks.txt")
+            with open(table, "w", encoding="utf-8") as handle:
+                handle.write("old\n")
+            with open(hook, "w", encoding="utf-8") as handle:
+                handle.write("new\n")
+            os.utime(table, (1, 1))
+            os.utime(hook, (2, 2))
+            self.assertTrue(build.gen_sources_newer(table, [hook]))
+            os.utime(table, (3, 3))
+            self.assertFalse(build.gen_sources_newer(table, [hook]))
+            self.assertFalse(build.gen_sources_newer(table, [os.path.join(tmp, "missing.txt")]))
+            self.assertTrue(build.gen_sources_newer(os.path.join(tmp, "absent.c"), [hook]))
+
     def test_cmake_define_args(self):
         defines = build.cmake_define_args([], bundled_default=True, setup_gui=False)
         self.assertEqual(defines["NSMBU_BUNDLED_DEPS"], "ON")

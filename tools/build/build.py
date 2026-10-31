@@ -79,6 +79,19 @@ def gen_is_stub(gen):
     with open(report, encoding="utf-8", errors="replace") as handle:
         return handle.readline().startswith("placeholder from stubgen.py")
 
+def gen_sources_newer(table, sources):
+    if not os.path.isfile(table):
+        return True
+    table_mtime = os.path.getmtime(table)
+    for path in sources:
+        try:
+            newer = os.path.getmtime(path) > table_mtime
+        except OSError:
+            continue
+        if newer:
+            return True
+    return False
+
 def link_compile_commands(build_dir):
     src = os.path.join(build_dir, "compile_commands.json")
     if not os.path.isfile(src):
@@ -171,6 +184,7 @@ def ensure_gen_dir():
             or not os.path.isfile(table)
             or os.path.getmtime(rpx) > os.path.getmtime(table)
             or (want is not None and have is not None and want != have)
+            or gen_sources_newer(table, builds.hook_files())
         )
         if stale:
             subprocess.run(

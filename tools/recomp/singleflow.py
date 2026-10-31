@@ -17,6 +17,7 @@ remove until stable). NSMBU_RECOMP_SINGLE_IP=0 keeps the per-function analysis a
 import ctypes
 import os
 import sys
+import time
 
 import ppc2c
 
@@ -351,19 +352,27 @@ class Solver:
             ret &= self.after_call(out, "direct", f.end)
         return state, sites, ret
 
-    def solve(self, jobs=1):
-        if jobs > 1 and len(self.funcs) >= 256 and _fork_ok():
-            return self._solve_parallel(jobs)
-        return self._solve_worklist()
+    def solve(self, jobs=1, log=None):
+        parallel = jobs > 1 and len(self.funcs) >= 256 and _fork_ok()
+        if log:
+            how = "%d processes" % jobs if parallel else "one process"
+            log("recomp: float analysis, %d functions, %s" % (len(self.funcs), how))
+        if parallel:
+            return self._solve_parallel(jobs, log)
+        return self._solve_worklist(log)
 
-    def _solve_worklist(self):
+    def _solve_worklist(self, log=None):
         work = list(self.funcs)
         queued = set(work)
         rounds = 0
+        t0 = time.time()
         while work:
             s = work.pop()
             queued.discard(s)
             rounds += 1
+            if log and rounds % 50000 == 0:
+                log("recomp: float analysis checked %d functions, %d waiting, %.1f s" % (
+                    rounds, len(work), time.time() - t0))
             f = self.funcs[s]
             _, sites, ret = self.run(f, self.entry[s])
             if ret != self.ret[s]:
@@ -372,7 +381,6 @@ class Solver:
                     if c not in queued:
                         queued.add(c)
                         work.append(c)
-            # a callee's entry: what holds at all its call sites (recomputed from every caller's sites)
             for t, st in sites.items():
                 if t not in self.funcs or self.entry[t] == 0:
                     continue
@@ -385,7 +393,7 @@ class Solver:
         self.rounds = rounds
         return self
 
-    def _solve_parallel(self, jobs):
+    def _solve_parallel(self, jobs, log=None):
         """Same fixpoint as _solve_worklist, one sweep at a time across processes.
 
         Each sweep reads the masks from the sweep before it. A mask only loses bits, so the
@@ -409,6 +417,7 @@ class Solver:
         _LOCAL = None
         rounds = 0
         dirty = starts
+        t0 = time.time()
         ctx = mp.get_context("fork")
         try:
             with ctx.Pool(jobs) as pool:
@@ -432,6 +441,9 @@ class Solver:
                                 entry_c[j] = merged
                                 next_dirty.add(starts[j])
                     dirty = [s for s in starts if s in next_dirty]
+                    if log:
+                        log("recomp: float analysis sweep %d, %d functions left, %.1f s" % (
+                            sweeps, len(dirty), time.time() - t0))
             self.entry = {s: int(entry_c[i]) for i, s in enumerate(starts)}
             self.ret = {s: int(ret_c[i]) for i, s in enumerate(starts)}
         finally:
