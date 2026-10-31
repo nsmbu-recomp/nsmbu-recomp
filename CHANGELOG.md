@@ -7,68 +7,39 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-31
+
+### Added
+
 - Mods work on the USA and Europe base disc (title version 0), not only on the 1.3.0 update or combo packs.
-- The pre-push hook lives only as `.git-hooks/pre_push.py`.
-  Point `.git/hooks/pre-push` at that script.
-  The script finds the repository from either path.
-- In-between frames blend every player's head.
-  Luigi and both Toads were staying on the 60 Hz step, including on the title screen.
+- iOS and iPadOS build: the Metal renderer in a UIKit app with on-screen controls, game controllers, and hardware keyboards.
+  Picture-in-picture puts the GamePad picture over the TV picture, where it takes touches.
+- Press `T` in the game window to toggle between 60 fps and 120 fps frame interpolation (Vulkan SDL and macOS Metal).
+- Metal decodes BC1–5 textures on upload when the GPU cannot sample them.
+
+### Changed
+
 - The performance overlay uses a clearer layout with labeled rows for output FPS, logic rate, CPU and GPU timing, and presentation settings.
   Debug overlay sections are independent (output, graph, presentation, waits, and more).
   It no longer repeats the GPU name, driver, and Vulkan version in the corner (those stay in Copy performance report).
 - Settings uses a compact header: tabs sit on the same row as the close button, without the controller help line under the title.
 - Graphics card choice for the next start is at the bottom of the Graphics tab instead of Debug.
-- The recompiler prints each phase while it runs.
-  Float analysis and translation show how far they have got.
-- A rebuild compiles new hooks into the game.
-  Changing `hooks.txt` used to leave the previous guest code in place, so the Mii draw still crashed.
-  The recompiler runs again only when a hook file's contents change.
-- Android setup finishes translating when Python has no multiprocessing module.
-  It uses one process instead of stopping.
-- Course tiles stay visible on Metal when internal resolution is above 1x.
-- Boost Rush no longer crashes when a Mii is drawn before its shader exists.
-  The opaque and translucent Mii draws return while that program is null.
-- Boost Rush challenges on a USA or Europe base disc no longer crash while the course loads.
-  The base-disc stock HUD draw runs while AreaTask is null.
-  The 1.3.0 hook does not cover that address.
-- Course pose uploads go through the regional code map.
-- `interp_picture_test` keeps the uniform bytes from submit after the live block changes.
-- Mario's head moves with the rest of his body on in-between frames.
-  The head is a separate model with no skeleton uniform, so its shape matrix was staying on the 60 Hz step.
-- In-between frames use the halfway camera in the model view-projection, not only on the bone.
-  The picture was keeping the full camera step once the view started to scroll.
-- `pose-direction-120` checks that an in-between bone stays between the two logic poses while the camera follows.
-- In-between frames blend course model animation with the camera.
-  The pose stays with that picture instead of jumping ahead on the next game step.
-  Moving with the camera no longer leaves the models half a step behind the view.
-  In-between frames follow the drawn bone matrices instead of rebuilding a rotation that lands off the pose.
-- Debug settings no longer include a switch to turn in-between frames off.
-  `NSMBU_INTERP=0` still turns them off for that start.
-- `nsmbu save` recomputes every `rp_savedata.dat` block CRC and each challenge entry CRC when writing JSON back to `.dat`, so edited saves stay valid in game.
-- Press `T` in the game window to toggle between 60 fps and 120 fps frame interpolation (Vulkan SDL and macOS Metal).
-- World-map shadows no longer flicker at 120 fps.
-  The picture is taken on the in-between present, after the light maps are ready.
-  Drawing on the logic present replaced those maps while the picture was still being shown.
-- 120 fps no longer steps the camera backward on the in-between frame.
-  The in-between camera uses the pose the last logic step wrote.
-  Changing the frame rate drops the saved poses instead of blending across the gap.
-- In-between frames no longer rewrite model poses.
-  The picture on screen is the one `ModelG3d::calc` already drew.
-- `nsmbu bench load-overworld` opens one visible window, presses through the save file onto the world map, and writes a render trace.
-  A second bench does not start while a game is running.
-- `NSMBU_DUMP_FRAMES` accepts inclusive ranges (`760-767`).
-  `NSMBU_DUMP_TITLE=N` writes `title_0000_logic.png` or `title_0000_blend.png` once the title picture is open, marking a logic frame or an interpolated frame.
-
-### Added
-
-- iOS and iPadOS build (`ios/build_ios.sh`, [docs/ios.md](docs/ios.md)): the Metal renderer in a UIKit app with on-screen controls, game controllers and hardware keyboards.
-  Picture-in-picture puts the GamePad picture over the TV picture, where it takes touches.
-- Metal decodes BC1–5 textures on upload when the GPU cannot sample them.
+- In-between frames blend every player's head and course model animation with the camera.
+  Mario's head, Luigi, and both Toads move with the rest of the body instead of staying on the 60 Hz step.
+  Moving with the camera no longer leaves models half a step behind the view.
+- Setup and a full recompile pick up hook changes again, so fixes that rely on new hooks ship after you rebuild.
 
 ### Fixed
 
+- Boost Rush no longer crashes when a Mii is drawn before its shader exists, and Boost Rush on a USA or Europe base disc no longer crashes while the course loads.
+- Android setup finishes translating when the phone's Python has no multiprocessing module.
+  It uses one process instead of stopping.
+- Course tiles stay visible on Metal when internal resolution is above 1x.
+- World-map shadows no longer flicker at 120 fps.
+  The picture is taken on the in-between present, after the light maps are ready.
+- 120 fps no longer steps the camera backward on the in-between frame.
+  Changing the frame rate drops saved poses instead of blending across the gap.
 - iOS: the on-screen stick works while the GamePad picture fills the screen, as on the world map.
-- iOS builds give LuaJIT's clean step the iOS SDK, as its build step has.
 
 ## [0.8.0] - 2026-10-30
 
@@ -361,7 +332,8 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 - The TV and GamePad present together on one vsync.
 
-[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.7.0...v0.7.1
