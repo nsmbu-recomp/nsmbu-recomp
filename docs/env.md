@@ -40,6 +40,12 @@ Snapshot that block at submit, as `vendor/ZeldaWWHDRecomp/runtime/src/gx2/submit
 `vendor/decomp/docs/frame-loop.md` is the order of `ModelG3d::calc`, `calcGPU`, and the render-thread copy.
 `interp_picture_test` checks that a later write to the live block leaves the copied pose unchanged.
 A pose or camera change is done when that test passes and two consecutive TV frames are dumped with `NSMBU_DUMP_FRAMES`.
+`NSMBU_INTERP_MODEL_TRACE` is how many moving course pictures to log.
+Each `[interp] pose` line has the hold flag, the blend weight, and the previous, current, and drawn bone translations.
+`nsmbu test pose-direction-120` walks in `1-1` at 120 fps and checks that drawn point stays on the segment between the two logic poses.
+Mario's head is a one-bone model with no skeleton uniform, and that test also checks the uploaded shape matrix.
+The model view-projection is rebuilt from that same halfway camera.
+A hold does not run `calcGPU`, so the uniform would otherwise keep the full camera step.
 The dump steps are in `docs/automation.md`.
 `NSMBU_INTERP_FPS` is a present cap.
 30, 60, 120, 144, 165, and 240 are the listed rates.
@@ -48,11 +54,9 @@ A value below 60 other than the 30 preset is 60.
 Guest logic stays at 60 steps/s.
 The 30 fps preset runs two logic steps per picture.
 `NSMBU_UNCAPPED=1` starts in Fast forward: one game step per picture and no frame limit.
-`NSMBU_INTERP=0` forces interpolation off for that start and takes precedence over Debug.
+`NSMBU_INTERP=0` forces interpolation off for that start.
 `NSMBU_INTERP=1` forces it on.
 When `NSMBU_INTERP` is unset, in-between frames above 60 fps are on.
-Debug can turn them off.
-That choice is saved as `frameInterpolation`.
 Off keeps one picture per game step and paces those pictures at 60 fps.
 The 30 fps preset still runs two logic steps per picture.
 Other interpolation variables (`NSMBU_INTERP_PACED`, and the rest in `env.h`) are listed only in `env.h` unless a feature doc describes them.

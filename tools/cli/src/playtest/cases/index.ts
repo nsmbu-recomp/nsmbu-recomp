@@ -4,6 +4,7 @@ import { courseEnter120 } from "./course-enter-120.ts";
 import { logicRate120 } from "./logic-rate-120.ts";
 import { mapShadow120 } from "./map-shadow-120.ts";
 import { openedCourse } from "./opened-course.ts";
+import { poseDirection120 } from "./pose-direction-120.ts";
 import { openingCinematic } from "./opening-cinematic.ts";
 import { saveRoundtrip } from "./save-roundtrip.ts";
 import { saveState } from "./save-state.ts";
@@ -16,6 +17,7 @@ export type { PlayCase } from "../helpers.ts";
 export const CASES: PlayCase[] = [
     startup,
     openedCourse,
+    poseDirection120,
     openingCinematic,
     saveRoundtrip,
     saveState,
