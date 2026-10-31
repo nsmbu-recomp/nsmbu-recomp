@@ -9,8 +9,15 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 - Course pose uploads go through the regional code map.
 - `interp_picture_test` keeps the uniform bytes from submit after the live block changes.
+- Mario's head moves with the rest of his body on in-between frames.
+  The head is a separate model with no skeleton uniform, so its shape matrix was staying on the 60 Hz step.
+- In-between frames use the halfway camera in the model view-projection, not only on the bone.
+  The picture was keeping the full camera step once the view started to scroll.
+- `pose-direction-120` checks that an in-between bone stays between the two logic poses while the camera follows.
 - In-between frames blend course model animation with the camera.
   The pose stays with that picture instead of jumping ahead on the next game step.
+  Moving with the camera no longer leaves the models half a step behind the view.
+  In-between frames follow the drawn bone matrices instead of rebuilding a rotation that lands off the pose.
 - Debug settings include **In-between frames above 60 fps**, on by default.
   Off keeps the chosen frame rate selected and draws at 60 fps, one picture per game step.
   The 30 fps preset is unchanged.

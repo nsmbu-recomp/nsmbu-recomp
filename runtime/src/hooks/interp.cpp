@@ -243,6 +243,9 @@ constexpr uint32_t kViewInfo = 0x4C8;
 constexpr uint32_t kViewStride = 0x80;
 constexpr uint32_t kViewProj = 0x34;
 constexpr uint32_t kBgScreen = 0x88;
+constexpr uint32_t kModelEnv = 0x4A8;
+constexpr uint32_t kEnvObjSet = 0x294;
+const uint32_t kSetUniformData = GC(0x024EE8A0);
 
 struct CamBox {
     float v[4] = {0, 0, 0, 0};
@@ -306,6 +309,12 @@ void write_view_proj(Cpu* c, uint32_t mgr, uint32_t view, uint32_t proj) {
     const uint32_t m = c->r[3];
     if (!m) return;
     for (int i = 0; i < 16; i++) st32(vi + kViewProj + 4 * i, ld32(m + 4 * i));
+}
+
+void refresh_model_env(Cpu* c, uint32_t mgr, uint32_t view) {
+    const uint32_t vi = view_info(mgr, view);
+    if (!vi) return;
+    guest_call(c, kSetUniformData, {mgr + kModelEnv, view, vi + 4, vi + kViewProj, ld32(vi + 0x74), mgr + kEnvObjSet, ld32(vi + 0x7C)});
 }
 
 void remember_view(uint32_t mgr, uint32_t view, uint32_t proj) {
@@ -390,18 +399,17 @@ void present_camera(Cpu* c, uint32_t r, const float* live, uint32_t mgr, uint32_
     }
     const float t = pacing::present_sample_t(!g_hold, pass_t());
     float box[4];
-    bool same = true;
-    for (int i = 0; i < 4; i++) {
-        box[i] = pacing::lerp_f(g_cam.v[i], g_cam_cur[i], t);
-        if (std::fabs(box[i] - live[i]) > 0.01f) same = false;
-    }
-    if (same) {
-        cam_trace("same", g_cam.v, g_cam_cur, box);
-        return;
-    }
+    for (int i = 0; i < 4; i++) box[i] = pacing::lerp_f(g_cam.v[i], g_cam_cur[i], t);
     apply_box(c, r, box);
-    if (proj) write_view_proj(c, mgr, view, proj);
-    else for (int i = 0; i < g_view_n; i++) write_view_proj(c, g_views[i].mgr, g_views[i].view, g_views[i].proj);
+    if (proj) {
+        write_view_proj(c, mgr, view, proj);
+        refresh_model_env(c, mgr, view);
+    } else {
+        for (int i = 0; i < g_view_n; i++) {
+            write_view_proj(c, g_views[i].mgr, g_views[i].view, g_views[i].proj);
+            refresh_model_env(c, g_views[i].mgr, g_views[i].view);
+        }
+    }
     apply_box(c, r, live);
     cam_trace(g_hold ? "hold" : "older", g_cam.v, g_cam_cur, box);
 }
@@ -415,6 +423,7 @@ void apply_hold_camera(Cpu* c) {
     if (!read_box(r, cur)) {
         for (int i = 0; i < 4; i++) cur[i] = g_cam_cur[i];
     }
+    shift_camera(cur);
     present_camera(c, r, cur, 0, 0, 0);
 }
 
@@ -435,16 +444,20 @@ void apply_pose_reset() {
 namespace interp {
 namespace {
 void record_model(Cpu* c);
+void reblend_held(Cpu* c);
 }
 }
 
 extern "C" void hook_024F30DC(Cpu* c) {
     const uint32_t model = c->r[3];
     const uint32_t view = c->r[4];
+    const uint32_t view_mtx = c->r[5];
     f_024F30DC_orig(c);
     c->r[3] = model;
     c->r[4] = view;
+    c->r[5] = view_mtx;
     interp::record_model(c);
+    interp::reblend_held(c);
 }
 
 
@@ -463,6 +476,7 @@ struct ModelPose {
     bool ubo_blended = false;
     picture::Submitted submitted;
     std::vector<uint8_t> views;
+    std::vector<uint32_t> view_mtx;
     std::vector<uint32_t> prev;
     std::vector<uint8_t> prev_stale;
     std::vector<uint32_t> cur;
@@ -473,11 +487,16 @@ bool g_in_model_present = false;
 
 void clear_model_poses() { g_models.clear(); }
 
-void note_view(ModelPose& p, uint32_t view) {
+void note_view(ModelPose& p, uint32_t view, uint32_t mtx) {
     if (view > 31) return;
-    for (uint8_t v : p.views)
-        if (v == view) return;
-    if (p.views.size() < 4) p.views.push_back(static_cast<uint8_t>(view));
+    for (size_t i = 0; i < p.views.size(); i++)
+        if (p.views[i] == view) {
+            if (mtx) p.view_mtx[i] = mtx;
+            return;
+        }
+    if (p.views.size() >= 4) return;
+    p.views.push_back(static_cast<uint8_t>(view));
+    p.view_mtx.push_back(mtx);
 }
 
 bool bone_hidden(uint32_t model, uint32_t bone, uint32_t n, const std::vector<uint8_t>& has_shape) {
@@ -502,6 +521,99 @@ void shape_bones(uint32_t model, uint32_t n, std::vector<uint8_t>& has_shape) {
     }
 }
 
+struct PoseTrace {
+    bool on = false;
+    float travel = -1.f;
+    float elem_delta = -1.f;
+    uint32_t bones = 0;
+    uint32_t bone = 0;
+    uint32_t elem = 0;
+    float prev[3] = {};
+    float cur[3] = {};
+    float drawn[3] = {};
+    float e_prev = 0.f;
+    float e_cur = 0.f;
+    float e_drawn = 0.f;
+};
+
+void bone_xyz(const uint32_t* m, float* o) {
+    o[0] = joints::word_f(m[3]);
+    o[1] = joints::word_f(m[7]);
+    o[2] = joints::word_f(m[11]);
+}
+
+void consider_pose(PoseTrace& tr, const ModelPose& p, const uint32_t* drawn) {
+    if (env::INTERP_MODEL_TRACE.integer_or(0) <= 0 || p.n == 0) return;
+    float best_elem = -1.f;
+    float best_travel = 0.f;
+    uint32_t bone = 0;
+    uint32_t elem = 0;
+    float pv[3] = {}, cu[3] = {}, dr[3] = {};
+    float ep = 0.f, ec = 0.f, ed = 0.f;
+    for (uint32_t j = 0; j < p.n; j++) {
+        float a[3], b[3], d[3];
+        bone_xyz(p.prev.data() + joints::kWords * j, a);
+        bone_xyz(p.cur.data() + joints::kWords * j, b);
+        bone_xyz(drawn + joints::kWords * j, d);
+        const float dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
+        const float dist = dx * dx + dy * dy + dz * dz;
+        const uint32_t* prev_w = p.prev.data() + joints::kWords * j;
+        const uint32_t* cur_w = p.cur.data() + joints::kWords * j;
+        const uint32_t* drawn_w = drawn + joints::kWords * j;
+        for (uint32_t k = 0; k < joints::kWords; k++) {
+            const float pa = joints::word_f(prev_w[k]);
+            const float pb = joints::word_f(cur_w[k]);
+            const float delta = std::fabs(pb - pa);
+            if (delta <= best_elem) continue;
+            best_elem = delta;
+            best_travel = dist;
+            bone = j;
+            elem = k;
+            ep = pa;
+            ec = pb;
+            ed = joints::word_f(drawn_w[k]);
+            for (int axis = 0; axis < 3; axis++) {
+                pv[axis] = a[axis];
+                cu[axis] = b[axis];
+                dr[axis] = d[axis];
+            }
+        }
+    }
+    if (best_elem <= tr.elem_delta) return;
+    tr.on = true;
+    tr.elem_delta = best_elem;
+    tr.travel = best_travel;
+    tr.bones = p.n;
+    tr.bone = bone;
+    tr.elem = elem;
+    tr.e_prev = ep;
+    tr.e_cur = ec;
+    tr.e_drawn = ed;
+    for (int k = 0; k < 3; k++) {
+        tr.prev[k] = pv[k];
+        tr.cur[k] = cu[k];
+        tr.drawn[k] = dr[k];
+    }
+}
+
+void log_pose(const PoseTrace& tr, float t) {
+    static int left = env::INTERP_MODEL_TRACE.integer_or(0);
+    if (!tr.on || left <= 0 || tr.elem_delta < 0.02f) return;
+    left--;
+    float camP[4] = {}, camC[4] = {}, camD[4] = {};
+    if (g_cam.valid && g_cam_cur_valid) {
+        for (int i = 0; i < 4; i++) {
+            camP[i] = g_cam.v[i];
+            camC[i] = g_cam_cur[i];
+            camD[i] = pacing::lerp_f(camP[i], camC[i], t);
+        }
+    }
+    LOG("[interp] pose hold=%d t=%.3f step=%llu bones=%u bone=%u elem=%u ePrev=%.4f eCur=%.4f eDrawn=%.4f travel=%.3f prev=%.3f,%.3f,%.3f cur=%.3f,%.3f,%.3f drawn=%.3f,%.3f,%.3f camPrev=%.2f,%.2f,%.2f,%.2f camCur=%.2f,%.2f,%.2f,%.2f camDrawn=%.2f,%.2f,%.2f,%.2f",
+        g_hold ? 1 : 0, t, (unsigned long long)g_logic_steps, tr.bones, tr.bone, tr.elem, tr.e_prev, tr.e_cur, tr.e_drawn,
+        std::sqrt(std::max(0.f, tr.travel)), tr.prev[0], tr.prev[1], tr.prev[2], tr.cur[0], tr.cur[1], tr.cur[2], tr.drawn[0], tr.drawn[1],
+        tr.drawn[2], camP[0], camP[1], camP[2], camP[3], camC[0], camC[1], camC[2], camC[3], camD[0], camD[1], camD[2], camD[3]);
+}
+
 void upload_pose(Cpu* c, ModelPose& p) {
     const uint32_t obj = ld32(p.model + 0x40);
     const uint32_t count = p.views.empty() ? 1u : static_cast<uint32_t>(p.views.size());
@@ -509,6 +621,18 @@ void upload_pose(Cpu* c, ModelPose& p) {
         const uint32_t view = p.views.empty() ? 0u : p.views[i];
         guest_call(c, kCalcView, {obj, view});
         guest_call(c, kUploadShapes, {p.model + 0x28, view});
+        const uint32_t view_mtx = i < p.view_mtx.size() ? p.view_mtx[i] : 0;
+        if (view_mtx && wwatch::readable(view_mtx, 0x30) && wwatch::readable(p.model + 0x35, 1) && mem::ptr(p.model + 0x35)[0]) {
+            c->r[3] = p.model;
+            c->r[4] = view;
+            c->r[5] = view_mtx;
+            f_024F30DC_orig(c);
+            static bool logged = false;
+            if (!logged) {
+                logged = true;
+                LOG("[interp] view-dependent pose on");
+            }
+        }
     }
     if (!obj || !wwatch::readable(obj, 0x20)) return;
     const uint32_t block = ld32(obj + 0x18);
@@ -517,10 +641,14 @@ void upload_pose(Cpu* c, ModelPose& p) {
     picture::snapshot(p.submitted, mem::ptr(block), size);
 }
 
+
+uint32_t player_model(uint32_t anim_off);
+
 void record_model(Cpu* c) {
     if (g_in_model_present || !enabled() || !blend_enabled() || g_hold || !g_logic_pass || !course_play_active()) return;
     const uint32_t model = c->r[3];
     const uint32_t view = c->r[4];
+    const uint32_t view_mtx = c->r[5];
     if (!wwatch::readable(model, 0x48)) return;
     const uint32_t obj = ld32(model + 0x40);
     if (!obj || !wwatch::readable(obj, 0x20)) return;
@@ -529,14 +657,15 @@ void record_model(Cpu* c) {
     const uint32_t ubo_size = ld32(obj + 0x1C);
     if (!res || !mtx || !wwatch::readable(res, 0xC)) return;
     const uint32_t n = ld16(res + 8);
-    if (n == 0 || n > kMaxBones || ubo_size == 0 || ubo_size > n * 0x40) return;
+    if (n == 0 || n > kMaxBones || ubo_size > 0x40000) return;
+    if (ubo_size == 0 && model != player_model(0x11C)) return;
     if (!wwatch::readable(mtx, n * 0x30)) return;
 
     const uint32_t* live = reinterpret_cast<const uint32_t*>(mem::ptr(mtx));
     ModelPose& p = g_models[obj];
     if (p.step == g_logic_steps && p.mtx == mtx && p.n == n && p.cur.size() == n * joints::kWords && p.cur_stale.size() == n) {
         p.model = model;
-        note_view(p, view);
+        note_view(p, view, view_mtx);
         const uint32_t* before = p.prev.size() == n * joints::kWords ? p.prev.data() : nullptr;
         std::vector<uint8_t> has_shape(n, 0);
         shape_bones(model, n, has_shape);
@@ -570,13 +699,122 @@ void record_model(Cpu* c) {
     p.step = g_logic_steps;
     p.ubo_blended = false;
     p.views.clear();
-    note_view(p, view);
+    p.view_mtx.clear();
+    note_view(p, view, view_mtx);
+}
+
+void reblend_held(Cpu* c) {
+    if (!g_hold || g_in_model_present || !blend_enabled() || !course_play_active()) return;
+    const uint32_t model = c->r[3];
+    if (!wwatch::readable(model, 0x48)) return;
+    const uint32_t obj = ld32(model + 0x40);
+    const auto it = g_models.find(obj);
+    if (it == g_models.end()) return;
+    ModelPose& p = it->second;
+    if (p.model != model || p.step != g_logic_steps || p.n == 0) return;
+    if (p.prev.size() != p.n * joints::kWords || p.cur.size() != p.n * joints::kWords) return;
+    if (!wwatch::readable(p.mtx, p.n * 0x30)) return;
+    const float t = pacing::present_sample_t(false, pass_t());
+    if (t >= 1.f || std::memcmp(p.prev.data(), p.cur.data(), p.n * 0x30) == 0) return;
+    const uint32_t* live = reinterpret_cast<const uint32_t*>(mem::ptr(p.mtx));
+    std::vector<uint32_t> saved(live, live + p.n * joints::kWords);
+    std::vector<uint32_t> mid(saved.size());
+    const auto blended = joints::blend(p.prev.data(), p.cur.data(),
+                                        p.prev_stale.size() == p.n ? p.prev_stale.data() : nullptr, p.n, joints::kCutDist, t,
+                                        mid.data(), joints::blend_mtx);
+    if (blended.cut) return;
+    g_in_model_present = true;
+    std::memcpy(mem::ptr(p.mtx), mid.data(), p.n * 0x30);
+    upload_pose(c, p);
+    std::memcpy(mem::ptr(p.mtx), saved.data(), p.n * 0x30);
+    p.ubo_blended = true;
+    g_in_model_present = false;
+}
+
+uint32_t player_model(uint32_t anim_off) {
+    const uint32_t mgr = ld32(GD(0x101E6994));
+    if (!mgr || !wwatch::readable(mgr + 0x20, 4)) return 0;
+    const uint32_t actor = ld32(mgr + 0x20);
+    if (!actor || !wwatch::readable(actor + 0x275C, 4)) return 0;
+    const uint32_t pm = ld32(actor + 0x275C);
+    if (!pm || !wwatch::readable(pm + anim_off, 4)) return 0;
+    const uint32_t anim = ld32(pm + anim_off);
+    if (!anim || !wwatch::readable(anim, 4)) return 0;
+    return ld32(anim);
+}
+
+void log_player_part(const char* tag, uint32_t model) {
+    static int left = 8;
+    if (env::INTERP_MODEL_TRACE.integer_or(0) <= 0 || left <= 0 || !model) return;
+    const ModelPose* found = nullptr;
+    for (const auto& it : g_models)
+        if (it.second.model == model) found = &it.second;
+    if (!found || found->n == 0 || found->prev.size() != found->n * joints::kWords) {
+        if (found) return;
+        static int miss = 2;
+        if (miss <= 0) return;
+        miss--;
+        const uint32_t obj = wwatch::readable(model + 0x40, 4) ? ld32(model + 0x40) : 0;
+        const uint32_t res = obj && wwatch::readable(obj, 4) ? ld32(obj) : 0;
+        const uint32_t n = res && wwatch::readable(res + 8, 2) ? ld16(res + 8) : 0;
+        const uint32_t ubo = obj && wwatch::readable(obj + 0x1C, 4) ? ld32(obj + 0x1C) : 0;
+        LOG("[interp] player %s model=%08x recorded=0 n=%u ubo=%u", tag, model, n, ubo);
+        return;
+    }
+    float best = 0.f;
+    uint32_t bone = 0;
+    float px = 0, cx = 0, dx = 0;
+    for (uint32_t j = 0; j < found->n; j++) {
+        const uint32_t* a = found->prev.data() + joints::kWords * j;
+        const uint32_t* b = found->cur.data() + joints::kWords * j;
+        const float ddx = joints::word_f(b[3]) - joints::word_f(a[3]);
+        const float ddy = joints::word_f(b[7]) - joints::word_f(a[7]);
+        const float ddz = joints::word_f(b[11]) - joints::word_f(a[11]);
+        const float d = ddx * ddx + ddy * ddy + ddz * ddz;
+        if (d > best) {
+            best = d;
+            bone = j;
+            px = joints::word_f(a[3]);
+            cx = joints::word_f(b[3]);
+        }
+    }
+    if (best < 0.01f) return;
+    const uint32_t obj = ld32(model + 0x40);
+    const uint32_t block = obj ? ld32(obj + 0x18) : 0;
+    const uint32_t ubo = obj ? ld32(obj + 0x1C) : 0;
+    const uint32_t at = bone * 12 + 3;
+    if (block && ubo / 4 > at && wwatch::readable(block, (at + 1) * 4))
+        std::memcpy(&dx, mem::ptr(block) + at * 4, 4);
+    uint32_t shp = 0;
+    uint32_t ent = 0;
+    if (ubo == 0 && wwatch::readable(model + 0x44, 4)) {
+        const uint32_t arr = ld32(model + 0x44);
+        const uint32_t nshp = wwatch::readable(model + 0x3C, 2) ? ld16(model + 0x3C) : 0;
+        if (arr && nshp && wwatch::readable(arr, 0x10)) {
+            const uint32_t shape = ld32(arr);
+            shp = shape && wwatch::readable(shape + 0x16, 1) ? mem::ptr(shape + 0x16)[0] : 0;
+            ent = mem::ptr(arr + 9)[0];
+            const uint32_t hdr = ld32(arr + 0x0C);
+            if (hdr && wwatch::readable(hdr, 8) && ent == 0 && shp == 0) {
+                const uint32_t base = ld32(hdr);
+                const uint32_t stride = ld32(hdr + 4);
+                const uint32_t buf = base + stride * (found->views.empty() ? 0u : found->views[0]);
+                if (base && wwatch::readable(buf, 16)) std::memcpy(&dx, mem::ptr(buf) + 12, 4);
+            }
+        }
+    }
+    const float span = cx - px;
+    const float frac = std::fabs(span) > 0.05f ? (dx - px) / span : -1.f;
+    left--;
+    LOG("[interp] player %s n=%u bone=%u ubo=%u shp=%u ent=%u frac=%.2f prev=%.2f cur=%.2f drawn=%.2f",
+        tag, found->n, bone, ubo, shp, ent, frac, px, cx, dx);
 }
 
 bool present_models(Cpu* c) {
     if (!enabled() || !blend_enabled() || !course_play_active()) return false;
     const float t = pacing::present_sample_t(!g_hold, pass_t());
     std::vector<uint32_t> drop;
+    PoseTrace trace;
     g_in_model_present = true;
     for (auto& it : g_models) {
         ModelPose& p = it.second;
@@ -591,7 +829,10 @@ bool present_models(Cpu* c) {
         const uint32_t* live = reinterpret_cast<const uint32_t*>(mem::ptr(p.mtx));
         const bool same = std::memcmp(p.prev.data(), p.cur.data(), p.n * 0x30) == 0;
         const bool exact = t >= 1.f || same;
-        if (exact && !p.ubo_blended) continue;
+        if (exact && !p.ubo_blended) {
+            consider_pose(trace, p, p.cur.data());
+            continue;
+        }
         if (!exact) {
             std::vector<uint32_t> saved(live, live + p.n * joints::kWords);
             std::vector<uint32_t> mid(saved.size());
@@ -599,6 +840,7 @@ bool present_models(Cpu* c) {
                                                 p.prev_stale.size() == p.n ? p.prev_stale.data() : nullptr, p.n, joints::kCutDist, t,
                                                 mid.data(), joints::blend_mtx);
             if (!blended.cut) {
+                consider_pose(trace, p, mid.data());
                 std::memcpy(mem::ptr(p.mtx), mid.data(), p.n * 0x30);
                 upload_pose(c, p);
                 std::memcpy(mem::ptr(p.mtx), saved.data(), p.n * 0x30);
@@ -611,11 +853,14 @@ bool present_models(Cpu* c) {
                 continue;
             }
         }
+        consider_pose(trace, p, p.cur.data());
         if (p.ubo_blended) {
             upload_pose(c, p);
             p.ubo_blended = false;
         }
     }
+    log_pose(trace, t);
+    if (g_hold) log_player_part("head", player_model(0x11C));
     g_in_model_present = false;
     for (uint32_t key : drop) g_models.erase(key);
     return true;
@@ -878,6 +1123,19 @@ extern "C" void hook_029C52CC(Cpu* c) {
         PassTimer timer(0);
         f_029C52CC_orig(c);
     }
+    if (course_play_active()) {
+        const uint32_t head = player_model(0x11C);
+        if (head) {
+            const uint32_t r3 = c->r[3], r4 = c->r[4], r5 = c->r[5];
+            c->r[3] = head;
+            c->r[4] = 0;
+            c->r[5] = 0;
+            record_model(c);
+            c->r[3] = r3;
+            c->r[4] = r4;
+            c->r[5] = r5;
+        }
+    }
     note_present_share(false);
     finish_logic_pass();
     finish_wake();
@@ -899,10 +1157,19 @@ extern "C" void hook_029C4FE4(Cpu* c) {
         prepare_wake();
         if (g_wake_skip || g_skip_map_draw) return;
         const uint32_t self = c->r[3];
-        const bool sync = present_models(c);
+        const bool course = present_models(c);
+        c->r[3] = self;
+        if (course) apply_hold_camera(c);
         c->r[3] = self;
         f_029C4FE4_orig(c);
-        if (sync) gx2::sync_submitted();
+        c->r[3] = self;
+        if (course) {
+            present_models(c);
+            c->r[3] = self;
+            apply_hold_camera(c);
+            c->r[3] = self;
+            gx2::sync_submitted();
+        }
         return;
     }
     f_029C4FE4_orig(c);

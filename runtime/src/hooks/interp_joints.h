@@ -1,5 +1,4 @@
 #pragma once
-#include <cmath>
 #include <cstdint>
 #include <cstring>
 
@@ -63,74 +62,8 @@ Result blend(const uint32_t* prev, const uint32_t* cur, const uint8_t* stale_fla
     return r;
 }
 
-inline bool to_quat(const float* m, float* s, float* q) {
-    float r[3][3];
-    for (int j = 0; j < 3; j++) {
-        s[j] = std::sqrt(m[j] * m[j] + m[4 + j] * m[4 + j] + m[8 + j] * m[8 + j]);
-        if (s[j] < 1e-6f) return false;
-        for (int i = 0; i < 3; i++) r[i][j] = m[4 * i + j] / s[j];
-    }
-    for (int a = 0; a < 3; a++)
-        for (int b = a + 1; b < 3; b++)
-            if (std::fabs(r[0][a] * r[0][b] + r[1][a] * r[1][b] + r[2][a] * r[2][b]) > 0.02f) return false;
-    float det = r[0][0] * (r[1][1] * r[2][2] - r[1][2] * r[2][1]) - r[0][1] * (r[1][0] * r[2][2] - r[1][2] * r[2][0]) +
-                r[0][2] * (r[1][0] * r[2][1] - r[1][1] * r[2][0]);
-    if (det < 0.9f) return false;
-    float tr = r[0][0] + r[1][1] + r[2][2];
-    if (tr > 0) {
-        float k = 0.5f / std::sqrt(tr + 1.0f);
-        q[0] = 0.25f / k;
-        q[1] = (r[2][1] - r[1][2]) * k;
-        q[2] = (r[0][2] - r[2][0]) * k;
-        q[3] = (r[1][0] - r[0][1]) * k;
-    } else if (r[0][0] > r[1][1] && r[0][0] > r[2][2]) {
-        float k = 2.0f * std::sqrt(1.0f + r[0][0] - r[1][1] - r[2][2]);
-        q[0] = (r[2][1] - r[1][2]) / k;
-        q[1] = 0.25f * k;
-        q[2] = (r[0][1] + r[1][0]) / k;
-        q[3] = (r[0][2] + r[2][0]) / k;
-    } else if (r[1][1] > r[2][2]) {
-        float k = 2.0f * std::sqrt(1.0f + r[1][1] - r[0][0] - r[2][2]);
-        q[0] = (r[0][2] - r[2][0]) / k;
-        q[1] = (r[0][1] + r[1][0]) / k;
-        q[2] = 0.25f * k;
-        q[3] = (r[1][2] + r[2][1]) / k;
-    } else {
-        float k = 2.0f * std::sqrt(1.0f + r[2][2] - r[0][0] - r[1][1]);
-        q[0] = (r[1][0] - r[0][1]) / k;
-        q[1] = (r[0][2] + r[2][0]) / k;
-        q[2] = (r[1][2] + r[2][1]) / k;
-        q[3] = 0.25f * k;
-    }
-    return true;
-}
-
 inline void blend_mtx(const float* a, const float* b, float* out, float t) {
-    float sa[3], sb[3], qa[4], qb[4];
-    for (int i = 0; i < 3; i++) out[4 * i + 3] = pacing::lerp_f(a[4 * i + 3], b[4 * i + 3], t);
-    if (!to_quat(a, sa, qa) || !to_quat(b, sb, qb)) {
-        for (int i = 0; i < 3; i++)
-            for (int j = 0; j < 3; j++) out[4 * i + j] = pacing::lerp_f(a[4 * i + j], b[4 * i + j], t);
-        return;
-    }
-    float d = qa[0] * qb[0] + qa[1] * qb[1] + qa[2] * qb[2] + qa[3] * qb[3];
-    float sg = d < 0 ? -1.0f : 1.0f, q[4], n = 0;
-    float wa, wb;
-    pacing::slerp_weights(std::fabs(d), t, wa, wb);
-    wb *= sg;
-    for (int k = 0; k < 4; k++) {
-        q[k] = wa * qa[k] + wb * qb[k];
-        n += q[k] * q[k];
-    }
-    n = 1.0f / std::sqrt(n);
-    float w = q[0] * n, x = q[1] * n, y = q[2] * n, z = q[3] * n;
-    const float r[3][3] = {{1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)},
-                           {2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)},
-                           {2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)}};
-    for (int j = 0; j < 3; j++) {
-        float s = pacing::lerp_f(sa[j], sb[j], t);
-        for (int i = 0; i < 3; i++) out[4 * i + j] = r[i][j] * s;
-    }
+    for (int k = 0; k < 12; k++) out[k] = pacing::lerp_f(a[k], b[k], t);
 }
 
 }
