@@ -7,6 +7,7 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ## [Unreleased]
 
+- Course pose uploads go through the regional code map.
 - `interp_picture_test` keeps the uniform bytes from submit after the live block changes.
 - In-between frames blend course model animation with the camera.
   The pose stays with that picture instead of jumping ahead on the next game step.

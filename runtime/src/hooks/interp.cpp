@@ -450,8 +450,8 @@ extern "C" void hook_024F30DC(Cpu* c) {
 
 namespace interp {
 namespace {
-constexpr uint32_t kCalcView = 0x02AAAD18;
-constexpr uint32_t kUploadShapes = 0x02AA56F4;
+const uint32_t kCalcView = GC(0x02AAAD18);
+const uint32_t kUploadShapes = GC(0x02AA56F4);
 constexpr uint32_t kMaxBones = 256;
 constexpr uint32_t kMaxShapes = 512;
 
