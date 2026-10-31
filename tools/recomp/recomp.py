@@ -773,6 +773,8 @@ class Recompiler:
         _log("recomp: writing headers")
         self.write_headers(outdir)
         self.write_report(outdir, len(files))
+        with _Output(os.path.join(outdir, "hook-inputs.txt")) as f:
+            f.write(game_builds.hook_inputs_stamp())
         progress(1, 1, "%d source files" % len(files))
 
     def static_float_gqrs(self):

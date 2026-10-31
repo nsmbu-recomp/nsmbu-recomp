@@ -60,21 +60,19 @@ class BuildConfigureTest(unittest.TestCase):
                 )
             )
 
-    def test_gen_sources_newer_when_hook_file_is_newer(self):
+    def test_hook_stamp_ignores_mtime(self):
         with tempfile.TemporaryDirectory() as tmp:
-            table = os.path.join(tmp, "table.c")
             hook = os.path.join(tmp, "hooks.txt")
-            with open(table, "w", encoding="utf-8") as handle:
-                handle.write("old\n")
             with open(hook, "w", encoding="utf-8") as handle:
-                handle.write("new\n")
-            os.utime(table, (1, 1))
-            os.utime(hook, (2, 2))
-            self.assertTrue(build.gen_sources_newer(table, [hook]))
-            os.utime(table, (3, 3))
-            self.assertFalse(build.gen_sources_newer(table, [hook]))
-            self.assertFalse(build.gen_sources_newer(table, [os.path.join(tmp, "missing.txt")]))
-            self.assertTrue(build.gen_sources_newer(os.path.join(tmp, "absent.c"), [hook]))
+                handle.write("024EFE58\n")
+            first = build.builds.hook_inputs_stamp(tmp)
+            os.utime(hook, (1, 1))
+            self.assertEqual(build.builds.hook_inputs_stamp(tmp), first)
+            self.assertFalse(build.hooks_need_recomp(first, first))
+            self.assertTrue(build.hooks_need_recomp(None, first))
+            with open(hook, "w", encoding="utf-8") as handle:
+                handle.write("024F009C\n")
+            self.assertTrue(build.hooks_need_recomp(first, build.builds.hook_inputs_stamp(tmp)))
 
     def test_cmake_define_args(self):
         defines = build.cmake_define_args([], bundled_default=True, setup_gui=False)

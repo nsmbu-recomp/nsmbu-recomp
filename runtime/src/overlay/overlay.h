@@ -18,10 +18,13 @@ bool captures();
 bool alive();
 bool perf_shown();
 void set_perf_shown(bool on);
-bool perf_extended_shown();
-void set_perf_extended_shown(bool on);
+bool perf_timing_shown();
+void set_perf_timing_shown(bool on);
+bool perf_presentation_shown();
+void set_perf_presentation_shown(bool on);
 bool perf_detail_shown();
 void set_perf_detail_shown(bool on);
+bool perf_overlay_active();
 
 enum Mods : int { kShift = 1, kCtrl = 2, kAlt = 4, kSuper = 8 };
 
