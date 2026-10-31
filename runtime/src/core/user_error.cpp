@@ -35,6 +35,11 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <sys/sysctl.h>
 #endif
+#if TARGET_OS_IPHONE
+// runtime/src/gfx/metal/ios/app_ios.mm
+void ios_show_error(const char* title, const char* message);
+void ios_open_url(const char* url);
+#endif
 
 namespace user_error {
 namespace {
@@ -79,6 +84,8 @@ const char* platform_label() {
     return "Android";
 #elif defined(_WIN32)
     return "Windows";
+#elif TARGET_OS_IPHONE
+    return "iOS";
 #elif defined(__APPLE__)
     return "macOS";
 #elif defined(__aarch64__) || defined(__arm64__)
@@ -276,7 +283,13 @@ Choice win_ask(const std::string& message) {
 }
 #endif
 
-#if defined(__APPLE__) && !defined(NSMBU_SDL_HOST)
+#if TARGET_OS_IPHONE
+Choice apple_ask(const std::string& message) {
+    // the iOS port has no upstream issue tracker to report to
+    ::ios_show_error(app_title::kName, message.c_str());
+    return kOk;
+}
+#elif defined(__APPLE__) && !defined(NSMBU_SDL_HOST)
 Choice apple_ask(const std::string& message) {
     CFStringRef body = CFStringCreateWithCString(kCFAllocatorDefault, message.c_str(), kCFStringEncodingUTF8);
     CFStringRef title = CFStringCreateWithCString(kCFAllocatorDefault, app_title::kName, kCFStringEncodingUTF8);
@@ -388,6 +401,8 @@ void open_url(const char* url) {
     ShellExecuteA(nullptr, "open", url, nullptr, nullptr, SW_SHOWNORMAL);
 #elif defined(NSMBU_SDL_HOST)
     if (!SDL_OpenURL(url)) LOG("[user_error] cannot open %s: %s", url, SDL_GetError());
+#elif TARGET_OS_IPHONE
+    ::ios_open_url(url);
 #elif defined(__APPLE__)
     const std::string cmd = std::string("open ") + "'" + url + "'";
     if (system(cmd.c_str()) != 0) LOG("[user_error] cannot open %s", url);
@@ -416,6 +431,8 @@ void open_logs_folder() {
         }
     }
     if (!SDL_OpenURL(url.c_str())) LOG("[user_error] cannot open logs folder: %s", SDL_GetError());
+#elif TARGET_OS_IPHONE
+    (void)dir; // the logs are in the app's Documents folder, visible in Files
 #elif defined(__APPLE__)
     const std::string cmd = "open '" + dir + "'";
     if (system(cmd.c_str()) != 0) LOG("[user_error] cannot open logs folder");
@@ -426,7 +443,11 @@ void open_logs_folder() {
 
 void show_fatal(const std::string& message, IssueKind kind) {
     if (hidden()) return;
+#if TARGET_OS_IPHONE
+    const std::string& body = message;  // UIKit wraps to the screen's width
+#else
     const std::string body = wrap_message(message);
+#endif
     const Choice c = ask(body);
     if (c == kReport) {
         const std::string url = report_issue_url(message, kind);

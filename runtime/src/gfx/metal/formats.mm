@@ -3,6 +3,8 @@
 
 namespace gfx {
 
+bool g_bc_native = true;
+
 static FormatInfo make(MTLPixelFormat p, uint32_t bpb, FormatInfo::Kind kind = FormatInfo::FLOAT, Convert cv = Convert::NONE,
                        uint32_t hostBpb = 0) {
     FormatInfo f;
@@ -74,6 +76,13 @@ FormatInfo format_info(uint32_t fmt, bool isDepth) {
 
     case 0x11: case 0x12: case 0x13: case 0x14: f = make(MTLPixelFormatR32Float, 4, FormatInfo::FLOAT, Convert::D24_R32F, 4); break;
     default: f = make(MTLPixelFormatRGBA8Unorm, 4); break;
+    }
+    if (f.compressed && !g_bc_native) {
+        // BC4/5 decode to (r, 0, 0, 1) / (r, g, 0, 1), as the one- and two-channel formats sample
+        const unsigned type = hw - 0x30;
+        const bool sign = isSigned && type >= 4;
+        f.bcDecode = (uint16_t)(type | (sign ? 256 : 0));
+        f.pixel = isSrgb && type <= 3 ? MTLPixelFormatRGBA8Unorm_sRGB : sign ? MTLPixelFormatRGBA8Snorm : MTLPixelFormatRGBA8Unorm;
     }
     return f;
 }

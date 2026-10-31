@@ -151,7 +151,7 @@ std::string dir() {
         if (const char* e = env::SCREENSHOT_DIR(); e && *e) p = e;
         else if (host::portable()) p = host::portable_user_dir() + "/screenshots";
         else {
-#ifdef __APPLE__
+#if defined(__APPLE__) && !TARGET_OS_IPHONE
 
             p = std::string(getenv("HOME") ? getenv("HOME") : ".") + "/Library/Application Support/nsmbu/screenshots";
 #else

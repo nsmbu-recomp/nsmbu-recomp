@@ -25,6 +25,7 @@
 #include <unistd.h>
 #endif
 #ifdef __APPLE__
+#include <TargetConditionals.h>
 #include <mach-o/dyld.h>
 #endif
 
@@ -259,8 +260,8 @@ void shutdown() {
 }
 
 bool restart() {
-#ifdef _WIN32
-    return false;
+#if defined(_WIN32) || TARGET_OS_IPHONE
+    return false;  // iOS: an app cannot exec itself
 #else
     std::string exe;
 #ifdef __APPLE__

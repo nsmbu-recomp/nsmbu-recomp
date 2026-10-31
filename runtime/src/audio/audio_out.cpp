@@ -36,6 +36,9 @@ std::atomic<float> g_volume{1.0f};
 std::atomic<int> g_source{(int)OutputSelect::kAuto};
 #if defined(__APPLE__) && !defined(NSMBU_SDL_HOST)
 AudioComponentInstance g_unit = nullptr;
+#if TARGET_OS_IPHONE
+std::atomic<float> g_gain{1.0f}; // RemoteIO has no volume parameter; render() scales the samples
+#endif
 #else
 SDL_AudioStream* g_unit = nullptr;
 #endif
@@ -55,8 +58,12 @@ float clamp_volume(float v) {
 void apply_device_gain() {
     const float gain = g_muted.load(std::memory_order_relaxed) ? 0.0f : g_volume.load(std::memory_order_relaxed);
 #if defined(__APPLE__) && !defined(NSMBU_SDL_HOST)
+#if TARGET_OS_IPHONE
+    g_gain.store(gain, std::memory_order_relaxed);
+#else
     if (g_unit)
         AudioUnitSetParameter(g_unit, kHALOutputParam_Volume, kAudioUnitScope_Global, 0, (AudioUnitParameterValue)gain, 0);
+#endif
 #else
     if (g_unit) SDL_SetAudioStreamGain(g_unit, gain);
 #endif
@@ -104,6 +111,13 @@ void pull(int16_t* out, uint32_t frames) {
 #if defined(__APPLE__) && !defined(NSMBU_SDL_HOST)
 OSStatus render(void*, AudioUnitRenderActionFlags*, const AudioTimeStamp*, UInt32, UInt32 frames, AudioBufferList* io) {
     pull((int16_t*)io->mBuffers[0].mData, frames);
+#if TARGET_OS_IPHONE
+    const float gain = g_gain.load(std::memory_order_relaxed);
+    if (gain < 1.0f) {
+        int16_t* s = (int16_t*)io->mBuffers[0].mData;
+        for (UInt32 i = 0; i < frames * 2; i++) s[i] = (int16_t)(s[i] * gain);
+    }
+#endif
     return noErr;
 }
 #else
@@ -173,7 +187,11 @@ void init() {
 #if defined(__APPLE__) && !defined(NSMBU_SDL_HOST)
     AudioComponentDescription desc{};
     desc.componentType = kAudioUnitType_Output;
+#if TARGET_OS_IPHONE
+    desc.componentSubType = kAudioUnitSubType_RemoteIO;
+#else
     desc.componentSubType = kAudioUnitSubType_DefaultOutput;
+#endif
     desc.componentManufacturer = kAudioUnitManufacturer_Apple;
     AudioComponent comp = AudioComponentFindNext(nullptr, &desc);
     if (!comp || AudioComponentInstanceNew(comp, &g_unit) != noErr) {

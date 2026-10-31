@@ -1,11 +1,15 @@
 
 #ifdef __APPLE__
+#include <TargetConditionals.h>
 #include <mach/mach.h>
+#if !TARGET_OS_IPHONE
 #include <mach/mach_vm.h>
+#endif
 #include <mach-o/ldsyms.h>
 #endif
 #include "platform/host.h"
 #include "core/write_watch.h"
+#include "core/user_error.h"
 #include <zlib.h>
 #ifdef __ANDROID__
 #include <android/log.h>
@@ -98,14 +102,37 @@ void fatal(const char* fmt, ...) {
     abort();
 }
 
+#ifdef PPC_MEM_BASE_DYNAMIC
+extern "C" uint8_t* g_ppc_mem_base = nullptr;
+#endif
+
 namespace mem {
 static std::atomic<uint32_t> g_runtime_top{kRuntimeStart};
 
 void init() {
 #ifdef __APPLE__
+#if TARGET_OS_IPHONE
+#ifdef PPC_MEM_BASE_DYNAMIC
+    vm_address_t addr = 0;
+    kern_return_t kr = vm_allocate(mach_task_self(), &addr, 0x100000000ull, VM_FLAGS_ANYWHERE);
+    if (kr == KERN_SUCCESS) g_ppc_mem_base = (uint8_t*)addr;
+#else
+    vm_address_t addr = (vm_address_t)PPC_MEM_BASE;
+    kern_return_t kr = vm_allocate(mach_task_self(), &addr, 0x100000000ull, VM_FLAGS_FIXED);
+#endif
+    if (kr != KERN_SUCCESS) {
+        // shown on screen (fatal() only logs): the likely cause is the signing, which the player can fix
+        char why[256];
+        snprintf(why, sizeof why, "Cannot reserve the game's 4 GiB of memory (kr=%d).\n\nThe app needs the extended virtual "
+                 "addressing entitlement. Sign it with a profile that grants it.", kr);
+        user_error::fail(why);
+    }
+    LOG("[mem] guest memory at %p", (void*)addr);
+#else
     mach_vm_address_t addr = (mach_vm_address_t)PPC_MEM_BASE;
     kern_return_t kr = mach_vm_allocate(mach_task_self(), &addr, 0x100000000ull, VM_FLAGS_FIXED);
     if (kr != KERN_SUCCESS) fatal("cannot reserve guest address space at %p (kr=%d)", PPC_MEM_BASE, kr);
+#endif
 
     mprotect(PPC_MEM_BASE, 0x10000, PROT_NONE);
 #elif defined(_WIN32)

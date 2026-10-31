@@ -42,3 +42,7 @@ headstart.bin
 # local coordination board
 /task.md
 /.tmp/
+
+# iOS build output
+ios/build/
+ios/build-sim/

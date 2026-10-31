@@ -1,10 +1,16 @@
 
 
 #include "core/env.h"
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+#import <UIKit/UIKit.h>
+#include "platform/keycodes.h"
+#else
 #import <AppKit/AppKit.h>
+#include <Carbon/Carbon.h>
+#endif
 #import <GameController/GameController.h>
 #import <QuartzCore/QuartzCore.h>
-#include <Carbon/Carbon.h>
 
 #include <algorithm>
 #include <array>
@@ -27,6 +33,9 @@
 
 namespace gfx { void request_capture(); bool menu_hotkey(uint16_t keyCode); bool controls_window_is_key(); bool text_input_key(void* event); }
 namespace mods { void update_gyro_mouse(); }
+#if TARGET_OS_IPHONE
+namespace gfx { void ios_touch_values(float* v); void ios_present_alert(UIAlertController* a); }
+#endif
 
 namespace input {
 
@@ -131,6 +140,7 @@ void release_keys() {
 bool has_rumble() { return false; }
 void stop_rumble_now() {}
 
+#if !TARGET_OS_IPHONE
 static bool modifier_down(uint16_t code, NSEventModifierFlags f) {
     switch (code) {
     case kVK_Shift: return f & 0x02;
@@ -206,6 +216,7 @@ static void start_test_keys() {
         if (presses->empty()) [t invalidate];
     }];
 }
+#endif  // !TARGET_OS_IPHONE
 
 static void update_motion_sensors() API_AVAILABLE(macos(11.0)) {
     const bool want = motion::wants_controller_sensors() && !env::NO_HOST_INPUT();
@@ -262,6 +273,138 @@ static void update_motion_sensors() API_AVAILABLE(macos(11.0)) {
     motion::set_gyro_controllers(n);
 }
 
+// controllers (and on iOS the on-screen controls) into the players' pads, 240 times a second
+static void poll_controllers() {
+    float values[input::kMaxPlayers][input_map::kPadCount] = {};
+    const int n = read_controllers(values);
+#if TARGET_OS_IPHONE
+    gfx::ios_touch_values(values[0]);  // on-screen controls (ios/touch_controls.mm) belong to player 1
+#endif
+    PadState states[input::kMaxPlayers];
+    for (int i = 0; i < input::kMaxPlayers; i++)
+        states[i] = input_map::controller_state(input_map::player(i), values[i]);
+    float v[input_map::kPadCount] = {};
+    for (int i = 0; i < input_map::kPadCount; i++)
+        for (int p = 0; p < n; p++) v[i] = std::max(v[i], values[p][i]);
+    {
+        std::lock_guard<std::mutex> lk(g_mu);
+        g_controller_count = n;
+        for (int i = 0; i < input::kMaxPlayers; i++) {
+            std::copy(values[i], values[i] + input_map::kPadCount, g_player_values[i]);
+            g_pads[i] = states[i];
+            if (i < n && i < (int)[[GCController controllers] count]) {
+                GCController* c = [GCController controllers][i];
+                const char* name = c.vendorName.UTF8String ?: c.productCategory.UTF8String;
+                g_controller_names[i] = name ? name : "";
+            } else {
+                g_controller_names[i].clear();
+            }
+        }
+        std::copy(v, v + input_map::kPadCount, g_host_values);
+    }
+
+    static int tick = 0;
+    if (@available(macOS 11.0, *)) if (tick++ % 60 == 0) update_motion_sensors();
+    if (!overlay::blocks_input() && !env::NO_HOST_INPUT()) {
+        bool keys[256];
+        {
+            std::lock_guard<std::mutex> lk(g_mu);
+            std::copy(g_keys, g_keys + 256, keys);
+        }
+        motion::poll_recalibrate(v, keys);
+        screenshot::poll_controller(v);
+    }
+    mods::update_gyro_mouse();
+}
+
+#if TARGET_OS_IPHONE
+// GCKeyboard reports HID usages; the key map, the overlay and the hotkeys use the Mac's virtual key codes
+static int hid_to_vk(GCKeyCode c) {
+    static const uint8_t letters[26] = {kVK_ANSI_A, kVK_ANSI_B, kVK_ANSI_C, kVK_ANSI_D, kVK_ANSI_E, kVK_ANSI_F, kVK_ANSI_G,
+                                        kVK_ANSI_H, kVK_ANSI_I, kVK_ANSI_J, kVK_ANSI_K, kVK_ANSI_L, kVK_ANSI_M, kVK_ANSI_N,
+                                        kVK_ANSI_O, kVK_ANSI_P, kVK_ANSI_Q, kVK_ANSI_R, kVK_ANSI_S, kVK_ANSI_T, kVK_ANSI_U,
+                                        kVK_ANSI_V, kVK_ANSI_W, kVK_ANSI_X, kVK_ANSI_Y, kVK_ANSI_Z};
+    static const uint8_t digits[10] = {kVK_ANSI_1, kVK_ANSI_2, kVK_ANSI_3, kVK_ANSI_4, kVK_ANSI_5,
+                                       kVK_ANSI_6, kVK_ANSI_7, kVK_ANSI_8, kVK_ANSI_9, kVK_ANSI_0};
+    static const uint8_t fkeys[12] = {kVK_F1, kVK_F2, kVK_F3, kVK_F4, kVK_F5, kVK_F6, kVK_F7, kVK_F8, kVK_F9, kVK_F10, kVK_F11, kVK_F12};
+    const long u = (long)c;
+    if (u >= 0x04 && u <= 0x1D) return letters[u - 0x04];
+    if (u >= 0x1E && u <= 0x27) return digits[u - 0x1E];
+    if (u >= 0x3A && u <= 0x45) return fkeys[u - 0x3A];
+    switch (u) {
+    case 0x28: return kVK_Return;
+    case 0x29: return kVK_Escape;
+    case 0x2A: return kVK_Delete;
+    case 0x2B: return kVK_Tab;
+    case 0x2C: return kVK_Space;
+    case 0x2D: return kVK_ANSI_Minus;
+    case 0x2E: return kVK_ANSI_Equal;
+    case 0x2F: return kVK_ANSI_LeftBracket;
+    case 0x30: return kVK_ANSI_RightBracket;
+    case 0x31: return kVK_ANSI_Backslash;
+    case 0x33: return kVK_ANSI_Semicolon;
+    case 0x34: return kVK_ANSI_Quote;
+    case 0x35: return kVK_ANSI_Grave;
+    case 0x36: return kVK_ANSI_Comma;
+    case 0x37: return kVK_ANSI_Period;
+    case 0x38: return kVK_ANSI_Slash;
+    case 0x39: return kVK_CapsLock;
+    case 0x4A: return kVK_Home;
+    case 0x4B: return kVK_PageUp;
+    case 0x4C: return kVK_ForwardDelete;
+    case 0x4D: return kVK_End;
+    case 0x4E: return kVK_PageDown;
+    case 0x4F: return kVK_RightArrow;
+    case 0x50: return kVK_LeftArrow;
+    case 0x51: return kVK_DownArrow;
+    case 0x52: return kVK_UpArrow;
+    case 0x58: return kVK_ANSI_KeypadEnter;
+    case 0xE0: return kVK_Control;
+    case 0xE1: return kVK_Shift;
+    case 0xE2: return kVK_Option;
+    case 0xE3: return kVK_Command;
+    case 0xE4: return kVK_RightControl;
+    case 0xE5: return kVK_RightShift;
+    case 0xE6: return kVK_RightOption;
+    case 0xE7: return kVK_RightCommand;
+    default: return -1;
+    }
+}
+
+static void attach_keyboard(GCKeyboard* kb) {
+    kb.keyboardInput.keyChangedHandler = ^(GCKeyboardInput* in, GCControllerButtonInput*, GCKeyCode keyCode, BOOL pressed) {
+        const int code = hid_to_vk(keyCode);
+        if (code < 0 || env::NO_HOST_INPUT()) return;
+        auto held = [in](GCKeyCode k) { return [in buttonForKeyCode:k].isPressed; };
+        const bool shift = held(GCKeyCodeLeftShift) || held(GCKeyCodeRightShift);
+        const bool ctrl = held(GCKeyCodeLeftControl) || held(GCKeyCodeRightControl);
+        const bool alt = held(GCKeyCodeLeftAlt) || held(GCKeyCodeRightAlt);
+        const bool cmd = held(GCKeyCodeLeftGUI) || held(GCKeyCodeRightGUI);
+        const int m = (shift ? overlay::kShift : 0) | (ctrl ? overlay::kCtrl : 0) | (alt ? overlay::kAlt : 0) | (cmd ? overlay::kSuper : 0);
+        if (overlay::key(code, pressed, false, m)) return;
+        if (pressed && screenshot::key_down((uint16_t)code)) return;
+        if (cmd) return;
+        std::lock_guard<std::mutex> lk(g_mu);
+        if (pressed && gfx::menu_hotkey((uint16_t)code)) return;
+        g_keys[code] = pressed;
+    };
+}
+
+void init() {
+    input_map::load_startup();
+    for (NSNotificationName n in @[ GCKeyboardDidConnectNotification ])
+        [[NSNotificationCenter defaultCenter] addObserverForName:n object:nil queue:nil usingBlock:^(NSNotification* note) {
+            attach_keyboard((GCKeyboard*)note.object);
+        }];
+    if (GCKeyboard.coalescedKeyboard) attach_keyboard(GCKeyboard.coalescedKeyboard);
+    [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationWillResignActiveNotification
+                                                      object:nil queue:nil usingBlock:^(NSNotification*) {
+        std::lock_guard<std::mutex> lk(g_mu);
+        memset(g_keys, 0, sizeof(g_keys));
+    }];
+    [NSTimer scheduledTimerWithTimeInterval:1.0 / 240 repeats:YES block:^(NSTimer*) { poll_controllers(); }];
+}
+#else
 void init() {
     input_map::load_startup();
     start_test_keys();
@@ -302,46 +445,9 @@ void init() {
     }];
     [GCController startWirelessControllerDiscoveryWithCompletionHandler:nil];
 
-    [NSTimer scheduledTimerWithTimeInterval:1.0 / 240 repeats:YES block:^(NSTimer*) {
-        float values[input::kMaxPlayers][input_map::kPadCount] = {};
-        const int n = read_controllers(values);
-        PadState states[input::kMaxPlayers];
-        for (int i = 0; i < input::kMaxPlayers; i++)
-            states[i] = input_map::controller_state(input_map::player(i), values[i]);
-        float v[input_map::kPadCount] = {};
-        for (int i = 0; i < input_map::kPadCount; i++)
-            for (int p = 0; p < n; p++) v[i] = std::max(v[i], values[p][i]);
-        {
-            std::lock_guard<std::mutex> lk(g_mu);
-            g_controller_count = n;
-            for (int i = 0; i < input::kMaxPlayers; i++) {
-                std::copy(values[i], values[i] + input_map::kPadCount, g_player_values[i]);
-                g_pads[i] = states[i];
-                if (i < n && i < (int)[[GCController controllers] count]) {
-                    GCController* c = [GCController controllers][i];
-                    const char* name = c.vendorName.UTF8String ?: c.productCategory.UTF8String;
-                    g_controller_names[i] = name ? name : "";
-                } else {
-                    g_controller_names[i].clear();
-                }
-            }
-            std::copy(v, v + input_map::kPadCount, g_host_values);
-        }
-
-        static int tick = 0;
-        if (@available(macOS 11.0, *)) if (tick++ % 60 == 0) update_motion_sensors();
-        if (!overlay::blocks_input() && !env::NO_HOST_INPUT()) {
-            bool keys[256];
-            {
-                std::lock_guard<std::mutex> lk(g_mu);
-                std::copy(g_keys, g_keys + 256, keys);
-            }
-            motion::poll_recalibrate(v, keys);
-            screenshot::poll_controller(v);
-        }
-        mods::update_gyro_mouse();
-    }];
+    [NSTimer scheduledTimerWithTimeInterval:1.0 / 240 repeats:YES block:^(NSTimer*) { poll_controllers(); }];
 }
+#endif
 
 struct Press { uint64_t from, to; uint32_t bits; };
 static std::vector<Press> scripted() {
@@ -557,6 +663,32 @@ PadState read(int player) {
 
 PadState read() { return read(0); }
 
+#if TARGET_OS_IPHONE
+void prompt_text(const std::u16string& initial, int max_len,
+                 std::function<void(bool ok, std::u16string text)> done) {
+    NSString* init = [NSString stringWithCharacters:(const unichar*)initial.data() length:initial.size()];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        {
+            std::lock_guard<std::mutex> lk(g_mu);
+            memset(g_keys, 0, sizeof(g_keys));
+        }
+        UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Enter text"
+                                                                       message:[NSString stringWithFormat:@"Up to %d characters.", max_len]
+                                                                preferredStyle:UIAlertControllerStyleAlert];
+        [alert addTextFieldWithConfigurationHandler:^(UITextField* f) { f.text = init; }];
+        auto finish = [done, max_len, alert](bool ok) {
+            NSString* t = alert.textFields.firstObject.text ?: @"";
+            std::u16string out(t.length, u'\0');
+            [t getCharacters:(unichar*)out.data() range:NSMakeRange(0, t.length)];
+            if ((int)out.size() > max_len) out.resize(max_len);
+            done(ok, out);
+        };
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction*) { finish(true); }]];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction*) { finish(false); }]];
+        gfx::ios_present_alert(alert);
+    });
+}
+#else
 void prompt_text(const std::u16string& initial, int max_len,
                  std::function<void(bool ok, std::u16string text)> done) {
     NSString* init = [NSString stringWithCharacters:(const unichar*)initial.data() length:initial.size()];
@@ -586,5 +718,6 @@ void prompt_text(const std::u16string& initial, int max_len,
         else finish([alert runModal]);
     });
 }
+#endif
 
 }

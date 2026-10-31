@@ -1,5 +1,6 @@
 #include "gfx/aspect_view.h"
 #include "gfx/render_mips.h"
+#include "gfx/vulkan/bc_reference.h"
 #include "mods/cemu_pack.h"
 #include <tuple>
 #include <atomic>
@@ -140,7 +141,7 @@ static id<MTLTexture> make_texture(Surface* s, MTLTextureType type, bool forRend
     td.mipmapLevelCount = s->mips;
     td.usage = MTLTextureUsageShaderRead | MTLTextureUsageRenderTarget | MTLTextureUsagePixelFormatView;
     td.storageMode = MTLStorageModePrivate;
-    if (s->fmt.compressed) td.usage = MTLTextureUsageShaderRead | MTLTextureUsagePixelFormatView;
+    if (s->fmt.compressed && !s->fmt.bcDecode) td.usage = MTLTextureUsageShaderRead | MTLTextureUsagePixelFormatView;
     id<MTLTexture> t = [R.device newTextureWithDescriptor:td];
     if (t) {
         s->scale = scale;
@@ -798,16 +799,22 @@ void upload_surface(Surface* s) {
         uint32_t w, h, slices;
         decode_level(s, level, base, data, w, h, slices);
         uint32_t bw = f.compressed ? (w + 3) / 4 : w, bh = f.compressed ? (h + 3) / 4 : h;
+        uint32_t texelBytes = f.hostBytesPerBlock;
+        bool blocks = f.compressed;
+        if (f.bcDecode) {
+            data = gfxvk::bc::decode(data, w, h, slices, f.bcDecode);
+            bw = w, bh = h, texelBytes = 4, blocks = false;
+        }
         staging = [R.device newBufferWithBytes:data.data() length:data.size() options:MTLResourceStorageModeShared];
         bool is3D = dest.textureType == MTLTextureType3D;
         uint32_t layers = is3D ? 1 : (dest.textureType == MTLTextureTypeCube ? 6 : (uint32_t)dest.arrayLength);
-        uint32_t perSlice = bw * bh * f.hostBytesPerBlock;
+        uint32_t perSlice = bw * bh * texelBytes;
         for (uint32_t z = 0; z < (is3D ? 1 : std::min(slices, layers)); z++) {
             [blit copyFromBuffer:staging
                      sourceOffset:(NSUInteger)z * perSlice
-                sourceBytesPerRow:bw * f.hostBytesPerBlock
+                sourceBytesPerRow:bw * texelBytes
               sourceBytesPerImage:perSlice
-                       sourceSize:MTLSizeMake(f.compressed ? bw * 4 : w, f.compressed ? bh * 4 : h, is3D ? slices : 1)
+                       sourceSize:MTLSizeMake(blocks ? bw * 4 : w, blocks ? bh * 4 : h, is3D ? slices : 1)
                         toTexture:dest
                  destinationSlice:z
                  destinationLevel:level

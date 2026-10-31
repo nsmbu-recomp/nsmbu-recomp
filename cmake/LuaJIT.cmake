@@ -5,6 +5,11 @@ set(NSMBU_LUAJIT_LIB "${CMAKE_CURRENT_BINARY_DIR}/libluajit.a")
 if(NOT EXISTS "${NSMBU_LUAJIT_SRC}/lua.h")
   message(FATAL_ERROR "LuaJIT submodule missing at ${NSMBU_LUAJIT_ROOT} (run git submodule update --init)")
 endif()
+if(NSMBU_IOS)
+  # LuaJIT builds in its source tree; keep the iOS objects away from the host build's
+  file(COPY "${NSMBU_LUAJIT_ROOT}/" DESTINATION "${CMAKE_BINARY_DIR}/luajit" PATTERN ".git" EXCLUDE PATTERN "*.o" EXCLUDE PATTERN "*.a" EXCLUDE)
+  set(NSMBU_LUAJIT_SRC "${CMAKE_BINARY_DIR}/luajit/src")
+endif()
 
 if(WIN32 AND MSVC)
   message(FATAL_ERROR "LuaJIT static build uses the POSIX Makefile; MSVC is not wired yet")
@@ -17,7 +22,27 @@ set(NSMBU_LUAJIT_MAKE_ARGS
   "XCFLAGS=-DLUAJIT_DISABLE_FFI"
   libluajit.a)
 
-if(ANDROID)
+if(NSMBU_IOS)
+  # cross build: host tools (minilua, buildvm) for the Mac, the library for iOS arm64; LuaJIT turns its JIT off on iOS
+  find_program(NSMBU_LUAJIT_HOST_CC NAMES clang cc REQUIRED)
+  set(NSMBU_LUAJIT_IOS_MIN "${CMAKE_OSX_DEPLOYMENT_TARGET}")
+  if(NOT NSMBU_LUAJIT_IOS_MIN)
+    set(NSMBU_LUAJIT_IOS_MIN 17.0)
+  endif()
+  if(CMAKE_OSX_SYSROOT MATCHES "[Ss]imulator")
+    set(NSMBU_LUAJIT_TARGET_FLAGS "--target=arm64-apple-ios${NSMBU_LUAJIT_IOS_MIN}-simulator -isysroot ${CMAKE_OSX_SYSROOT}")
+  else()
+    set(NSMBU_LUAJIT_TARGET_FLAGS "--target=arm64-apple-ios${NSMBU_LUAJIT_IOS_MIN} -isysroot ${CMAKE_OSX_SYSROOT}")
+  endif()
+  set(NSMBU_LUAJIT_CC_ARG "CC=${CMAKE_C_COMPILER}")
+  list(APPEND NSMBU_LUAJIT_MAKE_ARGS
+    "HOST_CC=${NSMBU_LUAJIT_HOST_CC}"
+    "${NSMBU_LUAJIT_CC_ARG}"
+    "CROSS="
+    "TARGET_FLAGS=${NSMBU_LUAJIT_TARGET_FLAGS}"
+    "TARGET_AR=${CMAKE_AR} rcus"
+    TARGET_SYS=iOS)
+elseif(ANDROID)
   find_program(NSMBU_LUAJIT_HOST_CC NAMES cc gcc clang REQUIRED)
   set(NSMBU_LUAJIT_TARGET_FLAGS "")
   if(CMAKE_C_COMPILER_TARGET)
@@ -41,7 +66,10 @@ else()
 endif()
 
 set(NSMBU_LUAJIT_CLEAN_ARGS "${NSMBU_LUAJIT_CC_ARG}")
-if(APPLE)
+if(NSMBU_IOS)
+  # the Makefile asks the compiler about the target even to clean: give it the iOS SDK too
+  list(APPEND NSMBU_LUAJIT_CLEAN_ARGS "CROSS=" "TARGET_FLAGS=${NSMBU_LUAJIT_TARGET_FLAGS}" TARGET_SYS=iOS)
+elseif(APPLE)
   if(CMAKE_OSX_DEPLOYMENT_TARGET)
     set(NSMBU_LUAJIT_OSX_TARGET "MACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}")
     list(APPEND NSMBU_LUAJIT_MAKE_ARGS "${NSMBU_LUAJIT_OSX_TARGET}")
