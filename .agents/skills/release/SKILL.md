@@ -34,7 +34,7 @@ Stop without retagging only when the user asks to watch or report.
    Use this checkout and rerun.
    Leave the setup window to the person at the machine.
    Pushing `main` is the unit-test gate.
-   `.git-hooks/pre-push` runs `ctest`, `tools/installer/test_setup.py`, and `tools/recomp/test_builds.py`.
+   `.git-hooks/pre_push.py` runs `ctest`, `tools/installer/test_setup.py`, and `tools/recomp/test_builds.py`.
    Linux does not compile the macOS or Windows package jobs.
    Those failures show up in `gh run view <id> --log-failed`.
 4. Push `main`.
