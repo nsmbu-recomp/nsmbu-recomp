@@ -10,6 +10,8 @@ Add each commit message/change to the changelog it will be reformated later for 
 
 The `nsmbu` cli is on `PATH`.
 Game regressions go in `tools/cli/src/playtest/cases/` (shared helpers in `helpers.ts`) and run with `nsmbu test`.
+Performance traces go under `nsmbu bench`, not `nsmbu test`.
+A bench opens one visible window and runs one game at a time.
 Write tests for each feature implemented so we can catch regressions.
 You might need to improve the test harness in some cases.
 `nsmbu game usa-1.3.0 --recomp` is slow.

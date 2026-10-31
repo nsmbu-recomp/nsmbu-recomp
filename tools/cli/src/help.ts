@@ -22,6 +22,7 @@ Usage:
   nsmbu recomp
   nsmbu scripted <name> […]
   nsmbu test [name…] [--list]
+  nsmbu bench [name…] [--list]
   nsmbu completion fish [--install]
 
 Agent control (single game instance):

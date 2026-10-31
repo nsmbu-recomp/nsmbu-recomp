@@ -7,6 +7,8 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ## [Unreleased]
 
+- `nsmbu bench load-overworld` opens one visible window, presses through the save file onto the world map, and writes a render trace.
+  A second bench does not start while a game is running.
 - `nsmbu save` recomputes every `rp_savedata.dat` block CRC and each challenge entry CRC when writing JSON back to `.dat`, so edited saves stay valid in game.
 - Press `T` in the game window to toggle between 60 fps and 120 fps frame interpolation (Vulkan SDL and macOS Metal).
 - 120 fps no longer jitters models and the camera.

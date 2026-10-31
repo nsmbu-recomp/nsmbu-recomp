@@ -115,6 +115,12 @@ const COMMANDS: CommandSpec[] = [
         noFiles: true,
         flags: [{ name: "list", description: "List playtests" }],
     },
+    {
+        name: "bench",
+        description: "Run performance benchmarks",
+        noFiles: true,
+        flags: [{ name: "list", description: "List visual benchmarks" }],
+    },
     { name: "open", description: "Open agent-controlled game" },
     { name: "status", description: "Agent status", noFiles: true },
     { name: "press", description: "Pulse a button", noFiles: true },

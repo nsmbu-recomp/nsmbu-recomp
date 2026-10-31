@@ -31,6 +31,7 @@ import {
 } from "../src/agent/commands.ts";
 import { cmdCompletion } from "../src/completion.ts";
 import { cmdSave } from "../src/save.ts";
+import { cmdBench } from "../src/bench/cmd.ts";
 import { cmdTest } from "../src/playtest/cmd.ts";
 
 async function main(): Promise<void> {
@@ -183,6 +184,9 @@ async function main(): Promise<void> {
             }
             case "test":
                 await cmdTest(repo, rest);
+                break;
+            case "bench":
+                await cmdBench(repo, rest);
                 break;
             case "open":
                 await cmdOpen(repo, rest);

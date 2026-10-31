@@ -1,6 +1,6 @@
 ---
 name: nsmbu
-description: "Playtests (`nsmbu test`), case helpers, status, scripted boots, warm `nsmbu build`, NSMBU_* env vars, and swapping the active game dump (usa/eu). Use when adding or running a playtest, reproducing a game bug as a case, switching region or version under game/, reading nsmbu status, measuring a Release replay, running nsmbu scripted, speeding a hidden boot or a warm build, or adding, renaming, or reading an NSMBU_* variable."
+description: "Playtests (`nsmbu test`), performance benches (`nsmbu bench`), case helpers, status, scripted boots, warm `nsmbu build`, NSMBU_* env vars, and swapping the active game dump (usa/eu). Use when adding or running a playtest, a performance bench, reproducing a game bug as a case, switching region or version under game/, reading nsmbu status, measuring a Release replay, running nsmbu scripted, speeding a hidden boot or a warm build, or adding, renaming, or reading an NSMBU_* variable."
 ---
 
 # nsmbu
@@ -101,6 +101,16 @@ Repro and regression work is a case, not a live control chat.
 Each case uses `.tmp/playtest/<name>/` (save, control socket, userdata).
 Selected cases run in parallel (default 2; override with `NSMBU_TEST_JOBS`).
 Scene moves and map reads that need guest Lua stay inside the case through `Session` helpers.
+
+## Performance bench
+
+Traces belong in `nsmbu bench`, not `nsmbu test`.
+`nsmbu bench --list` prints the names (only `--list` is a valid flag).
+The window is visible.
+One game runs at a time.
+`nsmbu bench load-overworld` presses A through the title and the save file, then loads the world map.
+The trace is `.tmp/bench/load-overworld/trace.json`.
+It passes when the log reaches `CourseSelect from save` and six `[prof]` windows are on the map.
 
 ## Status
 

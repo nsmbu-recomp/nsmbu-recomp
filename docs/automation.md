@@ -39,6 +39,18 @@ The run needs `game/` and a debug build.
 It is not part of `ctest`.
 Run it before a release when this machine has a dump.
 
+## Performance benches
+
+`nsmbu bench` is not a playtest.
+It opens one visible game window and records the render trace.
+A second bench waits until that game is gone.
+`nsmbu bench --list` prints the names.
+`nsmbu bench load-overworld` presses A through the title and the save file, then loads the world map.
+The window stays up until six `[prof]` windows have been recorded on the map.
+The trace is `.tmp/bench/load-overworld/trace.json`.
+The run copies `nsmbu/save` and the display settings, and reuses a shader cache under `.tmp/bench/user`.
+It refuses to start while `nsmbu open` or any other `nsmbu` process is up.
+
 ## Scripted boots
 
 Headless boots use `nsmbu scripted <name>` from the repo root (wraps `tools/run/scripted-run.sh`).

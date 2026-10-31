@@ -89,6 +89,7 @@ The CLI exports `NSMBU_CLI=1` and `NSMBU_USER_DIR=<repo>/nsmbu` on every dev com
 | `nsmbu lint` / `recomp` | TypeScript mod build, recomp only |
 | `nsmbu scripted <name>` | wraps `tools/run/scripted-run.sh` |
 | `nsmbu test [--list] [name…]` | boots a game per playtest and runs selected cases in parallel ([automation.md](automation.md)); only `--list` is a valid flag |
+| `nsmbu bench [--list] [name…]` | opens one visible game and records a render trace for a performance scenario ([automation.md](automation.md)); only `--list` is a valid flag |
 
 Run `nsmbu` with no arguments (or `--help`) for the full list.
 
