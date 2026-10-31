@@ -1806,10 +1806,15 @@ static void perf_presentation_footer() {
 }
 
 static ImU32 perf_graph_color(float ms) {
-    if (ms <= 8.0f) return IM_COL32(90, 230, 140, 255);
-    if (ms <= 12.0f) return IM_COL32(100, 210, 255, 255);
+    if (ms <= 12.0f) return IM_COL32(90, 230, 140, 255);
     if (ms <= 16.7f) return IM_COL32(255, 225, 90, 255);
     return IM_COL32(255, 110, 95, 255);
+}
+
+static ImU32 perf_graph_fill(float ms) {
+    if (ms <= 12.0f) return IM_COL32(70, 200, 120, 28);
+    if (ms <= 16.7f) return IM_COL32(255, 225, 90, 28);
+    return IM_COL32(255, 110, 95, 28);
 }
 
 static void perf_frame_graph() {
@@ -1836,32 +1841,14 @@ static void perf_frame_graph() {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     ImVec2 pos0(p0.x, yAt(v0));
 
-    std::vector<ImVec2> fill;
-    fill.reserve((size_t)resW + 3);
-    fill.emplace_back(p0.x, baseline);
-    fill.emplace_back(pos0);
-
-    for (int n = 0; n < resW; n++) {
-        const float t1 = t0 + tStep;
-        const int v1Idx = (int)(t0 * itemCount + 0.5f);
-        const float v1 = sample(v1Idx + 1);
-        fill.emplace_back(p0.x + t1 * w, yAt(v1));
-        t0 = t1;
-        v0 = v1;
-    }
-
-    fill.emplace_back(p0.x + w, baseline);
-    if (fill.size() >= 3) dl->AddConvexPolyFilled(fill.data(), (int)fill.size(), IM_COL32(70, 180, 255, 28));
-
-    v0 = sample(0);
-    t0 = 0.0f;
-    pos0 = ImVec2(p0.x, yAt(v0));
     for (int n = 0; n < resW; n++) {
         const float t1 = t0 + tStep;
         const int v1Idx = (int)(t0 * itemCount + 0.5f);
         const float v1 = sample(v1Idx + 1);
         const ImVec2 pos1(p0.x + t1 * w, yAt(v1));
         const float segMs = 0.5f * (v0 + v1);
+        dl->AddQuadFilled(
+            ImVec2(pos0.x, baseline), pos0, pos1, ImVec2(pos1.x, baseline), perf_graph_fill(segMs));
         dl->AddLine(pos0, pos1, perf_graph_color(segMs), 1.5f);
         t0 = t1;
         pos0 = pos1;
@@ -1994,7 +1981,8 @@ void perf_window(bool menu_open) {
 static bool settings_close_button(bool& open, float size) {
     const float pad = ImGui::GetStyle().WindowPadding.x;
     const ImVec2 win = ImGui::GetWindowPos();
-    const ImVec2 at(win.x + ImGui::GetWindowWidth() - size - pad, ImGui::GetCursorScreenPos().y);
+    const float lift = ImGui::GetStyle().FramePadding.y * 0.35f;
+    const ImVec2 at(win.x + ImGui::GetWindowWidth() - size - pad, ImGui::GetCursorScreenPos().y - lift);
     ImGui::PushClipRect(win, ImVec2(win.x + ImGui::GetWindowWidth(), win.y + ImGui::GetWindowHeight()), false);
     ImGui::SetCursorScreenPos(at);
     ImGui::PushItemFlag(ImGuiItemFlags_NoNav, true);

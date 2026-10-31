@@ -28,6 +28,7 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
   Mario's head, Luigi, and both Toads move with the rest of the body instead of staying on the 60 Hz step.
   Moving with the camera no longer leaves models half a step behind the view.
 - Setup and a full recompile pick up hook changes again, so fixes that rely on new hooks ship after you rebuild.
+- A full recompile no longer stops on save-debug hooks after hook files change.
 
 ### Fixed
 
@@ -40,6 +41,8 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 - 120 fps no longer steps the camera backward on the in-between frame.
   Changing the frame rate drops saved poses instead of blending across the gap.
 - iOS: the on-screen stick works while the GamePad picture fills the screen, as on the world map.
+- The performance overlay frame graph uses green for good frame times and fills under the line correctly when a spike appears.
+- The Settings close button sits higher in the header row.
 
 ## [0.8.0] - 2026-10-30
 
