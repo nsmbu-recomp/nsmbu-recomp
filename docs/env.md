@@ -34,7 +34,13 @@ The host test `env` in `runtime/test/env_test.cpp` covers `.name()`, a read afte
 
 ## Frame interpolation
 
-The port does not blend model poses.
+Course models blend between the last two logic poses when in-between frames are on.
+A picture's pose is the uniform block copied when its display list runs.
+Snapshot that block at submit, as `vendor/ZeldaWWHDRecomp/runtime/src/gx2/submitted_uniforms.h` does.
+`vendor/decomp/docs/frame-loop.md` is the order of `ModelG3d::calc`, `calcGPU`, and the render-thread copy.
+`interp_picture_test` checks that a later write to the live block leaves the copied pose unchanged.
+A pose or camera change is done when that test passes and two consecutive TV frames are dumped with `NSMBU_DUMP_FRAMES`.
+The dump steps are in `docs/automation.md`.
 `NSMBU_INTERP_FPS` is a present cap.
 30, 60, 120, 144, 165, and 240 are the listed rates.
 Any other value from 60 to 1000 is a custom cap.

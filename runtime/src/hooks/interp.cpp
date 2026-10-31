@@ -7,9 +7,14 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
+#include "hooks/interp_joints.h"
 #include "hooks/interp_pacing.h"
+#include "hooks/interp_picture.h"
 #include "guest_addr.h"
 #include "gfx/render_prof.h"
 #include "perf_metrics.h"
@@ -30,7 +35,7 @@ void f_024FA76C(Cpu* c);
 void f_02A05A9C(Cpu* c);
 }
 
-namespace gx2 { bool uncapped(); void set_uncapped(bool on); int gpu_frames_queued(); }
+namespace gx2 { bool uncapped(); void set_uncapped(bool on); int gpu_frames_queued(); void sync_submitted(); }
 
 namespace interp {
 
@@ -317,6 +322,8 @@ void remember_view(uint32_t mgr, uint32_t view, uint32_t proj) {
     }
 }
 
+void clear_model_poses();
+
 void remember_area() {
     const uint32_t area = ld32(GD(0x101D1598));
     if (area == g_view_area) return;
@@ -324,6 +331,7 @@ void remember_area() {
     g_cam_cur_valid = false;
     g_cam.valid = false;
     g_view_area = area;
+    clear_model_poses();
 }
 
 }
@@ -419,20 +427,205 @@ void apply_pose_reset() {
     g_cam = CamBox{};
     g_cam_cur_valid = false;
     g_view_n = 0;
+    clear_model_poses();
 }
 
 }
 
+namespace interp {
+namespace {
+void record_model(Cpu* c);
+}
+}
 
 extern "C" void hook_024F30DC(Cpu* c) {
+    const uint32_t model = c->r[3];
+    const uint32_t view = c->r[4];
     f_024F30DC_orig(c);
+    c->r[3] = model;
+    c->r[4] = view;
+    interp::record_model(c);
 }
 
 
 namespace interp {
+namespace {
+constexpr uint32_t kCalcView = 0x02AAAD18;
+constexpr uint32_t kUploadShapes = 0x02AA56F4;
+constexpr uint32_t kMaxBones = 256;
+constexpr uint32_t kMaxShapes = 512;
+
+struct ModelPose {
+    uint32_t model = 0;
+    uint32_t mtx = 0;
+    uint32_t n = 0;
+    uint64_t step = 0;
+    bool ubo_blended = false;
+    picture::Submitted submitted;
+    std::vector<uint8_t> views;
+    std::vector<uint32_t> prev;
+    std::vector<uint8_t> prev_stale;
+    std::vector<uint32_t> cur;
+    std::vector<uint8_t> cur_stale;
+};
+std::unordered_map<uint32_t, ModelPose> g_models;
+bool g_in_model_present = false;
+
+void clear_model_poses() { g_models.clear(); }
+
+void note_view(ModelPose& p, uint32_t view) {
+    if (view > 31) return;
+    for (uint8_t v : p.views)
+        if (v == view) return;
+    if (p.views.size() < 4) p.views.push_back(static_cast<uint8_t>(view));
+}
+
+bool bone_hidden(uint32_t model, uint32_t bone, uint32_t n, const std::vector<uint8_t>& has_shape) {
+    if (bone >= n || !has_shape[bone]) return false;
+    const uint32_t bits = ld32(model + 0x2C);
+    const uint32_t words = (n + 31) / 32;
+    if (!bits || !wwatch::readable(bits, words * 4)) return false;
+    const uint32_t word = ld32(bits + (bone >> 5) * 4);
+    return ((word >> (bone & 31)) & 1u) == 0;
+}
+
+void shape_bones(uint32_t model, uint32_t n, std::vector<uint8_t>& has_shape) {
+    const uint32_t shapes = ld32(model + 0x44);
+    const uint32_t shape_n = ld16(model + 0x3C);
+    if (!shapes || shape_n == 0 || shape_n > kMaxShapes) return;
+    if (!wwatch::readable(shapes, shape_n * 0x28)) return;
+    for (uint32_t i = 0; i < shape_n; i++) {
+        const uint32_t shape = ld32(shapes + i * 0x28);
+        if (!shape || !wwatch::readable(shape, 0x12)) continue;
+        const uint32_t bone = ld16(shape + 0x10);
+        if (bone < n) has_shape[bone] = 1;
+    }
+}
+
+void upload_pose(Cpu* c, ModelPose& p) {
+    const uint32_t obj = ld32(p.model + 0x40);
+    const uint32_t count = p.views.empty() ? 1u : static_cast<uint32_t>(p.views.size());
+    for (uint32_t i = 0; i < count; i++) {
+        const uint32_t view = p.views.empty() ? 0u : p.views[i];
+        guest_call(c, kCalcView, {obj, view});
+        guest_call(c, kUploadShapes, {p.model + 0x28, view});
+    }
+    if (!obj || !wwatch::readable(obj, 0x20)) return;
+    const uint32_t block = ld32(obj + 0x18);
+    const uint32_t size = ld32(obj + 0x1C);
+    if (!block || size == 0 || !wwatch::readable(block, size)) return;
+    picture::snapshot(p.submitted, mem::ptr(block), size);
+}
+
+void record_model(Cpu* c) {
+    if (g_in_model_present || !enabled() || !blend_enabled() || g_hold || !g_logic_pass || !course_play_active()) return;
+    const uint32_t model = c->r[3];
+    const uint32_t view = c->r[4];
+    if (!wwatch::readable(model, 0x48)) return;
+    const uint32_t obj = ld32(model + 0x40);
+    if (!obj || !wwatch::readable(obj, 0x20)) return;
+    const uint32_t res = ld32(obj);
+    const uint32_t mtx = ld32(obj + 0x10);
+    const uint32_t ubo_size = ld32(obj + 0x1C);
+    if (!res || !mtx || !wwatch::readable(res, 0xC)) return;
+    const uint32_t n = ld16(res + 8);
+    if (n == 0 || n > kMaxBones || ubo_size == 0 || ubo_size > n * 0x40) return;
+    if (!wwatch::readable(mtx, n * 0x30)) return;
+
+    const uint32_t* live = reinterpret_cast<const uint32_t*>(mem::ptr(mtx));
+    ModelPose& p = g_models[obj];
+    if (p.step == g_logic_steps && p.mtx == mtx && p.n == n && p.cur.size() == n * joints::kWords && p.cur_stale.size() == n) {
+        p.model = model;
+        note_view(p, view);
+        const uint32_t* before = p.prev.size() == n * joints::kWords ? p.prev.data() : nullptr;
+        std::vector<uint8_t> has_shape(n, 0);
+        shape_bones(model, n, has_shape);
+        for (uint32_t j = 0; j < n; j++) {
+            const uint32_t* prior = before ? before + joints::kWords * j : nullptr;
+            p.cur_stale[j] = joints::stale(bone_hidden(model, j, n, has_shape), live + joints::kWords * j, prior) ? 1 : 0;
+        }
+        std::memcpy(p.cur.data(), live, n * 0x30);
+        return;
+    }
+    const bool adjacent = p.mtx == mtx && p.n == n && p.step + 1 == g_logic_steps && p.cur.size() == n * joints::kWords;
+    std::vector<uint8_t> has_shape(n, 0);
+    shape_bones(model, n, has_shape);
+    std::vector<uint8_t> stale(n, 0);
+    for (uint32_t j = 0; j < n; j++) {
+        const uint32_t* before = adjacent ? p.cur.data() + joints::kWords * j : nullptr;
+        stale[j] = joints::stale(bone_hidden(model, j, n, has_shape), live + joints::kWords * j, before) ? 1 : 0;
+    }
+    if (adjacent) {
+        p.prev = std::move(p.cur);
+        p.prev_stale = std::move(p.cur_stale);
+    } else {
+        p.prev.clear();
+        p.prev_stale.clear();
+    }
+    p.cur.assign(live, live + n * joints::kWords);
+    p.cur_stale = std::move(stale);
+    p.model = model;
+    p.mtx = mtx;
+    p.n = n;
+    p.step = g_logic_steps;
+    p.ubo_blended = false;
+    p.views.clear();
+    note_view(p, view);
+}
+
+bool present_models(Cpu* c) {
+    if (!enabled() || !blend_enabled() || !course_play_active()) return false;
+    const float t = pacing::present_sample_t(!g_hold, pass_t());
+    std::vector<uint32_t> drop;
+    g_in_model_present = true;
+    for (auto& it : g_models) {
+        ModelPose& p = it.second;
+        if (p.step != g_logic_steps || p.n == 0 || p.prev.size() != p.n * joints::kWords || p.cur.size() != p.n * joints::kWords) {
+            if (p.step != g_logic_steps) drop.push_back(it.first);
+            continue;
+        }
+        if (!wwatch::readable(p.model, 0x48) || ld32(p.model + 0x40) != it.first || !wwatch::readable(p.mtx, p.n * 0x30)) {
+            drop.push_back(it.first);
+            continue;
+        }
+        const uint32_t* live = reinterpret_cast<const uint32_t*>(mem::ptr(p.mtx));
+        const bool same = std::memcmp(p.prev.data(), p.cur.data(), p.n * 0x30) == 0;
+        const bool exact = t >= 1.f || same;
+        if (exact && !p.ubo_blended) continue;
+        if (!exact) {
+            std::vector<uint32_t> saved(live, live + p.n * joints::kWords);
+            std::vector<uint32_t> mid(saved.size());
+            const auto blended = joints::blend(p.prev.data(), p.cur.data(),
+                                                p.prev_stale.size() == p.n ? p.prev_stale.data() : nullptr, p.n, joints::kCutDist, t,
+                                                mid.data(), joints::blend_mtx);
+            if (!blended.cut) {
+                std::memcpy(mem::ptr(p.mtx), mid.data(), p.n * 0x30);
+                upload_pose(c, p);
+                std::memcpy(mem::ptr(p.mtx), saved.data(), p.n * 0x30);
+                p.ubo_blended = true;
+                static bool logged = false;
+                if (!logged) {
+                    logged = true;
+                    LOG("[interp] course model pose blend on (%u bones)", p.n);
+                }
+                continue;
+            }
+        }
+        if (p.ubo_blended) {
+            upload_pose(c, p);
+            p.ubo_blended = false;
+        }
+    }
+    g_in_model_present = false;
+    for (uint32_t key : drop) g_models.erase(key);
+    return true;
+}
+}
+
 void reset_pass_clock();
 void finish_wake();
 void ss_reset() {
+    clear_model_poses();
     g_record_passes += 8;
     g_hold_next = false;
     g_phase = 0;
@@ -705,6 +898,12 @@ extern "C" void hook_029C4FE4(Cpu* c) {
     if (enabled()) {
         prepare_wake();
         if (g_wake_skip || g_skip_map_draw) return;
+        const uint32_t self = c->r[3];
+        const bool sync = present_models(c);
+        c->r[3] = self;
+        f_029C4FE4_orig(c);
+        if (sync) gx2::sync_submitted();
+        return;
     }
     f_029C4FE4_orig(c);
 }

@@ -376,7 +376,7 @@ static void enqueue(Op op, const uint32* payload, uint32 n) {
     if (g_q_waiting) g_q_cv.notify_one();
 }
 
-enum SyncSite { kSyncShutdown, kSyncFlip, kSyncDrawDone, kSyncVsyncUncapped, kSyncVsyncFlip, kSyncSaveState, kSyncCopySurface, kSyncSites };
+enum SyncSite { kSyncShutdown, kSyncFlip, kSyncDrawDone, kSyncVsyncUncapped, kSyncVsyncFlip, kSyncSaveState, kSyncCopySurface, kSyncInterp, kSyncSites };
 static void sync_stat(int site, std::chrono::steady_clock::duration waited) {
     static const bool on = env::SYNC_STATS() != nullptr;
     if (!on) return;
@@ -389,7 +389,7 @@ static void sync_stat(int site, std::chrono::steady_clock::duration waited) {
     const auto now = std::chrono::steady_clock::now();
     if (now - t0 < std::chrono::seconds(5)) return;
     const double secs = std::chrono::duration<double>(now - t0).count();
-    static const char* names[kSyncSites] = {"shutdown", "flip", "DrawDone", "vsync-uncapped", "vsync-flip", "savestate", "CopySurface"};
+    static const char* names[kSyncSites] = {"shutdown", "flip", "DrawDone", "vsync-uncapped", "vsync-flip", "savestate", "CopySurface", "interp"};
     char buf[400];
     int k = snprintf(buf, sizeof buf, "[gx2] render_sync per second:");
     for (int i = 0; i < kSyncSites; i++)
@@ -429,6 +429,11 @@ static void render_sync(int site = kSyncShutdown) {
         g_q_done_cv.wait_for(lk, std::chrono::milliseconds(2),
                              [&] { return g_fence_done >= id || threads::reboot_killing(); });
     }
+}
+
+void sync_submitted() {
+    BlockingScope block;
+    render_sync(kSyncInterp);
 }
 
 void emit(Op op, const uint32* payload, uint32 n) {

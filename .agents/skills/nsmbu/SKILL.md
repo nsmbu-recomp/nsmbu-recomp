@@ -1,6 +1,6 @@
 ---
 name: nsmbu
-description: "Playtests (`nsmbu test`), performance benches (`nsmbu bench`), case helpers, status, scripted boots, warm `nsmbu build`, NSMBU_* env vars, and swapping the active game dump (usa/eu). Use when adding or running a playtest, a performance bench, reproducing a game bug as a case, switching region or version under game/, reading nsmbu status, measuring a Release replay, running nsmbu scripted, speeding a hidden boot or a warm build, or adding, renaming, or reading an NSMBU_* variable."
+description: "Playtests, benches, boots, builds, env vars, and game dumps for the nsmbu CLI. Use when running nsmbu test or nsmbu bench, a scripted or hidden boot, a warm build, an NSMBU_* variable, a usa/eu dump switch, nsmbu status, a Release replay, or a model pose, camera picture, or interpolation jitter."
 ---
 
 # nsmbu
@@ -15,6 +15,11 @@ Add a new boot recipe there when a command is worth running again.
 Read `docs/cli.md` for install, build/launch, and the short live control commands.
 Read `docs/env.md` when you add, rename, or read an `NSMBU_*` variable.
 Read `game/README.md` for dump folder layout.
+
+## Pose and camera pictures
+
+Read Frame interpolation in `docs/env.md` before changing a model pose, a camera picture, or interpolation.
+That section is the done check: `interp_picture_test`, then two consecutive TV frames from `NSMBU_DUMP_FRAMES`.
 
 ## Dump (no TUI)
 

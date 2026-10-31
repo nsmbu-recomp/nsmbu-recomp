@@ -7,6 +7,9 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ## [Unreleased]
 
+- `interp_picture_test` keeps the uniform bytes from submit after the live block changes.
+- In-between frames blend course model animation with the camera.
+  The pose stays with that picture instead of jumping ahead on the next game step.
 - Debug settings include **In-between frames above 60 fps**, on by default.
   Off keeps the chosen frame rate selected and draws at 60 fps, one picture per game step.
   The 30 fps preset is unchanged.

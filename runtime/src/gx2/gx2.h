@@ -23,6 +23,7 @@ void set_uncapped(bool on);
 int gpu_frames_queued();
 void set_display_vsync_ns(int64_t ns);
 void pace_host_present();
+void sync_submitted();
 }
 
 namespace gx2 {
