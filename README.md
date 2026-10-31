@@ -71,15 +71,15 @@ Default layout:
 Addresses in the repo are USA 1.3.0.
 Europe, the USA and Europe base discs, and the NSMBU + NSLU packs use USA→build maps ([docs/builds.md](docs/builds.md)).
 Standalone USA and Europe discs should use their matching 1.3.0 update for full support.
-The USA and Europe base discs alone (title version 0) are playable and support mods.
-Combo packs are title version 0 (no separate update folder) and support mods.
+The USA and Europe base discs alone (title version 0) are playable.
+Combo packs are title version 0 (no separate update folder).
 
 | Region | Title ID | Title version | Status |
 |--------|----------|---------------|--------|
 | USA | `00050000-10101d00` | 64 (1.3.0) | Supported and playtested |
-| USA base disc | `00050000-10101d00` | 0 | Supported; mods not supported |
+| USA base disc | `00050000-10101d00` | 0 | Supported |
 | Europe | `00050000-10101e00` | 80 (1.3.0) | Supported |
-| Europe base disc | `00050000-10101e00` | 0 | Supported; mods not supported |
+| Europe base disc | `00050000-10101e00` | 0 | Supported |
 | USA combo (NSMBU + NSLU) | `00050000-1014b700` | 0 | Supported |
 | Europe combo (NSMBU + NSLU) | `00050000-1014b800` | 0 | Supported |
 | Japan | `00050000-10101c00` | — | Not supported yet |

@@ -32,7 +32,6 @@ class Build:
         self.title_id = d["title_id"]
         self.sha256 = d["rpx_sha256"]
         self.title_version = int(d.get("title_version", 64))
-        self.mods = bool(d.get("mods", True))
         self.bounds = {kind: tuple(int(a, 16) for a in d[kind + "_bounds"])
                        for kind in ("code", "data") if kind + "_bounds" in d}
         if self.name != CANONICAL and len(self.bounds) != 2:
@@ -145,7 +144,6 @@ _CANONICAL = {
     "title_id": "0005000010101d00",
     "rpx_sha256": "ebd147ce4cdedb563db3ac6278186ca5dea282ad315271925b8bb5ac16c7dc8e",
     "title_version": 64,
-    "mods": True,
 }
 
 def canonical_build():
@@ -192,17 +190,17 @@ def identify(rpx_path):
 
 _BUILDS_RE = re.compile(r"^#\s*builds:\s*(.+)$", re.I)
 
-def differing_hook(site, same, is_entry, mods):
+def differing_hook(site, same, is_entry):
     """What to do with a hook in a function this build compiled differently.
 
-    "keep" applies it quietly. "warn" applies a whole-function wrap and reports it. "skip" drops
-    an instruction site when this build has no mods. "refuse" is that site on a build that has mods.
+    "keep" applies it quietly. "warn" applies a whole-function wrap and reports it. "refuse" drops
+    an instruction site in changed code or rejects a wrap that is not marked `same`.
     `same` is a wrap whose replacement was checked against the other bodies.
     """
     if same and not site and is_entry:
         return "keep"
     if site or not is_entry:
-        return "skip" if not mods else "refuse"
+        return "refuse"
     return "warn"
 
 def read_hooks(paths, build):

@@ -9,6 +9,7 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ### Changed
 
+- Removed leftover docs and runtime checks that said mods need the 1.3.0 update or do not work on base-disc builds.
 - Removed unused developer tools (`tools/check/`, `rpxinfo.py`, Python disc reader, `run_bench.py` CLI).
   `nsmbu extract` uses `nsmbu-extract`; use `nsmbu bench` for performance scenarios.
 - Dropped `docs/ts-tools-port.md`, Android `--service-fixture` packaging, and the dead `game_sample_report.py` doc reference.

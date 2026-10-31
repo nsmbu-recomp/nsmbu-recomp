@@ -68,7 +68,6 @@ Inside a version folder:
 
 - `update/` — optional matching 1.3.0 update (USA title version 64, or Europe 80), with `code/`, `content/`, `meta/`.
   Without it, a known USA or Europe base-disc RPX (title version 0) is allowed.
-  Mods are unsupported on that build.
 - `code/`, `content/`, `meta/` — extract output (base disc, or base plus update for `*-1.3.0`)
 
 Keys: `game/keys.txt`, or `WIIU_COMMON_KEY` for the common key only.

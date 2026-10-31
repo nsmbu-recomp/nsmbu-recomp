@@ -1323,8 +1323,8 @@ static void screen_welcome() {
                        "meta);");
     ImGui::Bullet();
     ImGui::TextWrapped("for a disc image: its disc key and the Wii U common key (from your console). The matching "
-                       "1.3.0 update is optional (update/ next to the image, or chosen on the next screen); mods need "
-                       "it. A Cemu archive or an extracted folder needs no keys.");
+                       "1.3.0 update is optional (update/ next to the image, or chosen on the next screen). A Cemu "
+                       "archive or an extracted folder needs no keys.");
     ImGui::Spacing();
     if (A.portable) {
         ImGui::TextUnformatted("Space, all of it in this folder:");
@@ -1576,8 +1576,8 @@ static void screen_keys() {
 
     ImGui::BeginChild("update", ImVec2(0, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
     heading("1.3.0 update (optional)", 20);
-    muted("Folder with code, content and meta (USA title version 64, or Europe 80). Mods need this update. The USA "
-          "or Europe base disc alone also works.");
+    muted("Folder with code, content and meta (USA title version 64, or Europe 80). The USA or Europe base disc "
+          "alone also works.");
     std::string upd = chosen_update_dir();
     if (!upd.empty()) {
         mark(2);

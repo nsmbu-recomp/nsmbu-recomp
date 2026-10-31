@@ -2511,8 +2511,7 @@ def gui_main(args):
             pass
         if not update_dir:
             ident["message"] = (ident.get("message") or "") + (
-                " No update folder (optional): the base disc will be used if its RPX is known. "
-                "Mods need the 1.3.0 update.")
+                " No update folder (optional): the base disc will be used if its RPX is known.")
         reply(req, update_dir=session["update_dir"] or "", **ident)
 
     def do_install(req):

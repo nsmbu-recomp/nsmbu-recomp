@@ -333,15 +333,13 @@ def piecewise(steps):
         return (a + deltas[i]) & 0xFFFFFFFF if i >= 0 else a
     return f
 
-def to_json(m, name, title, sha256, canon_sha256, canon_name, title_version=None, mods=True):
+def to_json(m, name, title, sha256, canon_sha256, canon_name, title_version=None):
     out = {
         "name": name,
         "title_id": title,
     }
     if title_version is not None:
         out["title_version"] = int(title_version)
-    if not mods:
-        out["mods"] = False
     out.update({
         "rpx_sha256": sha256,
         "derived_from": {"name": canon_name, "rpx_sha256": canon_sha256},
@@ -380,7 +378,6 @@ def main():
     ap.add_argument("--name", help="short name of the other build, e.g. EU")
     ap.add_argument("--title", help="its title id, e.g. 0005000010101e00")
     ap.add_argument("--title-version", type=int, help="title version of the other build (e.g. 0 for a base disc)")
-    ap.add_argument("--no-mods", action="store_true", help="mark this build as unsupported for mods")
     ap.add_argument("--canonical-name", default="USA")
     ap.add_argument("--out", help="where to write the map (default: stdout)")
     ap.add_argument("--check", help="re-derive the map in this file and compare")
@@ -401,7 +398,7 @@ def main():
             sys.exit("canonical executable SHA-256 differs from the map's source")
         fresh = to_json(derive(canon, other), have["name"], have["title_id"], other.sha256,
                         canon.sha256, have["derived_from"]["name"],
-                        title_version=have.get("title_version"), mods=have.get("mods", True))
+                        title_version=have.get("title_version"))
         same = all(fresh[k] == have.get(k) for k in ("code_steps", "data_steps", "differing_functions", "code_bounds", "data_bounds"))
         report(derive(canon, other))
         print("map in %s: %s" % (args.check, "unchanged" if same else "DIFFERS from the two binaries"))
@@ -413,7 +410,7 @@ def main():
     m = derive(canon, other)
     report(m)
     out = to_json(m, args.name, args.title, other.sha256, canon.sha256, args.canonical_name,
-                  title_version=args.title_version, mods=not args.no_mods)
+                  title_version=args.title_version)
     text = json.dumps(out, indent=1) + "\n"
     if args.out:
         with open(args.out, "w") as f:

@@ -307,9 +307,7 @@ class Recompiler:
         kept = []
         for site, canon, addr, where, same in hook_entries:
             if self.build.body_differs(canon):
-                fate = game_builds.differing_hook(site, same, addr in self.entries, self.build.mods)
-                if fate == "skip":
-                    continue
+                fate = game_builds.differing_hook(site, same, addr in self.entries)
                 if fate == "refuse":
                     raise SystemExit('%s: %08X is inside a function the %s build compiled differently; the '
                                      'hook is written for the canonical (USA) code. Mark its file with '
@@ -321,13 +319,9 @@ class Recompiler:
                           "the whole function, so check that it still means the same thing" % (
                               where, self.build.name, canon, addr), file=sys.stderr)
             if not self.p.in_text(addr):
-                if not self.build.mods:
-                    continue
                 raise SystemExit("%s: %08X (%s build: %08X) is outside the game's code" % (
                     where, canon, self.build.name, addr))
             if not site and addr not in self.entries:
-                if not self.build.mods:
-                    continue
                 raise SystemExit("%s: %08X (%s build: %08X) is not the start of a function there" % (
                     where, canon, self.build.name, addr))
             kept.append((site, canon, addr, where))
@@ -843,7 +837,6 @@ class Recompiler:
         f.write('const char g_guest_build_label[] = "%s";\n' % b.issue_label())
         f.write('const char g_guest_build_title_id[] = "%s";\n' % b.title_id)
         f.write('const int g_guest_build_title_version = %d;\n' % b.title_version)
-        f.write('const int g_guest_build_mods = %d;\n' % (1 if b.mods else 0))
         for kind, steps in (("code", b.code_steps()), ("data", b.data_steps())):
             f.write("const GuestStep g_guest_%s_steps[] = {%s};\n" % (
                 kind, ", ".join("{0x%08Xu, %d}" % (a, d) for a, d in steps)))

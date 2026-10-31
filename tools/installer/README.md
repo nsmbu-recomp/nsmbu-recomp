@@ -260,7 +260,6 @@ A disc image is the base game.
 The matching 1.3.0 update is optional: an extracted folder (`code/`, `content/`, `meta/`).
 Setup looks for `update/` next to the disc image, accepts `--update-dir`, or asks (terminal / Keys screen).
 Without it, the USA or Europe base disc (title version 0) still works.
-Mods need the update.
 `check_update_folder` checks the update RPX and that build's title version before extract.
 After the base extract, `apply_update_to` merges that folder when present, then `check_game_version` runs on the result.
 Tests: `UpdateFolder` and `GameVersion` in `test_setup.py`.

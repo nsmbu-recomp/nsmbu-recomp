@@ -62,7 +62,6 @@ Optional matching **1.3.0** update as `game/<id>/update/` (`code/`, `content/`, 
 USA 1.3.0 is title version **64**.
 Europe 1.3.0 is title version **80**.
 A base disc alone (title version 0) is playable.
-**Mods are not supported** without the update.
 
 ## More
 
