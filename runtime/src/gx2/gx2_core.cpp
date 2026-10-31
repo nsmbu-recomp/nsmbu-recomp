@@ -812,7 +812,7 @@ static uint64_t g_paced_vsync = 0;
 static bool g_paced_vsync_valid = false;
 static bool g_presented_since_wake = false;
 static std::chrono::nanoseconds capped_vsync_wait_period(uint64_t granule) {
-    if (interp::unlocked()) return std::chrono::nanoseconds(0);
+    if (interp::unlocked() && interp::blend_enabled()) return std::chrono::nanoseconds(0);
     if (interp::holds_shed()) return std::chrono::nanoseconds(interp::pacing::kLogicStepNs);
     if (interp::mode() == 1) {
         const int fps = interp::output_fps();

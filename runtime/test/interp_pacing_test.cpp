@@ -335,29 +335,61 @@ static void test_hold_shed() {
     CHECK(!skip_extra_course_draw(true, true, 0));
     CHECK(!skip_extra_course_draw(true, true, 1));
     CHECK(skip_extra_course_draw(true, true, 2));
+    CHECK(!skip_settled_map_draw(false, true, false));
+    CHECK(!skip_settled_map_draw(true, false, false));
+    CHECK(!skip_settled_map_draw(true, true, true));
+    CHECK(skip_settled_map_draw(true, true, false));
     CHECK(logic_step_budget(0) == kMaxLogicStepsPerWake);
     CHECK(logic_step_budget(1) == 1);
     CHECK(logic_step_budget(4, 2) == 1);
 }
 
 static void test_present_sample_order() {
-    CHECK(present_sample_t(true, 1.f) == 0.f);
+    CHECK(present_sample_t(true, 1.f) == 1.f);
     CHECK(present_sample_t(false, 0.5f) == 0.5f);
     CHECK(present_sample_t(false, -1.f) == 0.f);
     CHECK(present_sample_t(false, 2.f) == 1.f);
     float shown = 0.f;
-    float prev = 0.f, next = 0.f;
     for (int step = 1; step <= 6; step++) {
-        prev = next;
-        next = float(step);
-        const float logic = lerp_f(prev, next, present_sample_t(true, 1.f));
-        CHECK(logic + 1e-4f >= shown);
-        shown = logic;
-        const float hold = lerp_f(prev, next, present_sample_t(false, 0.5f));
+        const float next = float(step);
+        const float hold = lerp_f(shown, next, present_sample_t(false, 0.5f));
         CHECK(hold + 1e-4f >= shown);
-        shown = hold;
+        CHECK(hold <= next + 1e-4f);
+        shown = next;
+        CHECK(shown + 1e-4f >= hold);
     }
-    CHECK_NEAR(shown, 5.5f, 1e-3);
+    CHECK_NEAR(shown, 6.f, 1e-3);
+}
+
+static void test_camera_hold_stays_ahead() {
+    float prev = 0.f, cur = 0.f, shown = 0.f;
+    bool valid = false, cur_valid = false;
+    uint64_t stored = 0, steps = 0;
+    for (int i = 0; i < 8; i++) {
+        const bool hold = i % 2 == 1;
+        const float live = float(steps);
+        switch (camera_shift(valid, cur_valid, stored, steps, false)) {
+        case CameraShift::Same:
+            cur = live;
+            break;
+        case CameraShift::Adjacent:
+            prev = cur;
+            cur = live;
+            stored = steps;
+            valid = cur_valid = true;
+            break;
+        case CameraShift::Snap:
+            prev = cur = live;
+            stored = steps;
+            valid = cur_valid = true;
+            break;
+        }
+        const float drawn = lerp_f(prev, cur, present_sample_t(!hold, 0.5f));
+        if (i) CHECK(drawn + 1e-4f >= shown);
+        shown = drawn;
+        if (!hold) steps++;
+    }
+    CHECK_NEAR(shown, 3.5f, 1e-3);
 }
 
 static void test_present_spacing() {
@@ -381,8 +413,22 @@ static void test_present_spacing() {
     }
 }
 
+static void test_blend_off_paces_at_60() {
+    CHECK(pace_fps(120, true, false) == 120);
+    CHECK(pace_fps(30, false, false) == 30);
+    CHECK(pace_fps(120, false, false) == 60);
+    CHECK(pace_fps(240, false, true) == 240);
+    CHECK(wants_holds(false, false, true, false, true, 120));
+    CHECK(wants_holds(false, false, false, false, true, 30));
+    CHECK(!wants_holds(false, false, false, false, true, pace_fps(120, false, false)));
+    CHECK(!wants_holds(false, false, false, true, true, 60));
+    CHECK(wants_holds(false, false, true, true, true, 60));
+    CHECK(!wants_holds(true, false, true, false, true, 120));
+}
+
 int main() {
     test_blends();
+    test_blend_off_paces_at_60();
     test_slerp();
     test_cap();
     test_accumulator();
@@ -390,6 +436,7 @@ int main() {
     test_swap_align();
     test_hold_shed();
     test_present_sample_order();
+    test_camera_hold_stays_ahead();
     test_present_spacing();
     if (g_failed) {
         std::fprintf(stderr, "interp_pacing_test: %d check(s) failed\n", g_failed);

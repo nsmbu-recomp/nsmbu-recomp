@@ -7,12 +7,22 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ## [Unreleased]
 
-- `nsmbu bench load-overworld` opens one visible window, presses through the save file onto the world map, and writes a render trace.
-  A second bench does not start while a game is running.
+- Debug settings include **In-between frames above 60 fps**, on by default.
+  Off keeps the chosen frame rate selected and draws at 60 fps, one picture per game step.
+  The 30 fps preset is unchanged.
+  `NSMBU_INTERP` overrides the option for that start.
 - `nsmbu save` recomputes every `rp_savedata.dat` block CRC and each challenge entry CRC when writing JSON back to `.dat`, so edited saves stay valid in game.
 - Press `T` in the game window to toggle between 60 fps and 120 fps frame interpolation (Vulkan SDL and macOS Metal).
-- 120 fps no longer jitters models and the camera.
-  The logic picture keeps the earlier pose, and the in-between picture is the halfway pose, so motion does not step backward on every other frame.
+- World-map shadows no longer flicker at 120 fps.
+  The picture is taken on the in-between present, after the light maps are ready.
+  Drawing on the logic present replaced those maps while the picture was still being shown.
+- 120 fps no longer steps the camera backward on the in-between frame.
+  The in-between camera uses the pose the last logic step wrote.
+  Changing the frame rate drops the saved poses instead of blending across the gap.
+- In-between frames no longer rewrite model poses.
+  The picture on screen is the one `ModelG3d::calc` already drew.
+- `nsmbu bench load-overworld` opens one visible window, presses through the save file onto the world map, and writes a render trace.
+  A second bench does not start while a game is running.
 - `NSMBU_DUMP_FRAMES` accepts inclusive ranges (`760-767`).
   `NSMBU_DUMP_TITLE=N` writes `title_0000_logic.png` or `title_0000_blend.png` once the title picture is open, marking a logic frame or an interpolated frame.
 

@@ -98,14 +98,17 @@ In [gx2_core.cpp](../../runtime/src/gx2/gx2_core.cpp):
 ### 4. UI / env
 
 - Frame menu: keep labeled caps; wire them to `present_cap` instead of `interp::set_fps` ladder semantics.
-- `NSMBU_INTERP_FPS` → present cap; `NSMBU_INTERP=0` → 60 present and 60 logic (interpolation off means `t=1` always, one present per logic).
+- `NSMBU_INTERP_FPS` sets the present cap.
+  `NSMBU_INTERP=0` turns interpolation off for that start: one present per logic step, paced at 60 when the chosen rate is above 60.
+  Debug can turn in-between frames off the same way when the variable is unset.
+  The 30 fps preset still runs two logic steps per picture.
 - Hotkeys 6/7/9 stay; behavior description in overlay help updates to "present cap".
 
 ### 5. Regression
 
 Playtests / benches that already care about interp:
 
-- World-map shadow flicker at high present rates ([map-shadow-interp.md](../../vendor/decomp/docs/map-shadow-interp.md)): holds still skip `procDraw_` when not in course.
+- World-map shadow flicker at high present rates ([map-shadow-interp.md](../../vendor/decomp/docs/map-shadow-interp.md)): outside a course, skip `procDraw_` on the present that follows a hold calc.
 - Course enter at high rate (CHANGELOG crash fix): no extra logic from holds.
 - Logic steps/s ≈ 60 with present caps 120/144/165/240 on a fast machine.
 - `nsmbu replay --release 1-1` or existing interp pacing unit tests rewritten for accumulator.

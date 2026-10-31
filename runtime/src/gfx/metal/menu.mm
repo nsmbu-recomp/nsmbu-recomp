@@ -86,6 +86,9 @@ static void load_prefs() {
     if (saved(@"fps60", {env::INTERP, env::INTERP_FPS})) interp::set_mode([pref(@"fps60") intValue]);
     if (saved(@"fps60Paced", {env::INTERP_PACED})) interp::set_paced_interpolation_at(60, [pref(@"fps60Paced") boolValue]);
     if (saved(@"fpsUnlocked", {env::INTERP_FPS}) && [pref(@"fpsUnlocked") boolValue]) interp::set_unlocked(true);
+    if (!interp::blend_env_locked()) {
+        if (id blend = pref(@"frameInterpolation")) interp::set_blend_enabled([blend intValue] != 0);
+    }
     if (saved(@"fpsHighPaced", {env::INTERP_PACED})) interp::set_paced_interpolation_at(120, [pref(@"fpsHighPaced") boolValue]);
     if (saved(@"aspect", {env::ASPECT})) aspect::apply_choice([pref(@"aspect") UTF8String]);
 #ifdef NSMBU_HAS_VULKAN
@@ -111,6 +114,7 @@ static void save_prefs() {
         set_pref(@"fps60Paced", @(interp::paced_interpolation_at(60)));
         set_pref(@"fpsHighPaced", @(interp::paced_interpolation_at(120)));
     }
+    if (!interp::blend_env_locked()) set_pref(@"frameInterpolation", @(interp::blend_enabled()));
 #ifdef NSMBU_HAS_VULKAN
     if (!env_set({env::VK_PRESENT_MODE})) set_pref(@"vkPresentMode", @(gfxvk::present_mode()));
 #endif

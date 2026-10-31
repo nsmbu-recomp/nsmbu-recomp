@@ -34,8 +34,7 @@ The host test `env` in `runtime/test/env_test.cpp` covers `.name()`, a read afte
 
 ## Frame interpolation
 
-`NSMBU_INTERP_MODELS` opts out of per-model pose blending when frame interpolation is on.
-Unset or any non-zero value keeps model interpolation enabled; set `0` to disable it.
+The port does not blend model poses.
 `NSMBU_INTERP_FPS` is a present cap.
 30, 60, 120, 144, 165, and 240 are the listed rates.
 Any other value from 60 to 1000 is a custom cap.
@@ -43,7 +42,13 @@ A value below 60 other than the 30 preset is 60.
 Guest logic stays at 60 steps/s.
 The 30 fps preset runs two logic steps per picture.
 `NSMBU_UNCAPPED=1` starts in Fast forward: one game step per picture and no frame limit.
-`NSMBU_INTERP=0` means 60 presents and 60 logic with blend `t=1`.
+`NSMBU_INTERP=0` forces interpolation off for that start and takes precedence over Debug.
+`NSMBU_INTERP=1` forces it on.
+When `NSMBU_INTERP` is unset, in-between frames above 60 fps are on.
+Debug can turn them off.
+That choice is saved as `frameInterpolation`.
+Off keeps one picture per game step and paces those pictures at 60 fps.
+The 30 fps preset still runs two logic steps per picture.
 Other interpolation variables (`NSMBU_INTERP_PACED`, and the rest in `env.h`) are listed only in `env.h` unless a feature doc describes them.
 
 ## Scripted compare runs

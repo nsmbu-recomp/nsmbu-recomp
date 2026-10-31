@@ -211,6 +211,7 @@ void graphics_changed() {
     put("fpsCustom", {env::INTERP_FPS}, interp::custom_on() ? "1" : "0");
     put("interpFps", {env::INTERP_FPS}, std::to_string(interp::custom_on() ? interp::custom_fps() : interp::fps()));
     put("fps60Paced", {env::INTERP_PACED}, interp::paced_interpolation_at(60) ? "1" : "0");
+    if (!interp::blend_env_locked()) put("frameInterpolation", {}, interp::blend_enabled() ? "1" : "0");
     put("scaleFilter", {env::SCALE_FILTER}, std::to_string(gfxvk::scale_filter()));
     char aspect[32];
     aspect::choice_text(aspect, sizeof aspect);
@@ -244,6 +245,8 @@ void load_saved_options() {
     if (saved("fps60", {env::INTERP, env::INTERP_FPS})) interp::set_mode((int)num("fps60"));
     if (saved("fps60Paced", {env::INTERP_PACED})) interp::set_paced_interpolation_at(60, num("fps60Paced") != 0);
     if (saved("fpsUnlocked", {env::INTERP_FPS}) && num("fpsUnlocked") != 0) interp::set_unlocked(true);
+    if (!interp::blend_env_locked() && v.count("frameInterpolation"))
+        interp::set_blend_enabled(v["frameInterpolation"] != "0");
 #ifdef __ANDROID__
     if (saved("heatGuard", {env::HEAT_GUARD})) heat_guard::choice = heat_guard::parse(v["heatGuard"].c_str());
 #endif

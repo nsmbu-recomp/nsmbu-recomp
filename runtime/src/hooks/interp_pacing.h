@@ -79,6 +79,17 @@ inline int cap_fps(int fps, int hz, bool vsync) {
     return std::min(fps, display_fps(hz));
 }
 
+inline int pace_fps(int output, bool blend, bool fast_forward) {
+    if (!blend && !fast_forward && output > 60) return 60;
+    return output;
+}
+
+inline bool wants_holds(bool uncapped, bool shed, bool blend, bool unlocked, bool rate_on, int paced_fps) {
+    if (uncapped || shed) return false;
+    if (unlocked) return blend;
+    return rate_on && paced_fps != 60;
+}
+
 constexpr int64_t kLogicStepNs = 1'000'000'000LL / 60;
 constexpr int64_t kMaxDtNs = 100'000'000LL;
 constexpr int kMaxLogicStepsPerWake = 4;
@@ -94,10 +105,18 @@ inline float blend_t(int64_t acc_ns) {
 inline float present_t(int logic_steps, float open_t) { return logic_steps > 0 ? 1.f : open_t; }
 
 inline float present_sample_t(bool logic_step, float hold_t) {
-    if (logic_step) return 0.f;
+    if (logic_step) return 1.f;
     if (hold_t < 0.f) return 0.f;
     if (hold_t > 1.f) return 1.f;
     return hold_t;
+}
+
+enum class CameraShift { Same, Adjacent, Snap };
+
+inline CameraShift camera_shift(bool valid, bool cur_valid, uint64_t stored_step, uint64_t logic_steps, bool cut) {
+    if (valid && stored_step == logic_steps) return CameraShift::Same;
+    if (valid && cur_valid && stored_step + 1 == logic_steps && !cut) return CameraShift::Adjacent;
+    return CameraShift::Snap;
 }
 
 struct WakePlan {
@@ -136,6 +155,10 @@ constexpr int kLoadLatchFrames = 300;
 
 inline bool skip_extra_course_draw(bool hold, bool course_play, int frames_queued) {
     return hold && course_play && frames_queued > 1;
+}
+
+inline bool skip_settled_map_draw(bool previous_calc_was_hold, bool interpolating, bool course_play) {
+    return previous_calc_was_hold && interpolating && !course_play;
 }
 
 inline int logic_step_budget(int frames_queued, int max_steps = kMaxLogicStepsPerWake) {

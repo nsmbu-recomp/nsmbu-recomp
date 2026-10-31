@@ -7,11 +7,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
-#include <cstring>
-#include <mutex>
 #include <string>
-#include <unordered_map>
-#include <vector>
 
 #include "hooks/interp_pacing.h"
 #include "guest_addr.h"
@@ -32,9 +28,6 @@ void f_024F30DC_orig(Cpu* c);
 void f_029C5104(Cpu* c);
 void f_024FA76C(Cpu* c);
 void f_02A05A9C(Cpu* c);
-void f_02AA56EC(Cpu* c);
-void f_02AA56F4(Cpu* c);
-void imp_gx2_GX2DrawDone(Cpu* c);
 }
 
 namespace gx2 { bool uncapped(); void set_uncapped(bool on); int gpu_frames_queued(); }
@@ -67,6 +60,16 @@ static std::atomic<bool> g_on{[] {
     const char* e = env::INTERP();
     return (e ? atoi(e) != 0 : g_env_fps != 0);
 }()};
+static std::atomic<bool> g_blend{[] {
+    const char* e = env::INTERP();
+    if (e && *e) return atoi(e) != 0;
+    return true;
+}()};
+bool blend_env_locked() {
+    const char* e = env::INTERP();
+    return e && *e;
+}
+bool blend_enabled() { return g_blend.load(std::memory_order_relaxed); }
 bool interp_on() { return g_on.load(std::memory_order_relaxed); }
 
 static std::atomic<int> g_granule{4};
@@ -83,8 +86,17 @@ void set_fast_forward(bool on) {
     if (on) g_unlocked.store(false, std::memory_order_relaxed);
     gx2::set_uncapped(on);
 }
+void pose_reset();
+void apply_pose_reset();
+void set_blend_enabled(bool on) {
+    if (blend_env_locked()) return;
+    if (g_blend.exchange(on, std::memory_order_relaxed) == on) return;
+    pose_reset();
+    LOG("[interp] in-between frames %s", on ? "on" : "off");
+}
 void set_unlocked(bool on) {
     if (g_unlocked.exchange(on, std::memory_order_relaxed) == on) return;
+    pose_reset();
     if (on) {
         gx2::set_uncapped(false);
         g_custom_on.store(false, std::memory_order_relaxed);
@@ -103,12 +115,14 @@ int display_hz() { return g_env_hz >= 0 ? g_env_hz : g_display_hz.load(std::memo
 bool present_vsync() { return g_present_vsync.load(std::memory_order_relaxed); }
 int output_fps() {
     const int f = std::max(1, fps());
+    int out = f;
     if (g_custom_on.load(std::memory_order_relaxed)) {
         const int hz = display_hz();
-        if (!present_vsync() || hz <= 0) return f;
-        return std::min(f, std::max(1, hz));
+        if (present_vsync() && hz > 0) out = std::min(f, std::max(1, hz));
+    } else {
+        out = pacing::cap_fps(f, display_hz(), present_vsync());
     }
-    return pacing::cap_fps(f, display_hz(), present_vsync());
+    return pacing::pace_fps(out, blend_enabled(), fast_forward());
 }
 void set_display_hz(int hz) {
     if (hz < 0) hz = 0;
@@ -138,32 +152,39 @@ static const char* fps_name(int f) {
 }
 void set_enabled(bool v) {
     if (v && fps() == 60 && !unlocked()) v = false;
-    g_on = v;
+    if (g_on.exchange(v) == v) return;
+    pose_reset();
     LOG("[interp] frame interpolation %s", v ? fps_name(fps()) : "off");
 }
 void set_fps(int f) {
     g_unlocked.store(false, std::memory_order_relaxed);
     g_custom_on.store(false, std::memory_order_relaxed);
     f = valid_fps(f);
-    if (g_fps.exchange(f) != f && interp_on()) LOG("[interp] frame interpolation at %s", fps_name(f));
+    if (g_fps.exchange(f) == f) return;
+    pose_reset();
+    if (interp_on()) LOG("[interp] frame interpolation at %s", fps_name(f));
 }
 void set_custom_fps(int f) {
     g_unlocked.store(false, std::memory_order_relaxed);
     f = pacing::clamp_custom_fps(f);
-    g_custom_fps.store(f, std::memory_order_relaxed);
-    g_custom_on.store(true, std::memory_order_relaxed);
+    const int old = g_custom_fps.exchange(f);
+    const bool was = g_custom_on.exchange(true);
     if (f == 60) {
-        g_on = false;
+        if (g_on.exchange(false)) pose_reset();
         LOG("[interp] frame interpolation off");
         return;
     }
+    if (old != f || !was) pose_reset();
     set_enabled(true);
 }
 int mode() { return unlocked() || (interp_on() && fps() != 60) ? 1 : 0; }
 void set_mode(int m) {
     if (m == 0) g_unlocked.store(false, std::memory_order_relaxed);
-    g_on = false;
-    if (m == 1) set_enabled(true);
+    if (m != 1) {
+        if (g_on.exchange(false)) pose_reset();
+        return;
+    }
+    set_enabled(true);
 }
 
 void toggle_fps(int f) {
@@ -204,8 +225,8 @@ uint64_t g_record_passes = 0;
 uint64_t g_present_i = 0;
 float g_blend_t = 1.f;
 
-bool g_exact_step = false;
 bool g_interp_present = false;
+std::atomic<bool> g_pose_reset{false};
 int64_t g_acc_ns = 0;
 bool g_wake_valid = false;
 std::chrono::steady_clock::time_point g_last_wake{};
@@ -334,15 +355,19 @@ void cam_trace(const char* what, const float* prev, const float* cur, const floa
 }
 
 void shift_camera(const float* cur) {
-    if (g_cam.valid && g_cam.step == g_logic_steps) {
+    apply_pose_reset();
+    const bool cut = g_cam_cur_valid && cam_cut(g_cam_cur, cur);
+    switch (pacing::camera_shift(g_cam.valid, g_cam_cur_valid, g_cam.step, g_logic_steps, cut)) {
+    case pacing::CameraShift::Same:
         for (int i = 0; i < 4; i++) g_cam_cur[i] = cur[i];
         g_cam_cur_valid = true;
         return;
-    }
-    if (g_cam_cur_valid && !cam_cut(g_cam_cur, cur)) {
+    case pacing::CameraShift::Adjacent:
         for (int i = 0; i < 4; i++) g_cam.v[i] = g_cam_cur[i];
-    } else {
+        break;
+    case pacing::CameraShift::Snap:
         for (int i = 0; i < 4; i++) g_cam.v[i] = cur[i];
+        break;
     }
     for (int i = 0; i < 4; i++) g_cam_cur[i] = cur[i];
     g_cam_cur_valid = true;
@@ -385,333 +410,22 @@ void apply_hold_camera(Cpu* c) {
     present_camera(c, r, cur, 0, 0, 0);
 }
 
-constexpr uint32_t kMaxModelJoints = 256;
-constexpr uint32_t kSklWorldArr = 0x10;
-struct ModelPose {
-    uint32_t mdl = 0;
-    uint32_t mtx = 0;
-    uint32_t joints = 0;
-    uint64_t pass = ~0ull;
-    uint64_t sync_pass = 0;
-    uint64_t subst_pass = ~0ull;
-    std::vector<uint32_t> pose;
-    std::vector<uint32_t> next;
-    std::vector<uint32_t> exact;
-    std::vector<uint32_t> mid;
-};
-std::unordered_map<uint32_t, ModelPose> g_models;
-struct ModelStats { uint32_t blended = 0, fresh = 0, cut = 0, still = 0; } g_mstats;
 
-void trace_model(const char* what, uint32_t mdl, uint32_t skel, uint32_t count, uint64_t gen, const uint32_t* w) {
-    static int left = env::INTERP_MODEL_TRACE.integer_or(0);
-    if (left <= 0 || !enabled()) return;
-    left--;
-    LOG("[interp] model mdl %08X skel %08X joints %u gen %llu step %llu hold %d phase %d/%d t %.3f %-7s w3 %08X w7 %08X w11 %08X",
-        mdl, skel, count, (unsigned long long)gen, (unsigned long long)g_logic_steps, g_hold, g_phase, g_step_n, pass_t(), what,
-        w ? w[3] : 0, w ? w[7] : 0, w ? w[11] : 0);
-}
 
-inline uint32_t ld32g(uint32_t ea) { return ea >= 0x02000000u && ea < 0x70000000u && wwatch::readable(ea, 4) ? ld32(ea) : 0; }
-inline uint16_t ld16g(uint32_t ea) { return ea >= 0x02000000u && ea < 0x70000000u && wwatch::readable(ea, 2) ? ld16(ea) : 0; }
+void pose_reset() { g_pose_reset.store(true, std::memory_order_relaxed); }
 
-bool model_skeleton(uint32_t mdl, uint32_t& skel, uint32_t& count, uint32_t& arr) {
-    uint32_t s = ld32g(mdl + 0x40);
-    if (s < 0x02000000u || s >= 0x70000000u) return false;
-    uint32_t a = ld32g(s + kSklWorldArr);
-    if (a < 0x02000000u || a >= 0x70000000u) return false;
-    uint32_t res = ld32g(s);
-    if (res < 0x02000000u || res >= 0x70000000u) return false;
-    count = ld16g(res + 8);
-    if (count == 0 || count > kMaxModelJoints) return false;
-    if (!wwatch::readable(a, 12 * 4 * count)) return false;
-    skel = s;
-    arr = a;
-    return true;
-}
-
-uint32_t fw(float f) { return f32_as_u32(f); }
-
-bool model_to_quat(const float* m, float* s, float* q) {
-    float r[3][3];
-    for (int j = 0; j < 3; j++) {
-        s[j] = std::sqrt(m[j] * m[j] + m[4 + j] * m[4 + j] + m[8 + j] * m[8 + j]);
-        if (s[j] < 1e-6f) return false;
-        for (int i = 0; i < 3; i++) r[i][j] = m[4 * i + j] / s[j];
-    }
-    for (int a = 0; a < 3; a++)
-        for (int b = a + 1; b < 3; b++)
-            if (std::fabs(r[0][a] * r[0][b] + r[1][a] * r[1][b] + r[2][a] * r[2][b]) > 0.02f) return false;
-    float det = r[0][0] * (r[1][1] * r[2][2] - r[1][2] * r[2][1]) - r[0][1] * (r[1][0] * r[2][2] - r[1][2] * r[2][0]) +
-                r[0][2] * (r[1][0] * r[2][1] - r[1][1] * r[2][0]);
-    if (det < 0.9f) return false;
-    float tr = r[0][0] + r[1][1] + r[2][2];
-    if (tr > 0) {
-        float k = 0.5f / std::sqrt(tr + 1.0f);
-        q[0] = 0.25f / k; q[1] = (r[2][1] - r[1][2]) * k; q[2] = (r[0][2] - r[2][0]) * k; q[3] = (r[1][0] - r[0][1]) * k;
-    } else if (r[0][0] > r[1][1] && r[0][0] > r[2][2]) {
-        float k = 2.0f * std::sqrt(1.0f + r[0][0] - r[1][1] - r[2][2]);
-        q[0] = (r[2][1] - r[1][2]) / k; q[1] = 0.25f * k; q[2] = (r[0][1] + r[1][0]) / k; q[3] = (r[0][2] + r[2][0]) / k;
-    } else if (r[1][1] > r[2][2]) {
-        float k = 2.0f * std::sqrt(1.0f + r[1][1] - r[0][0] - r[2][2]);
-        q[0] = (r[0][2] - r[2][0]) / k; q[1] = (r[0][1] + r[1][0]) / k; q[2] = 0.25f * k; q[3] = (r[1][2] + r[2][1]) / k;
-    } else {
-        float k = 2.0f * std::sqrt(1.0f + r[2][2] - r[0][0] - r[1][1]);
-        q[0] = (r[1][0] - r[0][1]) / k; q[1] = (r[0][2] + r[2][0]) / k; q[2] = (r[1][2] + r[2][1]) / k; q[3] = 0.25f * k;
-    }
-    return true;
-}
-
-void model_blend_mtx(const float* a, const float* b, float* out, float t) {
-    float sa[3], sb[3], qa[4], qb[4];
-    for (int i = 0; i < 3; i++) out[4 * i + 3] = pacing::lerp_f(a[4 * i + 3], b[4 * i + 3], t);
-    if (!model_to_quat(a, sa, qa) || !model_to_quat(b, sb, qb)) {
-        for (int i = 0; i < 3; i++)
-            for (int j = 0; j < 3; j++) out[4 * i + j] = pacing::lerp_f(a[4 * i + j], b[4 * i + j], t);
-        return;
-    }
-    float d = qa[0] * qb[0] + qa[1] * qb[1] + qa[2] * qb[2] + qa[3] * qb[3];
-    float sg = d < 0 ? -1.0f : 1.0f, q[4], n = 0;
-    float wa, wb;
-    pacing::slerp_weights(std::fabs(d), t, wa, wb);
-    wb *= sg;
-    for (int k = 0; k < 4; k++) { q[k] = wa * qa[k] + wb * qb[k]; n += q[k] * q[k]; }
-    n = 1.0f / std::sqrt(n);
-    float w = q[0] * n, x = q[1] * n, y = q[2] * n, z = q[3] * n;
-    const float r[3][3] = {{1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)},
-                           {2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)},
-                           {2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)}};
-    for (int j = 0; j < 3; j++) {
-        float s = pacing::lerp_f(sa[j], sb[j], t);
-        for (int i = 0; i < 3; i++) out[4 * i + j] = r[i][j] * s;
-    }
-}
-
-bool model_pose_sane(const uint32_t* w, uint32_t count) {
-    for (uint32_t m = 0; m < count; m++) {
-        const uint32_t* a = w + 12 * m;
-        for (int k = 0; k < 12; k++) {
-            float v = u32_as_f32(a[k]);
-            if (!std::isfinite(v) || std::fabs(v) > 10000.0f) return false;
-        }
-        for (int i = 0; i < 3; i++) {
-            float n = std::sqrt(u32_as_f32(a[i]) * u32_as_f32(a[i]) + u32_as_f32(a[4 + i]) * u32_as_f32(a[4 + i]) +
-                                u32_as_f32(a[8 + i]) * u32_as_f32(a[8 + i]));
-            if (n < 0.05f || n > 100.0f) return false;
-        }
-    }
-    return true;
-}
-
-inline void model_read(uint32_t arr, uint32_t words, std::vector<uint32_t>& out) {
-    out.resize(words);
-    const uint32_t* src = (const uint32_t*)mem::ptr(arr);
-    for (uint32_t i = 0; i < words; i++) out[i] = __builtin_bswap32(src[i]);
-}
-
-inline void model_write(uint32_t arr, const std::vector<uint32_t>& in) {
-    uint32_t* dst = (uint32_t*)mem::ptr(arr);
-    for (size_t i = 0; i < in.size(); i++) dst[i] = __builtin_bswap32(in[i]);
-}
-
-void model_upload(Cpu* c, uint32_t mdl) {
-    const uint32_t save3 = c->r[3];
-    const uint32_t save4 = c->r[4];
-    c->r[3] = mdl + 0x28;
-    c->r[4] = 0;
-    f_02AA56EC(c);
-    c->r[3] = mdl + 0x28;
-    c->r[4] = 0;
-    f_02AA56F4(c);
-    c->r[3] = save3;
-    c->r[4] = save4;
-}
-
-void model_stats_report() {
-    static uint64_t n = 0;
-    if (++n % 300 != 0 || !(g_mstats.blended + g_mstats.fresh + g_mstats.cut + g_mstats.still)) return;
-    LOG("[interp] models blended %u fresh %u cut %u still %u", g_mstats.blended, g_mstats.fresh, g_mstats.cut, g_mstats.still);
-    g_mstats = ModelStats{};
-}
-
-bool model_blend_pose(ModelPose& p, uint32_t count, uint32_t words, const std::vector<uint32_t>& to, std::vector<uint32_t>& mid) {
-    if (p.pose.size() != words || to.size() != words || memcmp(p.pose.data(), to.data(), 4u * words) == 0) return false;
-    const float kCut = (float)env::INTERP_MODEL_CUT.real_or(400.0f);
-    float dx = u32_as_f32(to[3]) - u32_as_f32(p.pose[3]);
-    float dy = u32_as_f32(to[7]) - u32_as_f32(p.pose[7]);
-    float dz = u32_as_f32(to[11]) - u32_as_f32(p.pose[11]);
-    if (dx * dx + dy * dy + dz * dz > kCut * kCut) return false;
-    const float t = pass_t();
-    mid.resize(words);
-    for (uint32_t m = 0; m < count; m++) {
-        float a[12], b[12], o[12];
-        for (int k = 0; k < 12; k++) {
-            a[k] = u32_as_f32(p.pose[12 * m + k]);
-            b[k] = u32_as_f32(to[12 * m + k]);
-        }
-        model_blend_mtx(a, b, o, t);
-        for (int k = 0; k < 12; k++) mid[12 * m + k] = fw(o[k]);
-    }
-    return true;
-}
-
-void model_commit_step(ModelPose& p, uint32_t mdl, uint32_t mtx, uint32_t count, uint32_t words,
-                       const std::vector<uint32_t>& cur) {
-    p.mdl = mdl;
-    p.mtx = mtx;
-    p.joints = count;
-    if (p.next.empty()) {
-        p.pose = cur;
-        p.next = cur;
-    } else if (p.sync_pass != g_record_passes) {
-        p.pose = p.next;
-        p.next = cur;
-        p.sync_pass = g_record_passes;
-    }
-    p.pass = g_record_passes > 0 ? g_record_passes - 1 : 0;
-    p.subst_pass = ~0ull;
-    p.exact.clear();
-    p.mid.clear();
-}
-
-void model_calc_gpu(Cpu* c, bool older_endpoint) {
-    const uint32_t mdl = c->r[3];
-    uint32_t skel, count, arr;
-    if (!model_skeleton(mdl, skel, count, arr)) {
-        f_024F30DC_orig(c);
-        return;
-    }
-    const uint32_t words = 12 * count;
-    auto it = g_models.find(skel);
-    const uint64_t shown_pass = g_record_passes > 0 ? g_record_passes - 1 : 0;
-    if (it != g_models.end() && it->second.subst_pass == g_passes && it->second.pass == shown_pass &&
-        it->second.mtx == arr && it->second.mid.size() == words) {
-        model_write(arr, it->second.mid);
-        if (!ld8(mdl + 0x28 + 0x0D)) model_upload(c, mdl);
-        f_024F30DC_orig(c);
-        return;
-    }
-    std::vector<uint32_t> cur;
-    model_read(arr, words, cur);
-    if (!model_pose_sane(cur.data(), count)) {
-        g_mstats.fresh++;
-        trace_model("fresh", mdl, skel, count, ~0ull, cur.data());
-        f_024F30DC_orig(c);
-        return;
-    }
-    ModelPose& p = g_models[skel];
-    if (p.mtx != arr || p.pose.size() != words) {
-        p.pose.clear();
-        p.next.clear();
-        p.sync_pass = 0;
-    }
-    model_commit_step(p, mdl, arr, count, words, cur);
-    if (memcmp(p.pose.data(), p.next.data(), 4u * words) == 0) {
-        g_mstats.still++;
-        trace_model("still", mdl, skel, count, p.pass, p.next.data());
-        f_024F30DC_orig(c);
-        return;
-    }
-    if (older_endpoint) {
-        const float kCut = (float)env::INTERP_MODEL_CUT.real_or(400.0f);
-        float dx = u32_as_f32(p.next[3]) - u32_as_f32(p.pose[3]);
-        float dy = u32_as_f32(p.next[7]) - u32_as_f32(p.pose[7]);
-        float dz = u32_as_f32(p.next[11]) - u32_as_f32(p.pose[11]);
-        if (dx * dx + dy * dy + dz * dz > kCut * kCut) {
-            g_mstats.cut++;
-            trace_model("cut", mdl, skel, count, p.pass, p.next.data());
-            f_024F30DC_orig(c);
-            return;
-        }
-        p.exact = p.next;
-        p.mid = p.pose;
-        p.subst_pass = g_passes;
-        model_write(arr, p.pose);
-        if (!ld8(mdl + 0x28 + 0x0D)) model_upload(c, mdl);
-        f_024F30DC_orig(c);
-        trace_model("older", mdl, skel, count, p.pass, p.pose.data());
-        return;
-    }
-    std::vector<uint32_t> mid;
-    if (!model_blend_pose(p, count, words, p.next, mid)) {
-        g_mstats.cut++;
-        trace_model("cut", mdl, skel, count, p.pass, p.next.data());
-        f_024F30DC_orig(c);
-        return;
-    }
-    p.exact = p.next;
-    p.mid = std::move(mid);
-    p.subst_pass = g_passes;
-    model_write(arr, p.mid);
-    if (!ld8(mdl + 0x28 + 0x0D)) model_upload(c, mdl);
-    f_024F30DC_orig(c);
-    g_mstats.blended++;
-    trace_model("blended", mdl, skel, count, p.pass, p.mid.data());
-}
-
-bool model_subst_pending() {
-    for (const auto& kv : g_models) {
-        const ModelPose& p = kv.second;
-        if (p.subst_pass != ~0ull && !p.exact.empty() && p.mtx) return true;
-    }
-    return false;
-}
-
-void model_restore_draw(Cpu* c) {
-    for (auto& kv : g_models) {
-        ModelPose& p = kv.second;
-        if (p.subst_pass == ~0ull || p.exact.empty() || !p.mtx) continue;
-        model_write(p.mtx, p.exact);
-        if (p.mdl && !ld8(p.mdl + 0x28 + 0x0D)) model_upload(c, p.mdl);
-        p.subst_pass = ~0ull;
-        p.exact.clear();
-        p.mid.clear();
-    }
-}
-
-void model_clear() {
-    g_models.clear();
-    g_mstats = ModelStats{};
+void apply_pose_reset() {
+    if (!g_pose_reset.exchange(false, std::memory_order_relaxed)) return;
+    g_cam = CamBox{};
+    g_cam_cur_valid = false;
+    g_view_n = 0;
 }
 
 }
 
-static const bool g_models_on = [] {
-    const char* e = env::INTERP_MODELS();
-    return !e || atoi(e) != 0;
-}();
-
-static void model_record_after_logic(Cpu* c) {
-    using namespace interp;
-    const uint32_t mdl = c->r[3];
-    uint32_t skel, count, arr;
-    if (!model_skeleton(mdl, skel, count, arr)) return;
-    const uint32_t words = 12 * count;
-    std::vector<uint32_t> cur;
-    model_read(arr, words, cur);
-    if (!model_pose_sane(cur.data(), count)) return;
-    ModelPose& p = g_models[skel];
-    if (p.mtx != arr || p.pose.size() != words) {
-        p.pose.clear();
-        p.next.clear();
-        p.sync_pass = 0;
-    }
-    model_commit_step(p, mdl, arr, count, words, cur);
-    trace_model("record", mdl, skel, count, p.pass, p.next.data());
-}
 
 extern "C" void hook_024F30DC(Cpu* c) {
-    using namespace interp;
-    if (g_models_on && enabled() && course_play_active()) {
-        if (g_hold && !g_exact_step)
-            model_calc_gpu(c, false);
-        else if (!g_hold && g_interp_present)
-            model_calc_gpu(c, true);
-        else {
-            f_024F30DC_orig(c);
-            if (!g_hold) model_record_after_logic(c);
-        }
-    } else
-        f_024F30DC_orig(c);
+    f_024F30DC_orig(c);
 }
 
 
@@ -728,7 +442,6 @@ void ss_reset() {
     g_view_n = 0;
     g_cam_cur_valid = false;
     g_view_area = 0;
-    model_clear();
     g_blend_t = 1.f;
     g_interp_present = false;
     g_logic_steps = 0;
@@ -776,6 +489,7 @@ static bool g_pass_begin_valid = false;
 static bool g_wake_ready = false;
 static bool g_wake_hold = false;
 static bool g_wake_skip = false;
+static bool g_skip_map_draw = false;
 static pacing::WakePlan g_wake_plan;
 
 static std::atomic<int> g_course_setup{0};
@@ -783,32 +497,36 @@ void begin_course_setup() { g_course_setup.fetch_add(1, std::memory_order_relaxe
 void end_course_setup() { g_course_setup.fetch_sub(1, std::memory_order_relaxed); }
 bool course_setup_active() { return g_course_setup.load(std::memory_order_relaxed) > 0; }
 bool holds_shed() {
-    if (unlocked()) return false;
+    if (unlocked() || !blend_enabled()) return false;
     return g_shed.shed && interp_on() && fps() > 60 && !fast_forward();
 }
 bool refresh_boost() {
-    if (fast_forward()) return false;
+    if (fast_forward() || !blend_enabled()) return false;
     if (unlocked()) return true;
     return mode() == 1 && fps() > 60;
 }
 int refresh_request_hz(int max_hz) {
-    if (max_hz <= 60 || fast_forward()) return 0;
+    if (!blend_enabled() || max_hz <= 60 || fast_forward()) return 0;
     if (unlocked()) return max_hz;
     if (mode() == 1 && fps() > 60) return std::min(fps(), max_hz);
     return 0;
 }
 void prepare_wake() {
+    apply_pose_reset();
     if (g_wake_ready) return;
+    const bool previous_hold = g_wake_hold;
     const bool shed = holds_shed();
     g_frame_n = shed ? 1 : frames_per_step();
     g_step_n = std::max(0, g_frame_n - 1);
-    g_granule.store(unlocked() ? 1 : pacing::present_granule(shed ? 60 : output_fps()), std::memory_order_relaxed);
+    const bool blend = blend_enabled();
+    const int paced = output_fps();
+    g_granule.store(unlocked() && blend ? 1 : pacing::present_granule(shed ? 60 : paced), std::memory_order_relaxed);
     const auto now = pace_clock::now();
     int64_t dt = 0;
     if (g_wake_valid) dt = std::chrono::duration_cast<std::chrono::nanoseconds>(now - g_last_wake).count();
     g_last_wake = now;
     g_wake_valid = true;
-    const bool interpolate = !gx2::uncapped() && !shed && (unlocked() || (interp_on() && output_fps() != 60));
+    const bool interpolate = pacing::wants_holds(gx2::uncapped(), shed, blend, unlocked(), interp_on(), paced);
     const int queued = gx2::gpu_frames_queued();
     pacing::WakePlan plan = pacing::advance_accumulator(g_acc_ns, dt, interpolate, pacing::logic_step_budget(queued));
     if (interpolate && plan.logic_steps == 0 && g_logic_steps == 0) {
@@ -823,9 +541,9 @@ void prepare_wake() {
     g_blend_t = interpolate ? plan.t : 1.f;
     if (g_wake_hold && output_fps() == 120)
         g_blend_t = 0.5f;
-    g_exact_step = !interpolate || plan.logic_steps > 0;
     g_hold = g_wake_hold;
     g_wake_skip = pacing::skip_extra_course_draw(g_wake_hold, course_play_active(), queued);
+    g_skip_map_draw = pacing::skip_settled_map_draw(previous_hold, interpolate, course_play_active());
     g_wake_ready = true;
 }
 void finish_wake() { g_wake_ready = false; }
@@ -840,7 +558,7 @@ void finish_logic_pass() {
     const bool have = g_pass_begin_valid;
     if (have) work = std::chrono::duration_cast<std::chrono::nanoseconds>(pace_clock::now() - g_pass_begin).count();
     g_pass_begin_valid = false;
-    const bool apply = !unlocked() && interp_on() && fps() > 60 && !fast_forward();
+    const bool apply = blend_enabled() && !unlocked() && interp_on() && fps() > 60 && !fast_forward();
     const int64_t slot = apply ? pacing::shed_slot_ns(fps()) : 0;
     if (!have && slot > 0) return;
     const pacing::ShedUpdate upd = pacing::note_logic_work(g_shed, work, slot);
@@ -923,6 +641,8 @@ extern "C" void hook_029C52CC(Cpu* c) {
             g_wake_valid = false;
             g_blend_t = 1.f;
             g_interp_present = false;
+            g_wake_hold = false;
+            g_skip_map_draw = false;
             f_029C52CC_orig(c);
             finish_logic_pass();
             finish_wake();
@@ -969,7 +689,6 @@ extern "C" void hook_029C52CC(Cpu* c) {
     finish_logic_pass();
     finish_wake();
     status_trace::on_logic_step(g_logic_steps);
-    model_stats_report();
     static uint64_t n = 0, t0 = timebase::now(), f0 = 0;
     if (++n % 300 == 0) {
         uint64_t t = timebase::now();
@@ -985,12 +704,9 @@ extern "C" void hook_029C4FE4(Cpu* c) {
     begin_pass_clock();
     if (enabled()) {
         prepare_wake();
-        if (g_wake_skip || (g_hold && !course_play_active())) return;
+        if (g_wake_skip || g_skip_map_draw) return;
     }
     f_029C4FE4_orig(c);
-    if (!g_models_on || !enabled() || !course_play_active() || !model_subst_pending()) return;
-    imp_gx2_GX2DrawDone(c);
-    model_restore_draw(c);
 }
 
 extern "C" void hook_024FBF6C(Cpu* c) {
@@ -1003,7 +719,7 @@ extern "C" void hook_024FBF6C(Cpu* c) {
     if (!r || proj != r + kProjection) return;
     float cur[4];
     if (!read_box(r, cur)) return;
-    if (!g_hold) shift_camera(cur);
+    shift_camera(cur);
     remember_view(mgr, view, proj);
     present_camera(c, r, cur, mgr, view, proj);
 }
