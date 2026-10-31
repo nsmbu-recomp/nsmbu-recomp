@@ -11,6 +11,8 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 - Removed unused developer tools (`tools/check/`, `rpxinfo.py`, Python disc reader, `run_bench.py` CLI).
   `nsmbu extract` uses `nsmbu-extract`; use `nsmbu bench` for performance scenarios.
+- Dropped `docs/ts-tools-port.md`, Android `--service-fixture` packaging, and the dead `game_sample_report.py` doc reference.
+  Renamed bench tests to `test_bench_lib.py`.
 ## [0.8.1] - 2026-10-31
 
 ### Added

@@ -140,6 +140,18 @@ A generated game function with the same name replaces the stub.
 Existing real folders in that mods directory stay in place.
 Set `NSMBU_NO_EXAMPLE_MODS=1` to skip those links.
 
+## Python helpers (no `nsmbu` subcommand)
+
+These stay as `python3 tools/…` until they move into the CLI.
+
+| Script | Role |
+| --- | --- |
+| `tools/recomp/analyze.py` | Find branch islands in recomp output ([decomp-notes.md](decomp-notes.md)) |
+| `tools/rpx/ppcdis.py` | Disassemble guest `.text` (see `vendor/decomp/docs/TODO.md`) |
+| `tools/frames/flicker.py` | Compare frame dumps ([automation.md](automation.md)) |
+| `tools/bench/bench_lib.py` | Save-state A/B statistics (unit tests; scenarios use `nsmbu bench`) |
+| `tools/shader/shaderprep.py` | Metal shader head-start cache |
+
 ## Host tests
 
 Host tests are CTest targets in `CMakeLists.txt`.

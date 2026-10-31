@@ -120,22 +120,8 @@ The thread table at the bottom gives the busy share per game thread (`GX2 render
 `.tmp/perf/nsmbu.data` resolves against the binary by build ID.
 Keep that binary unchanged until the data is read.
 
-Name in-binary sample rows with:
-
-```sh
-python3 tools/game_sample_report.py LOG
-```
-
-That names the enclosing symbol.
-`f_XXXXXXXX` rows print the header name from `tools/recomp/headers_names.txt`.
-
-Rows with huge offsets are mapped libraries, and the log alone cannot name them.
-Resolve by re-running with `/proc/<pid>/maps` captured, or use perf, which symbolicates everything itself.
-Sample offsets between runs share low-12 bits with the same library, so clusters are comparable.
-Bases are not.
-
-`grep "XXXXXXXX" tools/recomp/headers_names.txt` first.
-Full rules are in [names.md](names.md).
+Name in-binary sample rows with `grep` on the log offset against `tools/recomp/headers_names.txt` and the rules in [names.md](names.md).
+Use Linux `perf` when you need full symbolication of mapped libraries.
 Reads of guest code live in `build/gen/code_*.c` (`f_XXXXXXXX`).
 
 ### Known hotspot map

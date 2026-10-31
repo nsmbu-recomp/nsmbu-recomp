@@ -129,7 +129,7 @@ class BenchmarkStatistics(unittest.TestCase):
         listing = """101 /usr/bin/python3 /repo/tools/bench/bench_lib.py --runs 10
 102 /usr/bin/python3 /other/bench_lib.py --runs 2
 103 /bin/zsh -lc 'python3 /repo/tools/bench/bench_lib.py'
-104 /usr/bin/python3 /repo/tools/bench/test_run_bench.py
+104 /usr/bin/python3 /repo/tools/bench/test_bench_lib.py
 105 /usr/bin/nsmbu --game /game
 106 /Applications/Python.app/Contents/MacOS/Python /other/bench_lib.py --runs 10
 """

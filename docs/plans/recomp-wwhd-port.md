@@ -23,7 +23,6 @@ flowchart TB
   end
   subgraph port [Port from WWHD]
     Out[_Output content-stable writes]
-    Noop[check_noop_build]
     Escape[glob.escape on folder paths]
     Plain[plain code for hooked / site funcs]
   end
@@ -31,9 +30,8 @@ flowchart TB
     ModHooks[--mod-hooks if Lua needs PPC_MOD_HOOK]
     Decomp[--decomp-hooks with decomp build]
   end
-  Out --> Noop
-  Escape --> Out
-  Plain --> Out
+  Out --> Escape
+  Escape --> Plain
 ```
 
 ## Keep (do not regress)
@@ -58,7 +56,6 @@ Leave these alone unless a WWHD fix is specifically about them:
 - Full decomp-build pipeline (`tools/decomp_build/`, `WWHD_DECOMP`) until NSMBU has its own decomp product path.
 - Multithreading the recompiler ([TODO](../TODO.md)); WWHD does not have this either.
 - Porting WWHD's simpler `sym()` / dropping interior dispatch / dropping singleflow to "match" WWHD.
-- The TypeScript recomp wave in [ts-tools-port.md](../ts-tools-port.md): land these Python fixes first so the TS port has a stable golden.
 
 ## Commit sequence
 

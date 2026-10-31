@@ -67,7 +67,7 @@ Tag pushes do not start those workflows (`branches: ["**"]`).
 A release tag already points at a commit that CI tested.
 Push to any branch still runs CI.
 
-NSMBU `tools/bench/test_run_bench.py` exists.
+NSMBU `tools/bench/test_bench_lib.py` exists.
 `.github/workflows/linux.yml` and `windows.yml` do not run it.
 Those workflows run on `main` and on pull requests.
 

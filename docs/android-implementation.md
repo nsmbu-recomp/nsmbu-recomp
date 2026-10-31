@@ -92,9 +92,9 @@ The setting is saved as `phoneRumble`, and `NSMBU_PHONE_RUMBLE` (`0`, `touch`, `
 ## Synthetic fixture isolation
 
 Production setup accepts only known game builds.
-Tests and debug probes register an authored RPX digest through `tools/android/debug_fixture_build.py`; they do not change installer validation or the production build maps.
-`prepare_python.py --service-fixture` includes the debug registration and the authored fixtures, and default packages omit them.
-The release Gradle task `verifyReleasePython` and `tools/release/guard.py` reject those files in a release APK.
+Tests register an authored RPX digest through `tools/android/debug_fixture_build.py`; they do not change installer validation or the production build maps.
+Release packages omit those fixture sources.
+The release Gradle task `verifyReleasePython` and `tools/release/guard.py` reject them in a release APK.
 Only debug CI passes `--allow-android-test-fixtures` to the guard.
 
 ## Release
