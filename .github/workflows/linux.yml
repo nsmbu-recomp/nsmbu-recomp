@@ -58,6 +58,7 @@ jobs:
           python3 tools/installer/test_setup.py
           python3 tools/recomp/test_builds.py
           python3 tools/recomp/test_output.py
+          python3 tools/recomp/test_pool.py
           python3 tools/android/test_apk_cli.py
           python3 tools/lib/test_dev_game_icon.py
 
