@@ -79,6 +79,9 @@ def gen_is_stub(gen):
     with open(report, encoding="utf-8", errors="replace") as handle:
         return handle.readline().startswith("placeholder from stubgen.py")
 
+def hooks_need_recomp(saved, current):
+    return saved != current
+
 def link_compile_commands(build_dir):
     src = os.path.join(build_dir, "compile_commands.json")
     if not os.path.isfile(src):
@@ -166,11 +169,18 @@ def ensure_gen_dir():
         build = builds.identify(rpx) if os.path.isfile(rpx) else None
         want = build.name if build else None
         have = gen_build_name(gen)
+        stamp = os.path.join(gen, "hook-inputs.txt")
+        try:
+            with open(stamp, encoding="utf-8") as handle:
+                saved_hooks = handle.read()
+        except OSError:
+            saved_hooks = None
         stale = (
             gen_is_stub(gen)
             or not os.path.isfile(table)
             or os.path.getmtime(rpx) > os.path.getmtime(table)
             or (want is not None and have is not None and want != have)
+            or hooks_need_recomp(saved_hooks, builds.hook_inputs_stamp())
         )
         if stale:
             subprocess.run(

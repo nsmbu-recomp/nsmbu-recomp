@@ -7,6 +7,29 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ## [Unreleased]
 
+- The pre-push hook lives only as `.git-hooks/pre_push.py`.
+  Point `.git/hooks/pre-push` at that script.
+  The script finds the repository from either path.
+- In-between frames blend every player's head.
+  Luigi and both Toads were staying on the 60 Hz step, including on the title screen.
+- The performance overlay uses a clearer layout with labeled rows for output FPS, logic rate, CPU and GPU timing, and presentation settings.
+  Debug overlay sections are independent (output, graph, presentation, waits, and more).
+  It no longer repeats the GPU name, driver, and Vulkan version in the corner (those stay in Copy performance report).
+- Settings uses a compact header: tabs sit on the same row as the close button, without the controller help line under the title.
+- Graphics card choice for the next start is at the bottom of the Graphics tab instead of Debug.
+- The recompiler prints each phase while it runs.
+  Float analysis and translation show how far they have got.
+- A rebuild compiles new hooks into the game.
+  Changing `hooks.txt` used to leave the previous guest code in place, so the Mii draw still crashed.
+  The recompiler runs again only when a hook file's contents change.
+- Android setup finishes translating when Python has no multiprocessing module.
+  It uses one process instead of stopping.
+- Course tiles stay visible on Metal when internal resolution is above 1x.
+- Boost Rush no longer crashes when a Mii is drawn before its shader exists.
+  The opaque and translucent Mii draws return while that program is null.
+- Boost Rush challenges on a USA or Europe base disc no longer crash while the course loads.
+  The base-disc stock HUD draw runs while AreaTask is null.
+  The 1.3.0 hook does not cover that address.
 - Course pose uploads go through the regional code map.
 - `interp_picture_test` keeps the uniform bytes from submit after the live block changes.
 - Mario's head moves with the rest of his body on in-between frames.

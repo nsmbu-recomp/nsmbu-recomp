@@ -135,6 +135,7 @@ jobs:
           python3 tools/installer/test_setup.py
           python3 tools/recomp/test_builds.py
           python3 tools/recomp/test_output.py
+          python3 tools/recomp/test_pool.py
 
       - name: Package
         run: |
@@ -307,6 +308,7 @@ jobs:
           python3 tools/installer/test_setup.py
           python3 tools/recomp/test_builds.py
           python3 tools/recomp/test_output.py
+          python3 tools/recomp/test_pool.py
 
       - name: Package
         run: |

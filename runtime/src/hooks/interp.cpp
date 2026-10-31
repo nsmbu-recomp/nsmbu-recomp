@@ -632,7 +632,8 @@ void upload_pose(Cpu* c, ModelPose& p) {
 }
 
 
-uint32_t player_model(uint32_t anim_off);
+uint32_t player_model(int player, uint32_t anim_off);
+bool player_head(uint32_t model);
 
 void record_model(Cpu* c) {
     if (g_in_model_present || !enabled() || !blend_enabled() || g_hold || !g_logic_pass || !course_play_active()) return;
@@ -648,7 +649,7 @@ void record_model(Cpu* c) {
     if (!res || !mtx || !wwatch::readable(res, 0xC)) return;
     const uint32_t n = ld16(res + 8);
     if (n == 0 || n > kMaxBones || ubo_size > 0x40000) return;
-    if (ubo_size == 0 && model != player_model(0x11C)) return;
+    if (ubo_size == 0 && !player_head(model)) return;
     if (!wwatch::readable(mtx, n * 0x30)) return;
 
     const uint32_t* live = reinterpret_cast<const uint32_t*>(mem::ptr(mtx));
@@ -721,16 +722,25 @@ void reblend_held(Cpu* c) {
     g_in_model_present = false;
 }
 
-uint32_t player_model(uint32_t anim_off) {
+uint32_t player_model(int player, uint32_t anim_off) {
+    if (player < 0 || player > 3) return 0;
     const uint32_t mgr = ld32(GD(0x101E6994));
-    if (!mgr || !wwatch::readable(mgr + 0x20, 4)) return 0;
-    const uint32_t actor = ld32(mgr + 0x20);
+    const uint32_t slot = 0x20u + (uint32_t)player * 4u;
+    if (!mgr || !wwatch::readable(mgr + slot, 4)) return 0;
+    const uint32_t actor = ld32(mgr + slot);
     if (!actor || !wwatch::readable(actor + 0x275C, 4)) return 0;
     const uint32_t pm = ld32(actor + 0x275C);
     if (!pm || !wwatch::readable(pm + anim_off, 4)) return 0;
     const uint32_t anim = ld32(pm + anim_off);
     if (!anim || !wwatch::readable(anim, 4)) return 0;
     return ld32(anim);
+}
+
+bool player_head(uint32_t model) {
+    if (!model) return false;
+    for (int player = 0; player < 4; player++)
+        if (model == player_model(player, 0x11Cu)) return true;
+    return false;
 }
 
 void log_player_part(const char* tag, uint32_t model) {
@@ -850,7 +860,9 @@ bool present_models(Cpu* c) {
         }
     }
     log_pose(trace, t);
-    if (g_hold) log_player_part("head", player_model(0x11C));
+    if (g_hold)
+        for (int player = 0; player < 4; player++)
+            log_player_part("head", player_model(player, 0x11Cu));
     g_in_model_present = false;
     for (uint32_t key : drop) g_models.erase(key);
     return true;
@@ -1114,17 +1126,18 @@ extern "C" void hook_029C52CC(Cpu* c) {
         f_029C52CC_orig(c);
     }
     if (course_play_active()) {
-        const uint32_t head = player_model(0x11C);
-        if (head) {
-            const uint32_t r3 = c->r[3], r4 = c->r[4], r5 = c->r[5];
+        const uint32_t r3 = c->r[3], r4 = c->r[4], r5 = c->r[5];
+        for (int player = 0; player < 4; player++) {
+            const uint32_t head = player_model(player, 0x11Cu);
+            if (!head) continue;
             c->r[3] = head;
             c->r[4] = 0;
             c->r[5] = 0;
             record_model(c);
-            c->r[3] = r3;
-            c->r[4] = r4;
-            c->r[5] = r5;
         }
+        c->r[3] = r3;
+        c->r[4] = r4;
+        c->r[5] = r5;
     }
     note_present_share(false);
     finish_logic_pass();

@@ -43,7 +43,7 @@ A pose or camera change is done when that test passes and two consecutive TV fra
 `NSMBU_INTERP_MODEL_TRACE` is how many moving course pictures to log.
 Each `[interp] pose` line has the hold flag, the blend weight, and the previous, current, and drawn bone translations.
 `nsmbu test pose-direction-120` walks in `1-1` at 120 fps and checks that drawn point stays on the segment between the two logic poses.
-Mario's head is a one-bone model with no skeleton uniform, and that test also checks the uploaded shape matrix.
+Each player's head is a one-bone model with no skeleton uniform, and that test also checks the uploaded shape matrix.
 The model view-projection is rebuilt from that same halfway camera.
 A hold does not run `calcGPU`, so the uniform would otherwise keep the full camera step.
 The dump steps are in `docs/automation.md`.

@@ -258,3 +258,14 @@ def _parse_hook(text, where):
 def hook_files(directory=None):
     d = directory or HERE
     return [os.path.join(d, "hooks.txt")] + sorted(glob.glob(os.path.join(glob.escape(d), "hooks_*.txt")))
+
+def hook_inputs_stamp(directory=None):
+    lines = []
+    for path in hook_files(directory):
+        try:
+            with open(path, "rb") as handle:
+                digest = hashlib.sha256(handle.read()).hexdigest()
+        except OSError:
+            continue
+        lines.append("%s %s" % (digest, os.path.basename(path)))
+    return "".join(line + "\n" for line in lines)

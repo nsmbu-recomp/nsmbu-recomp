@@ -80,7 +80,8 @@ double now_s() { return std::chrono::duration<double>(clock::now().time_since_ep
 
 std::atomic<bool> g_open{false};
 std::atomic<bool> g_perf{false};
-std::atomic<bool> g_perf_extended{false};
+std::atomic<bool> g_perf_timing{false};
+std::atomic<bool> g_perf_presentation{false};
 std::atomic<bool> g_perf_detail{false};
 PerfAverage g_average;
 std::atomic<float> g_density{1.0f};
@@ -867,6 +868,51 @@ void tab_graphics() {
     ImGui::EndDisabled();
     note("This build has no Vulkan renderer.");
 #endif
+#ifdef NSMBU_HAS_VULKAN
+    if (render::vulkan() && !gfxvk::device_inventory.empty()) {
+        heading("Graphics card (next start)");
+        const bool env = env::VK_GPU() != nullptr;
+        const std::string saved = gfxvk::device_setting();
+        const bool dedicated = saved.empty() || saved == "dedicated" || saved == "discrete";
+        bool haveDiscrete = false, haveIntegrated = false;
+        for (const auto& gpu : gfxvk::device_inventory) {
+            if (!gpu.usable()) continue;
+            if (gpu.kind == gfxvk::kGpuDiscrete) haveDiscrete = true;
+            if (gpu.kind == gfxvk::kGpuIntegrated) haveIntegrated = true;
+        }
+        auto choose = [](const std::string& value) {
+            gfxvk::set_device_setting(value);
+            hostui::set("gpu", value.empty() ? "dedicated" : value);
+        };
+        if (radio("Prefer dedicated", dedicated, !env)) post_changed([choose] { choose(""); });
+        ImGui::SameLine();
+        if (radio("Prefer integrated", saved == "integrated", !env)) post_changed([choose] { choose("integrated"); });
+        for (size_t i = 0; i < gfxvk::device_inventory.size(); i++) {
+            const auto& gpu = gfxvk::device_inventory[i];
+            ImGui::PushID(int(i));
+            const std::string label = gpu.name + " (" + gfxvk::gpu_kind_name(gpu.kind) + ")";
+            if (radio(label.c_str(), saved == gpu.identity, !env && gpu.usable())) {
+                const std::string identity = gpu.identity;
+                post_changed([choose, identity] { choose(identity); });
+            }
+            if (!gpu.usable()) note("%s", gpu.unavailable.c_str());
+            ImGui::PopID();
+        }
+        note("This start uses %s. A different choice applies the next time the game starts.",
+             gfxvk::active_gpu_name.c_str());
+        if (env) note("NSMBU_VK_GPU=%s is set for this start and takes precedence.", env::VK_GPU());
+#ifndef _WIN32
+        else if (gfxvk::gpu_restart_pending(saved, gfxvk::active_gpu_identity, gfxvk::active_gpu_kind, haveDiscrete, haveIntegrated)) {
+            note("Progress since your last save is lost if you restart now.");
+            if (ImGui::Button("Restart now##gpu")) hostui::post([] { render::restart(); });
+        }
+#endif
+        if (!gfxvk::gpu_fallback.empty()) note("%s", gfxvk::gpu_fallback.c_str());
+        help("Prefer dedicated uses a separate graphics card when one can draw the game windows.\n"
+             "Prefer integrated keeps the GPU built into the processor.\n"
+             "A listed card is used on the next start when it is still available.");
+    }
+#endif
 }
 
 void tab_audio() {
@@ -1551,13 +1597,12 @@ void restart_button(const char* why) {
 void tab_debug() {
     heading("Overlay");
     bool v;
-    if (check("Performance overlay (FPS summary)", perf_shown(), &v)) set_perf_shown(v);
-    if (check("Performance overlay detail (GPU and graph)", perf_extended_shown(), &v, perf_shown())) set_perf_extended_shown(v);
-    if (check("Performance overlay lag breakdown", perf_detail_shown(), &v, perf_shown() && perf_extended_shown()))
-        set_perf_detail_shown(v);
-    if (!perf_shown()) help("Shows a compact FPS and frame-time summary in the corner.");
-    else if (!perf_extended_shown()) help("Compact view only. Enable detail for GPU lines and the frame-time graph.");
-    else if (!perf_detail_shown()) help("Enable lag breakdown for per-frame wait times.");
+    heading("Performance overlay");
+    if (check("Output and logic", perf_shown(), &v)) set_perf_shown(v);
+    if (check("Frame graph and CPU/GPU", perf_timing_shown(), &v)) set_perf_timing_shown(v);
+    if (check("Window and presentation", perf_presentation_shown(), &v)) set_perf_presentation_shown(v);
+    if (check("Per-frame waits", perf_detail_shown(), &v)) set_perf_detail_shown(v);
+    help("Turn on any combination. Sections do not depend on each other.");
     if (ImGui::Button("Reset performance averages")) {
         g_average.reset();
         perf::reset();
@@ -1605,51 +1650,6 @@ void tab_debug() {
         if (ImGui::Button("Reload now")) course_hot_reload::request_reload();
         help("Rebuilds the active course from disk and restarts it at the course entrance.");
     }
-#ifdef NSMBU_HAS_VULKAN
-    if (render::vulkan() && !gfxvk::device_inventory.empty()) {
-        heading("Graphics card (next start)");
-        const bool env = env::VK_GPU() != nullptr;
-        const std::string saved = gfxvk::device_setting();
-        const bool dedicated = saved.empty() || saved == "dedicated" || saved == "discrete";
-        bool haveDiscrete = false, haveIntegrated = false;
-        for (const auto& gpu : gfxvk::device_inventory) {
-            if (!gpu.usable()) continue;
-            if (gpu.kind == gfxvk::kGpuDiscrete) haveDiscrete = true;
-            if (gpu.kind == gfxvk::kGpuIntegrated) haveIntegrated = true;
-        }
-        auto choose = [](const std::string& value) {
-            gfxvk::set_device_setting(value);
-            hostui::set("gpu", value.empty() ? "dedicated" : value);
-        };
-        if (radio("Prefer dedicated", dedicated, !env)) post_changed([choose] { choose(""); });
-        ImGui::SameLine();
-        if (radio("Prefer integrated", saved == "integrated", !env)) post_changed([choose] { choose("integrated"); });
-        for (size_t i = 0; i < gfxvk::device_inventory.size(); i++) {
-            const auto& gpu = gfxvk::device_inventory[i];
-            ImGui::PushID(int(i));
-            const std::string label = gpu.name + " (" + gfxvk::gpu_kind_name(gpu.kind) + ")";
-            if (radio(label.c_str(), saved == gpu.identity, !env && gpu.usable())) {
-                const std::string identity = gpu.identity;
-                post_changed([choose, identity] { choose(identity); });
-            }
-            if (!gpu.usable()) note("%s", gpu.unavailable.c_str());
-            ImGui::PopID();
-        }
-        note("This start uses %s. A different choice applies the next time the game starts.",
-             gfxvk::active_gpu_name.c_str());
-        if (env) note("NSMBU_VK_GPU=%s is set for this start and takes precedence.", env::VK_GPU());
-#ifndef _WIN32
-        else if (gfxvk::gpu_restart_pending(saved, gfxvk::active_gpu_identity, gfxvk::active_gpu_kind, haveDiscrete, haveIntegrated)) {
-            note("Progress since your last save is lost if you restart now.");
-            if (ImGui::Button("Restart now##gpu")) hostui::post([] { render::restart(); });
-        }
-#endif
-        if (!gfxvk::gpu_fallback.empty()) note("%s", gfxvk::gpu_fallback.c_str());
-        help("Prefer dedicated uses a separate graphics card when one can draw the game windows.\n"
-             "Prefer integrated keeps the GPU built into the processor.\n"
-             "A listed card is used on the next start when it is still available.");
-    }
-#endif
 }
 
 void tab_about() {
@@ -1687,118 +1687,333 @@ void tab_about() {
     }
 }
 
-static void lag_row(const char* name, double ms, double frameMs, const ImVec4& color) {
-    if (ms < 0.1) return;
-    ImGui::PushStyleColor(ImGuiCol_PlotHistogram, color);
-    ImGui::ProgressBar((float)(frameMs > 0 ? std::min(ms / frameMs, 1.0) : 0), ImVec2(120, 13), "");
-    ImGui::PopStyleColor();
-    ImGui::SameLine();
-    ImGui::Text("%.1f ms %s", ms, name);
+static const ImVec4 kPerfOutLabel(1.0f, 1.0f, 1.0f, 1.0f);
+static const ImVec4 kPerfLogicLabel(0.45f, 0.85f, 0.95f, 1.0f);
+static const ImVec4 kPerfGameCpuLabel(0.45f, 0.65f, 1.0f, 1.0f);
+static const ImVec4 kPerfRenderCpuLabel(0.55f, 0.75f, 1.0f, 1.0f);
+static const ImVec4 kPerfGpuLabel(0.45f, 0.95f, 0.55f, 1.0f);
+static const ImVec4 kPerfPresLabel(0.55f, 0.75f, 0.95f, 1.0f);
+static const ImVec4 kPerfWaitLabel(0.95f, 0.85f, 0.35f, 1.0f);
+static const ImVec4 kPerfValue(1.0f, 1.0f, 1.0f, 1.0f);
+
+static constexpr float kPerfLabelW = 122.0f;
+static constexpr float kPerfValueW = 188.0f;
+static constexpr ImGuiTableFlags kPerfTableFlags =
+    ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_NoPadOuterX;
+
+static void perf_label_value(const char* label, const ImVec4& labelColor, const char* value,
+                             const ImVec4& valueColor = kPerfValue) {
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8.0f, 1.0f));
+    ImGui::PushID(label);
+    if (ImGui::BeginTable("pv", 2, kPerfTableFlags, ImVec2(0, 0))) {
+        ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, kPerfLabelW);
+        ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthFixed, kPerfValueW);
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextColored(labelColor, "%s", label);
+        ImGui::TableSetColumnIndex(1);
+        ImGui::TextColored(valueColor, "%s", value);
+        ImGui::EndTable();
+    }
+    ImGui::PopID();
+    ImGui::PopStyleVar();
 }
 
-static void perf_device_lines(const std::string& device) {
-    const size_t driver = device.find(", driver ");
-    const size_t vulkan = device.find(", Vulkan ");
-    if (driver != std::string::npos && vulkan != std::string::npos && driver < vulkan) {
-        ImGui::TextUnformatted(device.substr(0, driver).c_str());
-        ImGui::TextUnformatted(device.substr(driver + 2, vulkan - driver - 2).c_str());
-        ImGui::TextUnformatted(device.substr(vulkan + 2).c_str());
-        return;
+static void perf_output_row(double fps, float frameMs, float worstMs, double avgFps, bool showAvg) {
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8.0f, 1.0f));
+    if (ImGui::BeginTable("##perf_out", 3, kPerfTableFlags)) {
+        ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, kPerfLabelW);
+        ImGui::TableSetupColumn("a", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+        ImGui::TableSetupColumn("b", ImGuiTableColumnFlags_WidthFixed, 88.0f);
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextColored(kPerfOutLabel, "Frame rate");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::TextColored(kPerfValue, "%.0f FPS", fps);
+        ImGui::TableSetColumnIndex(2);
+        if (showAvg) ImGui::TextColored(kPerfValue, "avg %.0f", avgFps);
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextColored(kPerfOutLabel, "Frame time");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::TextColored(kPerfValue, "%.1f ms", frameMs);
+        ImGui::TableSetColumnIndex(2);
+        ImGui::TextColored(kPerfValue, "max %.1f", worstMs);
+        ImGui::EndTable();
     }
-    const size_t driver_colon = device.find(", driver: ");
-    if (driver_colon != std::string::npos) {
-        ImGui::TextUnformatted(device.substr(0, driver_colon).c_str());
-        ImGui::TextUnformatted(device.substr(driver_colon + 2).c_str());
-        return;
+    ImGui::PopStyleVar();
+}
+
+static void perf_logic_row(double rate) {
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8.0f, 1.0f));
+    if (ImGui::BeginTable("##perf_logic", 3, kPerfTableFlags)) {
+        ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, kPerfLabelW);
+        ImGui::TableSetupColumn("rate", ImGuiTableColumnFlags_WidthFixed, 62.0f);
+        ImGui::TableSetupColumn("unit", ImGuiTableColumnFlags_WidthFixed, 56.0f);
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextColored(kPerfLogicLabel, "Logic");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::TextColored(kPerfValue, "%.1f/60", rate);
+        ImGui::TableSetColumnIndex(2);
+        ImGui::TextColored(kPerfValue, "steps/s");
+        ImGui::EndTable();
     }
-    ImGui::TextUnformatted(device.c_str());
+    ImGui::PopStyleVar();
+}
+
+static void perf_metric_row(const char* label, const ImVec4& labelColor, const perf::Metric& m) {
+    char buf[64];
+    if (!m.count) snprintf(buf, sizeof buf, "n/a");
+    else snprintf(buf, sizeof buf, "%.2f ms  avg %.2f", m.current, m.average());
+    perf_label_value(label, labelColor, buf);
+}
+
+static const char* tv_picture_label() {
+    const float cur = hostui::res_scale();
+    for (size_t i = 0; i < gfx::res_preset_count(); i++)
+        if (std::fabs(cur - gfx::kResPresets[i].scale) < 0.01f) return gfx::kResPresets[i].label;
+    static char buf[32];
+    snprintf(buf, sizeof buf, "%.2gx", cur);
+    return buf;
+}
+
+static const char* presentation_mode_label() {
+#ifdef NSMBU_HAS_VULKAN
+    if (render::vulkan()) {
+        static const char* const names[] = {"Vsync", "Low latency", "Immediate"};
+        const int m = gfxvk::present_mode();
+        if (m >= 0 && m < gfxvk::kPresentModes) return names[m];
+    }
+#endif
+    return "Vsync (Metal)";
+}
+
+static void perf_presentation_footer() {
+    ImGuiIO& io = ImGui::GetIO();
+    int ww = 0, wh = 0;
+    if (!hostui::window_size(ww, wh)) {
+        ww = (int)io.DisplaySize.x;
+        wh = (int)io.DisplaySize.y;
+    }
+    char buf[96];
+    snprintf(buf, sizeof buf, "%d x %d", ww, wh);
+    perf_label_value("Window", kPerfPresLabel, buf);
+    perf_label_value("TV picture", kPerfPresLabel, tv_picture_label());
+    perf_label_value("Frame pacing", kPerfPresLabel, interp::mode_name());
+    perf_label_value("Presentation", kPerfPresLabel, presentation_mode_label());
+    perf_label_value("Renderer", kPerfPresLabel, render::api_name(render::active()));
+}
+
+static ImU32 perf_graph_color(float ms) {
+    if (ms <= 8.0f) return IM_COL32(90, 230, 140, 255);
+    if (ms <= 12.0f) return IM_COL32(100, 210, 255, 255);
+    if (ms <= 16.7f) return IM_COL32(255, 225, 90, 255);
+    return IM_COL32(255, 110, 95, 255);
+}
+
+static void perf_frame_graph() {
+    const float w = ImGui::GetContentRegionAvail().x;
+    const float h = 22.0f;
+    const ImVec2 p0 = ImGui::GetCursorScreenPos();
+    ImGui::Dummy(ImVec2(w, h));
+
+    constexpr int kCount = FrameHistoryAverages::kFrames;
+    constexpr float kMin = 0.0f;
+    constexpr float kMax = 50.0f;
+    const float invScale = 1.0f / (kMax - kMin);
+    const int resW = std::max(1, std::min((int)w, kCount) - 1);
+    const int itemCount = kCount - 1;
+    const float tStep = 1.0f / (float)resW;
+    const float baseline = p0.y + h;
+
+    auto sample = [&](int idx) -> float { return U.frame_ms[(idx + U.frame_i) % kCount]; };
+
+    float v0 = sample(0);
+    float t0 = 0.0f;
+    auto yAt = [&](float v) { return p0.y + h * (1.0f - std::clamp((v - kMin) * invScale, 0.0f, 1.0f)); };
+
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    ImVec2 pos0(p0.x, yAt(v0));
+
+    std::vector<ImVec2> fill;
+    fill.reserve((size_t)resW + 3);
+    fill.emplace_back(p0.x, baseline);
+    fill.emplace_back(pos0);
+
+    for (int n = 0; n < resW; n++) {
+        const float t1 = t0 + tStep;
+        const int v1Idx = (int)(t0 * itemCount + 0.5f);
+        const float v1 = sample(v1Idx + 1);
+        fill.emplace_back(p0.x + t1 * w, yAt(v1));
+        t0 = t1;
+        v0 = v1;
+    }
+
+    fill.emplace_back(p0.x + w, baseline);
+    if (fill.size() >= 3) dl->AddConvexPolyFilled(fill.data(), (int)fill.size(), IM_COL32(70, 180, 255, 28));
+
+    v0 = sample(0);
+    t0 = 0.0f;
+    pos0 = ImVec2(p0.x, yAt(v0));
+    for (int n = 0; n < resW; n++) {
+        const float t1 = t0 + tStep;
+        const int v1Idx = (int)(t0 * itemCount + 0.5f);
+        const float v1 = sample(v1Idx + 1);
+        const ImVec2 pos1(p0.x + t1 * w, yAt(v1));
+        const float segMs = 0.5f * (v0 + v1);
+        dl->AddLine(pos0, pos1, perf_graph_color(segMs), 1.5f);
+        t0 = t1;
+        pos0 = pos1;
+        v0 = v1;
+    }
 }
 
 void perf_window(bool menu_open) {
     const double t = now_s();
-    static std::string metrics;
-    static std::string device;
+    static perf::Snapshot snap;
+    static double display_logic = 60;
+    static double logic_t0 = 0;
+    static uint64_t logic_s0 = 0;
+    static double logic_rate = 60;
+    static int slowWindows = 0;
+    static bool slow = false;
+    if (logic_t0 == 0 || t - logic_t0 < 0) {
+        logic_t0 = t;
+        logic_s0 = interp::logic_steps();
+    } else if (t - logic_t0 >= 2.0) {
+        logic_rate = (double)(interp::logic_steps() - logic_s0) / (t - logic_t0);
+        logic_t0 = t;
+        logic_s0 = interp::logic_steps();
+        slowWindows = logic_rate > 1 && logic_rate < 58.0 ? slowWindows + 1 : 0;
+        slow = slow ? logic_rate > 1 && logic_rate < 59.0 : slowWindows >= 2;
+    }
     if (U.fps_t0 == 0) { U.fps_t0 = t; U.fps_n0 = render::host_presents(); }
     if (t - U.fps_t0 >= 0.5) {
         uint64_t n = render::host_presents();
         U.fps = (double)(n - U.fps_n0) / (t - U.fps_t0);
         U.fps_t0 = t;
         U.fps_n0 = n;
-        metrics = perf::summary();
-        device = performance_device();
+        snap = perf::snapshot();
+        float sample_ms = 0, sample_worst = 0, sample_fps = 0;
+        double sample_logic = 0;
+        FrameHistoryAverages::compute(U.frame_ms, U.frame_logic, sample_ms, sample_worst, sample_fps, sample_logic);
+        if (g_average.started && g_average.logic > 0)
+            display_logic = g_average.logic;
+        else if (sample_logic > 0)
+            display_logic = sample_logic;
     }
     float avg_ms = 0, worst = 0, avg_fps = 0;
-    double avg_logic = 0;
-    FrameHistoryAverages::compute(U.frame_ms, U.frame_logic, avg_ms, worst, avg_fps, avg_logic);
+    double logic_hist = 0;
+    FrameHistoryAverages::compute(U.frame_ms, U.frame_logic, avg_ms, worst, avg_fps, logic_hist);
+    (void)logic_hist;
+
     ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.70f);
+    ImGui::SetNextWindowBgAlpha(0.80f);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(330, 0), ImVec2(520, 10000));
     ImGuiWindowFlags fl = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
                           ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs;
     if (ImGui::Begin("##perf", nullptr, fl)) {
-        ImGui::Text("%.0f fps   %.1f ms (worst %.1f)", U.fps, avg_ms, worst);
-        ImGui::Text("Average %.1f fps   %.1f logic steps/s", avg_fps, avg_logic);
-        if (!perf_extended_shown()) {
-            ImGui::End();
-            (void)menu_open;
-            return;
+        if (perf_shown()) {
+            const double avg_out = g_average.started && g_average.fps > 0 ? g_average.fps : avg_fps;
+            perf_output_row(U.fps, avg_ms, worst, avg_out, avg_out > 0);
         }
-        {
-            static double t0 = 0; static uint64_t s0 = 0; static double rate = 60;
-            static int slowWindows = 0;
-            static bool slow = false;
-            if (t0 == 0 || t - t0 < 0) { t0 = t; s0 = interp::logic_steps(); }
-            else if (t - t0 >= 2.0) {
-                rate = (double)(interp::logic_steps() - s0) / (t - t0); t0 = t; s0 = interp::logic_steps();
-                slowWindows = rate > 1 && rate < 58.0 ? slowWindows + 1 : 0;
-                slow = slow ? rate > 1 && rate < 59.0 : slowWindows >= 2;
-            }
+
+        if (perf_timing_shown()) {
+            if (perf_shown()) ImGui::Spacing();
             if (slow && interp::mode() == 1 && !interp::paced_interpolation())
-                ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.3f, 1.0f), "Slow motion: %.1f of 60 logic steps/s. Turn on Keep game speed", rate);
-        }
+                ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.3f, 1.0f), "Slow motion: %.1f of 60 logic steps/s. Turn on Keep game speed",
+                                    logic_rate);
+
+            perf_frame_graph();
+            if (perf_shown()) perf_logic_row(display_logic);
+
+            perf_metric_row("Game CPU", kPerfGameCpuLabel, snap.game);
+            perf_metric_row("Render CPU", kPerfRenderCpuLabel, snap.render);
+            perf_metric_row("GPU interval", kPerfGpuLabel, snap.gpu);
+
 #ifdef __ANDROID__
-        static AndroidTelemetry telemetry;
-        static double next_read = 0;
-        if (t >= next_read) { telemetry.read(); next_read = t + 2; }
-        if (telemetry.busy >= 0) ImGui::Text("GPU busy %.0f%%", telemetry.busy);
-        for (const auto& [name, value] : telemetry.temperatures)
-            ImGui::Text("%s %.1f C", name.c_str(), value);
+            static AndroidTelemetry telemetry;
+            static double next_read = 0;
+            if (t >= next_read) { telemetry.read(); next_read = t + 2; }
+            if (telemetry.busy >= 0) {
+                char load[32];
+                snprintf(load, sizeof load, "%.0f%%", telemetry.busy);
+                perf_label_value("GPU load", kPerfGpuLabel, load);
+            }
+            for (const auto& [name, value] : telemetry.temperatures) {
+                char line[64];
+                snprintf(line, sizeof line, "%.1f C", value);
+                perf_label_value(name.c_str(), kPerfGpuLabel, line);
+            }
 #endif
-        ImGui::Separator();
-        if (device.empty()) device = performance_device();
-        if (metrics.empty()) metrics = perf::summary();
-        perf_device_lines(device);
-        ImGui::TextUnformatted(metrics.c_str());
-        ImGui::PlotLines("##ft", U.frame_ms, FrameHistoryAverages::kFrames, U.frame_i, nullptr, 0.0f, 50.0f,
-                         ImVec2(220, 36));
+        }
+
+        if (perf_shown() && !perf_timing_shown()) perf_logic_row(display_logic);
+
+        if (perf_presentation_shown()) {
+            if (perf_shown() || perf_timing_shown()) ImGui::Spacing();
+            perf_presentation_footer();
+        }
+
         rprof::Breakdown b;
         if (perf_detail_shown() && rprof::latest_breakdown(b)) {
-            ImGui::SeparatorText("Lag breakdown");
-            const ImVec4 red(0.9f, 0.35f, 0.35f, 1.0f), orange(0.95f, 0.65f, 0.2f, 1.0f), yellow(0.95f, 0.9f, 0.35f, 1.0f),
-                         blue(0.45f, 0.65f, 1.0f, 1.0f), grey(0.55f, 0.55f, 0.6f, 1.0f);
+            if (perf_shown() || perf_timing_shown() || perf_presentation_shown())
+                ImGui::Spacing();
+            ImGui::SeparatorText("Per-frame waits");
             struct Row {
                 const char* name;
                 double ms;
-                ImVec4 color;
             };
             Row rows[] = {
-                {"GPU", b.gpuWaitMs, red},
-                {"renderer CPU", b.renderCpuMs, orange},
-                {"vsync present", b.acquireMs + b.presentMs, blue},
-                {"game waits for renderer", b.gameSyncMs, yellow},
-                {"write-back read", b.wbReadMs, yellow},
-                {"renderer idle (waiting for the game)", b.renderIdleMs, grey},
+                {"GPU queue wait", b.gpuWaitMs},
+                {"Renderer CPU", b.renderCpuMs},
+                {"Present wait", b.acquireMs + b.presentMs},
+                {"Game sync", b.gameSyncMs},
+                {"Write-back read", b.wbReadMs},
+                {"Renderer idle", b.renderIdleMs},
             };
             std::sort(std::begin(rows), std::end(rows), [](const Row& a, const Row& r) { return a.ms > r.ms; });
-            for (const Row& r : rows) lag_row(r.name, r.ms, b.ms, r.color);
-            const Row& top = rows[0];
-            if (top.ms > b.ms * 0.5)
-                ImGui::TextColored(top.color, "main cause: %s", top.name);
-            ImGui::TextDisabled("renders %.2f ops ms/frame, %.1f MiB uploads/frame, %.0f logic steps/s",
-                                b.renderCpuMs, b.uploadMiB, b.logicRate);
+            int shown = 0;
+            for (const Row& r : rows) {
+                if (r.ms < 0.1 || shown >= 5) continue;
+                char val[32];
+                snprintf(val, sizeof val, "%.2f ms", r.ms);
+                perf_label_value(r.name, kPerfWaitLabel, val);
+                ++shown;
+            }
+            char up[48];
+            snprintf(up, sizeof up, "%.1f MiB/frame", b.uploadMiB);
+            perf_label_value("Texture uploads", kPerfWaitLabel, up);
         }
     }
     ImGui::End();
     (void)menu_open;
+}
+
+static bool settings_close_button(bool& open, float size) {
+    const float pad = ImGui::GetStyle().WindowPadding.x;
+    const ImVec2 win = ImGui::GetWindowPos();
+    const ImVec2 at(win.x + ImGui::GetWindowWidth() - size - pad, ImGui::GetCursorScreenPos().y);
+    ImGui::PushClipRect(win, ImVec2(win.x + ImGui::GetWindowWidth(), win.y + ImGui::GetWindowHeight()), false);
+    ImGui::SetCursorScreenPos(at);
+    ImGui::PushItemFlag(ImGuiItemFlags_NoNav, true);
+    const bool pressed = ImGui::InvisibleButton("##settings-close", ImVec2(size, size));
+    ImGui::PopItemFlag();
+    const bool hot = ImGui::IsItemHovered() || ImGui::IsItemActive();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    if (hot)
+        dl->AddRectFilled(at, ImVec2(at.x + size, at.y + size),
+                          ImGui::GetColorU32(ImGui::IsItemActive() ? ImGuiCol_ButtonActive : ImGuiCol_ButtonHovered));
+    const ImVec2 c(at.x + size * 0.5f, at.y + size * 0.5f);
+    const float e = size * 0.22f;
+    const float th = std::max(2.0f, size * 0.08f);
+    const ImU32 col = ImGui::GetColorU32(ImGuiCol_Text);
+    dl->AddLine(ImVec2(c.x - e, c.y - e), ImVec2(c.x + e, c.y + e), col, th);
+    dl->AddLine(ImVec2(c.x + e, c.y - e), ImVec2(c.x - e, c.y + e), col, th);
+    ImGui::PopClipRect();
+    if (pressed) open = false;
+    return pressed;
 }
 
 void settings_window() {
@@ -1812,53 +2027,22 @@ void settings_window() {
     ImGui::SetNextWindowPos(ImVec2(ds.x * 0.5f, ds.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(size, ImGuiCond_Always);
     ImGuiWindowFlags fl = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
-                          ImGuiWindowFlags_NoSavedSettings;
+                          ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar;
     bool open = true;
     if (U.just_opened) {
         ImGui::SetNextWindowFocus();
         U.just_opened = false;
     }
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
-#ifdef __ANDROID__
-    const bool begun = ImGui::Begin(app_title::kSettings, nullptr, fl);
-#else
     const bool begun = ImGui::Begin(app_title::kSettings, &open, fl);
-#endif
     ImGui::PopStyleVar();
     if (begun) {
-#ifdef __ANDROID__
+        const float pad = ImGui::GetStyle().WindowPadding.x;
         const float close_sz = ImGui::GetFrameHeight();
-        const ImVec2 close_back = ImGui::GetCursorScreenPos();
-        const ImVec2 win = ImGui::GetWindowPos();
-        const ImVec2 close_at(win.x + ImGui::GetWindowWidth() - close_sz, win.y);
-        ImGui::PushClipRect(win, ImVec2(win.x + ImGui::GetWindowWidth(), win.y + ImGui::GetWindowHeight()), false);
-        ImGui::SetCursorScreenPos(close_at);
-        ImGui::PushItemFlag(ImGuiItemFlags_NoNav, true);
-        const bool close_pressed = ImGui::InvisibleButton("##settings-close", ImVec2(close_sz, close_sz));
-        ImGui::PopItemFlag();
-        const bool close_hot = ImGui::IsItemHovered() || ImGui::IsItemActive();
-        ImDrawList* close_dl = ImGui::GetWindowDrawList();
-        if (close_hot)
-            close_dl->AddRectFilled(close_at, ImVec2(close_at.x + close_sz, close_at.y + close_sz),
-                                    ImGui::GetColorU32(ImGui::IsItemActive() ? ImGuiCol_ButtonActive : ImGuiCol_ButtonHovered));
-        const ImVec2 close_c(close_at.x + close_sz * 0.5f, close_at.y + close_sz * 0.5f);
-        const float close_e = close_sz * 0.22f;
-        const float close_th = std::max(2.0f, close_sz * 0.08f);
-        const ImU32 close_col = ImGui::GetColorU32(ImGuiCol_Text);
-        close_dl->AddLine(ImVec2(close_c.x - close_e, close_c.y - close_e), ImVec2(close_c.x + close_e, close_c.y + close_e), close_col, close_th);
-        close_dl->AddLine(ImVec2(close_c.x + close_e, close_c.y - close_e), ImVec2(close_c.x - close_e, close_c.y + close_e), close_col, close_th);
-        ImGui::PopClipRect();
-        ImGui::SetCursorScreenPos(close_back);
-        if (close_pressed) open = false;
-#endif
-        note("Touch or point at the menu, or use a controller: D-pad or left stick to move, A to activate, B to go back, "
-             "LB/RB change tabs, Start+Select closes.");
-        const ImVec2 wp = ImGui::GetWindowPos();
-        const float th = ImGui::GetFrameHeight();
-        ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(wp.x, wp.y + th - 2),
-                                                 ImVec2(wp.x + ImGui::GetWindowWidth(), wp.y + th + 2),
-                                                 ImGui::GetColorU32(ImGuiCol_WindowBg));
-
+        const float top = ImGui::GetCursorPosY();
+        settings_close_button(open, close_sz);
+        ImGui::SetCursorPos(ImVec2(pad, top));
+        ImGui::PushItemWidth(ImGui::GetWindowWidth() - close_sz - pad * 3.0f);
         if (U.cap_action < 0 && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId)) {
             if (controller_pressed(input_map::kPadLB)) U.select_tab = (U.tab + kTabs - 1) % kTabs;
             if (controller_pressed(input_map::kPadRB)) U.select_tab = (U.tab + 1) % kTabs;
@@ -1888,6 +2072,7 @@ void settings_window() {
             U.select_tab = -1;
             ImGui::EndTabBar();
         }
+        ImGui::PopItemWidth();
         restart_confirm();
     }
     ImGui::End();
@@ -1927,19 +2112,26 @@ void set_perf_shown(bool on) {
     g_perf = on;
     hostui::post([on] { hostui::set("perfOverlay", on ? "1" : "0"); });
 }
-bool perf_extended_shown() { return g_perf_extended.load(std::memory_order_relaxed); }
-void set_perf_extended_shown(bool on) {
-    g_perf_extended = on;
-    if (!on) g_perf_detail = false;
+bool perf_timing_shown() { return g_perf_timing.load(std::memory_order_relaxed); }
+void set_perf_timing_shown(bool on) {
+    g_perf_timing = on;
     hostui::post([on] {
+        hostui::set("perfTiming", on ? "1" : "0");
         hostui::set("perfExtended", on ? "1" : "0");
-        if (!on) hostui::set("perfDetail", "0");
     });
+}
+bool perf_presentation_shown() { return g_perf_presentation.load(std::memory_order_relaxed); }
+void set_perf_presentation_shown(bool on) {
+    g_perf_presentation = on;
+    hostui::post([on] { hostui::set("perfPresentation", on ? "1" : "0"); });
 }
 bool perf_detail_shown() { return g_perf_detail.load(std::memory_order_relaxed); }
 void set_perf_detail_shown(bool on) {
     g_perf_detail = on;
     hostui::post([on] { hostui::set("perfDetail", on ? "1" : "0"); });
+}
+bool perf_overlay_active() {
+    return perf_shown() || perf_timing_shown() || perf_presentation_shown() || perf_detail_shown();
 }
 
 bool key(int code, bool down, bool repeat, int mods) {
@@ -2020,12 +2212,16 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
         prefs_read = true;
         std::string v;
         if (hostui::get("perfOverlay", v)) g_perf = v == "1";
-        std::string extended;
-        const bool haveExtended = hostui::get("perfExtended", extended);
-        if (haveExtended) g_perf_extended = extended == "1";
-        else if (g_perf) g_perf_extended = true;
+        std::string timing;
+        if (hostui::get("perfTiming", timing))
+            g_perf_timing = timing == "1";
+        else if (hostui::get("perfExtended", timing)) {
+            g_perf_timing = timing == "1";
+            if (timing == "1") g_perf_presentation = true;
+        }
+        if (hostui::get("perfPresentation", v))
+            g_perf_presentation = v == "1";
         if (hostui::get("perfDetail", v)) g_perf_detail = v == "1";
-        if (g_perf_detail && !g_perf_extended) g_perf_extended = true;
         if (!env::COLLISION_VIEWER.present() && hostui::get("collisionViewer", v))
             collision_wireframe::set_enabled(v == "1");
         if (!env::HOT_RELOAD_COURSES.present() && hostui::get("hotReloadCourses", v))
@@ -2109,7 +2305,7 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
                      interp::mode(), interp::fps(), hostui::res_scale());
     read_controller();
 
-    const bool open = is_open(), perf = perf_shown(), text = !open && text_entry::active();
+    const bool open = is_open(), perf = perf_overlay_active(), text = !open && text_entry::active();
     const bool coll = collision_wireframe::enabled();
     const bool gui = mods::lua_gui::active();
     perf::set_demand(perf, open && U.tab == kGraphics);

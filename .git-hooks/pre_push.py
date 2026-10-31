@@ -4,7 +4,14 @@ import shutil
 import subprocess
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def repo_root():
+    here = os.path.dirname(os.path.abspath(__file__))
+    parent = os.path.dirname(here)
+    if os.path.basename(here) == "hooks" and os.path.basename(parent) == ".git":
+        return os.path.dirname(parent)
+    return parent
+
+ROOT = repo_root()
 sys.path.insert(0, os.path.join(ROOT, "tools", "build"))
 import build
 

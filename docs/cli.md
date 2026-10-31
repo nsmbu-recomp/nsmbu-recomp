@@ -115,6 +115,7 @@ Generated C uses `musttail`, so the build uses Clang.
 On Linux, `tools/build/build.py` adds the `libstdc++` path when it finds `libstdc++.so` under `/usr/lib/gcc/`.
 
 `nsmbu build` runs the recompiler when `game/code/red-pro2.rpx` is newer than `build/gen`.
+It also runs the recompiler when the contents of `hooks.txt` or a `hooks_*.txt` file change.
 When that RPX is absent, the build fills `build/gen` with `tools/recomp/stubgen.py` so the tree still links.
 
 Set `NSMBU_VERBOSE_BUILD=1` to print full CMake configure output (pkg-config checks and other `--` status lines).
@@ -154,7 +155,7 @@ python3 tools/installer/test_setup.py
 python3 tools/recomp/test_builds.py
 ```
 
-`.git-hooks/pre-push` runs a full local `ctest` before a push.
+`.git-hooks/pre_push.py` runs a full local `ctest` before a push.
 Profiling follows [performance.md](performance.md).
 
 ## Local userdata

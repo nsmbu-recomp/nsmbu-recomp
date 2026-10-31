@@ -60,6 +60,20 @@ class BuildConfigureTest(unittest.TestCase):
                 )
             )
 
+    def test_hook_stamp_ignores_mtime(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            hook = os.path.join(tmp, "hooks.txt")
+            with open(hook, "w", encoding="utf-8") as handle:
+                handle.write("024EFE58\n")
+            first = build.builds.hook_inputs_stamp(tmp)
+            os.utime(hook, (1, 1))
+            self.assertEqual(build.builds.hook_inputs_stamp(tmp), first)
+            self.assertFalse(build.hooks_need_recomp(first, first))
+            self.assertTrue(build.hooks_need_recomp(None, first))
+            with open(hook, "w", encoding="utf-8") as handle:
+                handle.write("024F009C\n")
+            self.assertTrue(build.hooks_need_recomp(first, build.builds.hook_inputs_stamp(tmp)))
+
     def test_cmake_define_args(self):
         defines = build.cmake_define_args([], bundled_default=True, setup_gui=False)
         self.assertEqual(defines["NSMBU_BUNDLED_DEPS"], "ON")

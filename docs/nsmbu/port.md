@@ -83,6 +83,7 @@ See [docs/builds.md](../builds.md) for the address map between those builds.
 `nsmbu build` configures `build/` in **Debug** and builds `nsmbu`.
 
 If the active dump has `code/red-pro2.rpx`, `nsmbu build` runs `recomp.py` into `build/gen` when the RPX is newer than the generated code.
+A change to the contents of `hooks.txt` or a `hooks_*.txt` file does the same.
 
 Otherwise it runs `stubgen.py` so the tree links without your RPX.
 

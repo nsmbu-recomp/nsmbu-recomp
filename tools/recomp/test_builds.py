@@ -79,7 +79,7 @@ class Identify(unittest.TestCase):
 class Hooks(unittest.TestCase):
     def test_every_file_is_read_for_the_canonical_build(self):
         entries, skipped = builds.read_hooks(builds.hook_files(), builds.canonical_build())
-        self.assertEqual(skipped, [])
+        self.assertEqual(skipped, [("hooks_base_hud.txt", "USA_V0 EU_V0")])
         self.assertEqual(
             [(site, addr) for site, _, addr, *_ in entries],
             [(False, 0x02ACD218), (False, 0x024D752C), (True, 0x022A79C4), (False, 0x022A7760),
@@ -87,7 +87,8 @@ class Hooks(unittest.TestCase):
              (False, 0x02A062EC), (False, 0x02994164), (False, 0x029CBBB4), (False, 0x024BD86C),
              (True, 0x024B8324), (False, 0x0226FBC4), (True, 0x0226FD14), (True, 0x0226FECC),
              (True, 0x02270310), (True, 0x022703A4), (True, 0x0227CCF4), (True, 0x0227E2A8),
-             (False, 0x0252F900), (False, 0x025CF020), (False, 0x029C52CC), (False, 0x024FBF6C),
+             (False, 0x0252F900), (False, 0x025CF020), (False, 0x024EFE58), (False, 0x024F009C),
+             (False, 0x029C52CC), (False, 0x024FBF6C),
              (False, 0x029C4FE4), (False, 0x024F30DC), (False, 0x029D9E30), (True, 0x029D94C0),
              (True, 0x029D97B8), (True, 0x029D9CB8), (True, 0x029D9E2C), (False, 0x029D8270),
              (False, 0x029D8304), (False, 0x029D82D4), (False, 0x029D8394), (False, 0x029872BC),
@@ -120,7 +121,7 @@ class Hooks(unittest.TestCase):
         eu = builds.by_name("EU")
         self.assertIsNotNone(eu)
         entries, skipped = builds.read_hooks(builds.hook_files(), eu)
-        self.assertEqual(skipped, [])
+        self.assertEqual(skipped, [("hooks_base_hud.txt", "USA_V0 EU_V0")])
         by_canon = {canon: addr for _, canon, addr, *_ in entries}
         self.assertEqual(by_canon[0x024D752C], 0x024D752C)
         self.assertEqual(by_canon[0x02ACD218], 0x02ACD618)
@@ -156,7 +157,7 @@ class Hooks(unittest.TestCase):
         combo = builds.by_name("NSMBU_NSLU_USA")
         self.assertIsNotNone(combo)
         entries, skipped = builds.read_hooks(builds.hook_files(), combo)
-        self.assertEqual(skipped, [])
+        self.assertEqual(skipped, [("hooks_base_hud.txt", "USA_V0 EU_V0")])
         by_canon = {canon: addr for _, canon, addr, *_ in entries}
         self.assertNotEqual(by_canon[0x02ACD218], 0x02ACD218)
         self.assertEqual(by_canon[0x029CBBB4], combo.code(0x029CBBB4))
@@ -166,11 +167,31 @@ class Hooks(unittest.TestCase):
         combo = builds.by_name("NSMBU_NSLU_EU")
         self.assertIsNotNone(combo)
         entries, skipped = builds.read_hooks(builds.hook_files(), combo)
-        self.assertEqual(skipped, [])
+        self.assertEqual(skipped, [("hooks_base_hud.txt", "USA_V0 EU_V0")])
         by_canon = {canon: addr for _, canon, addr, *_ in entries}
         self.assertNotEqual(by_canon[0x02ACD218], 0x02ACD218)
         self.assertEqual(by_canon[0x029CBBB4], combo.code(0x029CBBB4))
         self.assertTrue(combo.body_differs(0x029CBBB4))
+
+    def test_base_disc_stock_hud_hook(self):
+        for name in ("USA_V0", "EU_V0"):
+            build = builds.by_name(name)
+            row = {a: (s1, other, s2) for a, s1, other, s2 in build.differing}
+            usa_size, _other, base_size = row[0x0252F900]
+            self.assertEqual(usa_size, 400)
+            self.assertEqual(base_size, 0)
+            draw_size_usa, draw_at, draw_size = row[0x0252D9C0]
+            self.assertEqual(draw_size_usa, 732)
+            self.assertEqual(draw_size, 400)
+            missing_at = build.code(0x0252F900)
+            self.assertNotEqual(missing_at, draw_at)
+            self.assertTrue(draw_at <= missing_at < draw_at + draw_size)
+            entries, skipped = builds.read_hooks(builds.hook_files(), build)
+            self.assertEqual(skipped, [])
+            by_canon = {canon: addr for _, canon, addr, *_ in entries}
+            self.assertEqual(by_canon[0x0252D9C0], draw_at)
+            self.assertEqual(by_canon[0x0252F900], missing_at)
+            self.assertEqual(builds.differing_hook(False, False, True, build.mods), "warn")
 
     def test_hook_files_in_folder_with_brackets(self):
         with tempfile.TemporaryDirectory() as temporary:

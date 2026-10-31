@@ -105,10 +105,23 @@ def _job_count(requested):
     return requested
 
 
+def _import_mp():
+    try:
+        import multiprocessing as mp
+    except ImportError:
+        return None
+    return mp
+
+
 def _fork_ok():
     if os.environ.get("NSMBU_RECOMP_SPAWN") == "1" or sys.platform == "win32":
         return False
-    import multiprocessing as mp
+    try:
+        mp = _import_mp()
+    except ImportError:
+        return False
+    if mp is None:
+        return False
     try:
         mp.get_context("fork")
     except ValueError:
@@ -153,7 +166,12 @@ def _open_pool(jobs, rc):
     _RC = rc
     if jobs <= 1:
         return _SeqPool(), None
-    import multiprocessing as mp
+    try:
+        mp = _import_mp()
+    except ImportError:
+        return _SeqPool(), None
+    if mp is None:
+        return _SeqPool(), None
     if _fork_ok():
         try:
             return mp.get_context("fork").Pool(jobs), None
@@ -233,6 +251,10 @@ def unknown_build_message(path):
 
 def c_ident(s):
     return re.sub(r"[^A-Za-z0-9_]", "_", s)
+
+def _log(msg):
+    sys.stderr.write(msg + "\n")
+    sys.stderr.flush()
 
 def branch_target(addr, w):
     """Static target of a non-linking b/bc, or None."""
@@ -668,6 +690,10 @@ class Recompiler:
 
         self.jobs = max(1, jobs)
         os.makedirs(outdir, exist_ok=True)
+        _log("recomp: %s, %d functions, %d hooks, %d sites, %d workers" % (
+            self.build.name, len(self.sorted_entries), len(self.hooks), len(self.sites), self.jobs))
+        for name, only in self.skipped_hooks:
+            _log("recomp: hooks skipped: %s (only for the %s build)" % (name, only))
         progress(0, 1, "loading names")
         self.names = names.load()
         self.unhandled = collections.Counter()
@@ -679,16 +705,18 @@ class Recompiler:
         self.imm_override = self.imm_override
         if ppc2c.SINGLE:
             progress(0, 1, "finding register helpers")
+            t0 = time.time()
             self.saved_clobbers = self.find_saved_clobbers()
+            _log("recomp: %d register helpers, %.1f s" % (len(self.saved_clobbers), time.time() - t0))
         else:
             self.saved_clobbers = set()
         self.singleflow = None
         if ppc2c.SINGLE and singleflow.INTERPROC:
             progress(0, 1, "analyzing floating-point use")
             t0 = time.time()
-            self.singleflow = singleflow.Solver(self).solve(self.jobs)
-            sys.stderr.write("single-precision summaries: %d function analyses, %.1f s\n" %
-                             (self.singleflow.rounds, time.time() - t0))
+            self.singleflow = singleflow.Solver(self).solve(self.jobs, _log)
+            _log("recomp: float analysis finished, %d function analyses, %.1f s" %
+                 (self.singleflow.rounds, time.time() - t0))
         self.used_imports = set()
         ppc2c.single_stats[:] = [0, 0]
         leaflocal.reset_stats()
@@ -697,7 +725,11 @@ class Recompiler:
         jobs_arg = [(i, group, os.path.join(outdir, "code_%03d.c" % i)) for i, group in enumerate(files)]
         stats = [None] * len(files)
         done_fns = 0
+        logged_fns = 0
+        step = max(1, total_fn // 20)
+        t_emit = time.time()
         if jobs_arg:
+            _log("recomp: translating %d functions into %d files" % (total_fn, len(files)))
             pool, pickle_path = _open_pool(self.jobs, self)
             failed = True
             try:
@@ -705,6 +737,10 @@ class Recompiler:
                     stats[st["index"]] = st
                     done_fns += st["funcs"]
                     progress(done_fns, total_fn, "translating functions (%d of %d)" % (done_fns, total_fn))
+                    if done_fns - logged_fns >= step or done_fns == total_fn:
+                        _log("recomp: translated %d of %d functions, %.1f s" % (
+                            done_fns, total_fn, time.time() - t_emit))
+                        logged_fns = done_fns
                 failed = False
             finally:
                 _shutdown_pool(pool, pickle_path, failed)
@@ -734,8 +770,11 @@ class Recompiler:
             if re.fullmatch(r"code_\d+\.c", name) and name not in written:
                 os.remove(os.path.join(outdir, name))
         progress(len(files), len(files), "writing headers")
+        _log("recomp: writing headers")
         self.write_headers(outdir)
         self.write_report(outdir, len(files))
+        with _Output(os.path.join(outdir, "hook-inputs.txt")) as f:
+            f.write(game_builds.hook_inputs_stamp())
         progress(1, 1, "%d source files" % len(files))
 
     def static_float_gqrs(self):

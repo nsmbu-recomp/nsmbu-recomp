@@ -1,5 +1,6 @@
 #include "core/runtime.h"
 #include "hooks/interp.h"
+#include "hooks/mii_draw.h"
 #include "mods/packages.h"
 #include "mods/sdk/nsmbu.h"
 #include "guest_addr.h"
@@ -12,9 +13,13 @@ extern "C" void nsmbu_note_scene_src(uint32_t src, uint32_t factory);
 extern "C" void f_0226FBC4_orig(Cpu* c);
 extern "C" void f_024BD86C_orig(Cpu* c);
 extern "C" void f_0252F900_orig(Cpu* c);
+extern "C" void f_0252D9C0_orig(Cpu* c);
 extern "C" void f_025CF020_orig(Cpu* c);
+extern "C" void f_024EFE58_orig(Cpu* c);
+extern "C" void f_024F009C_orig(Cpu* c);
 
 static const uint32_t kAreaTask = GD(0x101D1598);
+static const uint32_t kMiiCentral = GD(0x101D2CC4);
 static const uint32_t kCourseInfo = GD(0x101D18EC);
 static const uint32_t kCourseSelectMgr = GD(0x101CBE14);
 static const uint32_t kFieldGame = GD(0x101D1604);
@@ -293,6 +298,27 @@ extern "C" void hook_025CF020(Cpu* c) {
 extern "C" void hook_0252F900(Cpu* c) {
     if (ld32(kAreaTask) == 0) return;
     f_0252F900_orig(c);
+}
+
+extern "C" void hook_0252D9C0(Cpu* c) {
+    if (ld32(kAreaTask) == 0) return;
+    f_0252D9C0_orig(c);
+}
+
+static bool mii_model_drawable() {
+    uint32_t central = ld32(kMiiCentral);
+    if (!central) return false;
+    return mii_model_draw_ready(central, ld32(central + kMiiShaderProgram));
+}
+
+extern "C" void hook_024EFE58(Cpu* c) {
+    if (!mii_model_drawable()) return;
+    f_024EFE58_orig(c);
+}
+
+extern "C" void hook_024F009C(Cpu* c) {
+    if (!mii_model_drawable()) return;
+    f_024F009C_orig(c);
 }
 
 extern "C" void nsmbu_mark_course_left(void) {

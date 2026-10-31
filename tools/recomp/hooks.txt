@@ -25,6 +25,8 @@
 @0227E2A8  # map focus: same copy on the second pose setup
 0252F900  # course HUD: AreaTask is null while a course change replaces the area
 025CF020  # course HUD helper: AreaTask is null during course teardown
+024EFE58  # ModelFFL::drawOpa: skip while the Mii shader program is null
+024F009C  # ModelFFL::drawXlu: skip while the Mii shader program is null
 029C52CC  # ApplicationFramework::procCalc_: start a frame; an in-between pass skips the task-tree logic
 024FBF6C  # RenderObjRenderMgr::calcView: bake the in-between camera projection for the draw
 029C4FE4  # ApplicationFramework::procDraw_: a 30 fps step draws no frame
