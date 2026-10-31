@@ -79,7 +79,7 @@ class Identify(unittest.TestCase):
 class Hooks(unittest.TestCase):
     def test_every_file_is_read_for_the_canonical_build(self):
         entries, skipped = builds.read_hooks(builds.hook_files(), builds.canonical_build())
-        self.assertEqual(skipped, [])
+        self.assertEqual(skipped, [("hooks_base_hud.txt", "USA_V0 EU_V0")])
         self.assertEqual(
             [(site, addr) for site, _, addr, *_ in entries],
             [(False, 0x02ACD218), (False, 0x024D752C), (True, 0x022A79C4), (False, 0x022A7760),
@@ -120,7 +120,7 @@ class Hooks(unittest.TestCase):
         eu = builds.by_name("EU")
         self.assertIsNotNone(eu)
         entries, skipped = builds.read_hooks(builds.hook_files(), eu)
-        self.assertEqual(skipped, [])
+        self.assertEqual(skipped, [("hooks_base_hud.txt", "USA_V0 EU_V0")])
         by_canon = {canon: addr for _, canon, addr, *_ in entries}
         self.assertEqual(by_canon[0x024D752C], 0x024D752C)
         self.assertEqual(by_canon[0x02ACD218], 0x02ACD618)
@@ -156,7 +156,7 @@ class Hooks(unittest.TestCase):
         combo = builds.by_name("NSMBU_NSLU_USA")
         self.assertIsNotNone(combo)
         entries, skipped = builds.read_hooks(builds.hook_files(), combo)
-        self.assertEqual(skipped, [])
+        self.assertEqual(skipped, [("hooks_base_hud.txt", "USA_V0 EU_V0")])
         by_canon = {canon: addr for _, canon, addr, *_ in entries}
         self.assertNotEqual(by_canon[0x02ACD218], 0x02ACD218)
         self.assertEqual(by_canon[0x029CBBB4], combo.code(0x029CBBB4))
@@ -166,11 +166,31 @@ class Hooks(unittest.TestCase):
         combo = builds.by_name("NSMBU_NSLU_EU")
         self.assertIsNotNone(combo)
         entries, skipped = builds.read_hooks(builds.hook_files(), combo)
-        self.assertEqual(skipped, [])
+        self.assertEqual(skipped, [("hooks_base_hud.txt", "USA_V0 EU_V0")])
         by_canon = {canon: addr for _, canon, addr, *_ in entries}
         self.assertNotEqual(by_canon[0x02ACD218], 0x02ACD218)
         self.assertEqual(by_canon[0x029CBBB4], combo.code(0x029CBBB4))
         self.assertTrue(combo.body_differs(0x029CBBB4))
+
+    def test_base_disc_stock_hud_hook(self):
+        for name in ("USA_V0", "EU_V0"):
+            build = builds.by_name(name)
+            row = {a: (s1, other, s2) for a, s1, other, s2 in build.differing}
+            usa_size, _other, base_size = row[0x0252F900]
+            self.assertEqual(usa_size, 400)
+            self.assertEqual(base_size, 0)
+            draw_size_usa, draw_at, draw_size = row[0x0252D9C0]
+            self.assertEqual(draw_size_usa, 732)
+            self.assertEqual(draw_size, 400)
+            missing_at = build.code(0x0252F900)
+            self.assertNotEqual(missing_at, draw_at)
+            self.assertTrue(draw_at <= missing_at < draw_at + draw_size)
+            entries, skipped = builds.read_hooks(builds.hook_files(), build)
+            self.assertEqual(skipped, [])
+            by_canon = {canon: addr for _, canon, addr, *_ in entries}
+            self.assertEqual(by_canon[0x0252D9C0], draw_at)
+            self.assertEqual(by_canon[0x0252F900], missing_at)
+            self.assertEqual(builds.differing_hook(False, False, True, build.mods), "warn")
 
     def test_hook_files_in_folder_with_brackets(self):
         with tempfile.TemporaryDirectory() as temporary:

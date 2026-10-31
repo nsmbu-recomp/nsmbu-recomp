@@ -12,6 +12,7 @@ extern "C" void nsmbu_note_scene_src(uint32_t src, uint32_t factory);
 extern "C" void f_0226FBC4_orig(Cpu* c);
 extern "C" void f_024BD86C_orig(Cpu* c);
 extern "C" void f_0252F900_orig(Cpu* c);
+extern "C" void f_0252D9C0_orig(Cpu* c);
 extern "C" void f_025CF020_orig(Cpu* c);
 
 static const uint32_t kAreaTask = GD(0x101D1598);
@@ -293,6 +294,11 @@ extern "C" void hook_025CF020(Cpu* c) {
 extern "C" void hook_0252F900(Cpu* c) {
     if (ld32(kAreaTask) == 0) return;
     f_0252F900_orig(c);
+}
+
+extern "C" void hook_0252D9C0(Cpu* c) {
+    if (ld32(kAreaTask) == 0) return;
+    f_0252D9C0_orig(c);
 }
 
 extern "C" void nsmbu_mark_course_left(void) {

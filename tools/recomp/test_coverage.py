@@ -72,7 +72,7 @@ class CoverageTests(unittest.TestCase):
 
     def test_every_active_hook_is_mapped(self):
         entries, skipped = builds.read_hooks(builds.hook_files(), builds.canonical_build())
-        self.assertEqual(skipped, [])
+        self.assertEqual(skipped, [("hooks_base_hud.txt", "USA_V0 EU_V0")])
         self.assertEqual(
             [(site, canon) for site, canon, *_ in entries],
             [(False, 0x02ACD218), (False, 0x024D752C), (True, 0x022A79C4), (False, 0x022A7760),
