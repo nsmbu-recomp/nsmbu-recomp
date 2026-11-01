@@ -25,6 +25,7 @@
 #include "imgui.h"
 #include "hostui.h"
 #include "controls_view.h"
+#include "flow_layout.h"
 #include "controller_shortcuts.h"
 #include "text_entry.h"
 #include "gfx/aspect.h"
@@ -1328,8 +1329,12 @@ void tab_controls() {
 #ifdef __ANDROID__
     const float page_h = ImGui::GetContentRegionAvail().y;
     const float status_h = ImGui::GetTextLineHeightWithSpacing() + 4.0f;
-    const float options_est = std::max(U.options_height, ImGui::GetFrameHeightWithSpacing() * 2.5f) + 8.0f;
-    const float diagram_h = std::max(240.0f, (page_h - status_h - options_est) * 0.72f);
+    const float touch_block = ImGui::GetFrameHeightWithSpacing() * 6.0f + ImGui::GetTextLineHeightWithSpacing() * 2.0f;
+    const float options_est =
+        std::max(U.options_height, ImGui::GetFrameHeightWithSpacing() * 2.5f + touch_block) + 8.0f;
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    const float diagram_frac = display.x > display.y * 1.12f ? 0.58f : 0.72f;
+    const float diagram_h = std::max(200.0f, (page_h - status_h - options_est) * diagram_frac);
     const float header_h = std::max(80.0f, page_h - diagram_h - status_h - options_est);
     ImGui::BeginChild("controls_header", ImVec2(0, header_h), ImGuiChildFlags_None, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 #endif
@@ -1440,6 +1445,7 @@ void tab_controls() {
             status = "Select a button on the controller or a chip to rebind it. Changes are saved to controls.json.";
         }
     }
+    const bool status_idle = U.cap_action < 0 && U.cap_note.empty();
     const float bottom = ImGui::GetTextLineHeightWithSpacing() + std::max(U.options_height, ImGui::GetFrameHeightWithSpacing() * 2) + 4;
     const ImVec2 avail = ImGui::GetContentRegionAvail();
 #ifdef __ANDROID__
@@ -1485,6 +1491,8 @@ void tab_controls() {
         cv.stick[1][1] = kr ? ks.ry : cs.ry;
         draw_controls(cv, avail.x, h);
         U.hover_action = cv.hover_action;
+        if (cv.compact_side && status_idle && U.hover_action < 0)
+            status = "Tap a controller button to rebind it, or turn on List view for keyboard and chip bindings.";
         if (cv.start_action >= 0) start_capture(cv.start_action, cv.start_col);
         if (cv.clear_action >= 0) clear_binding(cv.clear_action, cv.clear_col);
     }
@@ -1493,17 +1501,31 @@ void tab_controls() {
     ImGui::PopStyleColor();
     const float options_top = ImGui::GetCursorPosY();
     float dz = m.deadzone * 100.0f;
+#ifdef __ANDROID__
+    const float gap = 24.0f;
+    const float slider_least = ImGui::GetFontSize() * 6.0f;
+    ImGui::SetNextItemWidth(flow::item_width(200.0f, "Stick dead zone", slider_least));
+#else
     ImGui::SetNextItemWidth(200);
+#endif
     if (ImGui::SliderFloat("Stick dead zone", &dz, 0.0f, 90.0f, "%.0f%%")) {
         m.deadzone = std::clamp(dz / 100.0f, 0.0f, 0.9f);
         input_map::set_player(p, m);
     }
+#ifdef __ANDROID__
+    flow::next(flow::check("Invert camera up/down"), gap);
+#else
     ImGui::SameLine(0, 24);
+#endif
     if (check("Invert camera up/down", m.invert_camera_y, &v)) {
         m.invert_camera_y = v;
         input_map::set_player(p, m);
     }
+#ifdef __ANDROID__
+    flow::next(flow::check("Rumble"), gap);
+#else
     ImGui::SameLine(0, 24);
+#endif
 
     if (check("Rumble", rumble::enabled(), &v, input::has_rumble())) {
         rumble::set_enabled(v);
@@ -1511,7 +1533,11 @@ void tab_controls() {
     }
     help(input::has_rumble() ? "Controller vibration when the game asks for it. Off keeps the motors still."
                              : "Controller vibration: this host does not drive controller motors yet.");
+#ifdef __ANDROID__
+    flow::next(flow::button("Reset to defaults"), gap);
+#else
     ImGui::SameLine(0, 24);
+#endif
     if (ImGui::Button("Reset to defaults")) input_map::set_player(p, input_map::Mapping::defaults());
 #ifdef __ANDROID__
     heading("Touch controls");
@@ -1526,7 +1552,7 @@ void tab_controls() {
     ImGui::TextUnformatted("Touch buttons");
     static const char* const touchNames[] = {"Automatic", "Always show", "Hide"};
     for (int i = touch_buttons::Automatic; i <= touch_buttons::Hide; i++) {
-        ImGui::SameLine();
+        flow::next(flow::check(touchNames[i]));
         char label[32];
         snprintf(label, sizeof label, "%s##touchbuttons", touchNames[i]);
         if (radio(label, touch_buttons::mode.load() == i))
@@ -1542,7 +1568,7 @@ void tab_controls() {
     static const char* const phoneNames[] = {"Off", "Touch controls", "No controller motor"};
     const bool phoneEditable = !phone_rumble::env_override();
     for (int i = phone_rumble::kOff; i <= phone_rumble::kFallback; i++) {
-        ImGui::SameLine();
+        flow::next(flow::check(phoneNames[i]));
         char label[40];
         snprintf(label, sizeof label, "%s##phonerumble", phoneNames[i]);
         if (radio(label, phone_rumble::choice.load() == i, phoneEditable))
@@ -2063,7 +2089,11 @@ void settings_window() {
                     if (U.tab != i) U.cap_action = -1, g_capturing_keys = false, U.cap_note.clear();
                     U.tab = i;
                     ImGui::BeginChild("page", ImVec2(0, 0), ImGuiChildFlags_NavFlattened,
+#ifdef __ANDROID__
+                                      i == kControls ? ImGuiWindowFlags_AlwaysVerticalScrollbar : ImGuiWindowFlags_None);
+#else
                                       i == kControls ? ImGuiWindowFlags_NoScrollbar : ImGuiWindowFlags_None);
+#endif
                     switch (i) {
                     case kControls: tab_controls(); break;
                     case kGraphics: tab_graphics(); break;

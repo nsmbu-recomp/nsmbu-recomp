@@ -9,19 +9,23 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ### Fixed
 
-- Windows Vulkan on older Intel integrated GPUs no longer crashes after the intro when loading the title screen (issue #42).
-  Attachment layer views now name their usage on Intel drivers; `NSMBU_VK_ATTACHMENT_VIEW_USAGE=0` turns that off.
-- Android setup finishes translating when the phone's Python can import `multiprocessing` but has no `_multiprocessing` extension.
-  It uses one process instead of stopping.
-- **Share log** on Android also shares the setup status and the latest extract, translation, compile, and link logs.
-  A failed setup can be sent before the game has run.
+- On Android, the Controls tab no longer draws overlapping binding chips and leader lines on landscape handhelds; touch option rows wrap cleanly.
+- On a PC-built Android APK, **Choose your game** works again for picking an extracted folder on the device.
+
+## [0.8.2] - 2026-11-01
 
 ### Changed
 
 - The Android app icon opens the installer.
-  **Skip the installer for future runs** starts that game on a later open.
-  Checking the box leaves this screen up until **Play** is pressed.
-  **Settings > Android**, the last tab and only on Android, turns that off.
+  Tick **Skip the installer for future runs**, then press **Play**.
+  The next time you open the app, the game starts.
+  **Settings > Android** turns that off.
+
+### Fixed
+
+- Windows on older Intel graphics no longer crashes after the intro when the title screen loads.
+- Android setup finishes translating the game instead of stopping.
+- On Android, **Share log** includes the setup log, so a failed setup can be sent before the game has run.
 
 ## [0.8.1] - 2026-10-31
 
@@ -351,7 +355,8 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 - The TV and GamePad present together on one vsync.
 
-[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.7.1...v0.7.2

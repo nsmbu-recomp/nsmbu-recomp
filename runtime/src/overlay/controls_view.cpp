@@ -91,6 +91,7 @@ struct Geo {
     ImVec2 o;
     ImVec2 org;
     float colLx = 0, colRx = 0;
+    bool compact_side = false;
     std::vector<ImVec2> body;
     ImVec2 bodyA, bodyB;
     bool hasScreen = false;
@@ -272,34 +273,53 @@ Geo layout(bool pro, FaceLayout fl, ImVec2 org, float w, float h) {
             group(t.c_str(), {p.action}, {t}, p.c, right);
         }
 
-    for (int side = 0; side < 2; side++) {
+    const float gap = 7 * k, minTop = org.y + (kHeaderH + 6) * k, maxBottom = org.y + h - 8 * k, rowH = kRowH * k;
+    const float colRoom = std::max(maxBottom - minTop, 1.0f);
+    auto column_need = [&](bool right) {
         std::vector<Group*> colg;
         for (auto& gr : g.groups)
-            if (gr.right == (side == 1)) colg.push_back(&gr);
+            if (gr.right == right) colg.push_back(&gr);
         std::stable_sort(colg.begin(), colg.end(), [](Group* a, Group* b) {
             if (a->anchor.y != b->anchor.y) return a->anchor.y < b->anchor.y;
             return a->right ? a->anchor.x > b->anchor.x : a->anchor.x < b->anchor.x;
         });
-        const float gap = 7 * k, minTop = org.y + (kHeaderH + 6) * k, maxBottom = org.y + h - 8 * k, rowH = kRowH * k;
-        std::vector<float> y(colg.size()), hh(colg.size());
+        float total = 0;
         for (size_t i = 0; i < colg.size(); i++) {
             int n = (int)colg[i]->acts.size();
-            hh[i] = rowH * (n == 1 ? 1 : n + 1) + 4 * k;
-            y[i] = std::max(colg[i]->anchor.y - rowH / 2 - 2 * k, i ? y[i - 1] + hh[i - 1] + gap : minTop);
+            total += rowH * (n == 1 ? 1 : n + 1) + 4 * k + (i ? gap : 0);
         }
-        for (size_t i = colg.size(); i-- > 0;) {
-            float limit = i + 1 < colg.size() ? y[i + 1] - gap : maxBottom;
-            y[i] = std::min(y[i], limit - hh[i]);
-        }
-        for (size_t i = 0; i < colg.size(); i++) {
-            y[i] = std::max(y[i], i ? y[i - 1] + hh[i - 1] + gap : minTop);
-            Group& gr = *colg[i];
-            float x = side ? g.colRx : g.colLx;
-            gr.a = ImVec2(x, y[i]);
-            gr.b = ImVec2(x + kColW * k, y[i] + hh[i]);
-            int n = (int)gr.acts.size();
-            float ry = y[i] + 2 * k + (n == 1 ? 0 : rowH);
-            for (int q = 0; q < n; q++, ry += rowH) gr.rows.push_back(ry);
+        return total;
+    };
+    if (column_need(false) > colRoom || column_need(true) > colRoom) g.compact_side = true;
+    if (!g.compact_side) {
+        for (int side = 0; side < 2; side++) {
+            std::vector<Group*> colg;
+            for (auto& gr : g.groups)
+                if (gr.right == (side == 1)) colg.push_back(&gr);
+            std::stable_sort(colg.begin(), colg.end(), [](Group* a, Group* b) {
+                if (a->anchor.y != b->anchor.y) return a->anchor.y < b->anchor.y;
+                return a->right ? a->anchor.x > b->anchor.x : a->anchor.x < b->anchor.x;
+            });
+            std::vector<float> y(colg.size()), hh(colg.size());
+            for (size_t i = 0; i < colg.size(); i++) {
+                int n = (int)colg[i]->acts.size();
+                hh[i] = rowH * (n == 1 ? 1 : n + 1) + 4 * k;
+                y[i] = std::max(colg[i]->anchor.y - rowH / 2 - 2 * k, i ? y[i - 1] + hh[i - 1] + gap : minTop);
+            }
+            for (size_t i = colg.size(); i-- > 0;) {
+                float limit = i + 1 < colg.size() ? y[i + 1] - gap : maxBottom;
+                y[i] = std::min(y[i], limit - hh[i]);
+            }
+            for (size_t i = 0; i < colg.size(); i++) {
+                y[i] = std::max(y[i], i ? y[i - 1] + hh[i - 1] + gap : minTop);
+                Group& gr = *colg[i];
+                float x = side ? g.colRx : g.colLx;
+                gr.a = ImVec2(x, y[i]);
+                gr.b = ImVec2(x + kColW * k, y[i] + hh[i]);
+                int n = (int)gr.acts.size();
+                float ry = y[i] + 2 * k + (n == 1 ? 0 : rowH);
+                for (int q = 0; q < n; q++, ry += rowH) gr.rows.push_back(ry);
+            }
         }
     }
     return g;
@@ -357,6 +377,7 @@ void draw_controls(ControlsView& v, float w, float h) {
     const Palette P;
     const ImVec2 org = ImGui::GetCursorScreenPos();
     const Geo g = layout(v.pro, face_layout(v.m), org, w, h);
+    v.compact_side = g.compact_side;
     const float k = g.k, s = g.s;
     ImDrawList* dl = ImGui::GetWindowDrawList();
     dl->PushClipRect(org, ImVec2(org.x + w, org.y + h), true);
@@ -395,7 +416,8 @@ void draw_controls(ControlsView& v, float w, float h) {
 
     struct ChipItem { int action, col; ImVec2 a, b; bool hovered, focused, disabled; };
     std::vector<ChipItem> chips;
-    for (int side = 0; side < 2; side++)
+    if (!g.compact_side)
+        for (int side = 0; side < 2; side++)
         for (auto& gr : g.groups) {
             if (gr.right != (side == 1)) continue;
             for (size_t q = 0; q < gr.acts.size(); q++)
@@ -442,9 +464,11 @@ void draw_controls(ControlsView& v, float w, float h) {
     };
 
     const char* heads[3] = {"Key", "Alt key", "Controller"};
-    for (float x : {g.colLx, g.colRx})
-        for (int c = 0; c < 3; c++)
-            text_centered(dl, heads[c], ImVec2(x + (kChipX[c] + kChipW[c] / 2) * k, org.y + (kHeaderH / 2 + 2) * k), 13 * k, P.dim);
+    if (!g.compact_side) {
+        for (float x : {g.colLx, g.colRx})
+            for (int c = 0; c < 3; c++)
+                text_centered(dl, heads[c], ImVec2(x + (kChipX[c] + kChipW[c] / 2) * k, org.y + (kHeaderH / 2 + 2) * k), 13 * k, P.dim);
+    }
 
     for (int pass = 0; pass < 2; pass++)
         for (auto& p : g.parts) {
@@ -496,7 +520,7 @@ void draw_controls(ControlsView& v, float w, float h) {
     for (ImVec2 c : g.leds) dl->AddCircleFilled(c, 0.006f * s, padConnected ? P.accent : P.well);
 
     for (auto& gr : g.groups) {
-        if (!gr.leader) continue;
+        if (!gr.leader || g.compact_side) continue;
         bool h1 = false, warn = false;
         for (int a : gr.acts) {
             h1 |= hot(a);
@@ -581,6 +605,7 @@ void draw_controls(ControlsView& v, float w, float h) {
         hoverCode = hoverPad ? m.pad[v.hover_action] : m.keys[v.hover_action][v.hover_col];
     }
     for (auto& gr : g.groups) {
+        if (g.compact_side) continue;
         bool h1 = false;
         for (int a : gr.acts) h1 |= hot(a);
         dl->AddRectFilled(gr.a, gr.b, P.box, 7 * k);

@@ -33,6 +33,7 @@ struct ControlsView {
     int hover_action = -1, hover_col = -1;
     int start_action = -1, start_col = 0;
     int clear_action = -1, clear_col = 0;
+    bool compact_side = false;
 };
 
 void draw_controls(ControlsView& v, float w, float h);
