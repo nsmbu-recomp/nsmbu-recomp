@@ -169,7 +169,7 @@ public class SetupActivity extends Activity {
         detail.setPadding(0, gap / 2, 0, gap);
         layout.addView(detail);
         play = button(layout, getString(R.string.setup_play), this::startGame);
-        rebuild = button(layout, getString(R.string.setup_rebuild), () -> control(SetupService.RESUME));
+        rebuild = button(layout, getString(R.string.setup_rebuild), this::rebuildGame);
         button(layout, getString(R.string.setup_share_log), () -> LogShare.share(this));
         play.setTextSize(20);
         play.setTextColor(0xFFFFFFFF);
@@ -473,6 +473,14 @@ public class SetupActivity extends Activity {
         return button;
     }
 
+    private void rebuildGame() {
+        if (!phoneSetup) {
+            android.widget.Toast.makeText(this, R.string.setup_rebuild_pc, android.widget.Toast.LENGTH_LONG).show();
+            return;
+        }
+        control(SetupService.RESUME);
+    }
+
     private void control(String action) {
         try {
             actionMessage = null;
@@ -614,7 +622,9 @@ public class SetupActivity extends Activity {
                     pcGame());
                 String hostName = hostState == null ? (job == null ? "" : "selected") : hostState.optString("state");
                 boolean working = hostName.equals("activating") || hostName.equals("importing") || hostName.equals("preparing") || hostName.equals("running");
-                show(play, play.isEnabled() && !working && !checkingFolder);
+                boolean showPlay = play.isEnabled() && !working && !checkingFolder;
+                show(play, showPlay);
+                show(rebuild, showPlay);
                 show(choose, (phoneSetup && !working) || (!phoneSetup && !checkingFolder));
                 show(folderHint, phoneSetup && !working);
                 if (!phoneSetup) {
@@ -622,7 +632,6 @@ public class SetupActivity extends Activity {
                     choose.setOnClickListener(view -> pick(PC_FOLDER));
                 } else setTextIfChanged(choose, getString(job == null ? R.string.setup_choose : R.string.setup_choose_other));
                 show(pause, phoneSetup && working);
-                show(rebuild, phoneSetup && job != null && !working && !checkingFolder && hostName.equals("complete"));
                 show(resume, phoneSetup && job != null && !working && !hostName.equals("complete"));
                 setTextIfChanged(resume, getString(hostName.equals("selected") ? R.string.setup_start : R.string.setup_continue));
                 show(updateStatus, hostState != null && SetupPresentation.showUpdate(hostState.optBoolean("updating"), hostName));

@@ -612,12 +612,12 @@ export function cmdInstaller(repo: string, rest: string[]): void {
 export async function cmdApk(repo: string, rest: string[]): Promise<void> {
     const { flags, positional } = parseArgv(
         rest,
-        ["abi", "device", "build-only", "install-only", "push-only", "stub", "no-push", "push-game", "force-push", "yes"],
+        ["abi", "device", "build-only", "install-only", "yes"],
         ["abi", "device"],
     );
     if (positional.length > 0) {
         throw new Error(
-            "usage: nsmbu apk [--abi arm64-v8a|x86_64] [--device SERIAL] [--build-only] [--install-only] [--push-only] [--stub] [--no-push] [--push-game] [--force-push] [--yes]",
+            "usage: nsmbu apk [--abi arm64-v8a|x86_64] [--device SERIAL] [--build-only] [--install-only] [--yes]",
         );
     }
     const buildOnly = hasFlag(flags, "build-only");
@@ -639,21 +639,6 @@ export async function cmdApk(repo: string, rest: string[]): Promise<void> {
     }
     if (hasFlag(flags, "install-only")) {
         args.push("--install-only");
-    }
-    if (hasFlag(flags, "push-only")) {
-        args.push("--push-only");
-    }
-    if (hasFlag(flags, "stub")) {
-        args.push("--stub");
-    }
-    if (hasFlag(flags, "no-push")) {
-        args.push("--no-push");
-    }
-    if (hasFlag(flags, "push-game")) {
-        args.push("--push-game");
-    }
-    if (hasFlag(flags, "force-push")) {
-        args.push("--force-push");
     }
     const yes = hasFlag(flags, "yes");
     if (!buildOnly && !installOnly && !device) {

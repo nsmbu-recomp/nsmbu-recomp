@@ -29,7 +29,8 @@ The `scenes` skill owns a short boot to the map, a course, or the title.
 
 ## Android
 
-`nsmbu apk` builds the debug APK from the current tree, installs it on the connected device, and copies the active dump when the device does not already have that copy.
+`nsmbu apk` builds the release-style setup APK from the current tree and installs it on the connected device.
+The APK does not contain the game.
 Leave the dump on USA 1.3.0 unless the check needs another version.
 Pass `--device SERIAL` when more than one device is connected.
 `python3 tools/android/apk.py --list-devices` prints the serials.

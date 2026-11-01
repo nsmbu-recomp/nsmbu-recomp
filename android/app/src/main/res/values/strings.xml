@@ -72,6 +72,7 @@
     <string name="touch_layout_done">Done</string>
     <string name="setup_preparing">Getting the tools ready…</string>
     <string name="setup_rebuild">Rebuild the game</string>
+    <string name="setup_rebuild_pc">This APK already contains the game. There is nothing to rebuild on the device.</string>
     <string name="setup_ready">Your game is ready</string>
     <string name="setup_ready_detail">Tap Play to start the game.</string>
     <string name="setup_restore">Allow access to the chosen game again</string>

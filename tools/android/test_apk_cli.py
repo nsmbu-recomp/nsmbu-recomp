@@ -3,7 +3,6 @@ import io
 import json
 import os
 import sys
-import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -32,26 +31,6 @@ class ListDevices(unittest.TestCase):
         self.assertEqual(out, [{"serial": "emulator-5554", "model": "sdk_gphone64_arm64"}])
 
 
-class ResolveGen(unittest.TestCase):
-    def test_stub(self):
-        self.assertEqual(apk.resolve_gen(True), "stub")
-
-    def test_missing_code(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            with patch.object(apk, "ROOT", tmp):
-                os.makedirs(os.path.join(tmp, "build", "gen"), exist_ok=True)
-                with self.assertRaises(apk.ApkError):
-                    apk.resolve_gen(False)
-
-    def test_has_code(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            gen = os.path.join(tmp, "build", "gen")
-            os.makedirs(gen)
-            open(os.path.join(gen, "code_00000000.c"), "w").close()
-            with patch.object(apk, "ROOT", tmp):
-                self.assertEqual(apk.resolve_gen(False), gen)
-
-
 class MainFlow(unittest.TestCase):
     def test_list_devices_json(self):
         buf = io.StringIO()
@@ -59,48 +38,6 @@ class MainFlow(unittest.TestCase):
             with patch("sys.stdout", buf):
                 self.assertEqual(apk.main(["--list-devices"]), 0)
         self.assertEqual(json.loads(buf.getvalue()), [{"serial": "abc", "model": None}])
-
-
-class PushSync(unittest.TestCase):
-    def test_local_sync_payload(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            dump = os.path.join(tmp, "usa-1.3.0")
-            os.makedirs(os.path.join(dump, "code"))
-            rpx = os.path.join(dump, "code", "red-pro2.rpx")
-            with open(rpx, "wb") as f:
-                f.write(b"x" * 42)
-            self.assertEqual(
-                apk.local_sync_payload(dump),
-                {"id": "usa-1.3.0", "rpx_size": 42},
-            )
-
-    def test_game_push_up_to_date_marker(self):
-        payload = {"id": "usa-1.3.0", "rpx_size": 42}
-        with patch.object(apk, "read_remote_sync", return_value=payload):
-            with patch.object(apk, "local_sync_payload", return_value=payload):
-                self.assertTrue(apk.game_push_up_to_date("dev", "/game/usa-1.3.0"))
-
-    def test_game_push_up_to_date_legacy_rpx(self):
-        payload = {"id": "usa-1.3.0", "rpx_size": 42}
-        with patch.object(apk, "read_remote_sync", return_value=None):
-            with patch.object(apk, "local_sync_payload", return_value=payload):
-                with patch.object(apk, "remote_rpx_size", return_value=42):
-                    with patch.object(apk, "write_remote_sync") as write:
-                        self.assertTrue(apk.game_push_up_to_date("dev", "/game/usa-1.3.0"))
-                        write.assert_called_once()
-
-    def test_push_game_skips_when_up_to_date(self):
-        with patch.object(apk, "game_push_up_to_date", return_value=True):
-            with patch.object(apk, "run") as run:
-                self.assertFalse(apk.push_game("dev", "/game/usa-1.3.0"))
-                run.assert_not_called()
-
-    def test_push_game_force_runs(self):
-        with patch.object(apk, "game_push_up_to_date", return_value=True):
-            with patch.object(apk, "write_remote_sync"):
-                with patch.object(apk, "run") as run:
-                    self.assertTrue(apk.push_game("dev", "/game/usa-1.3.0", force=True))
-                    self.assertTrue(run.called)
 
 
 if __name__ == "__main__":

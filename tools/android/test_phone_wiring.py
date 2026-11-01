@@ -48,6 +48,7 @@ class PhoneWiring(unittest.TestCase):
         self.assertNotIn("played_update_time", setup)
         self.assertIn("needsRebuild", setup)
         self.assertIn("setup_rebuild", setup)
+        self.assertIn("show(rebuild, showPlay)", setup)
         self.assertIn("setup_rebuild", text(APP / "res/values/strings.xml"))
         self.assertIn("show_setup", setup)
         self.assertIn("void openInstaller()", text(JAVA / "NsmbuActivity.java"))

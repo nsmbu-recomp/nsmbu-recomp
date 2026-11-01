@@ -36,7 +36,8 @@ When an update needs it, the device prepares the game again.
    You can leave the app while setup runs.
    **Pause** stops setup safely, and setup also pauses by itself when the device is too warm or the battery is low.
 4. When setup is complete, tap **Play**.
-   **Rebuild the game** runs setup again for this version of the app.
+   **Rebuild the game** is under **Play**.
+   It runs setup again for this version of the app.
    Pieces that still match this version are kept.
 
 The app icon skips this installer once a game is ready.
@@ -51,18 +52,14 @@ The installer stays open when the game closes.
 When you choose a different game, the app deletes its copy of the earlier choice to free space.
 The game that you can already play stays until the new one is ready.
 
-### Or: build it on your PC
+### Or: build the setup app on your PC
 
 1. Install the Android SDK and NDK, JDK 17 or 21, CMake, Ninja and Python 3.
-2. Extract your game and generate its code, as in the *Building* steps of the [README](../README.md).
-3. Run `nsmbu apk`, or `android/build_native.sh` then `./gradlew assembleRelease` in `android/`.
-4. On the phone, open the app and tap **Choose your game**, then pick the folder that contains `code`, `content` and `meta` (for example a copy under Download).
-   The app copies it privately and **Play** uses that copy.
-   You can still use `nsmbu apk` over USB instead.
-5. If you built manually and skipped both, install the APK and copy the game into `Android/data/org.nsmbrecomp.nsmbu/files/game/` with `adb push`.
-
-An APK that you build on your PC contains your recompiled game.
-Keep it for your own device and never share it.
+2. Run `nsmbu apk`.
+   That builds the same kind of APK as a release and installs it on a USB device.
+   The APK has the setup tools and does not contain the game.
+3. On the phone, open the app and tap **Choose your game**, then pick the folder that contains `code`, `content` and `meta`.
+   The device prepares that copy.
 
 ## Playing
 

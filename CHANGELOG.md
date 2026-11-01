@@ -9,8 +9,11 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ### Changed
 
+- `nsmbu apk` builds the setup APK, the same kind as a release.
+  The APK does not contain the game, and the command does not copy a dump to the device.
 - On Android, **Settings > Android > Quit to the installer** leaves the game and opens the installer.
-- On Android, **Rebuild the game** on the installer runs setup again for this version.
+- On Android, **Rebuild the game** is under **Play** on the installer.
+  It runs setup again for this version.
 - On Android, the app icon skips the installer once a game is ready.
   The installer opens again only when you open a new version of the app.
   Long-press the icon and choose **Game setup** to open the installer.
