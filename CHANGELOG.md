@@ -15,6 +15,7 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
   The controller drawing grows until its binding columns fit.
 - On Android, a touch on a settings tab opens that tab.
 - On Android, drag on the settings page to scroll.
+  A finger on the page moves it.
   The scrollbar still works.
 - On a PC-built Android APK, **Choose your game** works again for picking an extracted folder on the device.
 

@@ -2072,15 +2072,18 @@ static bool settings_close_button(bool& open, float size) {
 #ifdef __ANDROID__
 void touch_drag_scroll() {
     ImGuiIO& io = ImGui::GetIO();
-    if (io.MouseSource != ImGuiMouseSource_TouchScreen || !ImGui::IsMouseDown(ImGuiMouseButton_Left)) return;
-    if (ImGui::GetScrollMaxY() <= 0.0f) return;
-    if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) return;
-    const ImVec2 pos = ImGui::GetWindowPos();
-    const float edge = pos.x + ImGui::GetWindowSize().x - ImGui::GetStyle().ScrollbarSize;
-    if (io.MousePos.x >= edge) return;
-    if (!ImGui::IsMouseDragging(ImGuiMouseButton_Left, 8.0f)) return;
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) return;
+    if (window->ScrollMax.y <= 0.0f) return;
+    if (!window->InnerRect.Contains(io.MousePos)) return;
+    if (window->ScrollbarY && io.MousePos.x >= window->InnerRect.Max.x - window->ScrollbarSizes.x) return;
+    if (!ImGui::IsMouseDragging(ImGuiMouseButton_Left, 6.0f)) return;
     ImGui::ClearActiveID();
-    ImGui::SetScrollY(ImGui::GetScrollY() - io.MouseDelta.y);
+    const float y = std::clamp(window->Scroll.y - io.MouseDelta.y, 0.0f, window->ScrollMax.y);
+    window->Scroll.y = y;
+    window->ScrollTarget.y = y;
+    window->ScrollTargetCenterRatio.y = 0.0f;
+    window->ScrollTargetEdgeSnapDist.y = 0.0f;
 }
 
 void settings_tab_button(int i) {
