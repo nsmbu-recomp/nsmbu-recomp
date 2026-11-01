@@ -199,7 +199,11 @@ struct Ui {
     std::string restart_why;
     bool linearized = false;
     bool just_opened = false;
+#ifdef __ANDROID__
+    bool list_view = true;
+#else
     bool list_view = false;
+#endif
     int hover_action = -1;
     int control_player = 0;
     float options_height = 0;
@@ -1334,7 +1338,7 @@ void tab_controls() {
         std::max(U.options_height, ImGui::GetFrameHeightWithSpacing() * 2.5f + touch_block) + 8.0f;
     const ImVec2 display = ImGui::GetIO().DisplaySize;
     const float diagram_frac = display.x > display.y * 1.12f ? 0.58f : 0.72f;
-    const float diagram_h = std::max(200.0f, (page_h - status_h - options_est) * diagram_frac);
+    const float diagram_h = std::max(240.0f, (page_h - status_h - options_est) * diagram_frac);
     const float header_h = std::max(80.0f, page_h - diagram_h - status_h - options_est);
     ImGui::BeginChild("controls_header", ImVec2(0, header_h), ImGuiChildFlags_None, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 #endif
@@ -1455,8 +1459,16 @@ void tab_controls() {
     const float h = std::max(room, 1.0f);
 #endif
     U.hover_action = -1;
-    if (U.list_view) {
+    bool use_list = U.list_view;
+#ifdef __ANDROID__
+    if (!use_list && !controls_diagram_fits(pro, input_map::face_layout(m), avail.x, h)) use_list = true;
+#endif
+    if (use_list) {
         controls_list(m, h, p == 0);
+#ifdef __ANDROID__
+        if (!U.list_view && status_idle)
+            status = "The controller drawing needs more height on this screen; showing the list instead.";
+#endif
     } else {
         ControlsView cv;
         cv.m = m;
@@ -1491,8 +1503,6 @@ void tab_controls() {
         cv.stick[1][1] = kr ? ks.ry : cs.ry;
         draw_controls(cv, avail.x, h);
         U.hover_action = cv.hover_action;
-        if (cv.compact_side && status_idle && U.hover_action < 0)
-            status = "Tap a controller button to rebind it, or turn on List view for keyboard and chip bindings.";
         if (cv.start_action >= 0) start_capture(cv.start_action, cv.start_col);
         if (cv.clear_action >= 0) clear_binding(cv.clear_action, cv.clear_col);
     }
@@ -1552,7 +1562,7 @@ void tab_controls() {
     ImGui::TextUnformatted("Touch buttons");
     static const char* const touchNames[] = {"Automatic", "Always show", "Hide"};
     for (int i = touch_buttons::Automatic; i <= touch_buttons::Hide; i++) {
-        flow::next(flow::check(touchNames[i]));
+        if (i > touch_buttons::Automatic) flow::next(flow::check(touchNames[i]));
         char label[32];
         snprintf(label, sizeof label, "%s##touchbuttons", touchNames[i]);
         if (radio(label, touch_buttons::mode.load() == i))
@@ -1568,7 +1578,7 @@ void tab_controls() {
     static const char* const phoneNames[] = {"Off", "Touch controls", "No controller motor"};
     const bool phoneEditable = !phone_rumble::env_override();
     for (int i = phone_rumble::kOff; i <= phone_rumble::kFallback; i++) {
-        flow::next(flow::check(phoneNames[i]));
+        if (i > phone_rumble::kOff) flow::next(flow::check(phoneNames[i]));
         char label[40];
         snprintf(label, sizeof label, "%s##phonerumble", phoneNames[i]);
         if (radio(label, phone_rumble::choice.load() == i, phoneEditable))

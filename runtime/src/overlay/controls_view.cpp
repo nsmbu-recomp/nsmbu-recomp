@@ -377,7 +377,6 @@ void draw_controls(ControlsView& v, float w, float h) {
     const Palette P;
     const ImVec2 org = ImGui::GetCursorScreenPos();
     const Geo g = layout(v.pro, face_layout(v.m), org, w, h);
-    v.compact_side = g.compact_side;
     const float k = g.k, s = g.s;
     ImDrawList* dl = ImGui::GetWindowDrawList();
     dl->PushClipRect(org, ImVec2(org.x + w, org.y + h), true);
@@ -416,8 +415,7 @@ void draw_controls(ControlsView& v, float w, float h) {
 
     struct ChipItem { int action, col; ImVec2 a, b; bool hovered, focused, disabled; };
     std::vector<ChipItem> chips;
-    if (!g.compact_side)
-        for (int side = 0; side < 2; side++)
+    for (int side = 0; side < 2; side++)
         for (auto& gr : g.groups) {
             if (gr.right != (side == 1)) continue;
             for (size_t q = 0; q < gr.acts.size(); q++)
@@ -464,11 +462,9 @@ void draw_controls(ControlsView& v, float w, float h) {
     };
 
     const char* heads[3] = {"Key", "Alt key", "Controller"};
-    if (!g.compact_side) {
-        for (float x : {g.colLx, g.colRx})
-            for (int c = 0; c < 3; c++)
-                text_centered(dl, heads[c], ImVec2(x + (kChipX[c] + kChipW[c] / 2) * k, org.y + (kHeaderH / 2 + 2) * k), 13 * k, P.dim);
-    }
+    for (float x : {g.colLx, g.colRx})
+        for (int c = 0; c < 3; c++)
+            text_centered(dl, heads[c], ImVec2(x + (kChipX[c] + kChipW[c] / 2) * k, org.y + (kHeaderH / 2 + 2) * k), 13 * k, P.dim);
 
     for (int pass = 0; pass < 2; pass++)
         for (auto& p : g.parts) {
@@ -520,7 +516,7 @@ void draw_controls(ControlsView& v, float w, float h) {
     for (ImVec2 c : g.leds) dl->AddCircleFilled(c, 0.006f * s, padConnected ? P.accent : P.well);
 
     for (auto& gr : g.groups) {
-        if (!gr.leader || g.compact_side) continue;
+        if (!gr.leader) continue;
         bool h1 = false, warn = false;
         for (int a : gr.acts) {
             h1 |= hot(a);
@@ -605,7 +601,6 @@ void draw_controls(ControlsView& v, float w, float h) {
         hoverCode = hoverPad ? m.pad[v.hover_action] : m.keys[v.hover_action][v.hover_col];
     }
     for (auto& gr : g.groups) {
-        if (g.compact_side) continue;
         bool h1 = false;
         for (int a : gr.acts) h1 |= hot(a);
         dl->AddRectFilled(gr.a, gr.b, P.box, 7 * k);
@@ -658,6 +653,10 @@ void draw_controls(ControlsView& v, float w, float h) {
     dl->PopClipRect();
     ImGui::SetCursorScreenPos(ImVec2(org.x, org.y + h));
     ImGui::Dummy(ImVec2(w, 0));
+}
+
+bool controls_diagram_fits(bool pro, FaceLayout fl, float w, float h) {
+    return !layout(pro, fl, ImVec2(0, 0), w, h).compact_side;
 }
 
 }
