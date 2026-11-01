@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUILD = os.path.abspath(os.environ.get("NSMBU_INSTALLER_BUILD", os.path.join(ROOT, "build", "release")))
 OUT = os.path.join(ROOT, ".tmp", "installer-out")
 

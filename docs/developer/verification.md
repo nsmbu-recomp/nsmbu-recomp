@@ -65,7 +65,7 @@ See the `nsmbu` skill for when `--recomp` is required.
 
 ### Python tool tests (Linux CI, after `ctest`)
 
-- `tools/installer/test_setup.py` (includes issue #11 Windows paste test)
+- `installer/test_setup.py` (includes issue #11 Windows paste test)
 - `tools/recomp/test_builds.py`, `test_output.py`, `test_pool.py`
 - `tools/android/test_apk_cli.py`
 - `tools/lib/test_dev_game_icon.py`
@@ -144,7 +144,7 @@ Agents with a local dump are the main line for game regressions.
 Issue coverage outside playtests (see `docs/developer/automation.md`):
 
 - #9 multiplayer bindings — `ctest -R input_mapping`
-- #11 Windows common-key paste — `tools/installer/test_setup.py`
+- #11 Windows common-key paste — `installer/test_setup.py`
 - #7 choppy gameplay — no deterministic playtest; shader precompile and Vulkan smoke cover mitigations
 - 0.6.2 mismatched color-target freeze — Vulkan renderer smoke (`mismatched_color_targets`)
 

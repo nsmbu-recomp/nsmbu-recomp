@@ -52,7 +52,7 @@ The setup importer also reads `<repo>/nsmbu` when this tree is a source checkout
 | `install-macos.command` | setup in Terminal, macOS (shipped as `tools/Setup in Terminal.command`) |
 | `install-windows.bat` | setup in a console window, Windows (`tools/Setup in a console window.bat`): runs `NSMBU.exe --console-setup`, which runs `setup.py` in that console with the bundled Python (`tools/python`) |
 | `install-linux.sh` | setup in a terminal, Linux (`tools/setup-in-terminal.sh`; falls back to a pinned standalone Python) |
-| `test_setup.py` | unit tests of the helpers (`python3 tools/installer/test_setup.py`) |
+| `test_setup.py` | unit tests of the helpers (`python3 installer/test_setup.py`) |
 
 In a release folder the program is `NSMBU.app` (macOS), `NSMBU.exe` (Windows) or
 `nsmbu-launcher` plus `NSMBU.desktop` (Linux); the terminal setup in `tools/` is the fallback.
@@ -80,7 +80,7 @@ release also: remove the downloaded compiler, add a shortcut), and error screens
 log. On macOS it first checks for Apple's Command
 Line Tools and offers Apple's installer, as the Terminal launcher does.
 
-Finding the release folder: the program looks for `tools/installer/setup.py` next to itself (macOS: next
+Finding the release folder: the program looks for `installer/setup.py` next to itself (macOS: next
 to `NSMBU.app`). A downloaded app opened from Finder on macOS runs from a random read-only copy
 of the bundle alone (App Translocation, `/private/var/folders/.../AppTranslocation/<id>/d/`), so it
 asks Security.framework (`SecTranslocateIsTranslocatedURL`, `SecTranslocateCreateOriginalPathForURL`,
@@ -110,7 +110,7 @@ the Python Software Foundation's signature (the release workflow checks it); its
 to the release (like `tools/` and `sdk/`): the same place works for portable and per-user (`%LOCALAPPDATA%\NSMBU`)
 installations and for `--data-dir`/`NSMBU_DATA_DIR`, and a newer release brings its own.
 
-`NSMBU.exe` starts `tools\python\python.exe tools\installer\setup.py --gui-protocol` directly
+`NSMBU.exe` starts `tools\python\python.exe installer\setup.py --gui-protocol` directly
 (`gui/console_setup_win.cpp`); `--console-setup ARGS` (the first argument; used by
 `tools\Setup in a console window.bat`) runs `setup.py ARGS` in the console it was started from. If
 `tools\python` is missing, both say that the release is incomplete and should be unzipped again. The program

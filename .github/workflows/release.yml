@@ -16,7 +16,7 @@
 # schedule runs on the default branch and only starts such a run when main has moved since the
 # current "devel-build" pre-release.
 #
-# Toolchains: tools/installer/toolchains.json pins the exact compilers. The Windows and Linux
+# Toolchains: installer/toolchains.json pins the exact compilers. The Windows and Linux
 # runtimes are built with the same pinned llvm-mingw / zig the installer downloads for players,
 # so the prebuilt runtime links with the player's locally compiled game code.
 # SDL3 is not compiled here. Jobs install the sdl3 release from nsmbu-recomp/ci-assets
@@ -132,7 +132,7 @@ jobs:
       - name: Unit tests
         run: |
           ctest --test-dir build/rel --output-on-failure
-          python3 tools/installer/test_setup.py
+          python3 installer/test_setup.py
           python3 tools/recomp/test_builds.py
           python3 tools/recomp/test_output.py
           python3 tools/recomp/test_pool.py
@@ -233,10 +233,10 @@ jobs:
           restore-keys: |
             release-linux-${{ matrix.arch }}-${{ env.TOOLCHAIN }}-
 
-      - name: Pinned zig toolchain (tools/installer/toolchains.json)
+      - name: Pinned zig toolchain (installer/toolchains.json)
         run: |
           read -r URL SUM DIR TARGET < <(python3 -c "
-          import json, os; t=json.load(open('tools/installer/toolchains.json'))['toolchains'][os.environ['TOOLCHAIN']]
+          import json, os; t=json.load(open('installer/toolchains.json'))['toolchains'][os.environ['TOOLCHAIN']]
           print(t['url'], t['sha256'], t['dir'], t['target'])")
           # A stable compiler path keeps the ccache key the same on the next tag.
           ROOT="$HOME/zig-toolchain"
@@ -283,7 +283,7 @@ jobs:
         run: |
           export LD_LIBRARY_PATH="$HOME/sdl3/lib"
           ctest --test-dir build/rel --output-on-failure
-          python3 tools/installer/test_setup.py
+          python3 installer/test_setup.py
           python3 tools/recomp/test_builds.py
           python3 tools/recomp/test_output.py
           python3 tools/recomp/test_pool.py
@@ -400,10 +400,10 @@ jobs:
       - name: LuaJIT submodule
         run: git submodule update --init vendor/luajit
 
-      - name: Pinned llvm-mingw toolchain (tools/installer/toolchains.json)
+      - name: Pinned llvm-mingw toolchain (installer/toolchains.json)
         run: |
           read -r URL SUM DIR < <(python -c "
-          import json, os; t=json.load(open('tools/installer/toolchains.json'))['toolchains'][os.environ['TOOLCHAIN']]
+          import json, os; t=json.load(open('installer/toolchains.json'))['toolchains'][os.environ['TOOLCHAIN']]
           print(t['url'], t['sha256'], t['dir'])" | tr -d '\r')  # Windows Python ends lines with CR LF
           T="$(cygpath -m "$RUNNER_TEMP")"
           curl -fsSL -o "$T/llvm-mingw.zip" "$URL"
@@ -448,13 +448,13 @@ jobs:
       - name: Unit tests
         run: |
           ctest --test-dir build/rel --output-on-failure
-          python tools/installer/test_setup.py
+          python installer/test_setup.py
 
-      - name: Pinned embeddable Python, shipped in the release (tools/installer/toolchains.json)
+      - name: Pinned embeddable Python, shipped in the release (installer/toolchains.json)
         # the setup runs with it (tools/python); the release itself downloads no Python (issue #58)
         run: |
           read -r URL SUM < <(python -c "
-          import json, os; p=json.load(open('tools/installer/toolchains.json'))['python'][os.environ['PY_PIN']]
+          import json, os; p=json.load(open('installer/toolchains.json'))['python'][os.environ['PY_PIN']]
           print(p['url'], p['sha256'])" | tr -d '\r')
           T="$(cygpath -m "$RUNNER_TEMP")"
           curl -fsSL -o "$T/python-embed.zip" "$URL"
@@ -606,7 +606,7 @@ jobs:
           # one character deeper: setup stops at once with the plain message
           Expand-Archive -Path $zip -DestinationPath ($outer + 'x')
           $pkg = Join-Path ($outer + 'x') $name
-          $out = & (Join-Path $pkg 'tools\python\python.exe') (Join-Path $pkg 'tools\installer\setup.py') --yes --no-launch `
+          $out = & (Join-Path $pkg 'tools\python\python.exe') (Join-Path $pkg 'installer\setup.py') --yes --no-launch `
             --gen-dir (Join-Path $env:GITHUB_WORKSPACE 'build\gen-stub') 2>&1 | Out-String
           $out
           if ($LASTEXITCODE -ne 1) { throw "setup in a too deep folder exited with $LASTEXITCODE, not 1" }

@@ -593,7 +593,7 @@ class BundledPython(unittest.TestCase):
     """The Windows release ships the pinned embeddable Python in tools/python; guard.py allows exactly its files."""
 
     def setUp(self):
-        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "release"))
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools", "release"))
         import guard
         self.guard = guard
         with open(guard.PYTHON_FILES) as f:

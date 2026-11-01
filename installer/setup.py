@@ -50,7 +50,7 @@ import zlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PKG = os.path.normpath(os.path.join(HERE, "..", ".."))
+PKG = os.path.normpath(os.path.join(HERE, ".."))
 
 PORTABLE = os.path.isfile(os.path.join(PKG, "portable.txt"))
 
@@ -2041,7 +2041,7 @@ def main():
                     help="portable release: also add a shortcut (Applications / Start menu / applications menu)")
     ap.add_argument("--keep-work", action="store_true", help="keep the generated code and objects")
     ap.add_argument("--gui-protocol", action="store_true",
-                    help="machine interface for the graphical installer (JSON lines; see tools/installer/README.md)")
+                    help="machine interface for the graphical installer (JSON lines; see installer/README.md)")
     args = ap.parse_args()
     try:
         sys.stdout.reconfigure(errors="replace")

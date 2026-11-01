@@ -30,7 +30,7 @@ else()
 endif()
 
 add_executable(nsmbu-setup WIN32
-  tools/installer/gui/setup_gui.cpp
+  installer/gui/setup_gui.cpp
   ${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp
   ${IMGUI_DIR}/backends/imgui_impl_sdlrenderer3.cpp)
 target_include_directories(nsmbu-setup PRIVATE ${IMGUI_DIR} ${IMGUI_DIR}/backends)
@@ -39,7 +39,7 @@ set_source_files_properties(${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp ${IMGUI_DI
   PROPERTIES COMPILE_OPTIONS "-w")
 if(WIN32)
 
-  target_sources(nsmbu-setup PRIVATE tools/installer/gui/console_setup_win.cpp)
+  target_sources(nsmbu-setup PRIVATE installer/gui/console_setup_win.cpp)
   nsmbu_windows_resources(nsmbu-setup "NSMBU setup and launcher" "NSMBU.exe" gui)
   if(NSMBU_STRIP_RELEASE)
     target_link_options(nsmbu-setup PRIVATE ${NSMBU_STRIP_RELEASE})

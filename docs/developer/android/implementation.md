@@ -11,7 +11,7 @@ Dual displays, gyro aiming, a 40 fps mode and Android code mods are out of scope
 ## Shared setup pipeline
 
 `tools/android/setup_adapter.py` calls the desktop installer's extraction, translation, compilation and linking operations.
-`tools/installer/setup.py` and `tools/recomp/recomp.py` keep their desktop behavior.
+`installer/setup.py` and `tools/recomp/recomp.py` keep their desktop behavior.
 The adapter supplies Android native process execution and durable checkpoints instead of the desktop install entry point, which chooses desktop toolchains and deletes work.
 The game identity is `code/red-pro2.rpx` and the known builds in `tools/recomp/builds.py`.
 
@@ -111,7 +111,7 @@ Run the Android compiler workflow in that repo when the pinned LLVM revision, ND
 
 ```sh
 python3 -m unittest discover -s tools/android -p 'test_*.py'
-python3 -m unittest discover -s tools/installer -p 'test_*.py'
+python3 -m unittest discover -s installer -p 'test_*.py'
 ctest -R 'heat_guard|touch_controls|input_mapping|sdl_input'
 ```
 

@@ -146,7 +146,7 @@ These stay as `python3 tools/…` until they move into the CLI.
 
 | Script | Role |
 | --- | --- |
-| `tools/recomp/analyze.py` | Find branch islands in recomp output ([vendor/decomp/docs/decomp-notes.md](../vendor/decomp/docs/decomp-notes.md)) |
+| `tools/recomp/analyze.py` | Find branch islands in recomp output ([vendor/decomp/docs/decomp-notes.md](../../vendor/decomp/docs/decomp-notes.md)) |
 | `tools/rpx/ppcdis.py` | Disassemble guest `.text` (see `vendor/decomp/docs/TODO.md`) |
 | `tools/frames/flicker.py` | Compare frame dumps ([automation.md](automation.md)) |
 | `tools/bench/bench_lib.py` | Save-state A/B statistics (unit tests; scenarios use `nsmbu bench`) |
@@ -163,7 +163,7 @@ ctest --test-dir build --output-on-failure
 Linux CI also runs these scripts after that `ctest`.
 
 ```bash
-python3 tools/installer/test_setup.py
+python3 installer/test_setup.py
 python3 tools/recomp/test_builds.py
 ```
 

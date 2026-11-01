@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   Renamed bench tests to `test_bench_lib.py`.
 - The release step commits and pushes the changelog before it tags.
 - Windows and Linux release builds download SDL3 from the CI assets repo instead of compiling it.
+- Desktop setup and release packages use top-level `installer/` instead of `tools/installer/` (older release zips still use the old path).
 
 ### Fixed
 

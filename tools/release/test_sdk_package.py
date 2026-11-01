@@ -41,7 +41,7 @@ class SDKPackage(unittest.TestCase):
         self.assertEqual(manifest["link"], ["{gamecode}", "-o", "{out}"])
 
     def test_installer_local_imports_are_shipped(self):
-        installer = Path(package.ROOT) / "tools/installer"
+        installer = Path(package.ROOT) / "installer"
         shipped = set(package.INSTALLER_FILES)
         for source in installer.glob("*.py"):
             if source.relative_to(package.ROOT).as_posix() not in shipped:
@@ -114,12 +114,12 @@ class SDKPackage(unittest.TestCase):
                 result = subprocess.run(
                     [sys.executable, "-I", "-B", "-c",
                      "import runpy,sys; runpy.run_path(sys.argv[1], run_name='package_import_test')",
-                     str(root / "tools/installer/setup.py")],
+                     str(root / "installer/setup.py")],
                     cwd=tmp, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_windows_python_pins_match_their_file_lists(self):
-        pins = json.loads((Path(package.ROOT) / "tools/installer/toolchains.json").read_text())["python"]
+        pins = json.loads((Path(package.ROOT) / "installer/toolchains.json").read_text())["python"]
         for pin, listing, platform in (("windows", "python-windows-files.json", "windows-x86_64"),
                                        ("windows-arm64", "python-windows-arm64-files.json", "windows-arm64")):
             with self.subTest(platform=platform):

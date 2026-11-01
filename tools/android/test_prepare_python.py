@@ -27,7 +27,7 @@ class ResourceIdentityTests(unittest.TestCase):
     def test_bundle_has_nsmbu_setup_sources_without_tests_or_fixtures(self):
         root = Path(__file__).resolve().parents[2]
         bundled = {path.relative_to(root).as_posix() for path in source_files(root)}
-        for name in ("tools/installer/setup.py", "tools/installer/toolchains.json", "tools/recomp/recomp.py",
+        for name in ("installer/setup.py", "installer/toolchains.json", "tools/recomp/recomp.py",
                      "tools/recomp/builds.py", "tools/recomp/hooks.txt", "tools/rpx/rpx.py",
                      "tools/android/setup_adapter.py", "tools/android/ondevice_setup.py"):
             if (root / name).is_file():

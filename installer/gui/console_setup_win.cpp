@@ -111,7 +111,7 @@ int console_setup(const std::string& pkg, const std::vector<std::string>& args) 
     }
 
     SetEnvironmentVariableW(L"PYTHONDONTWRITEBYTECODE", L"1");
-    std::wstring cmd = quote_arg(wide(python)) + L" " + quote_arg(wide(pkg + "tools\\installer\\setup.py"));
+    std::wstring cmd = quote_arg(wide(python)) + L" " + quote_arg(wide(pkg + "installer\\setup.py"));
     for (auto& a : args) cmd += L" " + quote_arg(wide(a));
     STARTUPINFOW si = {};
     si.cb = sizeof si;

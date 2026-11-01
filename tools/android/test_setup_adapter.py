@@ -21,7 +21,7 @@ class InstallerImportTests(unittest.TestCase):
     def test_importlib_installer_can_import_its_siblings(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            installer = root / "tools/installer"
+            installer = root / "installer"
             installer.mkdir(parents=True)
             (installer / "setup.py").write_text("import authored_installer_sibling\nvalue = authored_installer_sibling.value\n")
             (installer / "authored_installer_sibling.py").write_text("value = 42\n")

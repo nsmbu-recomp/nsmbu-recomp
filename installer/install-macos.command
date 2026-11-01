@@ -13,4 +13,4 @@ if ! clt_ok; then
   until clt_ok; do sleep 5; done
   echo "Command Line Tools installed."
 fi
-exec /usr/bin/python3 "$DIR/tools/installer/setup.py" "$@"
+exec /usr/bin/python3 "$DIR/installer/setup.py" "$@"

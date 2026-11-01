@@ -30,7 +30,7 @@ Issue links that the cases cover:
 Closed-issue coverage outside playtests:
 
 - [#9](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/9) multiplayer bindings — `ctest -R input_mapping` (`test_issue_9_multiplayer_bindings`).
-- [#11](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/11) Windows common-key paste — `tools/installer/test_setup.py` (`test_issue_11_windows_common_key_paste`).
+- [#11](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/11) Windows common-key paste — `installer/test_setup.py` (`test_issue_11_windows_common_key_paste`).
 - [#7](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/7) choppy gameplay has no deterministic playtest; shader precompile and the Vulkan smoke suite cover the shipped mitigations.
 - 0.6.2 mismatched color-target freeze — Vulkan renderer smoke (`mismatched_color_targets`).
 

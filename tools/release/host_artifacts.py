@@ -10,7 +10,7 @@ import sys
 import tarfile
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 WORKFLOW_ENV = os.path.join(ROOT, ".github", "workflows", "release.yml")
-TOOLCHAINS_JSON = os.path.join(ROOT, "tools", "installer", "toolchains.json")
+TOOLCHAINS_JSON = os.path.join(ROOT, "installer", "toolchains.json")
 BUILD_DIR = os.path.join(ROOT, "build", "release-upload")
 INSTALLER_DIR = os.path.join(ROOT, "build", "installer")
 STAGE_OUT = os.path.join(ROOT, ".tmp", "installer-package-out")

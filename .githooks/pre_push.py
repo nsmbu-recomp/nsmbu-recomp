@@ -215,7 +215,7 @@ def configure_and_test(tree):
         check=True,
     )
     subprocess.run(
-        [sys.executable, os.path.join(tree, "tools", "installer", "test_setup.py")],
+        [sys.executable, os.path.join(tree, "installer", "test_setup.py")],
         cwd=tree,
         check=True,
     )

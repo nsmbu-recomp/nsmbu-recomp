@@ -1207,7 +1207,7 @@ static void pump_child() {
     if (A.child.exited && A.screen != Screen::Fatal && A.exit_code < 0 && A.child.proc) {
         std::string code = "exit code " + std::to_string(A.child.exit_code);
         if (A.hello)
-            fail("The setup process (tools/installer/setup.py) ended unexpectedly (" + code + ").",
+            fail("The setup process (installer/setup.py) ended unexpectedly (" + code + ").",
                  "Open NSMBU again; finished steps are kept. The last lines it wrote are below" +
                      (A.log_path.empty() ? std::string(".") : ", its full log is " + A.log_path + ".") +
                      " If it happens again, click \"Copy log\" and attach the log to a bug report.");
@@ -2014,7 +2014,7 @@ static PackageSearch find_package() {
     if (const char* e = SDL_getenv("NSMBU_SETUP_PKG")) {
         r.pkg = with_trailing_sep(e);
         r.start = r.pkg;
-        r.checked = r.pkg + "tools/installer/setup.py";
+        r.checked = r.pkg + "installer/setup.py";
         return r;
     }
     std::string base = SDL_GetBasePath() ? SDL_GetBasePath() : "./";
@@ -2029,9 +2029,9 @@ static PackageSearch find_package() {
         r.start = original.substr(0, original.find_last_of('/') + 1);
     }
 #endif
-    r.checked = r.start + "tools/installer/setup.py";
+    r.checked = r.start + "installer/setup.py";
     for (int up = 0; up < 5; up++) {
-        std::string candidate = base + "tools/installer/setup.py";
+        std::string candidate = base + "installer/setup.py";
         SDL_PathInfo info;
         if (SDL_GetPathInfo(candidate.c_str(), &info)) return r.pkg = base, r;
         if (base == r.start) {
@@ -2214,7 +2214,7 @@ static void start_child() {
     SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "PYTHONDONTWRITEBYTECODE", "1", true);
 #if defined(__APPLE__)
     std::string release_sh = A.pkg + "tools/Setup in Terminal.command";
-    std::string setup_py = A.pkg + "tools/installer/setup.py";
+    std::string setup_py = A.pkg + "installer/setup.py";
     if (path_is_file(release_sh)) args = {"/bin/bash", release_sh};
     else if (path_is_file(setup_py)) args = {"/usr/bin/python3", setup_py};
     else {
@@ -2231,10 +2231,10 @@ static void start_child() {
              A.pkg);
         return;
     }
-    args = {bundled_python(A.pkg), A.pkg + "tools\\installer\\setup.py"};
+    args = {bundled_python(A.pkg), A.pkg + "installer\\setup.py"};
 #else
     std::string release_sh = A.pkg + "tools/setup-in-terminal.sh";
-    std::string setup_py = A.pkg + "tools/installer/setup.py";
+    std::string setup_py = A.pkg + "installer/setup.py";
     if (path_is_file(release_sh)) args = {"/bin/sh", release_sh};
     else if (path_is_file(setup_py)) args = {"python3", setup_py};
     else {
