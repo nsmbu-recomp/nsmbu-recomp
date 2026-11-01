@@ -1269,10 +1269,11 @@ std::string summary(const input_map::Mapping& m, int a, bool keys) {
 }
 
 void controls_list(input_map::Mapping& m, float h, bool keys) {
-    if (ImGui::BeginTable("map", keys ? 4 : 2,
-                          ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingStretchSame,
-                          ImVec2(0, h))) {
-        ImGui::TableSetupScrollFreeze(0, 1);
+    const bool scroll = h > 1.0f;
+    ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingStretchSame;
+    if (scroll) flags |= ImGuiTableFlags_ScrollY;
+    if (ImGui::BeginTable("map", keys ? 4 : 2, flags, scroll ? ImVec2(0, h) : ImVec2(0, 0))) {
+        if (scroll) ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("Wii U input", ImGuiTableColumnFlags_WidthStretch, 1.6f);
         if (keys) {
             ImGui::TableSetupColumn("Key");
@@ -1330,19 +1331,6 @@ void tab_controls() {
     const int p = sync ? 0 : std::clamp(U.control_player, 0, input_map::kPlayers - 1);
     input_map::Mapping m = input_map::player(p);
 
-#ifdef __ANDROID__
-    const float page_h = ImGui::GetContentRegionAvail().y;
-    const float status_h = ImGui::GetTextLineHeightWithSpacing() + 4.0f;
-    const float touch_block = ImGui::GetFrameHeightWithSpacing() * 6.0f + ImGui::GetTextLineHeightWithSpacing() * 2.0f;
-    const float options_est =
-        std::max(U.options_height, ImGui::GetFrameHeightWithSpacing() * 2.5f + touch_block) + 8.0f;
-    const ImVec2 display = ImGui::GetIO().DisplaySize;
-    const float diagram_frac = display.x > display.y * 1.12f ? 0.58f : 0.72f;
-    const float diagram_h = std::max(240.0f, (page_h - status_h - options_est) * diagram_frac);
-    const float header_h = std::max(80.0f, page_h - diagram_h - status_h - options_est);
-    ImGui::BeginChild("controls_header", ImVec2(0, header_h), ImGuiChildFlags_None, ImGuiWindowFlags_AlwaysVerticalScrollbar);
-#endif
-
     if (check("Same controls for every player", sync, &v)) {
         input_map::set_sync_players(v, p);
         if (v) U.control_player = 0;
@@ -1350,11 +1338,19 @@ void tab_controls() {
     help("On: binding a controller button changes it for every player, so all controllers keep the same layout. "
          "Off: bind buttons for one player at a time. The keyboard always drives Player 1. "
          "Each extra controller joins as the next player.");
+#ifdef __ANDROID__
+    flow::next(flow::text("Player") + 8.0f, 24);
+#else
     ImGui::SameLine(0, 24);
+#endif
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted("Player");
     for (int i = 0; i < input_map::kPlayers; i++) {
+#ifdef __ANDROID__
+        flow::next(flow::check(std::to_string(i + 1).c_str()));
+#else
         ImGui::SameLine();
+#endif
         if (radio(std::to_string(i + 1).c_str(), p == i, !sync)) U.control_player = i;
         if (i == 0) help("Player 1 uses the keyboard and the first controller.");
     }
@@ -1383,27 +1379,47 @@ void tab_controls() {
 
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted("Keyboard and controllers act as");
+#ifdef __ANDROID__
+    flow::next(flow::check("Wii U GamePad"));
+#else
     ImGui::SameLine();
+#endif
 
     if (radio("Wii U GamePad", !pro))
         hostui::post([] { hostui::set_pro_controller(false); hostui::set("proController", "0"); });
+#ifdef __ANDROID__
+    flow::next(flow::check("Wii U Pro Controller"));
+#else
     ImGui::SameLine();
+#endif
     if (radio("Wii U Pro Controller", pro))
         hostui::post([] { hostui::set_pro_controller(true); hostui::set("proController", "1"); });
+#ifdef __ANDROID__
+    flow::next(flow::check("List view"));
+#else
     ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - ImGui::CalcTextSize("List view").x -
                     ImGui::GetFrameHeight() - ImGui::GetStyle().ItemInnerSpacing.x);
+#endif
     ImGui::Checkbox("List view", &U.list_view);
     help("A plain table of all inputs instead of the controller drawing");
 
     const input_map::FaceLayout fl = input_map::face_layout(m);
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted("Face buttons");
+#ifdef __ANDROID__
+    flow::next(flow::check(input_map::face_layout_label(input_map::FaceLayout::kPosition)));
+#else
     ImGui::SameLine();
+#endif
     if (radio(input_map::face_layout_label(input_map::FaceLayout::kPosition), fl == input_map::FaceLayout::kPosition)) {
         input_map::apply_face_layout(m, input_map::FaceLayout::kPosition);
         input_map::set_player(p, m);
     }
+#ifdef __ANDROID__
+    flow::next(flow::check(input_map::face_layout_label(input_map::FaceLayout::kLabels)));
+#else
     ImGui::SameLine();
+#endif
     if (radio(input_map::face_layout_label(input_map::FaceLayout::kLabels), fl == input_map::FaceLayout::kLabels)) {
         input_map::apply_face_layout(m, input_map::FaceLayout::kLabels);
         input_map::set_player(p, m);
@@ -1416,10 +1432,6 @@ void tab_controls() {
         ImGui::SameLine();
         ImGui::TextDisabled("(custom)");
     }
-
-#ifdef __ANDROID__
-    ImGui::EndChild();
-#endif
 
     std::string status;
     ImVec4 sc(0.70f, 0.78f, 0.84f, 1.0f);
@@ -1453,15 +1465,17 @@ void tab_controls() {
     const float bottom = ImGui::GetTextLineHeightWithSpacing() + std::max(U.options_height, ImGui::GetFrameHeightWithSpacing() * 2) + 4;
     const ImVec2 avail = ImGui::GetContentRegionAvail();
 #ifdef __ANDROID__
-    const float h = std::min(diagram_h, std::max(avail.y - bottom, 1.0f));
+    const float h = 0.0f;
+    const float diagram_h = std::max(420.0f, avail.x * 0.42f);
 #else
     const float room = std::max(0.0f, avail.y - bottom);
     const float h = std::max(room, 1.0f);
+    const float diagram_h = h;
 #endif
     U.hover_action = -1;
     bool use_list = U.list_view;
 #ifdef __ANDROID__
-    if (!use_list && !controls_diagram_fits(pro, input_map::face_layout(m), avail.x, h)) use_list = true;
+    if (!use_list && !controls_diagram_fits(pro, input_map::face_layout(m), avail.x, diagram_h)) use_list = true;
 #endif
     if (use_list) {
         controls_list(m, h, p == 0);
@@ -1501,7 +1515,7 @@ void tab_controls() {
         cv.stick[0][1] = kl ? ks.ly : cs.ly;
         cv.stick[1][0] = kr ? ks.rx : cs.rx;
         cv.stick[1][1] = kr ? ks.ry : cs.ry;
-        draw_controls(cv, avail.x, h);
+        draw_controls(cv, avail.x, diagram_h);
         U.hover_action = cv.hover_action;
         if (cv.start_action >= 0) start_capture(cv.start_action, cv.start_col);
         if (cv.clear_action >= 0) clear_binding(cv.clear_action, cv.clear_col);
