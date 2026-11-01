@@ -34,7 +34,7 @@ Closed-issue coverage outside playtests:
 - [#7](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/7) choppy gameplay has no deterministic playtest; shader precompile and the Vulkan smoke suite cover the shipped mitigations.
 - 0.6.2 mismatched color-target freeze — Vulkan renderer smoke (`mismatched_color_targets`).
 
-Map reads use the USA v1.3.0 addresses in `docs/nsmbu/course-open.md` and `vendor/decomp/include/course_select/NOTES_map_spawn.md`.
+Map reads use the USA v1.3.0 addresses in `docs/developer/nsmbu/course-open.md` and `vendor/decomp/include/course_select/NOTES_map_spawn.md`.
 The run needs `game/` and a debug build.
 It is not part of `ctest`.
 Run it before a release when this machine has a dump.
@@ -277,12 +277,12 @@ These are separate from `scripted-run.sh` and appear in benches and device check
 - `NSMBU_REPLAY_EXIT` — `none` keeps the game running on live input when the replay input ends
 - `NSMBU_REPLAY_TRACE` — log the replay clock arming, control gate, and early step positions
 - `NSMBU_TEST_ORIGIN`, `NSMBU_TEST_PRESS`, `NSMBU_TEST_STICK`, `NSMBU_TEST_RSTICK`, `NSMBU_TEST_MODE`, `NSMBU_TEST_END` — timed scenarios after a logic-step origin
-- `NSMBU_DUMP_PRESENT`, `NSMBU_DUMP_LOAD_FRAMES`, `NSMBU_CAPTURE` — present / load-path captures (see `docs/vulkan.md`)
-- `NSMBU_STATE_LOAD_AT`, `NSMBU_PORTABLE_SAVE_AT` — save-state load points (see `docs/portable-save-states.md`)
+- `NSMBU_DUMP_PRESENT`, `NSMBU_DUMP_LOAD_FRAMES`, `NSMBU_CAPTURE` — present / load-path captures (see [vulkan.md](vulkan.md))
+- `NSMBU_STATE_LOAD_AT`, `NSMBU_PORTABLE_SAVE_AT` — save-state load points (see [portable-save-states.md](../user/portable-save-states.md))
 
 ## Input replays
 
-The `.replay` format is a text input log; [replay/format.md](replay/format.md) lists each line, key, and field.
+The `.replay` format is a text input log; [replay-format.md](replay-format.md) lists each line, key, and field.
 `NSMBU_RECORD_INPUT` writes one line each time the pad changes.
 The step count starts when in-level play begins (`AreaTask` is live), then follows guest logic steps (one per simulation tick, not per rendered frame).
 New files start with `version=1` and use `replays/<name>.replay` paths from `nsmbu record` / `nsmbu replay`.

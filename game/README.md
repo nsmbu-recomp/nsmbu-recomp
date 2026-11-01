@@ -65,5 +65,5 @@ A base disc alone (title version 0) is playable.
 
 ## More
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) and [docs/nsmbu/port.md](../docs/nsmbu/port.md).
-See [docs/builds.md](../docs/builds.md) for address maps.
+See [CONTRIBUTING.md](../CONTRIBUTING.md) and [docs/developer/nsmbu/port.md](../docs/developer/nsmbu/port.md).
+See [docs/developer/builds.md](../docs/developer/builds.md) for address maps.

@@ -21,7 +21,7 @@ When someone must play through a level, end the turn with explicit player steps.
 - **`pre-release`** / **`release`** — Full `nsmbu test`, installer, tag workflow.
 - **`decompile`** — Decomp workflow only (no compile-time proof in NSMBU).
 
-**Docs** — `docs/automation.md`, `docs/cli.md`, `docs/env.md`, boot recipes, issue ↔ test mapping in automation.
+**Docs** — `docs/developer/automation.md`, `docs/developer/cli.md`, `docs/developer/env.md`, boot recipes, issue ↔ test mapping in automation.
 
 ### Decision rule (`verify` skill)
 
@@ -91,11 +91,11 @@ nsmbu lint
 ```
 
 Builds modding TypeScript→Lua and runs stylua on examples.
-`docs/cli.md` mentions `tsc --noEmit` for the CLI itself; that is not wired into the `verify` skill or CI as a single mandatory agent step.
+`docs/developer/cli.md` mentions `tsc --noEmit` for the CLI itself; that is not wired into the `verify` skill or CI as a single mandatory agent step.
 
 ### Scripted run comparison
 
-Documented in `docs/automation.md`.
+Documented in `docs/developer/automation.md`.
 Not the same as playtests.
 
 - `tools/gametest/run_scenario.sh` writes `status.txt` per logic step.
@@ -141,7 +141,7 @@ Playtests are **not** in GitHub CI (no game dump in CI).
 Agents with a local dump are the main line for game regressions.
 `pre-release` requires full `nsmbu test`.
 
-Issue coverage outside playtests (see `docs/automation.md`):
+Issue coverage outside playtests (see `docs/developer/automation.md`):
 
 - #9 multiplayer bindings — `ctest -R input_mapping`
 - #11 Windows common-key paste — `tools/installer/test_setup.py`
@@ -169,7 +169,7 @@ Flicker checks: `python3 tools/frames/flicker.py`.
 ### Record and replay
 
 `nsmbu record` / `nsmbu replay` (and `--release` for measured course runs) for long pad timelines.
-See `docs/automation.md`.
+See `docs/developer/automation.md`.
 
 ### Performance bench
 
@@ -187,7 +187,7 @@ Not a pass/fail regression harness like `nsmbu test`.
 | --- | --- |
 | Runtime-only C++ / Lua port | `nsmbu build` |
 | Hooks / recomp / version switch | `nsmbu game <id> --recomp` then `nsmbu build` |
-| Interp pose / camera | `interp_picture_test` (ctest) plus env flow in `docs/env.md`; playtest `pose-direction-120` |
+| Interp pose / camera | `interp_picture_test` (ctest) plus env flow in `docs/developer/env.md`; playtest `pose-direction-120` |
 
 ### Special runtime checks
 
@@ -205,7 +205,7 @@ From `verify`:
 CI `android` workflow: placeholder native build, Gradle release, `tools/release/guard.py`.
 No on-device gameplay in CI.
 
-**Gap:** touch controls and phone vibration are Android-only; `nsmbu test` does not cover them (`docs/platforms/android/implementation.md`).
+**Gap:** touch controls and phone vibration are Android-only; `nsmbu test` does not cover them (`docs/developer/android/implementation.md`).
 
 ## Tier D — Human only
 
@@ -265,6 +265,6 @@ WWHD’s `vendor/ZeldaWWHDRecomp/tools/verify/` harness is upstream reference, n
 
 ## Related docs
 
-- [../automation.md](../automation.md) — playtests, scripted boots, gametest compare
-- [../cli.md](../cli.md) — full `nsmbu` command list
-- [../env.md](../env.md) — `NSMBU_*` variables and interpolation checks
+- [automation.md](automation.md) — playtests, scripted boots, gametest compare
+- [cli.md](cli.md) — full `nsmbu` command list
+- [env.md](env.md) — `NSMBU_*` variables and interpolation checks

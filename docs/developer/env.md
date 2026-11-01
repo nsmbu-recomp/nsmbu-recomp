@@ -27,7 +27,7 @@ Those names are not in `runtime/src/core/env.h`.
 On Android, `env.txt` lines are file data applied with `setenv`.
 They are not a second list of variable names.
 
-What a variable does stays in the feature doc that already describes it (`docs/automation.md`, `docs/vulkan.md`, and the other feature pages).
+What a variable does stays in the doc that already describes it ([automation.md](automation.md), [vulkan.md](vulkan.md), and the player pages under [user/](../user/)).
 This file is how a variable is defined in code, not a catalog of gameplay effects.
 
 The host test `env` in `runtime/test/env_test.cpp` covers `.name()`, a read after `setenv`, and `env::unset`.
@@ -46,7 +46,7 @@ Each `[interp] pose` line has the hold flag, the blend weight, and the previous,
 Each player's head is a one-bone model with no skeleton uniform, and that test also checks the uploaded shape matrix.
 The model view-projection is rebuilt from that same halfway camera.
 A hold does not run `calcGPU`, so the uniform would otherwise keep the full camera step.
-The dump steps are in `docs/automation.md`.
+The dump steps are in `docs/developer/automation.md`.
 `NSMBU_INTERP_FPS` is a present cap.
 30, 60, 120, 144, 165, and 240 are the listed rates.
 Any other value from 60 to 1000 is a custom cap.
@@ -63,7 +63,7 @@ Other interpolation variables (`NSMBU_INTERP_PACED`, and the rest in `env.h`) ar
 
 ## Scripted compare runs
 
-These variables are used by `tools/gametest/run_scenario.sh` and `tools/gametest/compare.py` (see `docs/automation.md`).
+These variables are used by `tools/gametest/run_scenario.sh` and `tools/gametest/compare.py` (see `docs/developer/automation.md`).
 
 - `NSMBU_TEST_STATUS_TRACE=path` appends one line per logic step: step, scene, map, course, pack, and player x, y, z.
 - `NSMBU_TEST_ALIGN_SCENE=name` names the scene (`Title`, `Map`, `CourseTask`, ...) whose first logic step is the align point.

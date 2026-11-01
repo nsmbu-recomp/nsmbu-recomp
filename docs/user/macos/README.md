@@ -12,9 +12,15 @@ Download the macOS zip from [GitHub Releases](https://github.com/nsmbu-recomp/ns
 
 Unzip into a writable folder and open `NSMBU.app`.
 
-The first start opens the installer; later starts launch the game.
+The first start opens the installer.
+Each later start launches the game.
 
-Player paths, logs, and setup files are in [logs.md](../../logs.md).
+The installer uses the system file chooser.
+You can also drag a file into the window and press Enter.
+
+If macOS blocks the app, see [If the system blocks the app](../blocked-app.md).
+
+Player paths, logs, and setup files are in [logs.md](../logs.md).
 
 ## Build from source
 
@@ -26,9 +32,9 @@ nsmbu build
 nsmbu run
 ```
 
-Architecture and recompilation overview: [how-it-works.md](../../how-it-works.md).
+Architecture and recompilation overview: [how-it-works.md](../../developer/how-it-works.md).
 
-MoltenVK behaviour, menus, and macOS-specific Vulkan defaults: [vulkan.md](../../vulkan.md).
+MoltenVK behaviour, menus, and macOS-specific Vulkan defaults: [vulkan.md](../../developer/vulkan.md).
 
 ## iOS from this Mac
 

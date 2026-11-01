@@ -299,26 +299,28 @@ static void test_files() {
     std::string err;
     CHECK(load_file(path, r, &err) && r == m);
     CHECK(!load_file(std::string(dir) + "/missing.json", r, &err));
-    // the live mapping: NSMBU_CONTROLS points it at our file
+    std::string live = dir + "/controls.json";
+    CHECK(save_file(live, m));
+    // the live mapping follows NSMBU_USER_DIR
 #ifdef _WIN32
-    _putenv_s(env::CONTROLS.name(), path.c_str());
+    _putenv_s(env::USER_DIR.name(), dir.c_str());
 #else
-    setenv(env::CONTROLS.name(), path.c_str(), 1);
+    setenv(env::USER_DIR.name(), dir.c_str(), 1);
 #endif
-    CHECK(default_path() == path);
+    CHECK(default_path() == live);
     load_startup();
     CHECK(current() == m);
     uint32_t g = generation();
     set_current(Mapping::defaults());
     CHECK(generation() != g);
-    CHECK(load_file(path, r, &err) && r == Mapping::defaults());  // saved
+    CHECK(load_file(live, r, &err) && r == Mapping::defaults());  // saved
     Config c = Config::defaults();
     c.sync = false;
     c.players[1].pad[kA] = kPadX;
     c.players[3].invert_camera_y = true;
-    CHECK(save_config_file(path, c));
+    CHECK(save_config_file(live, c));
     Config cr;
-    CHECK(load_config_file(path, cr, &err) && cr == c);
+    CHECK(load_config_file(live, cr, &err) && cr == c);
     std::filesystem::remove_all(dir,ec);
 }
 

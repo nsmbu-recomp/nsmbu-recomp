@@ -1,78 +1,77 @@
 # New Super Mario Bros. U: Native Port / Recompilation
 
-This project compiles Wii U game assets into a standalone, native executable.  
-The release package includes the necessary runtime, build tools, and installer script.  
-You must supply your own copy of the game files, disc image, and encryption keys.  
+This project compiles your copy of New Super Mario Bros. U into a native program.
+The release includes the runtime, build tools, and installer.
 
 > [!IMPORTANT]
-> There is no Nintendo code, no assets and no game data anywhere in this project or its releases.  
-> You need your own legally dumped copy of the game.  
-> Nothing in this repo, in any release, or in the build process contains or downloads Nintendo IP.  
+> There is no Nintendo code, no assets, and no game data in this project or its releases.
+> You need your own legally dumped copy of the game.
+> Nothing in this repo, in any release, or in the build process contains or downloads Nintendo IP.
 
 ## Controls
 
-Press `` ` `` or `F12` to open or close the settings overlay.
+These shortcuts belong to this port.
+The game's own buttons are unchanged.
 
-On a controller, press **Home** or click the right stick (**R3**), or press **Start** and **Select** together (Xbox **Menu** + **View**, Wii U **+** and **−**).
+### Settings
 
-Hold **Select** (−) for half a second to open Settings when the overlay is closed; press **Select** again to close it.
+| | Keyboard | Controller |
+| --- | --- | --- |
+| Open or close | `` ` `` or `F12`, or **Enter** and **Tab** together | **Home**, right-stick click (**R3**), or **Start** and **Select** together |
+| Open when closed | | Hold **Select** (−) for half a second, then press **Select** again to close |
 
-With the default keyboard layout, press **Enter** and **Tab** together for the same menu.
+On Android, the system **Back** gesture opens Settings.
+The same gesture closes it.
+See [New Super Mario Bros. U on Android](docs/user/android/README.md).
 
-On Android, the system **Back** gesture also opens and closes Settings; see [New Super Mario Bros. U on Android](docs/platforms/android/README.md).
+While Settings is open:
 
-While Settings is open, touch the menu directly or use a controller: D-pad or left stick to move, **A** to activate, **B** to go back, **LB**/**RB** for tabs, **Start+Select** to close.
+| | |
+| --- | --- |
+| Move | D-pad, left stick, or touch |
+| Activate | **A** |
+| Back | **B** |
+| Change tab | **LB** / **RB** |
+| Close | **Start** and **Select** together |
 
-**F1**–**F5** load save states; **Shift+F1**–**F5** save.
-Open **Audio** for mute, volume, and TV / GamePad output.  
-Open **Controls** to change keys and controller buttons.  
+Open **Audio** for mute, volume, and TV / GamePad output.
+Open **Controls** to change keys and controller buttons.
+Gyro aiming is in [docs/user/gyro.md](docs/user/gyro.md).
 
-A release stores the mapping in `data/nsmbu/controls.json`.
-A build from source stores it in the port config directory.
-That directory is `~/.config/nsmbu` on Linux, `%APPDATA%\NSMBU` on Windows, and `~/Library/Application Support/NSMBU` on macOS.
-Set `NSMBU_CONTROLS` to use another file.
+### Save states
+
+| | Keyboard |
+| --- | --- |
+| Load slot 1–5 | **F1**–**F5** |
+| Save slot 1–5 | **Shift**+**F1**–**F5** |
+
+Portable and full states are described in [docs/user/portable-save-states.md](docs/user/portable-save-states.md).
+
+### Controllers
 
 Up to four controllers work as separate players.
 Player 1 uses the keyboard and the first controller.
 Each extra controller joins as the next player.
-In **Controls**, keep **Same controls for every player** on to use one layout for every controller.
-Turn it off to bind buttons for one player at a time.
-In GamePad mode Player 1 is the Wii U GamePad and extra controllers act as Wii U Pro Controllers.
-In Pro Controller mode every controller acts as a Wii U Pro Controller.
+In **Controls**, **Same controls for every player** uses one layout for every controller.
+Turn it off to bind one player at a time.
+In GamePad mode, Player 1 is the Wii U GamePad and extra controllers act as Wii U Pro Controllers.
+In Pro Controller mode, every controller acts as a Wii U Pro Controller.
 
-Host gamepads use the same layout as the Wii U GamePad by default (face buttons by position).
+Host gamepads follow the Wii U GamePad by position.
 The bottom face button (Xbox **A**) is Wii U **B**.
 The right face button (Xbox **B**) is Wii U **A**.
-Controller labels below use Xbox names.
 
-Default layout:
+| | |
+| --- | --- |
+| Mapping file, release | `data/nsmbu/controls.json` |
+| Mapping file, source build | `~/.config/nsmbu` on Linux, `%APPDATA%\NSMBU` on Windows, `~/Library/Application Support/NSMBU` on macOS |
 
-| Keyboard | Controller | Wii U | In game |
-|----------|------------|-------|---------|
-| W A S D | left stick | left stick | walk / move |
-| arrow keys | right stick | right stick | camera |
-| K or Space | B (right) | A | jump |
-| J | A (bottom) | B | jump |
-| L | Y (top) | X | run / hold item |
-| Left Shift | X (left) | Y | run / hold item |
-| Q | LB | L | map view |
-| E | RB | R | map zoom |
-|  | LT | ZL | spin jump |
-| Left Control | RT | ZR | spin jump |
-| Enter | Menu | + | pause |
-| Tab | View | − | inventory |
-| H | Home | Home | Home menu |
-| 1 2 3 4 | D-pad | D-pad | move / crouch / pipes |
-| X / V | L3 / R3 | stick click | stick click |
+## Supported versions
 
-
-## Compatibility
-
-Addresses in the repo are USA 1.3.0.
-Europe, the USA and Europe base discs, and the NSMBU + NSLU packs use USA→build maps ([docs/builds.md](docs/builds.md)).
-Standalone USA and Europe discs should use their matching 1.3.0 update for full support.
+USA 1.3.0 is the version this port is written against.
+A matching 1.3.0 update is the full support path for a standalone USA or Europe disc.
 The USA and Europe base discs alone (title version 0) are playable.
-Combo packs are title version 0 (no separate update folder).
+Combo packs are title version 0 and have no separate update folder.
 
 | Region | Title ID | Title version | Status |
 |--------|----------|---------------|--------|
@@ -86,124 +85,69 @@ Combo packs are title version 0 (no separate update folder).
 
 ## Install
 
-### 1. Download and start
-
-Download the zip for your system from the [Releases](https://github.com/nsmbu-recomp/nsmbu-recomp/releases) page.
-Unzip it into a folder that you can write to.
-Start **NSMBU**:
-
-| System | File to start |
-|--------|----------------|
-| macOS, Apple Silicon, macOS 14 or newer | `NSMBU.app` |
-| Windows, x86-64, Windows 10 or 11, Vulkan | `NSMBU.exe` |
-| Linux, x86-64, glibc 2.35 or newer, Vulkan | `nsmbu-launcher`  |
-| Linux, arm64, glibc 2.35 or newer, Vulkan | `nsmbu-launcher`   |
-
-On Android, install the APK instead and follow [New Super Mario Bros. U on Android](docs/platforms/android/README.md).
-
+Download the release for your system from the [Releases](https://github.com/nsmbu-recomp/nsmbu-recomp/releases) page.
+Put it in a folder you can write to.
+Start the app.
 The first start opens the installer.
 Each later start launches the game.
+Which file to open, and what the system requires, is on the page for your system under [docs/user](docs/user/).
 
-### 2. Choose your game copy
+### Choose your game
 
-The installer accepts USA or Europe NSMBU at version 1.3.0, the matching base disc, or either NSMBU + NSLU pack at version 0.
-USA is title `00050000-10101d00`, title version 64, or base disc title version 0.
-Europe is title `00050000-10101e00`, title version 80, or base disc title version 0.
-The USA combo pack is title `00050000-1014b700`, title version 0.
-The Europe combo pack is title `00050000-1014b800`, title version 0.
-
-Choose one of these:
+The installer accepts the versions in the table above.
+Give it one of these:
 
 1. **Disc image.**
    Use a `.wux` or `.wud` file and its keys.
-   The matching **1.3.0** update folder is optional.
+   A matching 1.3.0 update is optional.
 2. **Cemu archive.**
-   Use a `.wua` file that already has that title version.
+   Use a `.wua` file.
    This option needs no keys.
 3. **Extracted folder.**
-   Use a game folder with `code`, `content`, and `meta`.
+   Use a folder with `code`, `content`, and `meta`.
    A 1.3.0 update merged into that folder is optional.
 
-The installer opens a file window so you can pick that file or folder.
-macOS and Windows use the system file chooser.
-Linux uses Zenity or KDialog when one of those programs is installed.
-If no file window opens, type the path.
-You can also drag the file into the window and press Enter.
+The installer asks you to pick that file or folder.
 
-### 3. Disc image keys and update
+### Keys
 
 Skip this step if you chose a Cemu archive or an extracted folder.
 
-A disc image also needs:
+A disc image needs its disc key and the Wii U common key.
+Type or paste each key, or point at a key file.
+You can also add a matching 1.3.0 update.
+Key file formats are in [docs/user/keys.md](docs/user/keys.md).
 
-- the disc key
-- the Wii U common key
-- an optional matching 1.3.0 update
-
-On the Keys screen, type or paste each key's 32 hex digits into its own field.
-The disc key belongs to that disc image.
-The common key is the same on every Wii U.
-
-Put the update in an `update/` folder next to the disc image (`code/`, `content/`, `meta/`).
-You can also choose that folder in the installer.
-
-Key files are optional.
-If a `.key` file with the same name as the image sits next to the image, the installer uses it.
-If `common.key` sits next to the image, the installer uses that too.
-You can also choose a key file.
-A key file can be 16 raw bytes, one line of 32 hex digits, or a Cemu `keys.txt`.
-The text field hides the key.
-Keys stay in memory until extraction starts.
-The setup log never stores keys.
-
-### 4. Wait for the build
+### Wait for the build
 
 The installer prepares the game on your computer.
-For a disc image or a Cemu archive, it extracts the files into the release folder.
+A disc image or a Cemu archive is extracted into the release folder.
 An extracted folder stays where it is.
-The installer then translates the code to C, compiles it, and links it with the runtime.
+The installer then builds the native game.
 
 The first start takes a few minutes.
-When it finishes, start **NSMBU** again to play.
+When it finishes, start the app again to play.
 
-### Repair or change the game
+## More
 
-To repair, update, or choose a different game file, open the installer again:
+- [macOS](docs/user/macos/README.md)
+- [Windows](docs/user/windows/README.md)
+- [Linux](docs/user/linux/README.md)
+- [Android](docs/user/android/README.md)
+- [Keys](docs/user/keys.md)
+- [Repair or change the game](docs/user/repair.md)
+- [Where files live](docs/user/files.md)
+- [If the system blocks the app](docs/user/blocked-app.md)
+- [Terminal installer](docs/user/terminal-installer.md)
+- [Other guides](docs/user/) for iOS, save states, gyro aiming, and logs
 
-- **macOS or Windows** — hold Shift while you start **NSMBU**.
-- **Linux** — run `nsmbu-launcher --setup`, or use the Setup action on `NSMBU.desktop`.
+## More
 
-### Where files live
-
-The release folder is portable.
-The built game, game files, saves, and settings stay in `data/` inside that folder.
-Keep `NSMBU.app` inside the unzipped folder on macOS.
-Move the whole folder when you want the game in another place.
-
-Run, crash, and setup logs for bug reports are listed in [docs/logs.md](docs/logs.md).
-A portable release keeps them under `data/nsmbu/logs/` and `data/setup.log`.
-
-### If the system blocks the app
-
-**macOS** — the app is unsigned.
-On macOS 14, right-click `NSMBU.app`, choose **Open**, then choose **Open** again.
-On macOS 15 and newer, open **System Settings → Privacy & Security**, then choose **Open Anyway**.
-
-**Windows** — SmartScreen can block an unsigned program.
-Choose **More info**, then **Run anyway**.
-
-### Terminal installer
-
-Use the terminal installer when the window cannot run:
-
-| System | Command |
-|--------|---------|
-| macOS | `tools/Setup in Terminal.command` |
-| Windows | `tools/Setup in a console window.bat` |
-| Linux | `tools/setup-in-terminal.sh` |
-
-It asks the same questions.
-It opens the same file window when the system provides one.
+- [Repair or change the game](docs/user/repair.md)
+- [Where files live](docs/user/files.md)
+- [If the system blocks the app](docs/user/blocked-app.md)
+- [Terminal installer](docs/user/terminal-installer.md)
+- [Other guides](docs/user/) for each system, save states, gyro aiming, and logs
 
 ## Contributing
 
@@ -215,5 +159,5 @@ This repository was forked from the [Wind Waker HD recompilation](https://github
 
 The Collision Viewer is based on the collision viewer from [Tsuru](https://github.com/Zenith-Team/Tsuru).
 
->  [!NOTE]
+> [!NOTE]
 > This project is made with the help of AI agents.

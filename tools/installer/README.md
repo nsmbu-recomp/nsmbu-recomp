@@ -16,7 +16,7 @@ A release folder contains `portable.txt`. Then everything stays in `<release>/da
 | `data/game/` | game files extracted from a disc image or Cemu archive (an extracted folder chosen by the player is used where it is) |
 | `data/nsmbu/save/` | saves |
 | `data/nsmbu/` | settings, controls, graphics options, save states, shader caches (`host::portable_user_dir()`) |
-| `data/nsmbu/logs/` | crash logs and run logs (the game runs in `data/`); player paths for bug reports are in [docs/logs.md](../../docs/logs.md) |
+| `data/nsmbu/logs/` | crash logs and run logs (the game runs in `data/`); player paths for bug reports are in [docs/user/logs.md](../../docs/user/logs.md) |
 | `data/install.json`, `data/setup.log` | what was prepared (paths inside `data/` relative, so the folder can move), and the setup log |
 | `data/toolchain/`, `data/python/` | the downloaded compiler (Windows, Linux; kept by default for repair) and Python (Linux without Python 3; the Windows release ships its Python in `tools/python`) |
 
@@ -252,7 +252,7 @@ them for every source before anything is translated: an extracted folder at the 
 already when the window probes it), a disc image or Cemu archive right after extracting (into
 `game.partial`, which is then removed, so an earlier `game/` stays), a repair or update with the
 installed files.
-Europe uses a USA→EU address map; see [docs/builds.md](../../docs/builds.md).
+Europe uses a USA→EU address map; see [docs/developer/builds.md](../../docs/developer/builds.md).
 
 ## Disc image update folder
 

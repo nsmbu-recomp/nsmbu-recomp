@@ -179,7 +179,7 @@ That service was not in phase 1.
 Lua now provides `nsmbu.Gui` for shapes and text.
 It is not required to retire v2.
 
-Game calls use guest addresses from the public headers (`references/headers`, see [names.md](../names.md)).
+Game calls use guest addresses from the public headers (`references/headers`, see [names.md](../developer/names.md)).
 The Lua runtime should ship a generated `nsmbu.Fn` table of those names.
 A mod can still pass a raw address.
 USA addresses are the authoring target.
@@ -511,7 +511,7 @@ Cemu packages load as they do now.
 
 Host tests can use a fake guest memory buffer.
 They do not need a game dump.
-One scripted play run (see `docs/automation.md`) should enable a tiny Lua status mod from a slot-1 state and check the log line.
+One scripted play run (see `docs/developer/automation.md`) should enable a tiny Lua status mod from a slot-1 state and check the log line.
 
 ## Phases
 

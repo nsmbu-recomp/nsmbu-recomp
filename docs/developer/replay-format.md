@@ -136,5 +136,5 @@ The left stick stays at `1 0`, which the recorder captured at the start.
 ## Related
 
 - [../../replays/README.md](../../replays/README.md) is the short key and field summary next to the files.
-- [../automation.md](../automation.md) describes `nsmbu record`, `nsmbu replay`, and the input environment variables.
-- [../cli.md](../cli.md) lists the command forms.
+- [automation.md](automation.md) describes `nsmbu record`, `nsmbu replay`, and the input environment variables.
+- [cli.md](cli.md) lists the command forms.

@@ -10,15 +10,15 @@ Run `nsmbu --help` for the command list.
 
 ## Docs
 
-Read `docs/automation.md` for playtests, `nsmbu scripted`, replay inputs, and boot recipes.
+Read `docs/developer/automation.md` for playtests, `nsmbu scripted`, replay inputs, and boot recipes.
 Add a new boot recipe there when a command is worth running again.
-Read `docs/cli.md` for install, build/launch, and the short live control commands.
-Read `docs/env.md` when you add, rename, or read an `NSMBU_*` variable.
+Read `docs/developer/cli.md` for install, build/launch, and the short live control commands.
+Read `docs/developer/env.md` when you add, rename, or read an `NSMBU_*` variable.
 Read `game/README.md` for dump folder layout.
 
 ## Pose and camera pictures
 
-Read Frame interpolation in `docs/env.md` before changing a model pose, a camera picture, or interpolation.
+Read Frame interpolation in `docs/developer/env.md` before changing a model pose, a camera picture, or interpolation.
 That section is the done check: `interp_picture_test`, then two consecutive TV frames from `NSMBU_DUMP_FRAMES`.
 
 ## Dump (no TUI)
@@ -61,7 +61,7 @@ Boot `build/debug/nsmbu --game game/<id>`, where `<id>` is the text in `game/act
 Copy `nsmbu/save` into `.tmp/<name>/save` and set `NSMBU_USER_DIR` to `nsmbu/`.
 `NSMBU_LOG_FILE` does not capture `fprintf` from the render thread.
 That text stays on the terminal.
-Title and file-select press lists are in `docs/automation.md`.
+Title and file-select press lists are in `docs/developer/automation.md`.
 Enter `FileSelect` directly when the check is the menu.
 Do not play the title for 1000 frames to reach it.
 

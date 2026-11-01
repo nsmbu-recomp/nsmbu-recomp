@@ -275,7 +275,7 @@ Called with the src task; the SDK's `open_first_save` runs `apply_save` first, t
 - The popup stays up through a full `rp_savedata` write; `Hooks.onSceneChange` sees the file-select factory
   the whole time, which is why the native skip pulses `A` on a step timer instead of once.
 - `apply_save` does not load resources or scenes; entering a course still goes through
-  `setCourse_Story` → `CourseTask` (see [course-open.md](../nsmbu/course-open.md)).
+  `setCourse_Story` → `CourseTask` (see [course-open.md](../developer/nsmbu/course-open.md)).
 
 ---
 
@@ -316,7 +316,7 @@ The native skip uses the same transition with the `--open` pack.
 
 ### Course enter banner digits
 
-The loading card for `nsmbu open` is documented in [docs/nsmbu/course-open.md](../nsmbu/course-open.md).
+The loading card for `nsmbu open` is documented in [course-open.md](../developer/nsmbu/course-open.md).
 The green world–course number on the pre-level banner is not MSBT text.
 Course setup (`f_024BD86C`) copies `FieldGameData` and writes picture-pane glyph indices from bytes at the course-task entry `+0x10` (three slots; `0xFF` is blank).
 Entering from the world map fills those bytes via the save/map path (`f_024BADF4`).
@@ -339,7 +339,7 @@ The map camera copies its focus node at `0x0227CCF4` and `0x0227E2A8` from the p
 Those sites replace that node with the opened course before the pose and position stores.
 They stay out of the opening cinematic and out of loading a save from the file select.
 Both of those set a course-exit type without going through course-out, and the map keeps its own camera until it gives you control.
-See [course-open.md](../nsmbu/course-open.md).
+See [course-open.md](../developer/nsmbu/course-open.md).
 
 ### Normal enter path
 

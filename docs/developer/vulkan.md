@@ -183,7 +183,7 @@ once per distinct wider key, translates again under the current registers and co
 the result with the shader the narrow key returned; any difference is logged as
 `[vulkan shader key] VIOLATION` and counted in the stats (`=N` checks one wider key in N).
 The current NSMBU repro is `nsmbu run 1-1` with `NSMBU_STATE_LOAD_AT=700:1` (slot 1); see
-[docs/performance.md](performance.md).
+[performance.md](performance.md).
 
 Sharing shaders whose translation is identical is the idea of PR #46 by rhemfur.
 
@@ -248,7 +248,7 @@ The following paths are on by default on every platform (`runtime/src/main.cpp`,
 `default_vulkan_cpu_paths`; before 2026-10-07 only in the Android port). Each is active only when its
 environment value is exactly `1`; set it to `0` to turn that path off. Together they cut the
 render-thread CPU time by 8-14% on an M3 Max and by about a quarter on a Galaxy S25 Ultra; see
-`docs/performance.md` ("Desktop CPU/GPU overlap and CPU path defaults") for the per-path
+`performance.md` ("Desktop CPU/GPU overlap and CPU path defaults") for the per-path
 measurements. Timing comparisons should use the same binary, saved scene, graphics settings, warmed
 caches and a quiet host, with validation disabled.
 
@@ -483,7 +483,7 @@ Since 2026-10-07 every platform uses the two paths that were Android defaults be
   present dumps and the automatic GamePad overlay's signatures read back through a waiting flush.
 
 The Metal renderer keeps its GX2DrawDone wait: it binds large vertex buffers straight from guest
-memory. See `docs/performance.md` ("Desktop CPU/GPU overlap defaults") for the measurements.
+memory. See `performance.md` ("Desktop CPU/GPU overlap defaults") for the measurements.
 
 ## Draw batching (all platforms)
 
@@ -496,7 +496,7 @@ existing asynchronous submission path.
 Set `NSMBU_VK_DRAW_BATCH=0` to disable mid-frame batching, or set an explicit
 positive draw count to tune it. Empty or invalid values disable batching.
 `NSMBU_VK_DRAW_BATCH_CAP=1|2|3` sets the maximum mid-frame submissions (default three).
-See `docs/performance.md` for the local Windows comparison.
+See `performance.md` for the local Windows comparison.
 
 ## macOS defaults and tuning
 
@@ -618,7 +618,7 @@ CPU paths not set to `1` and lazy DrawDone / async present when turned off. The 
   nearest existing variant of the same program (texture/sampler words of units the shader samples
   vs. units it does not).
 
-`nsmbu bench` runs checked-in performance scenarios and records render traces (see `docs/performance.md`, "How to profile").
+`nsmbu bench` runs checked-in performance scenarios and records render traces (see `performance.md`, "How to profile").
 Low-level save-state A/B orchestration remains in `tools/bench/bench_lib.py` for unit tests only.
 
 ## Resource dependencies
@@ -658,7 +658,7 @@ synchronization validation or the bounds above.
 
 The write-only source and previous/next-use approach was inspired by GreenNaugahyde's Android
 renderer (MPL-2.0); this implementation uses upstream resource tracking and copies no fork code.
-See [Android device checks](platforms/android/device-checklist.md) for the pending Mali/Adreno capture.
+See [Android device checks](android/device-checklist.md) for the pending Mali/Adreno capture.
 
 ## Optional performance diagnostics
 

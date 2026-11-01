@@ -77,7 +77,7 @@ Keys: `game/keys.txt`, or `WIIU_COMMON_KEY` for the common key only.
 Extract (from `nsmbu game` or `nsmbu extract`) checks `update/` under the active dump when present.
 It extracts the matching root `.wux` into `code/`, `content/`, and `meta/`.
 It applies `update/` over those folders when present, then checks that `code/red-pro2.rpx` is a known build.
-See [docs/builds.md](../builds.md) for the address map between those builds.
+See [builds.md](../builds.md) for the address map between those builds.
 
 `nsmbu build` configures `build/` in **Debug** and builds `nsmbu`.
 

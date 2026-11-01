@@ -5,14 +5,14 @@ It is not an emulator.
 The game's own code is recompiled for ARM processors and draws with Vulkan.
 You need your own copy of the Wii U game; this project never provides game files, game code or keys.
 
-Engineer notes: [implementation.md](implementation.md), [device-checklist.md](device-checklist.md), [gpu.md](gpu.md).
+Engineer notes: [implementation.md](../../developer/android/implementation.md), [device-checklist.md](../../developer/android/device-checklist.md), [gpu.md](../../developer/android/gpu.md).
 
 Other platforms: [../README.md](../README.md).
 
 ## What you need
 
 - A 64-bit Android device with Android 13 or newer and Vulkan 1.1 or newer.
-- A custom driver such as Mesa Turnip if your Adreno driver is too old (see [Android GPU support](gpu.md)).
+- A custom driver such as Mesa Turnip if your Adreno driver is too old (see [Android GPU support](../../developer/android/gpu.md)).
 - A few GB of free storage while setup runs.
 - Your own New Super Mario Bros. U for Wii U, as an extracted game folder, a Cemu `.wua` archive, or a `.wud`/`.wux` disc image with its keys.
 

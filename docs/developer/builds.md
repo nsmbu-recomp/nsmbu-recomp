@@ -8,11 +8,11 @@ Those addresses are the *canonical ids* of the game's functions and globals.
 | Build | Title | Title version | `red-pro2.rpx` SHA-256 | Map |
 | --- | --- | --- | --- | --- |
 | USA (canonical) | `00050000-10101d00` | 64 | `ebd147ce…dc8e` | the identity |
-| USA base disc | `00050000-10101d00` | 0 | `ec31a785…5069` | [`tools/recomp/builds/usa_v0.json`](../tools/recomp/builds/usa_v0.json) |
-| Europe | `00050000-10101e00` | 80 | `0ea59f40…ea51` | [`tools/recomp/builds/eu.json`](../tools/recomp/builds/eu.json) |
-| Europe base disc | `00050000-10101e00` | 0 | `2f4f2da5…05c9` | [`tools/recomp/builds/eu_v0.json`](../tools/recomp/builds/eu_v0.json) |
-| USA + Luigi U | `00050000-1014b700` | 0 | `1031c741…2b05` | [`tools/recomp/builds/nsmbu_nslu_usa.json`](../tools/recomp/builds/nsmbu_nslu_usa.json) |
-| Europe + Luigi U | `00050000-1014b800` | 0 | `1faa7ce3…a285` | [`tools/recomp/builds/nsmbu_nslu_eu.json`](../tools/recomp/builds/nsmbu_nslu_eu.json) |
+| USA base disc | `00050000-10101d00` | 0 | `ec31a785…5069` | [`tools/recomp/builds/usa_v0.json`](../../tools/recomp/builds/usa_v0.json) |
+| Europe | `00050000-10101e00` | 80 | `0ea59f40…ea51` | [`tools/recomp/builds/eu.json`](../../tools/recomp/builds/eu.json) |
+| Europe base disc | `00050000-10101e00` | 0 | `2f4f2da5…05c9` | [`tools/recomp/builds/eu_v0.json`](../../tools/recomp/builds/eu_v0.json) |
+| USA + Luigi U | `00050000-1014b700` | 0 | `1031c741…2b05` | [`tools/recomp/builds/nsmbu_nslu_usa.json`](../../tools/recomp/builds/nsmbu_nslu_usa.json) |
+| Europe + Luigi U | `00050000-1014b800` | 0 | `1faa7ce3…a285` | [`tools/recomp/builds/nsmbu_nslu_eu.json`](../../tools/recomp/builds/nsmbu_nslu_eu.json) |
 
 A standalone base disc is title version 0.
 `nsmbu extract` and the installer apply a matching 1.3.0 update folder when present, then check the RPX hash.
@@ -48,7 +48,7 @@ When the running build is Europe or a Europe combo pack, its own text files are 
 
 - **The recompiler** identifies `red-pro2.rpx` by SHA-256, maps hook addresses, and names every generated function by its canonical address when the function exists in USA.
   Functions only present in a pack build get a distinct symbol id so names never collide.
-- **The runtime** uses `GC(…)` / `GD(…)` ([runtime/include/guest_addr.h](../runtime/include/guest_addr.h)).
+- **The runtime** uses `GC(…)` / `GD(…)` ([runtime/include/guest_addr.h](../../runtime/include/guest_addr.h)).
   For the USA build the map is the identity.
 - **A hooks file** may say which builds it is for (`# builds: USA`).
   An entry wrap on a function whose body differs between builds is allowed.

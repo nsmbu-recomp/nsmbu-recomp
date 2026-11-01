@@ -5,7 +5,7 @@ description: "Verify an NSMBU change on Linux with the USA 1.3.0 dump, or instal
 
 # Verify
 
-Full inventory: [docs/agents/verification.md](../../../docs/agents/verification.md).
+Full inventory: [docs/developer/verification.md](../../../docs/developer/verification.md).
 
 The default check is Linux with the USA 1.3.0 dump (`usa-1.3.0`).
 A USB Android device is available.
@@ -36,7 +36,7 @@ The APK does not contain the game.
 Leave the dump on USA 1.3.0 unless the check needs another version.
 Pass `--device SERIAL` when more than one device is connected.
 `python3 tools/android/apk.py --list-devices` prints the serials.
-Flags are in `docs/cli.md`.
+Flags are in `docs/developer/cli.md`.
 
 ## Player steps
 
