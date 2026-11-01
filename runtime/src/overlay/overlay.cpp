@@ -1494,7 +1494,7 @@ void tab_controls() {
     const float bottom = ImGui::GetTextLineHeightWithSpacing() + std::max(U.options_height, ImGui::GetFrameHeightWithSpacing() * 2) + 4;
     const ImVec2 avail = ImGui::GetContentRegionAvail();
 #ifdef __ANDROID__
-    const float h = 0.0f;
+    const float list_h = 0.0f;
     float diagram_h = std::max(420.0f, avail.x * 0.42f);
     if (!U.list_view) {
         const input_map::FaceLayout face = input_map::face_layout(m);
@@ -1502,12 +1502,16 @@ void tab_controls() {
     }
 #else
     const float room = std::max(0.0f, avail.y - bottom);
-    const float h = std::max(room, 1.0f);
-    const float diagram_h = h;
+    const float list_h = room;
+    float diagram_h = std::max(room, 1.0f);
+    if (!U.list_view) {
+        const input_map::FaceLayout face = input_map::face_layout(m);
+        for (int i = 0; i < 20 && !controls_diagram_fits(pro, face, avail.x, diagram_h); i++) diagram_h += 80.0f;
+    }
 #endif
     U.hover_action = -1;
     if (U.list_view) {
-        controls_list(m, h, p == 0);
+        controls_list(m, list_h, p == 0);
     } else {
         ControlsView cv;
         cv.m = m;
@@ -2191,7 +2195,7 @@ void settings_window() {
         }
         U.select_tab = -1;
         for (int i = 0; i < kTabs; i++) settings_tab_button(i);
-        ImGui::BeginChild("page", ImVec2(0, 0), ImGuiChildFlags_NavFlattened, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+        ImGui::BeginChild("page", ImVec2(0, 0), ImGuiChildFlags_NavFlattened);
         switch (U.tab) {
         case kControls: tab_controls(); break;
         case kGraphics: tab_graphics(); break;
@@ -2212,7 +2216,7 @@ void settings_window() {
                 if (ImGui::BeginTabItem(kTabNames[i], nullptr, f)) {
                     if (U.tab != i) U.cap_action = -1, g_capturing_keys = false, U.cap_note.clear();
                     U.tab = i;
-                    ImGui::BeginChild("page", ImVec2(0, 0), ImGuiChildFlags_NavFlattened, ImGuiWindowFlags_NoScrollbar);
+                    ImGui::BeginChild("page", ImVec2(0, 0), ImGuiChildFlags_NavFlattened);
                     switch (i) {
                     case kControls: tab_controls(); break;
                     case kGraphics: tab_graphics(); break;

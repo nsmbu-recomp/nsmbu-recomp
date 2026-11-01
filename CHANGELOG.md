@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Opening the settings menu on the Controls tab no longer crashes when the controller diagram is shorter than its layout needs.
+- The settings menu scrolls on desktop when tab content does not fit (it no longer hides the scrollbar).
+
 ### Changed
 
 - The release step commits and pushes the changelog before it tags.
