@@ -35,6 +35,8 @@ struct ControlsView {
     int clear_action = -1, clear_col = 0;
 };
 
+bool controls_diagram_fits(bool pro, input_map::FaceLayout fl, float w, float h);
+
 void draw_controls(ControlsView& v, float w, float h);
 
 }

@@ -589,7 +589,8 @@ public class SetupActivity extends Activity {
                 common.setEnabled(needsKeys && replaceable(job));
                 resume.setEnabled(phoneSetup && job != null && (!needsKeys || (discReady && commonReady)));
                 pause.setEnabled(phoneSetup && job != null);
-                for (Button picker : pickers) picker.setEnabled(phoneSetup && replaceable(job) && !checkingFolder);
+                for (Button picker : pickers)
+                    picker.setEnabled(!checkingFolder && (phoneSetup ? replaceable(job) : true));
                 play.setEnabled(new File(AndroidGame.storage(SetupActivity.this), "active.json").isFile() ||
                     pcGame());
                 String hostName = hostState == null ? (job == null ? "" : "selected") : hostState.optString("state");

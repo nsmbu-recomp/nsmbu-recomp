@@ -3,7 +3,8 @@
 ## Rules
 
 - Assume that the Typescript to Lua watcher is already running.
-- Add each commit message/change to the changelog it will be reformated later for release.
+- Add each commit message/change to the changelog it will be reformated later for release. 
+  (Reference issue number if a fix for one was done eg #123)
 
 ## Code style
 
