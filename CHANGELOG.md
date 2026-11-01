@@ -3,54 +3,43 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
-Append each change under Unreleased as it lands; at release the `changelog` skill cleans that block into player-facing version notes.
 
 ## [Unreleased]
 
 ### Changed
 
-- `nsmbu apk` builds the setup APK, the same kind as a release.
-  The APK does not contain the game, and the command does not copy a dump to the device.
-- On Android, **Settings > Android > Quit to the installer** leaves the game and opens the installer.
-- On Android, **Rebuild the game** is under **Play** on the installer.
-  It runs setup again for this version.
-- On Android, the app icon skips the installer once a game is ready.
-  The installer opens again only when you open a new version of the app.
-  Long-press the icon and choose **Game setup** to open the installer.
-
-### Fixed
-
-- On Android, **Quit to the installer** leaves the installer open.
-  Closing the game no longer closes that screen with it.
-- Setup finishes translating a USA or Europe base disc (issues #53 and #54).
-  The stock HUD hook and the apply-save hook target functions that disc does not have.
-- On Android, the Controls tab no longer draws overlapping binding chips and leader lines on landscape handhelds; touch option rows wrap cleanly.
-- On Android, Controls uses one page scroll.
-  **List view** stays off unless you turn it on.
-  The controller drawing grows until its binding columns fit.
-- On Android, a touch on a settings tab opens that tab.
-  Only the open tab is colored.
-- On Android, settings text shows the arrow characters.
-  Roboto has no arrows, so those glyphs come from the Noto symbols font.
-- On Android, drag on the settings page to scroll.
-  A finger on the page moves it.
-  The scrollbar still works.
-- On a PC-built Android APK, **Choose your game** works again for picking an extracted folder on the device.
+- The release step commits and pushes the changelog before it tags.
 
 ## [0.8.2] - 2026-11-01
 
 ### Changed
 
-- The Android app icon opens the installer.
-  Tick **Skip the installer for future runs**, then press **Play**.
-  The next time you open the app, the game starts.
-  **Settings > Android** turns that off.
+- Once a game is ready, the Android app icon starts the game.
+  The installer opens again only when you open a new version of the app.
+  Long-press the icon and choose **Game setup** to open the installer.
+- On Android, **Settings > Android > Quit to the installer** leaves the game and opens the installer.
+- On Android, **Rebuild the game** is under **Play**.
+  It runs setup again for this version of the app.
 
 ### Fixed
 
 - Windows on older Intel graphics no longer crashes after the intro when the title screen loads.
 - Android setup finishes translating the game instead of stopping.
-- On Android, **Share log** includes the setup log, so a failed setup can be sent before the game has run.
+- Setup finishes translating a USA or Europe base disc.
+- On Android, **Quit to the installer** leaves the installer open.
+  Closing the game no longer closes that screen.
+- On Android, the Controls tab no longer draws overlapping binding chips and leader lines.
+  Touch option rows wrap cleanly.
+- On Android, Controls uses one page scroll.
+- On Android, the controller drawing is shown again.
+  It grows until the binding columns fit.
+- On Android, Controls **List view** stays off unless you turn it on.
+- On Android, a touch on a settings tab opens that tab.
+  Only the open tab is colored.
+- On Android, settings text shows arrow characters.
+- On Android, drag on the settings page to scroll.
+- On Android, **Share log** includes the setup log.
+  You can send a failed setup before the game has run.
 
 ## [0.8.1] - 2026-10-31
 
