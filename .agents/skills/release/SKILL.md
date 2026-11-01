@@ -51,6 +51,8 @@ Done when the tag is on `origin`, the release workflow conclusion is `success`, 
 - `version` sets `VERSION` from the tag.
   On the nightly schedule it starts a development build when `main` moved since the `devel-build` tag.
 - `macos`, `windows-x86_64`, `windows-arm64`, `linux-x86_64`, and `linux-aarch64` build, package, and run unit tests.
+  Windows and Linux install SDL3 from the `sdl3` release in `nsmbu-recomp/ci-assets`.
+  When that release is missing or its pins do not match, run the SDL3 workflow in that repo.
 - `android-arm64` and `android-x86_64` build a signed setup APK without game code (`ANDROID_KEYSTORE_B64` secrets).
 - `publish` uploads zips, the AppImage, and APKs, then runs `gh release create`.
 

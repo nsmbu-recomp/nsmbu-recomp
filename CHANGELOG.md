@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - The release step commits and pushes the changelog before it tags.
+- Windows and Linux release builds download SDL3 from the CI assets repo instead of compiling it.
 
 ## [0.8.2] - 2026-11-01
 

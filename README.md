@@ -218,5 +218,5 @@ The Collision Viewer is based on the collision viewer from [Tsuru](https://githu
 This repository contains no Nintendo property.  
 It has no game code, no game assets, and no keys from Nintendo.  
 
->  [!IMPORTANT]
+>  [!NOTE]
 > This project is made with the help of AI agents.

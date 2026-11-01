@@ -14,11 +14,12 @@ def job(name):
 
 
 class ReleaseWorkflowLinux(unittest.TestCase):
-    def test_linux_package_uses_sdl3_license_beside_cached_install(self):
+    def test_linux_installs_sdl3_from_ci_assets(self):
         linux = job("linux")
-        self.assertIn('SDL3 license for release packaging', linux)
-        self.assertIn('"$HOME/sdl3/LICENSE.txt"', linux)
-        self.assertNotIn("$PWD/SDL3-3.4.18/LICENSE.txt", linux)
+        self.assertIn('tools/release/sdl3.py install --platform "linux-$ARCH"', linux)
+        self.assertIn("$HOME/sdl3/LICENSE.txt", linux)
+        self.assertNotIn("cmake -S SDL3", linux)
+        self.assertNotIn("path: ~/sdl3", linux)
 
 
 if __name__ == "__main__":
