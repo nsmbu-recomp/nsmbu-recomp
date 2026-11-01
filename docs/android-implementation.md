@@ -57,6 +57,8 @@ So Android setup has no shader stage, the APK never bundles a shader template, a
 - Back opens and closes Settings (`SDL_HINT_ANDROID_TRAP_BACK_BUTTON`, `SDL_SCANCODE_AC_BACK` in `runtime/src/platform/input_sdl.cpp`).
 - The activity hides the system bars in full screen and lays out into the display cutout.
 - The runtime writes `config/nsmbu/logs/nsmbu.log` on Android too, and `LogShare` shares it and the previous run's log.
+  The same share includes the current job's `host.json`, `state.json`, and the newest extract, translation, compile, and link logs under `checkpoints/`.
+  Key files and the imported dump are left out.
 - `CrashReports` adds Android's recorded exit reasons (`SystemExitReports`) to the crash flow; save-tool stops are marked as expected.
 - `GameFilesProvider` is a documents provider for the system Files app; the game and the shader cache are read-only, and key files are hidden.
 - `res/xml/game_mode_config.xml` keeps the system game modes from downscaling or overriding the frame rate.

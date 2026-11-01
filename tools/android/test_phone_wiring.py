@@ -24,6 +24,9 @@ class PhoneWiring(unittest.TestCase):
             self.assertIn(name, main)
             self.assertIn('"%s"' % name, text(JAVA / "LogShare.java"))
         self.assertIn('new File(AndroidUserDirectories.config(root), "logs")', text(JAVA / "LogShare.java"))
+        self.assertIn("SetupLogFiles.sources", text(JAVA / "LogShare.java"))
+        for name in ("host.json", "state.json", "translation.log", "compile.log", "extract.log", "link.log"):
+            self.assertIn('"%s"' % name, text(JAVA / "SetupLogFiles.java"))
         self.assertIn('return config_dir() + "/logs";', text("runtime/src/platform/host.h"))
         self.assertNotRegex(main, r"#ifdef __ANDROID__\s*\n\s*if \(!e \|\| !\*e\) return;")
 
@@ -38,6 +41,31 @@ class PhoneWiring(unittest.TestCase):
         self.assertIn('GetStaticMethodID(cls,"phoneRumble","(I)V")', text("runtime/src/platform/input_sdl.cpp"))
         self.assertIn("public static void phoneRumble(int level)", text(JAVA / "NsmbuActivity.java"))
         self.assertIn('ENV(PHONE_RUMBLE, "NSMBU_PHONE_RUMBLE")', text("runtime/src/core/env.h"))
+
+    def test_installer_opens_again_after_a_new_install(self):
+        setup = text(JAVA / "SetupActivity.java")
+        self.assertIn("seen_version", setup)
+        self.assertNotIn("played_update_time", setup)
+        self.assertIn("needsRebuild", setup)
+        self.assertIn("setup_rebuild", setup)
+        self.assertIn("show(rebuild, showPlay)", setup)
+        self.assertIn("setup_rebuild", text(APP / "res/values/strings.xml"))
+        self.assertIn("show_setup", setup)
+        self.assertIn("void openInstaller()", text(JAVA / "NsmbuActivity.java"))
+        setup_activity = re.search(r'<activity android:name="\.SetupActivity".*?>', text(APP / "AndroidManifest.xml"), re.S)
+        self.assertIsNotNone(setup_activity)
+        self.assertIn('android:process=":setup"', setup_activity.group(0))
+        self.assertNotIn("SkipInstaller", setup)
+        self.assertNotIn("setup_skip_installer", text(APP / "res/values/strings.xml"))
+        overlay = text("runtime/src/overlay/overlay.cpp")
+        self.assertIn("Quit to the installer", overlay)
+        self.assertIn("openInstaller", overlay)
+        self.assertIn("kAndroid", overlay)
+        self.assertIn('"Debug", "Android"', overlay)
+        self.assertNotIn("skipInstaller", overlay)
+        shortcuts = text(APP / "res/xml/shortcuts.xml")
+        self.assertIn("game_setup", shortcuts)
+        self.assertIn("org.nsmbrecomp.nsmbu.SHOW_SETUP", shortcuts)
 
     def test_back_opens_settings(self):
         self.assertIn("SDL_SCANCODE_AC_BACK", text("runtime/src/platform/input_sdl.cpp"))

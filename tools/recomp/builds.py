@@ -14,7 +14,8 @@ build already has, like the European language code the USA build lacks (`hooks_l
 Everything else is checked automatically: a hook or site inside a function whose body differs
 between the builds is refused, because the code it patches is not the same code there. A wrap of
 the whole function is allowed and reported, unless the line says `same`: the replacement was
-checked and applies to that function in every build.
+checked and applies to that function in every build. A hook on a function this build does not
+have is skipped. Its mapped address sits inside a different function.
 """
 import bisect
 import glob
@@ -94,6 +95,16 @@ class Build:
         the canonical body (an instruction-level hook, an offset into it) does not apply here."""
         i = bisect.bisect_right(self._differ_starts, canon) - 1
         return i >= 0 and canon < self._differ_ends[i]
+
+    def function_missing(self, canon):
+        """True when `canon` is the entry of a function this build does not have.
+
+        The map still names an address, but that address is inside a different function.
+        """
+        i = bisect.bisect_left(self._differ_starts, canon)
+        if i >= len(self.differing) or self.differing[i][0] != canon:
+            return False
+        return self.differing[i][3] == 0
 
     def issue_label(self):
         """Label used in bug reports and boot logs (matches the GitHub issue form)."""
@@ -189,6 +200,16 @@ def identify(rpx_path):
     return by_sha256(file_sha256(rpx_path))
 
 _BUILDS_RE = re.compile(r"^#\s*builds:\s*(.+)$", re.I)
+
+def hook_on_differing(build, site, canon, same, is_entry):
+    """Fate of a hook in code this build compiled differently. See differing_hook.
+
+    "skip" also covers a function this build does not have. Wrapping the address the map
+    gives would run a different function.
+    """
+    if build.function_missing(canon):
+        return "skip"
+    return differing_hook(site, same, is_entry)
 
 def differing_hook(site, same, is_entry):
     """What to do with a hook in a function this build compiled differently.

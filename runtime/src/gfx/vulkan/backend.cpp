@@ -14,6 +14,7 @@
 #include "core/window_title.h"
 #include "core/build_info.h"
 #include "backend.h"
+#include "attachment_view_usage.h"
 #include "device_choice.h"
 #include "bc_decode.h"
 #include "android_driver.h"
@@ -2205,6 +2206,10 @@ static void init_device(std::vector<const char *> extensions,
   LOG("[vulkan] device: %s (Vulkan %s, driver %s%s)", R.properties.deviceName,
       version_text(R.properties.apiVersion).c_str(), driver_version_text(R.properties).c_str(),
       R.dynamicRenderingKHR ? "; dynamic rendering through VK_KHR_dynamic_rendering" : "");
+  R.attachmentViewUsage =
+      attachment_view_usage_wanted(R.properties.vendorID, env::VK_ATTACHMENT_VIEW_USAGE());
+  if (R.attachmentViewUsage)
+    LOG("[vulkan] attachment views name their usage (NSMBU_VK_ATTACHMENT_VIEW_USAGE=0 turns it off)");
   if (perf_enabled()) {
     const auto& limits=R.properties.limits;
     LOG("[vulkan uniforms] dynamic/set %u; uniform/stage %u; uniform/set %u; resources/stage %u; alignment %llu; range %u",

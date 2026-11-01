@@ -23,8 +23,12 @@
 #include <vector>
 
 #include "imgui.h"
+#ifdef __ANDROID__
+#include "imgui_internal.h"
+#endif
 #include "hostui.h"
 #include "controls_view.h"
+#include "flow_layout.h"
 #include "controller_shortcuts.h"
 #include "text_entry.h"
 #include "gfx/aspect.h"
@@ -35,6 +39,8 @@
 #include "../gfx/renderer.h"
 #ifdef __ANDROID__
 #include "../gfx/vulkan/android_driver.h"
+#include <SDL3/SDL_system.h>
+#include <jni.h>
 #include "../platform/heat_guard.h"
 #include "../platform/phone_rumble.h"
 #include "../platform/touch_buttons.h"
@@ -146,9 +152,18 @@ ImGuiKey imgui_key(int code) {
     }
 }
 
-enum Tab { kControls, kGraphics, kDisplay, kAudio, kSaves, kMods, kAbout, kDebug, kTabs };
+enum Tab { kControls, kGraphics, kDisplay, kAudio, kSaves, kMods, kAbout, kDebug,
+#ifdef __ANDROID__
+           kAndroid,
+#endif
+           kTabs };
+#ifdef __ANDROID__
+const char* const kTabNames[kTabs] = {"Controls", "Graphics", "Display", "Audio", "Saves", "Mods", "Language", "Debug", "Android"};
+const char* const kTabIds[kTabs] = {"controls", "graphics", "display", "audio", "saves", "mods", "about", "debug", "android"};
+#else
 const char* const kTabNames[kTabs] = {"Controls", "Graphics", "Display", "Audio", "Saves", "Mods", "Language", "Debug"};
 const char* const kTabIds[kTabs] = {"controls", "graphics", "display", "audio", "saves", "mods", "about", "debug"};
+#endif
 
 struct Ui {
     bool init = false;
@@ -253,6 +268,16 @@ void setup_style() {
 
 void setup_fonts() {
     ImGuiIO& io = ImGui::GetIO();
+    static const ImWchar glyphs[] = {
+        0x0020, 0x00FF,
+        0x2010, 0x2027,
+        0x2190, 0x2193,
+        0x2212, 0x2212,
+        0x2302, 0x2302,
+        0x2326, 0x2326,
+        0x232B, 0x232B,
+        0,
+    };
     static const char* const candidates[] = {
 #if defined(__APPLE__)
         "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
@@ -260,6 +285,10 @@ void setup_fonts() {
 #elif defined(_WIN32)
         "C:/Windows/Fonts/segoeui.ttf",
         "C:/Windows/Fonts/arial.ttf",
+#elif defined(__ANDROID__)
+        "/system/fonts/RobotoStatic-Regular.ttf",
+        "/system/fonts/Roboto-Regular.ttf",
+        "/system/fonts/DroidSans.ttf",
 #else
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/TTF/DejaVuSans.ttf",
@@ -268,15 +297,30 @@ void setup_fonts() {
         "/usr/share/fonts/noto/NotoSans-Regular.ttf",
 #endif
     };
+    ImFont* font = nullptr;
     for (const char* path : candidates) {
         if (FILE* f = fopen(path, "rb")) {
             fclose(f);
-            if (io.Fonts->AddFontFromFileTTF(path, 17.0f)) {
+            font = io.Fonts->AddFontFromFileTTF(path, 17.0f, nullptr, glyphs);
+            if (font) {
                 LOG("[overlay] font %s", path);
-                return;
+                break;
             }
         }
     }
+#ifdef __ANDROID__
+    if (font) {
+        const char* symbols = "/system/fonts/NotoSansSymbols-Regular-Subsetted.ttf";
+        if (FILE* f = fopen(symbols, "rb")) {
+            fclose(f);
+            ImFontConfig merge;
+            merge.MergeMode = true;
+            if (io.Fonts->AddFontFromFileTTF(symbols, 17.0f, &merge, glyphs))
+                LOG("[overlay] symbol font %s", symbols);
+        }
+    }
+#endif
+    if (font) return;
     ImFontConfig cfg;
     cfg.SizePixels = 17.0f;
     io.Fonts->AddFontDefaultVector(&cfg);
@@ -1251,10 +1295,11 @@ std::string summary(const input_map::Mapping& m, int a, bool keys) {
 }
 
 void controls_list(input_map::Mapping& m, float h, bool keys) {
-    if (ImGui::BeginTable("map", keys ? 4 : 2,
-                          ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingStretchSame,
-                          ImVec2(0, h))) {
-        ImGui::TableSetupScrollFreeze(0, 1);
+    const bool scroll = h > 1.0f;
+    ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingStretchSame;
+    if (scroll) flags |= ImGuiTableFlags_ScrollY;
+    if (ImGui::BeginTable("map", keys ? 4 : 2, flags, scroll ? ImVec2(0, h) : ImVec2(0, 0))) {
+        if (scroll) ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("Wii U input", ImGuiTableColumnFlags_WidthStretch, 1.6f);
         if (keys) {
             ImGui::TableSetupColumn("Key");
@@ -1312,15 +1357,6 @@ void tab_controls() {
     const int p = sync ? 0 : std::clamp(U.control_player, 0, input_map::kPlayers - 1);
     input_map::Mapping m = input_map::player(p);
 
-#ifdef __ANDROID__
-    const float page_h = ImGui::GetContentRegionAvail().y;
-    const float status_h = ImGui::GetTextLineHeightWithSpacing() + 4.0f;
-    const float options_est = std::max(U.options_height, ImGui::GetFrameHeightWithSpacing() * 2.5f) + 8.0f;
-    const float diagram_h = std::max(240.0f, (page_h - status_h - options_est) * 0.72f);
-    const float header_h = std::max(80.0f, page_h - diagram_h - status_h - options_est);
-    ImGui::BeginChild("controls_header", ImVec2(0, header_h), ImGuiChildFlags_None, ImGuiWindowFlags_AlwaysVerticalScrollbar);
-#endif
-
     if (check("Same controls for every player", sync, &v)) {
         input_map::set_sync_players(v, p);
         if (v) U.control_player = 0;
@@ -1328,11 +1364,19 @@ void tab_controls() {
     help("On: binding a controller button changes it for every player, so all controllers keep the same layout. "
          "Off: bind buttons for one player at a time. The keyboard always drives Player 1. "
          "Each extra controller joins as the next player.");
+#ifdef __ANDROID__
+    flow::next(flow::text("Player") + 8.0f, 24);
+#else
     ImGui::SameLine(0, 24);
+#endif
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted("Player");
     for (int i = 0; i < input_map::kPlayers; i++) {
+#ifdef __ANDROID__
+        flow::next(flow::check(std::to_string(i + 1).c_str()));
+#else
         ImGui::SameLine();
+#endif
         if (radio(std::to_string(i + 1).c_str(), p == i, !sync)) U.control_player = i;
         if (i == 0) help("Player 1 uses the keyboard and the first controller.");
     }
@@ -1361,27 +1405,47 @@ void tab_controls() {
 
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted("Keyboard and controllers act as");
+#ifdef __ANDROID__
+    flow::next(flow::check("Wii U GamePad"));
+#else
     ImGui::SameLine();
+#endif
 
     if (radio("Wii U GamePad", !pro))
         hostui::post([] { hostui::set_pro_controller(false); hostui::set("proController", "0"); });
+#ifdef __ANDROID__
+    flow::next(flow::check("Wii U Pro Controller"));
+#else
     ImGui::SameLine();
+#endif
     if (radio("Wii U Pro Controller", pro))
         hostui::post([] { hostui::set_pro_controller(true); hostui::set("proController", "1"); });
+#ifdef __ANDROID__
+    flow::next(flow::check("List view"));
+#else
     ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - ImGui::CalcTextSize("List view").x -
                     ImGui::GetFrameHeight() - ImGui::GetStyle().ItemInnerSpacing.x);
+#endif
     ImGui::Checkbox("List view", &U.list_view);
     help("A plain table of all inputs instead of the controller drawing");
 
     const input_map::FaceLayout fl = input_map::face_layout(m);
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted("Face buttons");
+#ifdef __ANDROID__
+    flow::next(flow::check(input_map::face_layout_label(input_map::FaceLayout::kPosition)));
+#else
     ImGui::SameLine();
+#endif
     if (radio(input_map::face_layout_label(input_map::FaceLayout::kPosition), fl == input_map::FaceLayout::kPosition)) {
         input_map::apply_face_layout(m, input_map::FaceLayout::kPosition);
         input_map::set_player(p, m);
     }
+#ifdef __ANDROID__
+    flow::next(flow::check(input_map::face_layout_label(input_map::FaceLayout::kLabels)));
+#else
     ImGui::SameLine();
+#endif
     if (radio(input_map::face_layout_label(input_map::FaceLayout::kLabels), fl == input_map::FaceLayout::kLabels)) {
         input_map::apply_face_layout(m, input_map::FaceLayout::kLabels);
         input_map::set_player(p, m);
@@ -1394,10 +1458,6 @@ void tab_controls() {
         ImGui::SameLine();
         ImGui::TextDisabled("(custom)");
     }
-
-#ifdef __ANDROID__
-    ImGui::EndChild();
-#endif
 
     std::string status;
     ImVec4 sc(0.70f, 0.78f, 0.84f, 1.0f);
@@ -1430,10 +1490,16 @@ void tab_controls() {
     const float bottom = ImGui::GetTextLineHeightWithSpacing() + std::max(U.options_height, ImGui::GetFrameHeightWithSpacing() * 2) + 4;
     const ImVec2 avail = ImGui::GetContentRegionAvail();
 #ifdef __ANDROID__
-    const float h = std::min(diagram_h, std::max(avail.y - bottom, 1.0f));
+    const float h = 0.0f;
+    float diagram_h = std::max(420.0f, avail.x * 0.42f);
+    if (!U.list_view) {
+        const input_map::FaceLayout face = input_map::face_layout(m);
+        for (int i = 0; i < 20 && !controls_diagram_fits(pro, face, avail.x, diagram_h); i++) diagram_h += 80.0f;
+    }
 #else
     const float room = std::max(0.0f, avail.y - bottom);
     const float h = std::max(room, 1.0f);
+    const float diagram_h = h;
 #endif
     U.hover_action = -1;
     if (U.list_view) {
@@ -1470,7 +1536,7 @@ void tab_controls() {
         cv.stick[0][1] = kl ? ks.ly : cs.ly;
         cv.stick[1][0] = kr ? ks.rx : cs.rx;
         cv.stick[1][1] = kr ? ks.ry : cs.ry;
-        draw_controls(cv, avail.x, h);
+        draw_controls(cv, avail.x, diagram_h);
         U.hover_action = cv.hover_action;
         if (cv.start_action >= 0) start_capture(cv.start_action, cv.start_col);
         if (cv.clear_action >= 0) clear_binding(cv.clear_action, cv.clear_col);
@@ -1480,17 +1546,31 @@ void tab_controls() {
     ImGui::PopStyleColor();
     const float options_top = ImGui::GetCursorPosY();
     float dz = m.deadzone * 100.0f;
+#ifdef __ANDROID__
+    const float gap = 24.0f;
+    const float slider_least = ImGui::GetFontSize() * 6.0f;
+    ImGui::SetNextItemWidth(flow::item_width(200.0f, "Stick dead zone", slider_least));
+#else
     ImGui::SetNextItemWidth(200);
+#endif
     if (ImGui::SliderFloat("Stick dead zone", &dz, 0.0f, 90.0f, "%.0f%%")) {
         m.deadzone = std::clamp(dz / 100.0f, 0.0f, 0.9f);
         input_map::set_player(p, m);
     }
+#ifdef __ANDROID__
+    flow::next(flow::check("Invert camera up/down"), gap);
+#else
     ImGui::SameLine(0, 24);
+#endif
     if (check("Invert camera up/down", m.invert_camera_y, &v)) {
         m.invert_camera_y = v;
         input_map::set_player(p, m);
     }
+#ifdef __ANDROID__
+    flow::next(flow::check("Rumble"), gap);
+#else
     ImGui::SameLine(0, 24);
+#endif
 
     if (check("Rumble", rumble::enabled(), &v, input::has_rumble())) {
         rumble::set_enabled(v);
@@ -1498,7 +1578,11 @@ void tab_controls() {
     }
     help(input::has_rumble() ? "Controller vibration when the game asks for it. Off keeps the motors still."
                              : "Controller vibration: this host does not drive controller motors yet.");
+#ifdef __ANDROID__
+    flow::next(flow::button("Reset to defaults"), gap);
+#else
     ImGui::SameLine(0, 24);
+#endif
     if (ImGui::Button("Reset to defaults")) input_map::set_player(p, input_map::Mapping::defaults());
 #ifdef __ANDROID__
     heading("Touch controls");
@@ -1513,7 +1597,7 @@ void tab_controls() {
     ImGui::TextUnformatted("Touch buttons");
     static const char* const touchNames[] = {"Automatic", "Always show", "Hide"};
     for (int i = touch_buttons::Automatic; i <= touch_buttons::Hide; i++) {
-        ImGui::SameLine();
+        if (i > touch_buttons::Automatic) flow::next(flow::check(touchNames[i]));
         char label[32];
         snprintf(label, sizeof label, "%s##touchbuttons", touchNames[i]);
         if (radio(label, touch_buttons::mode.load() == i))
@@ -1529,7 +1613,7 @@ void tab_controls() {
     static const char* const phoneNames[] = {"Off", "Touch controls", "No controller motor"};
     const bool phoneEditable = !phone_rumble::env_override();
     for (int i = phone_rumble::kOff; i <= phone_rumble::kFallback; i++) {
-        ImGui::SameLine();
+        if (i > phone_rumble::kOff) flow::next(flow::check(phoneNames[i]));
         char label[40];
         snprintf(label, sizeof label, "%s##phonerumble", phoneNames[i]);
         if (radio(label, phone_rumble::choice.load() == i, phoneEditable))
@@ -1647,6 +1731,31 @@ void tab_debug() {
         help("Rebuilds the active course from disk and restarts it at the course entrance.");
     }
 }
+
+#ifdef __ANDROID__
+static void open_installer() {
+    auto* env = static_cast<JNIEnv*>(SDL_GetAndroidJNIEnv());
+    if (!env) return;
+    jobject activity = static_cast<jobject>(SDL_GetAndroidActivity());
+    if (!activity) return;
+    if (jclass cls = env->GetObjectClass(activity)) {
+        if (jmethodID method = env->GetStaticMethodID(cls, "openInstaller", "()V"))
+            env->CallStaticVoidMethod(cls, method);
+        env->DeleteLocalRef(cls);
+    }
+    if (env->ExceptionCheck()) env->ExceptionClear();
+    env->DeleteLocalRef(activity);
+}
+
+void tab_android() {
+    heading("Installer");
+    if (ImGui::Button("Quit to the installer")) open_installer();
+    help("Leaves the game and opens the installer.");
+    note("The app icon skips the installer once a game is ready.");
+    note("A new version of the app opens the installer. The next open of that version starts the game.");
+    help("Rebuild the game there runs setup again. Long-press the app icon and choose Game setup to open it yourself.");
+}
+#endif
 
 void tab_about() {
     const char* env = env::LANGUAGE();
@@ -2000,6 +2109,44 @@ static bool settings_close_button(bool& open, float size) {
     return pressed;
 }
 
+#ifdef __ANDROID__
+void touch_drag_scroll() {
+    ImGuiIO& io = ImGui::GetIO();
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) return;
+    if (window->ScrollMax.y <= 0.0f) return;
+    if (!window->InnerRect.Contains(io.MousePos)) return;
+    if (window->ScrollbarY && io.MousePos.x >= window->InnerRect.Max.x - window->ScrollbarSizes.x) return;
+    if (!ImGui::IsMouseDragging(ImGuiMouseButton_Left, 6.0f)) return;
+    ImGui::ClearActiveID();
+    const float y = std::clamp(window->Scroll.y - io.MouseDelta.y, 0.0f, window->ScrollMax.y);
+    window->Scroll.y = y;
+    window->ScrollTarget.y = y;
+    window->ScrollTargetCenterRatio.y = 0.0f;
+    window->ScrollTargetEdgeSnapDist.y = 0.0f;
+}
+
+void settings_tab_button(int i) {
+    if (i) flow::next(flow::button(kTabNames[i]));
+    const bool on = U.tab == i;
+    const ImVec4 face = ImGui::GetStyleColorVec4(on ? ImGuiCol_TabSelected : ImGuiCol_Button);
+    ImGui::PushItemFlag(ImGuiItemFlags_NoNav, true);
+    ImGui::PushStyleColor(ImGuiCol_Button, face);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, face);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, face);
+    const bool pressed = ImGui::Button(kTabNames[i]);
+    const bool tapped = ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+    ImGui::PopStyleColor(3);
+    ImGui::PopItemFlag();
+    if ((pressed || tapped) && U.tab != i) {
+        U.cap_action = -1;
+        g_capturing_keys = false;
+        U.cap_note.clear();
+        U.tab = i;
+    }
+}
+#endif
+
 void settings_window() {
     ImGuiIO& io = ImGui::GetIO();
     const ImVec2 ds = io.DisplaySize;
@@ -2031,14 +2178,37 @@ void settings_window() {
             if (controller_pressed(input_map::kPadLB)) U.select_tab = (U.tab + kTabs - 1) % kTabs;
             if (controller_pressed(input_map::kPadRB)) U.select_tab = (U.tab + 1) % kTabs;
         }
+#ifdef __ANDROID__
+        if (U.select_tab >= 0 && U.select_tab < kTabs && U.select_tab != U.tab) {
+            U.cap_action = -1;
+            g_capturing_keys = false;
+            U.cap_note.clear();
+            U.tab = U.select_tab;
+        }
+        U.select_tab = -1;
+        for (int i = 0; i < kTabs; i++) settings_tab_button(i);
+        ImGui::BeginChild("page", ImVec2(0, 0), ImGuiChildFlags_NavFlattened, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+        switch (U.tab) {
+        case kControls: tab_controls(); break;
+        case kGraphics: tab_graphics(); break;
+        case kDisplay: tab_display(); break;
+        case kAudio: tab_audio(); break;
+        case kSaves: tab_saves(); break;
+        case kMods: tab_mods(); break;
+        case kAbout: tab_about(); break;
+        case kDebug: tab_debug(); break;
+        case kAndroid: tab_android(); break;
+        }
+        touch_drag_scroll();
+        ImGui::EndChild();
+#else
         if (ImGui::BeginTabBar("tabs", ImGuiTabBarFlags_FittingPolicyShrink)) {
             for (int i = 0; i < kTabs; i++) {
                 ImGuiTabItemFlags f = U.select_tab == i ? ImGuiTabItemFlags_SetSelected : 0;
                 if (ImGui::BeginTabItem(kTabNames[i], nullptr, f)) {
                     if (U.tab != i) U.cap_action = -1, g_capturing_keys = false, U.cap_note.clear();
                     U.tab = i;
-                    ImGui::BeginChild("page", ImVec2(0, 0), ImGuiChildFlags_NavFlattened,
-                                      i == kControls ? ImGuiWindowFlags_NoScrollbar : ImGuiWindowFlags_None);
+                    ImGui::BeginChild("page", ImVec2(0, 0), ImGuiChildFlags_NavFlattened, ImGuiWindowFlags_NoScrollbar);
                     switch (i) {
                     case kControls: tab_controls(); break;
                     case kGraphics: tab_graphics(); break;
@@ -2056,6 +2226,7 @@ void settings_window() {
             U.select_tab = -1;
             ImGui::EndTabBar();
         }
+#endif
         ImGui::PopItemWidth();
         restart_confirm();
     }

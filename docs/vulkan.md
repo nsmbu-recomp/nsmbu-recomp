@@ -237,6 +237,11 @@ That choice is saved and applies the next time the game starts.
 `NSMBU_VK_GPU` overrides the saved choice for one start.
 Its value is `dedicated`, `integrated`, a card id such as `10de:2184`, or part of the card name.
 
+On Windows, Intel's Vulkan driver (for example HD Graphics 520 with driver 101.2115) can crash inside
+`igvk64.dll` when a depth attachment view does not state its usage and the title screen draws shadow
+maps. The renderer enables `VkImageViewUsageCreateInfo` on attachment layer views for Intel GPUs
+automatically. `NSMBU_VK_ATTACHMENT_VIEW_USAGE=1` forces it on any vendor; `=0` turns it off.
+
 ## CPU paths (on by default since 2026-10-07; formerly "opt-in CPU experiments")
 
 The following paths are on by default on every platform (`runtime/src/main.cpp`,

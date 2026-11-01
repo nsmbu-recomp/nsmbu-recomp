@@ -85,7 +85,7 @@ The CLI exports `NSMBU_CLI=1` and `NSMBU_USER_DIR=<repo>/nsmbu` on every dev com
 | `nsmbu record <course> [name]` / `replay [--release] [--uncapped] [--no-exit-on-input] [--exit-at N] [--log PATH] <name>` | env + launch (see [automation.md](automation.md)) |
 | `nsmbu profile` / `perf` | profiling helpers |
 | `nsmbu installer [--version VERSION] [--no-open]` | builds this Linux host's GitHub Release folder (the zip contents) at `build/installer` with the release workflow's pinned zig toolchain, then opens that folder's setup window; `--no-open` returns after the package is ready; does not publish |
-| `nsmbu apk` | builds a **debug** APK from `android/` with your recompiled `build/gen`, installs it on a USB device (`adb`), and copies the active dump to `Android/data/org.nsmbrecomp.nsmbu/files/game/` when it is not already there unless `--no-push`; `--force-push` copies even when up to date; `--push-only` copies assets only; `--stub` builds placeholder code like CI; `--build-only` skips adb. With a local unpack, the debug APK uses `meta/iconTex.tga` as the launcher icon (`android/app/local-res`, never in CI or release builds). |
+| `nsmbu apk` | builds the same setup APK as a release: Python, the compiler and the extractor are inside, and the game code is not. Installs it on a USB device (`adb`). `--build-only` skips adb. `--install-only` installs the last APK. |
 | `nsmbu lint` / `recomp` | TypeScript mod build, recomp only |
 | `nsmbu scripted <name>` | wraps `tools/run/scripted-run.sh` |
 | `nsmbu test [--list] [name…]` | boots a game per playtest and runs selected cases in parallel ([automation.md](automation.md)); only `--list` is a valid flag |

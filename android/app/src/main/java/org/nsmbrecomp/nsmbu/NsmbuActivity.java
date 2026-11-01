@@ -31,6 +31,20 @@ public class NsmbuActivity extends SDLActivity {
         }
     }
 
+    /** Leave the game and open the installer. The preference survives the process exit that follows. */
+    public static void openInstaller() {
+        if (!(mSingleton instanceof NsmbuActivity)) return;
+        NsmbuActivity activity = (NsmbuActivity) mSingleton;
+        activity.runOnUiThread(() -> {
+            activity.getSharedPreferences("setup", MODE_PRIVATE).edit().putBoolean("show_setup", true).commit();
+            Intent intent = new Intent(activity, SetupActivity.class);
+            intent.putExtra(SetupActivity.EXTRA_SHOW_SETUP, true);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            activity.startActivity(intent);
+            activity.finish();
+        });
+    }
+
     @Override
     protected String[] getLibraries() {
         return new String[] { "SDL3", "main" };

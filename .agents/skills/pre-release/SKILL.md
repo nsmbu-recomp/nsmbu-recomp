@@ -7,7 +7,7 @@ description: "Prepare an NSMBU release for a person to review: changelog cleanup
 
 Prepare version `X.Y.Z` in this checkout and stop for a person to review.
 Run every command in `/home/econn/git/nsmbu-recomp`.
-The `release` skill tags `main` and watches `.github/workflows/release.yml` after that review is on `origin/main`.
+The `release` skill commits and pushes that changelog, tags `main`, and watches `.github/workflows/release.yml`.
 
 ## Steps
 
@@ -31,8 +31,9 @@ The `release` skill tags `main` and watches `.github/workflows/release.yml` afte
    Keep every fix in the working tree with the changelog edits.
 5. Report the version, branch, both command results, and `git diff --stat`.
    List anything still broken.
-   The person reviews this diff, commits, merges into `main` when the work is on another branch, and pushes `main`.
-   Their push runs `.githooks/pre_push.py` (`ctest`, `tools/installer/test_setup.py`, and `tools/recomp/test_builds.py`).
+   The person reviews this diff.
+   The `release` skill commits and pushes the changelog on `main`.
+   That push runs `.githooks/pre_push.py` (`ctest`, `tools/installer/test_setup.py`, and `tools/recomp/test_builds.py`).
    Linux does not compile the macOS or Windows package jobs.
    Those failures show up later in `gh run view <id> --log-failed`.
 
@@ -43,5 +44,4 @@ The remote is unchanged and `git status` still shows the preparation as local ch
 
 - Leave every edit uncommitted.
 - Leave every remote untouched, including `main` and tags.
-- The person who reviews this checkout commits, merges, and pushes.
-- Hand a clean `origin/main` to the `release` skill.
+- The `release` skill commits and pushes the changelog on `main`.

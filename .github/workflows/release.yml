@@ -19,6 +19,8 @@
 # Toolchains: tools/installer/toolchains.json pins the exact compilers. The Windows and Linux
 # runtimes are built with the same pinned llvm-mingw / zig the installer downloads for players,
 # so the prebuilt runtime links with the player's locally compiled game code.
+# SDL3 is not compiled here. Jobs install the sdl3 release from nsmbu-recomp/ci-assets
+# (tools/release/sdl3.py). Rebuild that release when the SDL pin or llvm-mingw pin changes.
 name: release
 
 on:
@@ -41,8 +43,6 @@ permissions:
   contents: read
 
 env:
-  SDL3_URL: https://github.com/libsdl-org/SDL/releases/download/release-3.4.18/SDL3-3.4.18.tar.gz
-  SDL3_SHA256: 9c75cf16330322c217dedd2e0609f1124f1b54b8633e763467b4684d0f4334a3
   VULKAN_HEADERS_URL: https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/v1.4.363.tar.gz
   VULKAN_HEADERS_SHA256: cbaf687d3c59b9666fe080e7f8396b6b4f4d344a768ee6b337c59852f4526b68
   VULKAN_DEF_URL: https://raw.githubusercontent.com/KhronosGroup/Vulkan-Loader/vulkan-sdk-1.4.363.0/loader/vulkan-1.def
@@ -212,8 +212,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          # SDL3's documented Linux build dependencies (SDL3 docs/README-linux.md, Ubuntu 22.04+ set), so
-          # the shipped SDL3 has every backend (X11, Wayland, PipeWire/PulseAudio/ALSA, input, IME);
+          # libraries the prebuilt SDL3 was linked against (SDL3 docs/README-linux.md, Ubuntu 22.04+ set),
+          # so the shipped SDL3 keeps every backend (X11, Wayland, PipeWire/PulseAudio/ALSA, input, IME);
           # libvulkan1 is only linked against (players use their own Vulkan loader)
           sudo apt-get install -y build-essential cmake ninja-build ccache pkg-config xz-utils libvulkan1 \
             libasound2-dev libpulse-dev libaudio-dev libfribidi-dev libjack-dev libsndio-dev \
@@ -254,32 +254,10 @@ jobs:
           chmod +x "$ROOT"/bin/*
           echo "ZBIN=$ROOT/bin" >> "$GITHUB_ENV"
 
-      - name: Cache SDL3
-        id: sdl3
-        uses: actions/cache@v4
-        with:
-          path: ~/sdl3
-          key: sdl3-${{ env.SDL3_SHA256 }}-linux-${{ matrix.arch }}-ubuntu-22.04
-
-      - name: SDL3 (shared library, system compiler, shipped next to the game)
-        if: steps.sdl3.outputs.cache-hit != 'true'
-        run: |
-          curl -fsSL -o sdl3.tar.gz "$SDL3_URL"
-          echo "$SDL3_SHA256  sdl3.tar.gz" | sha256sum -c -
-          tar -xzf sdl3.tar.gz
-          cmake -S SDL3-3.4.18 -B sdl3-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSDL_SHARED=ON -DSDL_STATIC=OFF \
-            -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF -DCMAKE_INSTALL_PREFIX="$HOME/sdl3"
-          cmake --build sdl3-build
-          cmake --install sdl3-build
-          cp SDL3-3.4.18/LICENSE.txt "$HOME/sdl3/LICENSE.txt"
-
-      - name: SDL3 license for release packaging
-        run: |
-          if [ ! -f "$HOME/sdl3/LICENSE.txt" ]; then
-            curl -fsSL -o sdl3.tar.gz "$SDL3_URL"
-            echo "$SDL3_SHA256  sdl3.tar.gz" | sha256sum -c -
-            tar -xOf sdl3.tar.gz SDL3-3.4.18/LICENSE.txt > "$HOME/sdl3/LICENSE.txt"
-          fi
+      - name: SDL3 from nsmbu-recomp/ci-assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/release/sdl3.py install --platform "linux-$ARCH" --dest "$HOME/sdl3"
 
       - name: Vulkan headers
         run: |
@@ -448,6 +426,13 @@ jobs:
           "$LLVM_MINGW/bin/llvm-dlltool.exe" -m ${{ matrix.dlltool_machine }} -d vulkan-1.def -l "$T/vulkan/libvulkan-1.a"
           echo "VULKAN_DIR=$T/vulkan" >> "$GITHUB_ENV"
 
+      - name: SDL3 from nsmbu-recomp/ci-assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python tools/release/sdl3.py install --platform "windows-${{ matrix.arch }}" --dest "$(cygpath -m "$RUNNER_TEMP/sdl3")"
+          echo "SDL3_PREFIX=$(cygpath -m "$RUNNER_TEMP/sdl3")" >> "$GITHUB_ENV"
+
       - name: Build runtime (Release, Vulkan + SDL3) with llvm-mingw against placeholder guest code
         run: |
           python tools/recomp/stubgen.py build/gen-stub
@@ -456,6 +441,7 @@ jobs:
             -DCMAKE_CXX_COMPILER="$LLVM_MINGW/bin/$TRIPLE-clang++.exe" \
             -DCMAKE_RC_COMPILER="$LLVM_MINGW/bin/$TRIPLE-windres.exe" \
             -DCMAKE_EXE_LINKER_FLAGS=-static -DNSMBU_BUNDLED_DEPS=ON -DNSMBU_SETUP_GUI=ON \
+            -DCMAKE_PREFIX_PATH="$SDL3_PREFIX" \
             -DVulkan_INCLUDE_DIR="$VULKAN_DIR/include" -DVulkan_LIBRARY="$VULKAN_DIR/libvulkan-1.a"
           ninja -C build/rel -d keeprsp
 
@@ -482,7 +468,7 @@ jobs:
             --out dist --toolchain "$TOOLCHAIN" --setup-gui build/rel/nsmbu-setup.exe \
             --windows-python "$WIN_PY_ZIP" \
             --runtime-file build/rel/SDL3.dll \
-            --license "SDL3 (zlib)=$W/build/rel/_deps/sdl3-src/LICENSE.txt" \
+            --license "SDL3 (zlib)=$SDL3_PREFIX/LICENSE.txt" \
             --license "Vulkan-Headers (Apache-2.0)=$VULKAN_DIR/LICENSE.md" \
             --license "glslang (BSD-3-Clause and others)=$W/build/rel/_deps/glslang-src/LICENSE.txt" \
             --license "zlib (zlib)=$W/build/rel/_deps/zlib-src/LICENSE" \

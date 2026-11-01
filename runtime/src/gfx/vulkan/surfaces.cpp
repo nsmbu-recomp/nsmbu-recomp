@@ -5,6 +5,7 @@
 #include "mods/cemu_pack.h"
 
 #include "backend.h"
+#include "attachment_view_usage.h"
 #include "buffer_cache.h"
 #include "gfx/render_prof.h"
 #include "settings.h"
@@ -872,6 +873,9 @@ VkImageView layer_view(Surface* s,uint32_t layer) {
         VkImageViewCreateInfo info{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};info.image=s->image;
         info.viewType=s->imageType==VK_IMAGE_TYPE_1D?VK_IMAGE_VIEW_TYPE_1D:VK_IMAGE_VIEW_TYPE_2D;info.format=s->fmt.pixel;
         info.subresourceRange={s->aspect,0,1,layer,1};
+        VkImageViewUsageCreateInfo usage{VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO};
+        usage.usage=R.attachmentViewUsage?attachment_view_usage(s->usage,s->fmt.depth):0;
+        if(usage.usage)info.pNext=&usage;
         check_vk(vkCreateImageView(R.device,&info,nullptr,&s->layerViews[layer]),"create attachment layer view");
     }
     return s->layerViews[layer];

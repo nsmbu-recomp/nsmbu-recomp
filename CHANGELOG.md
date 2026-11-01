@@ -3,7 +3,6 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
-Append each change under Unreleased as it lands; at release the `changelog` skill cleans that block into player-facing version notes.
 
 ## [Unreleased]
 
@@ -15,6 +14,40 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
   `nsmbu extract` uses `nsmbu-extract`; use `nsmbu bench` for performance scenarios.
 - Dropped `docs/ts-tools-port.md`, Android `--service-fixture` packaging, and the dead `game_sample_report.py` doc reference.
   Renamed bench tests to `test_bench_lib.py`.
+- The release step commits and pushes the changelog before it tags.
+- Windows and Linux release builds download SDL3 from the CI assets repo instead of compiling it.
+
+## [0.8.2] - 2026-11-01
+
+### Changed
+
+- Once a game is ready, the Android app icon starts the game.
+  The installer opens again only when you open a new version of the app.
+  Long-press the icon and choose **Game setup** to open the installer.
+- On Android, **Settings > Android > Quit to the installer** leaves the game and opens the installer.
+- On Android, **Rebuild the game** is under **Play**.
+  It runs setup again for this version of the app.
+
+### Fixed
+
+- Windows on older Intel graphics no longer crashes after the intro when the title screen loads.
+- Android setup finishes translating the game instead of stopping.
+- Setup finishes translating a USA or Europe base disc.
+- On Android, **Quit to the installer** leaves the installer open.
+  Closing the game no longer closes that screen.
+- On Android, the Controls tab no longer draws overlapping binding chips and leader lines.
+  Touch option rows wrap cleanly.
+- On Android, Controls uses one page scroll.
+- On Android, the controller drawing is shown again.
+  It grows until the binding columns fit.
+- On Android, Controls **List view** stays off unless you turn it on.
+- On Android, a touch on a settings tab opens that tab.
+  Only the open tab is colored.
+- On Android, settings text shows arrow characters.
+- On Android, drag on the settings page to scroll.
+- On Android, **Share log** includes the setup log.
+  You can send a failed setup before the game has run.
+
 ## [0.8.1] - 2026-10-31
 
 ### Added
@@ -343,7 +376,8 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 - The TV and GamePad present together on one vsync.
 
-[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.7.1...v0.7.2

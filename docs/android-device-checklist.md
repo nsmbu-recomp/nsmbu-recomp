@@ -7,6 +7,20 @@ Record the device, Android version, GPU, driver and APK version with each result
 
 - Install the release APK on an arm64 phone with no earlier NSMBU install.
   The app icon opens setup and **Play** stays disabled.
+- After a game is ready, leave the app and open it from the icon.
+  The game starts.
+  The installer does not appear.
+- When a game is ready, tap **Rebuild the game**.
+  Setup runs again, and pieces that still match this version are kept.
+- Install an APK with the same versionCode over that one.
+  The icon starts the game.
+- Install an APK with a higher versionCode over that one.
+  The icon opens the installer.
+  Leave the app and open it again.
+  The game starts.
+- Long-press the icon and choose **Game setup**.
+  The installer opens.
+  **Settings > Android** is the last tab and describes when the installer opens.
 - Set up from an extracted game folder, a Cemu `.wua` archive, and a `.wud`/`.wux` image with a Cemu `keys.txt`.
   Each setup reaches **Play**, and the game boots to the title screen.
 - Set up a `.wud`/`.wux` image with separate disc and common key files, and once with a wrong key.
@@ -30,6 +44,7 @@ Record the device, Android version, GPU, driver and APK version with each result
 - Back opens and closes Settings, and a controller's Home button opens them too.
 - Full screen covers the cutout area in both landscape directions.
 - **Share log** in setup shares `nsmbu.log` and `nsmbu-previous.log` after a run.
+  Before the game has run, the same button shares the setup status and the latest extract, translation, compile, and link logs.
 - Kill the game from the system (low memory or `adb shell am kill`).
   The next start offers a report with the Android exit reason.
 - Export a save from the launcher shortcut while the game runs.

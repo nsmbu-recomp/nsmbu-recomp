@@ -1,7 +1,8 @@
 # New Super Mario Bros. U on Android
 
 New Super Mario Bros. U runs natively on Android devices.
-It is not an emulator: the game's own code is recompiled for ARM processors and draws with Vulkan.
+It is not an emulator.
+The game's own code is recompiled for ARM processors and draws with Vulkan.
 You need your own copy of the Wii U game; this project never provides game files, game code or keys.
 
 ## What you need
@@ -35,20 +36,30 @@ When an update needs it, the device prepares the game again.
    You can leave the app while setup runs.
    **Pause** stops setup safely, and setup also pauses by itself when the device is too warm or the battery is low.
 4. When setup is complete, tap **Play**.
+   **Rebuild the game** is under **Play**.
+   It runs setup again for this version of the app.
+   Pieces that still match this version are kept.
+
+The app icon skips this installer once a game is ready.
+The installer opens again only when you open a new version of the app.
+That screen stays up until you leave it.
+The next open of that version starts the game.
+Long-press the app icon and choose **Game setup** to open the installer yourself.
+**Settings > Android** describes this.
+**Quit to the installer** on that tab leaves the game and opens the installer.
+The installer stays open when the game closes.
 
 When you choose a different game, the app deletes its copy of the earlier choice to free space.
 The game that you can already play stays until the new one is ready.
 
-### Or: build it on your PC
+### Or: build the setup app on your PC
 
 1. Install the Android SDK and NDK, JDK 17 or 21, CMake, Ninja and Python 3.
-2. Extract your game and generate its code, as in the *Building* steps of the [README](../README.md).
-3. Run `nsmbu apk`, or `android/build_native.sh` then `./gradlew assembleRelease` in `android/`.
-4. On the phone, open the app and tap **Choose your game**, then pick the folder that contains `code`, `content` and `meta` (for example a copy under Download). The app copies it privately and **Play** uses that copy. You can still use `nsmbu apk` over USB instead.
-5. If you built manually and skipped both, install the APK and copy the game into `Android/data/org.nsmbrecomp.nsmbu/files/game/` with `adb push`.
-
-An APK that you build on your PC contains your recompiled game.
-Keep it for your own device and never share it.
+2. Run `nsmbu apk`.
+   That builds the same kind of APK as a release and installs it on a USB device.
+   The APK has the setup tools and does not contain the game.
+3. On the phone, open the app and tap **Choose your game**, then pick the folder that contains `code`, `content` and `meta`.
+   The device prepares that copy.
 
 ## Playing
 
@@ -95,6 +106,8 @@ If that happens, go back to Normal.
 - The system Files app shows the app's folders (saves, settings, logs).
   The game and the shader cache are read-only there, and key files are never shown.
 - **Share log** in the setup app shares the game's log from the last run and the run before it.
+  It also shares the current setup's status and the latest extract, translation, compile, and link logs.
+  A failed setup can be sent before the game has run.
 - After a crash, the next start offers the crash report to share.
   The report also covers exits that Android records itself, such as low-memory kills and driver aborts.
   Normal quits and stops by the save tools do not make a report.

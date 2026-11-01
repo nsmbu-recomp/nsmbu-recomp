@@ -28,6 +28,7 @@ public class SetupActivity extends Activity {
     private Button choose;
     private Button details;
     private Button resume;
+    private Button rebuild;
     private Button pause;
     private Button continueAnyway;
     private String continueAction;
@@ -52,17 +53,77 @@ public class SetupActivity extends Activity {
         return PcGameFolder.ready(this);
     }
 
-    /** A game is ready: an active phone build that needs no rebuild and no setup in progress, or the
-     *  PC route's game folder. */
-    private boolean readyToPlay() {
+    /** A game the activity can launch now: the phone build AndroidGame.selected accepts, or the PC route's folder. */
+    private boolean launchableGame() {
         try {
             if (!phoneSetup) return pcGame();
-            if (!new File(AndroidGame.storage(this), "active.json").isFile() || AndroidGame.needsRebuild(this))
-                return false;
+            return AndroidGame.selected(this) != null;
+        } catch (Exception unreadable) { return false; }
+    }
+
+    private boolean setupBusy() {
+        try {
             File job = SetupStore.current(this);
             File host = job == null ? null : new File(job, "host.json");
-            return host == null || !host.isFile() || SetupStore.read(host).optString("state").equals("complete");
+            if (host == null || !host.isFile()) return false;
+            String name = SetupStore.read(host).optString("state");
+            return name.equals("activating") || name.equals("importing") || name.equals("preparing") || name.equals("running");
         } catch (Exception unreadable) { return false; }
+    }
+
+    /** Launcher shortcut extras are strings. A notification puts a real boolean on the same key.
+     *  Quit to the installer also sets show_setup, because leaving the game can exit the process. */
+    private boolean showSetupRequested() {
+        Intent intent = getIntent();
+        boolean extra = intent.getBooleanExtra(EXTRA_SHOW_SETUP, false) ||
+            "true".equals(intent.getStringExtra(EXTRA_SHOW_SETUP));
+        android.content.SharedPreferences prefs = getSharedPreferences("setup", MODE_PRIVATE);
+        boolean held = prefs.getBoolean("show_setup", false);
+        if (held) prefs.edit().remove("show_setup").commit();
+        return extra || held;
+    }
+
+    /** A ready game starts on its own. The installer returns only for a new versionCode. */
+    private boolean shouldAutoPlay() {
+        if (showSetupRequested() || checkingFolder || setupBusy()) return false;
+        if (!launchableGame() || versionChanged()) return false;
+        rememberVersion();
+        return true;
+    }
+
+    private long packageVersion() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).getLongVersionCode();
+        } catch (Exception missing) {
+            return -1;
+        }
+    }
+
+    /** Missing seen_version means this install already has a game, so the icon skips the installer. */
+    private boolean versionChanged() {
+        long version = packageVersion();
+        if (version < 0) return true;
+        android.content.SharedPreferences prefs = getSharedPreferences("setup", MODE_PRIVATE);
+        if (!prefs.contains("seen_version")) return !launchableGame();
+        return prefs.getLong("seen_version", -1) != version;
+    }
+
+    private void rememberVersion() {
+        long version = packageVersion();
+        if (version < 0 || !launchableGame()) return;
+        getSharedPreferences("setup", MODE_PRIVATE).edit().putLong("seen_version", version).commit();
+    }
+
+    private void startGame() {
+        rememberVersion();
+        startActivity(new Intent(this, NsmbuActivity.class));
+    }
+
+    private void playNow() {
+        if (launchingGame || isFinishing()) return;
+        launchingGame = true;
+        startGame();
+        finish();
     }
 
     @Override public void onCreate(Bundle state) {
@@ -74,11 +135,8 @@ public class SetupActivity extends Activity {
         catch (Exception unavailable) { phoneSetup = false; }
         if (phoneSetup && state == null) cleanJobs();
         if ((state != null && state.getBoolean("launching_game", false)) ||
-                (state == null && Intent.ACTION_MAIN.equals(getIntent().getAction()) &&
-                !getIntent().getBooleanExtra(EXTRA_SHOW_SETUP, false) && readyToPlay())) {
-            launchingGame = true;
-            startActivity(new Intent(this, NsmbuActivity.class));
-            finish();
+                (state == null && shouldAutoPlay())) {
+            playNow();
             return;
         }
         android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
@@ -110,7 +168,8 @@ public class SetupActivity extends Activity {
         detail.setTextSize(16);
         detail.setPadding(0, gap / 2, 0, gap);
         layout.addView(detail);
-        play = button(layout, getString(R.string.setup_play), () -> startActivity(new Intent(this, NsmbuActivity.class)));
+        play = button(layout, getString(R.string.setup_play), this::startGame);
+        rebuild = button(layout, getString(R.string.setup_rebuild), this::rebuildGame);
         button(layout, getString(R.string.setup_share_log), () -> LogShare.share(this));
         play.setTextSize(20);
         play.setTextColor(0xFFFFFFFF);
@@ -414,6 +473,14 @@ public class SetupActivity extends Activity {
         return button;
     }
 
+    private void rebuildGame() {
+        if (!phoneSetup) {
+            android.widget.Toast.makeText(this, R.string.setup_rebuild_pc, android.widget.Toast.LENGTH_LONG).show();
+            return;
+        }
+        control(SetupService.RESUME);
+    }
+
     private void control(String action) {
         try {
             actionMessage = null;
@@ -549,12 +616,15 @@ public class SetupActivity extends Activity {
                 common.setEnabled(needsKeys && replaceable(job));
                 resume.setEnabled(phoneSetup && job != null && (!needsKeys || (discReady && commonReady)));
                 pause.setEnabled(phoneSetup && job != null);
-                for (Button picker : pickers) picker.setEnabled(phoneSetup && replaceable(job) && !checkingFolder);
+                for (Button picker : pickers)
+                    picker.setEnabled(!checkingFolder && (phoneSetup ? replaceable(job) : true));
                 play.setEnabled(new File(AndroidGame.storage(SetupActivity.this), "active.json").isFile() ||
                     pcGame());
                 String hostName = hostState == null ? (job == null ? "" : "selected") : hostState.optString("state");
                 boolean working = hostName.equals("activating") || hostName.equals("importing") || hostName.equals("preparing") || hostName.equals("running");
-                show(play, play.isEnabled() && !working && !checkingFolder);
+                boolean showPlay = play.isEnabled() && !working && !checkingFolder;
+                show(play, showPlay);
+                show(rebuild, showPlay);
                 show(choose, (phoneSetup && !working) || (!phoneSetup && !checkingFolder));
                 show(folderHint, phoneSetup && !working);
                 if (!phoneSetup) {
@@ -620,9 +690,15 @@ public class SetupActivity extends Activity {
                 if (actionMessage != null) text += "\n" + actionMessage;
                 setTextIfChanged(status, text + "\n\n" + CHECKPOINTS);
             } catch (Exception failure) { setTextIfChanged(status, "Cannot read setup progress: " + failure.getMessage()); }
-            handler.postDelayed(this, 500);
+            if (!isFinishing()) handler.postDelayed(this, 500);
         }
     };
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (shouldAutoPlay()) playNow();
+    }
 
     @Override protected void onResume() {
         super.onResume();
@@ -645,4 +721,9 @@ public class SetupActivity extends Activity {
         }, "nsmbu-setup-check").start();
     }
     @Override protected void onPause() { handler.removeCallbacks(refresh); super.onPause(); }
+
+    @Override protected void onStop() {
+        rememberVersion();
+        super.onStop();
+    }
 }

@@ -3,7 +3,8 @@
 ## Rules
 
 - Assume that the Typescript to Lua watcher is already running.
-- Add each commit message/change to the changelog it will be reformated later for release.
+- Add each commit message/change to the changelog it will be reformated later for release. 
+  (Reference issue number if a fix for one was done eg #123)
 
 ## Code style
 
@@ -15,3 +16,9 @@ The `nsmbu` target compiles with `-Wall`.
 ## Decomp
 
 Any discoveries you find about the source code document it in the `vendor/decomp/docs` repo.
+
+## Verification
+
+Read the `verify` skill before you finish a change.
+Run every check a command, playtest, boot, or APK install can settle.
+When a person still has to play through a level, end the turn with the verification steps for them.

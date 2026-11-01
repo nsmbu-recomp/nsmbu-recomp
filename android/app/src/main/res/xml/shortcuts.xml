@@ -1,7 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- long-press the app icon: export the save as a zip / import one (from another phone or the PC
-     version's save/ folder) -->
+     version's save/ folder), or open the installer (the icon starts the game once this install was played) -->
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="game_setup"
+        android:enabled="true"
+        android:shortcutShortLabel="@string/game_setup">
+        <intent android:action="android.intent.action.MAIN"
+            android:targetPackage="org.nsmbrecomp.nsmbu"
+            android:targetClass="org.nsmbrecomp.nsmbu.SetupActivity">
+            <extra android:name="org.nsmbrecomp.nsmbu.SHOW_SETUP" android:value="true" />
+        </intent>
+    </shortcut>
     <shortcut android:shortcutId="export_save"
         android:enabled="true"
         android:shortcutShortLabel="@string/save_export">
