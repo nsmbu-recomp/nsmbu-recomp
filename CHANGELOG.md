@@ -8,8 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Draft Odin rewrite of overlay frame history and perf averaging (`runtime/odin/perf_average`).
-- Espresso `fres` / `frsqrte` estimates now come from Odin (`runtime/odin/espresso_fp`).
+- Draft Odin rewrite of overlay frame history, perf averaging, and Espresso `fres` / `frsqrte` in one object (`runtime/odin/nsmbu`).
 - The performance overlay shows 1% low FPS in a FPS / AVG / 1% row (values only in the columns).
 - Documented every agent verification path in `docs/developer/verification.md`.
 - Decomp docs: course-entry save-byte map and `setupCourse` FieldGame/`PlayerMgr` reads; soft-restart audio init vs `startSound` bootstrap order.

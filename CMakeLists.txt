@@ -191,40 +191,25 @@ if(NSMBU_SDL_HOST)
 endif()
 set_source_files_properties(${GX2_SOURCES} ${GFX_SOURCES} PROPERTIES COMPILE_OPTIONS "-include;${CEMU_DIR}/cemu_shim.h")
 find_program(ODIN odin REQUIRED)
-set(PERF_AVERAGE_ODIN_PKG ${CMAKE_SOURCE_DIR}/runtime/odin/perf_average)
-set(PERF_AVERAGE_ODIN_OBJ ${CMAKE_BINARY_DIR}/perf_average_odin.o)
-set(PERF_AVERAGE_ODIN_SRC ${PERF_AVERAGE_ODIN_PKG}/perf_average.odin)
-set(PERF_AVERAGE_ODIN_TARGET_ARGS)
+set(NSMBU_ODIN_PKG ${CMAKE_SOURCE_DIR}/runtime/odin/nsmbu)
+set(NSMBU_ODIN_OBJ ${CMAKE_BINARY_DIR}/nsmbu_odin.o)
+set(NSMBU_ODIN_SRCS
+    ${NSMBU_ODIN_PKG}/perf_average.odin
+    ${NSMBU_ODIN_PKG}/espresso_fp.odin)
+set(NSMBU_ODIN_TARGET_ARGS)
 if(ANDROID AND CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
-  list(APPEND PERF_AVERAGE_ODIN_TARGET_ARGS -target:linux_arm64 -subtarget:android)
+  list(APPEND NSMBU_ODIN_TARGET_ARGS -target:linux_arm64 -subtarget:android)
 elseif(NSMBU_IOS)
-  list(APPEND PERF_AVERAGE_ODIN_TARGET_ARGS -target:darwin_arm64 -subtarget:ios)
+  list(APPEND NSMBU_ODIN_TARGET_ARGS -target:darwin_arm64 -subtarget:ios)
 endif()
 add_custom_command(
-  OUTPUT ${PERF_AVERAGE_ODIN_OBJ}
-  COMMAND ${ODIN} build ${PERF_AVERAGE_ODIN_PKG} -build-mode:obj -no-entry-point -reloc-mode:pic -vet -strict-style
-          -use-single-module -out:${PERF_AVERAGE_ODIN_OBJ} ${PERF_AVERAGE_ODIN_TARGET_ARGS}
-  DEPENDS ${PERF_AVERAGE_ODIN_SRC}
-  COMMENT "Building perf_average Odin object"
+  OUTPUT ${NSMBU_ODIN_OBJ}
+  COMMAND ${ODIN} build ${NSMBU_ODIN_PKG} -build-mode:obj -no-entry-point -reloc-mode:pic -vet -strict-style
+          -use-single-module -out:${NSMBU_ODIN_OBJ} ${NSMBU_ODIN_TARGET_ARGS}
+  DEPENDS ${NSMBU_ODIN_SRCS}
+  COMMENT "Building nsmbu Odin object"
   VERBATIM)
-set_source_files_properties(${PERF_AVERAGE_ODIN_OBJ} PROPERTIES EXTERNAL_OBJECT TRUE GENERATED TRUE)
-set(ESPRESSO_FP_ODIN_PKG ${CMAKE_SOURCE_DIR}/runtime/odin/espresso_fp)
-set(ESPRESSO_FP_ODIN_OBJ ${CMAKE_BINARY_DIR}/espresso_fp_odin.o)
-set(ESPRESSO_FP_ODIN_SRC ${ESPRESSO_FP_ODIN_PKG}/espresso_fp.odin)
-set(ESPRESSO_FP_ODIN_TARGET_ARGS)
-if(ANDROID AND CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
-  list(APPEND ESPRESSO_FP_ODIN_TARGET_ARGS -target:linux_arm64 -subtarget:android)
-elseif(NSMBU_IOS)
-  list(APPEND ESPRESSO_FP_ODIN_TARGET_ARGS -target:darwin_arm64 -subtarget:ios)
-endif()
-add_custom_command(
-  OUTPUT ${ESPRESSO_FP_ODIN_OBJ}
-  COMMAND ${ODIN} build ${ESPRESSO_FP_ODIN_PKG} -build-mode:obj -no-entry-point -reloc-mode:pic -vet -strict-style
-          -use-single-module -out:${ESPRESSO_FP_ODIN_OBJ} ${ESPRESSO_FP_ODIN_TARGET_ARGS}
-  DEPENDS ${ESPRESSO_FP_ODIN_SRC}
-  COMMENT "Building espresso_fp Odin object"
-  VERBATIM)
-set_source_files_properties(${ESPRESSO_FP_ODIN_OBJ} PROPERTIES EXTERNAL_OBJECT TRUE GENERATED TRUE)
+set_source_files_properties(${NSMBU_ODIN_OBJ} PROPERTIES EXTERNAL_OBJECT TRUE GENERATED TRUE)
 if(NSMBU_IOS)
   add_executable(nsmbu MACOSX_BUNDLE ${RUNTIME_SOURCES} ${GX2_SOURCES} ${GFX_SOURCES} ${MOD_GFX_SOURCES} ${IMGUI_METAL})
   include(cmake/IOSBundle.cmake)
@@ -236,7 +221,7 @@ else()
   add_executable(nsmbu ${RUNTIME_SOURCES} ${GX2_SOURCES} ${GFX_SOURCES} ${MOD_GFX_SOURCES} ${IMGUI_METAL})
 endif()
 target_include_directories(nsmbu PRIVATE runtime/include runtime/src runtime/src/gx2)
-target_sources(nsmbu PRIVATE ${PERF_AVERAGE_ODIN_OBJ} ${ESPRESSO_FP_ODIN_OBJ})
+target_sources(nsmbu PRIVATE ${NSMBU_ODIN_OBJ})
 add_dependencies(nsmbu nsmbu_build_info)
 target_compile_options(nsmbu PRIVATE -Wall -Wno-unused-function -Wno-unused-variable -ffp-contract=off)
 if(NOT TARGET ZLIB::ZLIB)
@@ -667,12 +652,12 @@ if(Python3_Interpreter_FOUND AND NOT ANDROID)
 endif()
 
 add_executable(perf_average_test runtime/test/perf_average_test.cpp)
-target_sources(perf_average_test PRIVATE ${PERF_AVERAGE_ODIN_OBJ})
+target_sources(perf_average_test PRIVATE ${NSMBU_ODIN_OBJ})
 target_include_directories(perf_average_test PRIVATE runtime/src)
 target_compile_options(perf_average_test PRIVATE -UNDEBUG)
 add_test(NAME perf_average COMMAND perf_average_test)
 add_executable(espresso_fp_test runtime/test/espresso_fp_test.cpp runtime/test/espresso_fp_ref.c)
-target_sources(espresso_fp_test PRIVATE ${ESPRESSO_FP_ODIN_OBJ})
+target_sources(espresso_fp_test PRIVATE ${NSMBU_ODIN_OBJ})
 target_include_directories(espresso_fp_test PRIVATE runtime/include)
 target_compile_options(espresso_fp_test PRIVATE -UNDEBUG)
 add_test(NAME espresso_fp COMMAND espresso_fp_test)

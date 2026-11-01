@@ -1,4 +1,4 @@
-package perf_average
+package nsmbu
 
 FRAME_COUNT :: 120
 

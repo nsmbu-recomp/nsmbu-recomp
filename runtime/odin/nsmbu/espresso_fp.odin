@@ -1,7 +1,7 @@
 // Lookup tables and algorithm from Cemu (PPCInterpreterFPU.cpp).
 // Copyright (c) Cemu contributors, licensed under the Mozilla Public License 2.0.
 
-package espresso_fp
+package nsmbu
 
 import "base:intrinsics"
 
