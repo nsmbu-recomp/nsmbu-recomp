@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The performance overlay shows 1% low FPS in a FPS / AVG / 1% row (values only in the columns).
 - Documented every agent verification path in `docs/developer/verification.md`.
 - Decomp docs: course-entry save-byte map and `setupCourse` FieldGame/`PlayerMgr` reads; soft-restart audio init vs `startSound` bootstrap order.
+- Decomp: `AttentionMgr` singleton, list, entry/release, and nearest lookat search (`0x0200CB88`–`0x0200CD2C`).
+- Decomp: documented sead frame loop (`procFrame_`, method-tree `call`, DualScreen draw/calc) and course setup helpers (`PlayerMgr::initializeForCourseSetup`, `sub_02742F9C`).
 
 ### Changed
 
