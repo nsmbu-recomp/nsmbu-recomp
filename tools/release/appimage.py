@@ -42,7 +42,7 @@ import urllib.request
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
-ICON = os.path.join(ROOT, "android", "app", "src", "main", "res", "mipmap-xxxhdpi", "ic_launcher.png")
+ICON = os.path.join(ROOT, "runtime", "android", "app", "src", "main", "res", "mipmap-xxxhdpi", "ic_launcher.png")
 
 APPIMAGETOOL_VERSION = "1.9.1"
 APPIMAGETOOL = {
@@ -249,8 +249,8 @@ def main():
     a = ap.parse_args()
 
     pkg = os.path.normpath(os.path.abspath(a.pkg))
-    if not os.path.isfile(os.path.join(pkg, "tools", "installer", "setup.py")):
-        sys.exit("%s is not a packaged release (no tools/installer/setup.py)" % pkg)
+    if not os.path.isfile(os.path.join(pkg, "installer", "setup.py")):
+        sys.exit("%s is not a packaged release (no installer/setup.py)" % pkg)
     if not os.path.isfile(os.path.join(pkg, "nsmbu-launcher")):
         sys.exit("%s has no nsmbu-launcher (package it with --setup-gui)" % pkg)
     if not os.path.isfile(os.path.join(pkg, "portable.txt")):

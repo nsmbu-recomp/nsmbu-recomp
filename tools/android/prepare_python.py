@@ -64,8 +64,7 @@ def verified_download(url, archive, expected):
 
 ANDROID_SOURCES = ["tools/android/setup_adapter.py", "tools/android/native_process.py",
                    "tools/android/ondevice_setup.py"]
-FIXTURE_SOURCES = ["tools/android/debug_fixture_build.py", "tools/android/embedding_smoke.py",
-                   "tools/recomp/android_fixture.py"]
+FIXTURE_SOURCES = ["tools/android/debug_fixture_build.py", "recomp/android_fixture.py"]
 
 
 def desktop_files(root):
@@ -81,7 +80,7 @@ def desktop_files(root):
 def source_files(root, test_fixtures=False):
     root = Path(root)
     source_paths = [path for path in desktop_files(root) + [root / name for name in ANDROID_SOURCES] if path.is_file()]
-    recomp = root / "tools/recomp"
+    recomp = root / "recomp"
     source_paths += sorted(path for path in recomp.glob("hooks*.txt") if path.is_file())
     source_paths += sorted(path for path in (recomp / "builds").glob("*.json") if path.is_file())
     if test_fixtures:
@@ -102,11 +101,7 @@ def main():
     parser.add_argument("--ndk", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--runtime-sdk", type=Path, help="validated package_runtime.py output")
-    parser.add_argument("--extraction-fixture", type=Path, help="test-only authored ZArchive")
-    parser.add_argument("--service-fixture", action="store_true", help="include debug-only synthetic service entry point; never use in release packages")
     args = parser.parse_args()
-    if args.extraction_fixture and not args.service_fixture:
-        parser.error("--extraction-fixture requires debug-only --service-fixture")
     started = time.monotonic()
     root = Path(__file__).resolve().parents[2]
     out = args.out.resolve()
@@ -133,21 +128,16 @@ def main():
     if len(compilers) != 1: raise ValueError("NDK clang not uniquely located")
     subprocess.run([str(compilers[0]), f"--target={host}33", "-shared", "-fPIC",
                     "-Wl,-z,max-page-size=16384", "-Wl,-z,defs", "-Wall", "-Wextra", "-Werror",
-                    "-I" + str(prefix / "include/python3.14"), str(root / "android/python/bridge.c"),
-                    str(root / "android/python/process.c"),
+                    "-I" + str(prefix / "include/python3.14"), str(root / "runtime/android/python/bridge.c"),
+                    str(root / "runtime/android/python/process.c"),
                     "-L" + str(prefix / "lib"), "-lpython3.14", "-ldl", "-o", str(native / "libnsmbupython.so")], check=True)
     with zipfile.ZipFile(assets / "python-home.zip", "w", zipfile.ZIP_DEFLATED) as bundle:
         for path in sorted((prefix / "lib/python3.14").rglob("*")):
             if path.is_file() and "__pycache__" not in path.parts:
                 write_entry(bundle, path.relative_to(prefix), path.read_bytes())
-    source_paths = source_files(root, args.service_fixture)
+    source_paths = source_files(root)
     with zipfile.ZipFile(assets / "python-source.zip", "w", zipfile.ZIP_DEFLATED) as bundle:
         for path in sorted(source_paths): write_entry(bundle, path.relative_to(root), path.read_bytes())
-        if args.service_fixture:
-            write_entry(bundle, "tools/android/service_fixture.py", (root / "tools/android/service_fixture.py").read_bytes())
-        if args.extraction_fixture:
-            write_entry(bundle, "tools/android/extraction-fixture.bin", args.extraction_fixture.read_bytes())
-            write_entry(bundle, "tools/android/extraction-fixture.json", args.extraction_fixture.with_suffix(".json").read_bytes())
         if args.runtime_sdk:
             sdk_assets = args.runtime_sdk / "assets"
             metadata = json.loads((sdk_assets / "runtime-sdk.json").read_text())
@@ -163,14 +153,6 @@ def main():
                         raise ValueError("Invalid runtime SDK path")
                     write_entry(bundle, item.filename, sdk.read(item))
             shutil.copyfile(sdk_assets / "runtime-sdk.json", assets / "runtime-sdk.json")
-        if args.runtime_sdk and args.service_fixture:
-            import sys
-            sys.path.insert(0, str(root / "tools/recomp"))
-            import stubgen
-            import tempfile
-            with tempfile.TemporaryDirectory(dir=out) as temporary:
-                stubgen.main(temporary)
-                write_entry(bundle, "tools/android/runtime_fixture.c", runtime_fixture_source(temporary))
         if not args.runtime_sdk:
             for path in sorted((root / "runtime/include").rglob("*")):
                 if path.is_file(): write_entry(bundle, Path("sdk/include") / path.relative_to(root / "runtime/include"), path.read_bytes())

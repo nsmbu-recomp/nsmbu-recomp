@@ -60,7 +60,7 @@ class DebugFixtureTests(unittest.TestCase):
         release = {str(p.relative_to(ROOT)) for p in source_files(ROOT)}
         debug = {str(p.relative_to(ROOT)) for p in source_files(ROOT, True)}
         self.assertFalse(release & guard.ANDROID_TEST_FILES)
-        self.assertIn('tools/recomp/builds/eu.json', release)
+        self.assertIn('recomp/builds/eu.json', release)
         self.assertIn('tools/android/debug_fixture_build.py', debug)
         for test_resource in guard.ANDROID_TEST_FILES:
             with self.subTest(resource=test_resource), tempfile.TemporaryDirectory() as temp:

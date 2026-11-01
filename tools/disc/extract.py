@@ -5,7 +5,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "tools", "recomp"))
+sys.path.insert(0, os.path.join(ROOT, "recomp"))
 sys.path.insert(0, os.path.join(ROOT, "tools", "lib"))
 import builds
 import game_dump
@@ -46,6 +46,26 @@ def check_update(game):
     return True
 
 
+def nsmbu_extract_path(root):
+    name = "nsmbu-extract.exe" if sys.platform == "win32" else "nsmbu-extract"
+    for sub in ("debug", "release", ""):
+        base = os.path.join(root, "build", sub) if sub else os.path.join(root, "build")
+        path = os.path.join(base, name)
+        if os.path.isfile(path):
+            return path
+    sys.exit("%s not found under build/; run `nsmbu build` first" % name)
+
+
+def run_disc_extract(image, disc, common, out):
+    blob = ("disc %s\ncommon %s\n" % (disc.hex(), common.hex())).encode()
+    subprocess.run(
+        [nsmbu_extract_path(ROOT), "--keys-stdin", "extract", image, out],
+        input=blob,
+        check=True,
+        cwd=ROOT,
+    )
+
+
 def main():
     game = game_dump.game_root()
     root = gv.game_root()
@@ -75,17 +95,7 @@ def main():
 
     print("")
     print("extracting base disc into %s ..." % game)
-    subprocess.run(
-        [
-            sys.executable,
-            os.path.join(ROOT, "tools", "disc", "wudextract.py"),
-            image,
-            "extract",
-            game,
-        ],
-        check=True,
-        cwd=ROOT,
-    )
+    run_disc_extract(image, disc, common, game)
 
     if have_update:
         print("applying %s onto %s ..." % (game_dump.UPDATE_DIRNAME, game))

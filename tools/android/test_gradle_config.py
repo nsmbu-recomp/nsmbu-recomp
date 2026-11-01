@@ -5,7 +5,7 @@ import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-GRADLE = (ROOT / "android/app/build.gradle").read_text()
+GRADLE = (ROOT / "runtime/android/app/build.gradle").read_text()
 spec = importlib.util.spec_from_file_location("nsmbu_guard", ROOT / "tools/release/guard.py")
 guard = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(guard)

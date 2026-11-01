@@ -291,8 +291,7 @@ Geo layout(bool pro, FaceLayout fl, ImVec2 org, float w, float h) {
         return total;
     };
     if (column_need(false) > colRoom || column_need(true) > colRoom) g.compact_side = true;
-    if (!g.compact_side) {
-        for (int side = 0; side < 2; side++) {
+    for (int side = 0; side < 2; side++) {
             std::vector<Group*> colg;
             for (auto& gr : g.groups)
                 if (gr.right == (side == 1)) colg.push_back(&gr);
@@ -321,7 +320,6 @@ Geo layout(bool pro, FaceLayout fl, ImVec2 org, float w, float h) {
                 for (int q = 0; q < n; q++, ry += rowH) gr.rows.push_back(ry);
             }
         }
-    }
     return g;
 }
 
@@ -418,7 +416,8 @@ void draw_controls(ControlsView& v, float w, float h) {
     for (int side = 0; side < 2; side++)
         for (auto& gr : g.groups) {
             if (gr.right != (side == 1)) continue;
-            for (size_t q = 0; q < gr.acts.size(); q++)
+            for (size_t q = 0; q < gr.acts.size(); q++) {
+                if (q >= gr.rows.size()) break;
                 for (int c = 0; c < 3; c++) {
                     ChipItem ch;
                     ch.action = gr.acts[q];
@@ -447,6 +446,7 @@ void draw_controls(ControlsView& v, float w, float h) {
                     }
                     chips.push_back(ch);
                 }
+            }
         }
 
     if (v.hover_action < 0 && partHover >= 0) v.hover_action = partHover;
@@ -609,6 +609,7 @@ void draw_controls(ControlsView& v, float w, float h) {
         if (multi)
             text_fit(dl, gr.title, ImVec2(gr.a.x + 8 * k, gr.a.y + 2 * k), ImVec2(gr.b.x - 8 * k, gr.a.y + (2 + kRowH) * k), 14 * k, P.label);
         for (size_t q = 0; q < gr.acts.size(); q++) {
+            if (q >= gr.rows.size()) break;
             int a = gr.acts[q];
             float ry = gr.rows[q];
             if (a == hover || a == v.cap_action)

@@ -11,8 +11,9 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ANDROID = os.path.join(ROOT, "runtime", "android")
 NDK_VERSION = "30.0.16248370"
-APK = os.path.join(ROOT, "android", "app", "build", "outputs", "apk", "release", "app-release.apk")
+APK = os.path.join(ANDROID, "app", "build", "outputs", "apk", "release", "app-release.apk")
 VALID_ABI = frozenset({"arm64-v8a", "x86_64"})
 GRADLE_JAVA_MAX = 21
 
@@ -226,16 +227,16 @@ def build_apk(*, abi, jobs):
          "--compiler", compiler, "--out", toolchain])
     stub = os.path.join(ROOT, "build", "gen-stub")
     print("== runtime (placeholder game code)")
-    run([sys.executable, os.path.join(ROOT, "tools", "recomp", "stubgen.py"), stub])
+    run([sys.executable, os.path.join(ROOT, "recomp", "stubgen.py"), stub])
     env = os.environ.copy()
     env["ANDROID_SDK"] = sdk
     env["ABI"] = abi
     env["JOBS"] = str(jobs)
     env["GEN_DIR"] = stub
-    run(["bash", os.path.join(ROOT, "android", "build_native.sh")], env=env)
-    run(["cmake", "--build", os.path.join(ROOT, "android", "build", "game"),
+    run(["bash", os.path.join(ANDROID, "build_native.sh")], env=env)
+    run(["cmake", "--build", os.path.join(ANDROID, "build", "game"),
          "--target", "nsmbu-extract", "--parallel", str(jobs)])
-    game_build = os.path.join(ROOT, "android", "build", "game")
+    game_build = os.path.join(ANDROID, "build", "game")
     extractor = os.path.join(ROOT, "build", "extractor-apk")
     runtime = os.path.join(ROOT, "build", "runtime-sdk")
     fresh_dir(extractor)
@@ -244,14 +245,14 @@ def build_apk(*, abi, jobs):
          "--build", game_build, "--ndk", ndk, "--abi", abi, "--out", extractor])
     run([sys.executable, os.path.join(ROOT, "tools", "android", "package_runtime.py"),
          "--build", game_build, "--ndk", ndk, "--abi", abi, "--out", runtime, "--version", "local"])
-    libmain = os.path.join(ROOT, "android", "app", "libs", abi, "libmain.so")
+    libmain = os.path.join(ANDROID, "app", "libs", abi, "libmain.so")
     if os.path.isfile(libmain):
         os.remove(libmain)
     print("== embedded Python")
     run([sys.executable, os.path.join(ROOT, "tools", "android", "prepare_python.py"),
          "--abi", abi, "--ndk", ndk, "--out", os.path.join(ROOT, "build", "embedded-python"),
          "--runtime-sdk", runtime])
-    gradle = os.path.join(ROOT, "android", "gradlew")
+    gradle = os.path.join(ANDROID, "gradlew")
     props = [
         "-PnsmbuAbi=%s" % abi,
         "-PnsmbuVersionName=local",
@@ -261,7 +262,7 @@ def build_apk(*, abi, jobs):
         "-PnsmbuExtractorDir=%s" % extractor,
     ]
     print("== APK (assembleRelease)")
-    run([gradle, "-p", "android", "--no-daemon", "assembleRelease", *props], env=gradle_env(env))
+    run([gradle, "-p", "runtime/android", "--no-daemon", "assembleRelease", *props], env=gradle_env(env))
     if not os.path.isfile(APK):
         raise ApkError("Gradle did not produce %s" % APK)
     listing = run(["unzip", "-l", APK], capture=True)

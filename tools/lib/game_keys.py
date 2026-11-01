@@ -8,7 +8,7 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(ROOT, "tools", "installer"))
+sys.path.insert(0, os.path.join(ROOT, "installer"))
 import setup
 
 IMAGE_SUFFIXES = (".wux", ".wud")

@@ -3,7 +3,7 @@
 # as a GitHub Release.
 #
 # Legal: CI never has the game. Every build here uses placeholder guest code
-# (tools/recomp/stubgen.py) only to compile and test the runtime; the real game code is generated
+# (recomp/stubgen.py) only to compile and test the runtime; the real game code is generated
 # and compiled on the player's machine by the installer. tools/release/guard.py fails the job if
 # an artifact contains game code, game files, saves, shader caches or key-like strings.
 #
@@ -16,7 +16,7 @@
 # schedule runs on the default branch and only starts such a run when main has moved since the
 # current "devel-build" pre-release.
 #
-# Toolchains: tools/installer/toolchains.json pins the exact compilers. The Windows and Linux
+# Toolchains: installer/toolchains.json pins the exact compilers. The Windows and Linux
 # runtimes are built with the same pinned llvm-mingw / zig the installer downloads for players,
 # so the prebuilt runtime links with the player's locally compiled game code.
 # SDL3 is not compiled here. Jobs install the sdl3 release from nsmbu-recomp/ci-assets
@@ -123,7 +123,7 @@ jobs:
 
       - name: Build runtime (Release, Metal) against placeholder guest code
         run: |
-          python3 tools/recomp/stubgen.py build/gen-stub
+          python3 recomp/stubgen.py build/gen-stub
           cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DNSMBU_VERSION="$VERSION" -DNSMBU_RENDERER=METAL \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 -DGEN_DIR="$PWD/build/gen-stub" -DNSMBU_SETUP_GUI=ON \
             -DNSMBU_BUNDLED_ZSTD=ON
@@ -132,10 +132,10 @@ jobs:
       - name: Unit tests
         run: |
           ctest --test-dir build/rel --output-on-failure
-          python3 tools/installer/test_setup.py
-          python3 tools/recomp/test_builds.py
-          python3 tools/recomp/test_output.py
-          python3 tools/recomp/test_pool.py
+          python3 installer/test_setup.py
+          python3 recomp/test_builds.py
+          python3 recomp/test_output.py
+          python3 recomp/test_pool.py
 
       - name: Package
         run: |
@@ -233,10 +233,10 @@ jobs:
           restore-keys: |
             release-linux-${{ matrix.arch }}-${{ env.TOOLCHAIN }}-
 
-      - name: Pinned zig toolchain (tools/installer/toolchains.json)
+      - name: Pinned zig toolchain (installer/toolchains.json)
         run: |
           read -r URL SUM DIR TARGET < <(python3 -c "
-          import json, os; t=json.load(open('tools/installer/toolchains.json'))['toolchains'][os.environ['TOOLCHAIN']]
+          import json, os; t=json.load(open('installer/toolchains.json'))['toolchains'][os.environ['TOOLCHAIN']]
           print(t['url'], t['sha256'], t['dir'], t['target'])")
           # A stable compiler path keeps the ccache key the same on the next tag.
           ROOT="$HOME/zig-toolchain"
@@ -267,7 +267,7 @@ jobs:
 
       - name: Build runtime (Release, Vulkan + SDL3) with zig against placeholder guest code
         run: |
-          python3 tools/recomp/stubgen.py build/gen-stub
+          python3 recomp/stubgen.py build/gen-stub
           ccache -z
           cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DNSMBU_VERSION="$VERSION" -DGEN_DIR="$PWD/build/gen-stub" \
             -DCMAKE_C_COMPILER="$ZBIN/zcc" -DCMAKE_CXX_COMPILER="$ZBIN/zcxx" \
@@ -283,10 +283,10 @@ jobs:
         run: |
           export LD_LIBRARY_PATH="$HOME/sdl3/lib"
           ctest --test-dir build/rel --output-on-failure
-          python3 tools/installer/test_setup.py
-          python3 tools/recomp/test_builds.py
-          python3 tools/recomp/test_output.py
-          python3 tools/recomp/test_pool.py
+          python3 installer/test_setup.py
+          python3 recomp/test_builds.py
+          python3 recomp/test_output.py
+          python3 recomp/test_pool.py
 
       - name: Package
         run: |
@@ -400,10 +400,10 @@ jobs:
       - name: LuaJIT submodule
         run: git submodule update --init vendor/luajit
 
-      - name: Pinned llvm-mingw toolchain (tools/installer/toolchains.json)
+      - name: Pinned llvm-mingw toolchain (installer/toolchains.json)
         run: |
           read -r URL SUM DIR < <(python -c "
-          import json, os; t=json.load(open('tools/installer/toolchains.json'))['toolchains'][os.environ['TOOLCHAIN']]
+          import json, os; t=json.load(open('installer/toolchains.json'))['toolchains'][os.environ['TOOLCHAIN']]
           print(t['url'], t['sha256'], t['dir'])" | tr -d '\r')  # Windows Python ends lines with CR LF
           T="$(cygpath -m "$RUNNER_TEMP")"
           curl -fsSL -o "$T/llvm-mingw.zip" "$URL"
@@ -435,7 +435,7 @@ jobs:
 
       - name: Build runtime (Release, Vulkan + SDL3) with llvm-mingw against placeholder guest code
         run: |
-          python tools/recomp/stubgen.py build/gen-stub
+          python recomp/stubgen.py build/gen-stub
           cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DNSMBU_VERSION="$VERSION" -DGEN_DIR="$(cygpath -m "$PWD/build/gen-stub")" \
             -DCMAKE_C_COMPILER="$LLVM_MINGW/bin/$TRIPLE-clang.exe" \
             -DCMAKE_CXX_COMPILER="$LLVM_MINGW/bin/$TRIPLE-clang++.exe" \
@@ -448,13 +448,13 @@ jobs:
       - name: Unit tests
         run: |
           ctest --test-dir build/rel --output-on-failure
-          python tools/installer/test_setup.py
+          python installer/test_setup.py
 
-      - name: Pinned embeddable Python, shipped in the release (tools/installer/toolchains.json)
+      - name: Pinned embeddable Python, shipped in the release (installer/toolchains.json)
         # the setup runs with it (tools/python); the release itself downloads no Python (issue #58)
         run: |
           read -r URL SUM < <(python -c "
-          import json, os; p=json.load(open('tools/installer/toolchains.json'))['python'][os.environ['PY_PIN']]
+          import json, os; p=json.load(open('installer/toolchains.json'))['python'][os.environ['PY_PIN']]
           print(p['url'], p['sha256'])" | tr -d '\r')
           T="$(cygpath -m "$RUNNER_TEMP")"
           curl -fsSL -o "$T/python-embed.zip" "$URL"
@@ -606,7 +606,7 @@ jobs:
           # one character deeper: setup stops at once with the plain message
           Expand-Archive -Path $zip -DestinationPath ($outer + 'x')
           $pkg = Join-Path ($outer + 'x') $name
-          $out = & (Join-Path $pkg 'tools\python\python.exe') (Join-Path $pkg 'tools\installer\setup.py') --yes --no-launch `
+          $out = & (Join-Path $pkg 'tools\python\python.exe') (Join-Path $pkg 'installer\setup.py') --yes --no-launch `
             --gen-dir (Join-Path $env:GITHUB_WORKSPACE 'build\gen-stub') 2>&1 | Out-String
           $out
           if ($LASTEXITCODE -ne 1) { throw "setup in a too deep folder exited with $LASTEXITCODE, not 1" }
@@ -671,14 +671,14 @@ jobs:
 
       - name: Runtime, extractor and runtime SDK (placeholder game code, only to build the runtime)
         run: |
-          python3 tools/recomp/stubgen.py build/gen-stub
-          GEN_DIR="$PWD/build/gen-stub" ANDROID_SDK="$ANDROID_HOME" ABI="$ABI" JOBS=4 android/build_native.sh
-          cmake --build android/build/game --target nsmbu-extract --parallel 4
+          python3 recomp/stubgen.py build/gen-stub
+          GEN_DIR="$PWD/build/gen-stub" ANDROID_SDK="$ANDROID_HOME" ABI="$ABI" JOBS=4 runtime/android/build_native.sh
+          cmake --build runtime/android/build/game --target nsmbu-extract --parallel 4
           NDK="$ANDROID_HOME/ndk/$NDK_VERSION"
-          python3 tools/android/package_extractor.py --build android/build/game --ndk "$NDK" --abi "$ABI" --out build/extractor-apk
-          python3 tools/android/package_runtime.py --build android/build/game --ndk "$NDK" --abi "$ABI" --out build/runtime-sdk --version "$VERSION"
-          rm "android/app/libs/$ABI/libmain.so"
-          ls -la "android/app/libs/$ABI"
+          python3 tools/android/package_extractor.py --build runtime/android/build/game --ndk "$NDK" --abi "$ABI" --out build/extractor-apk
+          python3 tools/android/package_runtime.py --build runtime/android/build/game --ndk "$NDK" --abi "$ABI" --out build/runtime-sdk --version "$VERSION"
+          rm "runtime/android/app/libs/$ABI/libmain.so"
+          ls -la "runtime/android/app/libs/$ABI"
 
       - name: Cache the official CPython Android build (checksum-pinned in prepare_python.py)
         uses: actions/cache@v5
@@ -708,12 +708,12 @@ jobs:
           else
             echo "::warning::no signing secrets (fork or dry run): the APK is signed with a throwaway debug key"
           fi
-          android/gradlew -p android --no-daemon -PnsmbuAbi="$ABI" -PnsmbuVersionName="${VERSION#v}" \
+          runtime/android/gradlew -p runtime/android --no-daemon -PnsmbuAbi="$ABI" -PnsmbuVersionName="${VERSION#v}" \
             -PnsmbuVersionCode="${{ github.run_number }}" \
             -PnsmbuPythonDir="$PWD/build/embedded-python/package" -PnsmbuToolchainDir="$PWD/build/compiler/apk-package" \
             -PnsmbuExtractorDir="$PWD/build/extractor-apk" assembleRelease
           mkdir -p dist
-          cp android/app/build/outputs/apk/release/app-release.apk "$APK"
+          cp runtime/android/app/build/outputs/apk/release/app-release.apk "$APK"
           ls -la dist
 
       - name: Guard (no game code, game files, keys or test fixtures) and signature

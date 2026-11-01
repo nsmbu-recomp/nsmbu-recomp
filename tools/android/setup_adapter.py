@@ -69,9 +69,9 @@ class Adapter:
         self.emit = emit
         self.pause_requested = pause_requested
         spec = importlib.util.spec_from_file_location(
-            "nsmbu_android_installer", self.package / "tools/installer/setup.py")
+            "nsmbu_android_installer", self.package / "installer/setup.py")
         self.setup = importlib.util.module_from_spec(spec)
-        installer_path = str(self.package / "tools/installer")
+        installer_path = str(self.package / "installer")
         if installer_path not in sys.path:
             sys.path.insert(0, installer_path)
         spec.loader.exec_module(self.setup)
@@ -122,7 +122,7 @@ class Adapter:
         owner = threading.get_ident()
         stopped = threading.Event()
         failure = []
-        prefix = str(self.package / "tools/recomp") + os.sep
+        prefix = str(self.package / "recomp") + os.sep
         rpx = str(self.package / "tools/rpx/rpx.py")
 
         def interrupt(code, line):
@@ -194,7 +194,7 @@ class Adapter:
         self.emit({"stage": "extract", "state": "checking_input"})
         identity = hashlib.sha256(json.dumps({
             "image": self.hash_file(image), "kind": kind, "extractor": extractor_identity,
-            "installer": self.hash_file(self.package / "tools/installer/setup.py"),
+            "installer": self.hash_file(self.package / "installer/setup.py"),
             "update": self.update_identity(update_dir),
         }, sort_keys=True).encode()).hexdigest()
         stage = self.storage / ("extraction-" + identity)
@@ -283,7 +283,7 @@ class Adapter:
             return folder
         identity = hashlib.sha256(json.dumps({
             "folder": self.hash_tree(folder), "update": self.update_identity(update_dir),
-            "installer": self.hash_file(self.package / "tools/installer/setup.py"),
+            "installer": self.hash_file(self.package / "installer/setup.py"),
         }, sort_keys=True).encode()).hexdigest()
         stage = self.storage / ("merged-" + identity)
         game, marker = stage / "game", stage / "complete.json"
@@ -334,9 +334,9 @@ class Adapter:
         self.setup.check_game_version(str(game))
         inputs = {"adapter": self.hash_file(Path(__file__)),
                   "rpx": self.hash_file(game / "code/red-pro2.rpx"),
-                  "installer": self.hash_file(self.package / "tools/installer/setup.py"),
+                  "installer": self.hash_file(self.package / "installer/setup.py"),
                   "rpx_reader": self.hash_file(self.package / "tools/rpx/rpx.py"),
-                  "translator": self.hash_tree(self.package / "tools/recomp"),
+                  "translator": self.hash_tree(self.package / "recomp"),
                   "switches": {name: value for name, value in os.environ.items() if name.startswith("NSMBU_RECOMP_")}}
         inputs["translator"] = {name: value for name, value in inputs["translator"].items()
                                 if Path(name).suffix in (".py", ".txt", ".json")}
@@ -382,7 +382,7 @@ class Adapter:
                 return len(text)
 
         def embedded(command, env=None, stdout=None, stderr=None, text=None, bufsize=None):
-            expected = self.package / "tools/recomp/recomp.py"
+            expected = self.package / "recomp/recomp.py"
             if len(command) != 5 or Path(command[1]).resolve() != expected or command[4] != "--progress":
                 raise RuntimeError("unexpected subprocess requested by translation")
             switches = {name: value for name, value in (env or {}).items() if name.startswith("NSMBU_RECOMP_")}
@@ -451,7 +451,7 @@ class Adapter:
                  (header_roots if header_roots is not None else [self.package / "sdk"])]
         identity = hashlib.sha256(json.dumps({
             "port_revision": self.port_revision,
-            "installer": self.hash_file(self.package / "tools/installer/setup.py"),
+            "installer": self.hash_file(self.package / "installer/setup.py"),
             "generated": self.hash_tree(generated),
             "headers": {str(path): self.hash_tree(path) for path in roots},
             "toolchain": toolchain_identity,
@@ -562,7 +562,7 @@ class Adapter:
                  (sdk_roots if sdk_roots is not None else [self.package / "sdk"])]
         identity = hashlib.sha256(json.dumps({
             "port_revision": self.port_revision,
-            "installer": self.hash_file(self.package / "tools/installer/setup.py"),
+            "installer": self.hash_file(self.package / "installer/setup.py"),
             "objects": [{"path": path, "sha256": self.hash_file(Path(path))} for path in objects],
             "sdk": {str(path): self.hash_tree(path) for path in roots},
             "toolchain": toolchain_identity,

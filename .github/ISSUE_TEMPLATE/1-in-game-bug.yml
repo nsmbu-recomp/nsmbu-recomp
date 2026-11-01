@@ -86,7 +86,7 @@ body:
         - From source: `nsmbu/logs/`
         - AppImage: `~/.config/nsmbu/logs/`
 
-        Full paths: https://github.com/nsmbu-recomp/nsmbu-recomp/blob/main/docs/logs.md
+        Full paths: https://github.com/nsmbu-recomp/nsmbu-recomp/blob/main/docs/user/logs.md
     validations:
       required: true
   - type: textarea

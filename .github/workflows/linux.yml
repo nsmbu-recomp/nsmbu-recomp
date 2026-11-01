@@ -1,5 +1,5 @@
 # Linux build check: builds the Vulkan/SDL3 runtime against placeholder guest code
-# (tools/recomp/stubgen.py; no game files involved), runs the unit tests and the renderer
+# (recomp/stubgen.py; no game files involved), runs the unit tests and the renderer
 # smoke test on Mesa's software Vulkan driver (lavapipe) with the Khronos validation layer.
 name: linux
 
@@ -45,7 +45,7 @@ jobs:
 
       - name: Configure
         run: |
-          python3 tools/recomp/stubgen.py build/gen-stub
+          python3 recomp/stubgen.py build/gen-stub
           cmake -S . -B build/linux -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
             -DGEN_DIR="$PWD/build/gen-stub" -DCMAKE_PREFIX_PATH="$HOME/sdl3" -DNSMBU_SETUP_GUI=ON
 
@@ -55,10 +55,10 @@ jobs:
       - name: Unit tests
         run: |
           ctest --test-dir build/linux --output-on-failure
-          python3 tools/installer/test_setup.py
-          python3 tools/recomp/test_builds.py
-          python3 tools/recomp/test_output.py
-          python3 tools/recomp/test_pool.py
+          python3 installer/test_setup.py
+          python3 recomp/test_builds.py
+          python3 recomp/test_output.py
+          python3 recomp/test_pool.py
           python3 tools/android/test_apk_cli.py
           python3 tools/lib/test_dev_game_icon.py
 

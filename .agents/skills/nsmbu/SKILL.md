@@ -10,15 +10,15 @@ Run `nsmbu --help` for the command list.
 
 ## Docs
 
-Read `docs/automation.md` for playtests, `nsmbu scripted`, replay inputs, and boot recipes.
+Read `docs/developer/automation.md` for playtests, `nsmbu scripted`, replay inputs, and boot recipes.
 Add a new boot recipe there when a command is worth running again.
-Read `docs/cli.md` for install, build/launch, and the short live control commands.
-Read `docs/env.md` when you add, rename, or read an `NSMBU_*` variable.
+Read `docs/developer/cli.md` for install, build/launch, and the short live control commands.
+Read `docs/developer/env.md` when you add, rename, or read an `NSMBU_*` variable.
 Read `game/README.md` for dump folder layout.
 
 ## Pose and camera pictures
 
-Read Frame interpolation in `docs/env.md` before changing a model pose, a camera picture, or interpolation.
+Read Frame interpolation in `docs/developer/env.md` before changing a model pose, a camera picture, or interpolation.
 That section is the done check: `interp_picture_test`, then two consecutive TV frames from `NSMBU_DUMP_FRAMES`.
 
 ## Dump (no TUI)
@@ -36,7 +36,7 @@ nsmbu build
 `nsmbu game <id>` writes `game/active` and skips prompts.
 Add `--extract` to extract (or re-extract) the disc.
 Add `--recomp` to refresh `build/gen` from that dump's RPX.
-`--recomp` is slow, reuse `build/gen` unless `tools/recomp/recomp.py` changed, you switch game version (e.g. USA  Europe), or `hooks.txt` / `hooks_*.txt` changed.
+`--recomp` is slow, reuse `build/gen` unless `recomp/recomp.py` changed, you switch game version (e.g. USA  Europe), or `hooks.txt` / `hooks_*.txt` changed.
 Runtime-only edits need `nsmbu build` only.
 Then `nsmbu build` (and playtests / `nsmbu open`) use that dump.
 
@@ -50,7 +50,7 @@ Print the SDL summary when the cache is created.
 Every build also regenerates `build/debug/generated/nsmbu_guest_stubs.c` and relinks.
 The line `0 hooks` in that step is normal.
 Hooks live in `build/gen`.
-Regenerate the stubs only when `hooks.txt`, `hooks_*.txt`, or `tools/recomp/recomp.py` changed.
+Regenerate the stubs only when `hooks.txt`, `hooks_*.txt`, or `recomp/recomp.py` changed.
 A runtime-only edit compiles the changed `.cpp` and links.
 
 ## Hidden boot
@@ -61,7 +61,7 @@ Boot `build/debug/nsmbu --game game/<id>`, where `<id>` is the text in `game/act
 Copy `nsmbu/save` into `.tmp/<name>/save` and set `NSMBU_USER_DIR` to `nsmbu/`.
 `NSMBU_LOG_FILE` does not capture `fprintf` from the render thread.
 That text stays on the terminal.
-Title and file-select press lists are in `docs/automation.md`.
+Title and file-select press lists are in `docs/developer/automation.md`.
 Enter `FileSelect` directly when the check is the menu.
 Do not play the title for 1000 frames to reach it.
 

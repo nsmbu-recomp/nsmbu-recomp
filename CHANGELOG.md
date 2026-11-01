@@ -6,10 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- The performance overlay shows 1% low FPS in a FPS / AVG / 1% row (values only in the columns).
+- Documented every agent verification path in `docs/developer/verification.md`.
+- Decomp docs: course-entry save-byte map and `setupCourse` FieldGame/`PlayerMgr` reads; soft-restart audio init vs `startSound` bootstrap order.
+- Decomp: `AttentionMgr` singleton, list, entry/release, and nearest lookat search (`0x0200CB88`–`0x0200CD2C`).
+- Decomp: documented sead frame loop (`procFrame_`, method-tree `call`, DualScreen draw/calc) and course setup helpers (`PlayerMgr::initializeForCourseSetup`, `sub_02742F9C`).
+
 ### Changed
 
+- Moved the Android Gradle project and iOS bundle scripts under `runtime/android/` and `runtime/ios/`.
+- Removed `NSMBU_CONTROLS`; controls always load from the user folder (`controls.json`).
+- The README install steps stay the same on every system.
+  Which file to start, the file chooser, and disc-key formats are under `docs/user/`.
+- Reorganized docs into `docs/user/` and `docs/developer/`; removed `docs/rtl-text.md` and `docs/replay-1-1.md`.
+- Moved recompiler crash notes to `vendor/decomp/docs/decomp-notes.md`.
+- Renamed `.git-hooks` to `.githooks` (update `.git/hooks/pre-push` if it still points at the old path).
+- Removed leftover docs and runtime checks that said mods need the 1.3.0 update or do not work on base-disc builds.
+- Removed unused developer tools (`tools/check/`, `rpxinfo.py`, Python disc reader, `run_bench.py` CLI).
+  `nsmbu extract` uses `nsmbu-extract`; use `nsmbu bench` for performance scenarios.
+- Moved the PowerPC recompiler from `tools/recomp/` to top-level `recomp/`.
+- Dropped `docs/ts-tools-port.md`, Android `--service-fixture` packaging, and the dead `game_sample_report.py` doc reference.
+  Renamed bench tests to `test_bench_lib.py`.
 - The release step commits and pushes the changelog before it tags.
 - Windows and Linux release builds download SDL3 from the CI assets repo instead of compiling it.
+- Desktop setup and release packages use top-level `installer/` instead of `tools/installer/` (older release zips still use the old path).
+
+### Fixed
+
+- Opening the settings menu on the Controls tab no longer crashes when the controller diagram is shorter than its layout needs.
+- The settings menu scrolls on desktop when tab content does not fit (it no longer hides the scrollbar).
+- Restored the release workflow `version` job on the nightly schedule so it can dispatch development builds when `main` moves.
 
 ## [0.8.2] - 2026-11-01
 

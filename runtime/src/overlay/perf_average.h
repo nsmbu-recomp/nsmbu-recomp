@@ -1,11 +1,27 @@
 #pragma once
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 namespace overlay {
 
 struct FrameHistoryAverages {
     static constexpr int kFrames = 120;
+    static float percentile_ms(const float ms[kFrames], float p) {
+        float sorted[kFrames];
+        int n = 0;
+        for (int i = 0; i < kFrames; ++i) {
+            if (ms[i] > 0) sorted[n++] = ms[i];
+        }
+        if (!n) return 0;
+        std::sort(sorted, sorted + n);
+        const int idx = std::max(0, (int)std::ceil(n * p) - 1);
+        return sorted[idx];
+    }
+    static float low1_fps(const float ms[kFrames]) {
+        const float p99 = percentile_ms(ms, 0.99f);
+        return p99 > 0 ? 1000.0f / p99 : 0;
+    }
     static void compute(const float ms[kFrames], const uint32_t logic[kFrames], float& avg_ms, float& worst_ms,
                         float& fps, double& logic_rate) {
         double sum = 0;

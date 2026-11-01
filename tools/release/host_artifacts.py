@@ -10,7 +10,7 @@ import sys
 import tarfile
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 WORKFLOW_ENV = os.path.join(ROOT, ".github", "workflows", "release.yml")
-TOOLCHAINS_JSON = os.path.join(ROOT, "tools", "installer", "toolchains.json")
+TOOLCHAINS_JSON = os.path.join(ROOT, "installer", "toolchains.json")
 BUILD_DIR = os.path.join(ROOT, "build", "release-upload")
 INSTALLER_DIR = os.path.join(ROOT, "build", "installer")
 STAGE_OUT = os.path.join(ROOT, ".tmp", "installer-package-out")
@@ -308,7 +308,7 @@ def drop_linker_depfile_detection():
 def run_build(version, sdl_prefix, vulkan_root, vulkan_lib):
     os.makedirs(GEN_STUB, exist_ok=True)
     log("generating stub game code")
-    subprocess.run([sys.executable, os.path.join(ROOT, "tools", "recomp", "stubgen.py"), GEN_STUB], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, os.path.join(ROOT, "recomp", "stubgen.py"), GEN_STUB], cwd=ROOT, check=True)
     drop_linker_depfile_detection()
     env = os.environ.copy()
     env["ZIG_GLOBAL_CACHE_DIR"] = ZIG_CACHE

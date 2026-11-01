@@ -62,7 +62,7 @@ endif()
 set(GEN_DIR ${CMAKE_SOURCE_DIR}/build/gen CACHE PATH "recompiler output")
 file(GLOB GEN_SOURCES CONFIGURE_DEPENDS ${GEN_DIR}/code_*.c)
 if(NOT GEN_SOURCES)
-  message(FATAL_ERROR "no generated code in ${GEN_DIR}; run tools/recomp/recomp.py first")
+  message(FATAL_ERROR "no generated code in ${GEN_DIR}; run recomp/recomp.py first")
 endif()
 
 option(NSMBU_BUNDLED_DEPS "build missing dependencies from pinned sources" OFF)
@@ -136,11 +136,11 @@ set(NSMBU_GUEST_STUBS ${CMAKE_BINARY_DIR}/generated/nsmbu_guest_stubs.c)
 file(GLOB_RECURSE NSMBU_GUEST_STUB_INPUTS CONFIGURE_DEPENDS
   ${CMAKE_SOURCE_DIR}/runtime/src/*.c ${CMAKE_SOURCE_DIR}/runtime/src/*.cpp
   ${CMAKE_SOURCE_DIR}/runtime/src/*.h ${CMAKE_SOURCE_DIR}/runtime/src/*.mm
-  ${CMAKE_SOURCE_DIR}/tools/recomp/hooks.txt ${CMAKE_SOURCE_DIR}/tools/recomp/hooks_*.txt)
+  ${CMAKE_SOURCE_DIR}/recomp/hooks.txt ${CMAKE_SOURCE_DIR}/recomp/hooks_*.txt)
 add_custom_command(
   OUTPUT ${NSMBU_GUEST_STUBS}
-  COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/recomp/guest_stubs.py ${NSMBU_GUEST_STUBS}
-  DEPENDS ${CMAKE_SOURCE_DIR}/tools/recomp/guest_stubs.py ${NSMBU_GUEST_STUB_INPUTS}
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/recomp/guest_stubs.py ${NSMBU_GUEST_STUBS}
+  DEPENDS ${CMAKE_SOURCE_DIR}/recomp/guest_stubs.py ${NSMBU_GUEST_STUB_INPUTS}
   VERBATIM)
 list(APPEND RUNTIME_SOURCES ${NSMBU_GUEST_STUBS})
 list(APPEND RUNTIME_SOURCES ${NSMBU_BUILD_INFO})
@@ -529,11 +529,11 @@ add_test(NAME drc_mode COMMAND drc_mode_test)
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_Interpreter_FOUND)
   add_test(NAME build_coverage COMMAND "${Python3_EXECUTABLE}" -m unittest discover
-    -s "${CMAKE_SOURCE_DIR}/tools/recomp" -p "test*.py")
+    -s "${CMAKE_SOURCE_DIR}/recomp" -p "test*.py")
   add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/guest_map_fixture.c"
-    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tools/recomp/write_map_fixture.py"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/recomp/write_map_fixture.py"
       "${CMAKE_BINARY_DIR}/guest_map_fixture.c"
-    DEPENDS tools/recomp/write_map_fixture.py tools/recomp/builds.py tools/recomp/recomp.py)
+    DEPENDS recomp/write_map_fixture.py recomp/builds.py recomp/recomp.py)
   add_executable(guest_addr_test runtime/test/guest_addr_test.cpp "${CMAKE_BINARY_DIR}/guest_map_fixture.c")
   target_include_directories(guest_addr_test PRIVATE runtime/include)
   target_compile_options(guest_addr_test PRIVATE -UNDEBUG)
@@ -591,7 +591,6 @@ if(NOT ANDROID)
 endif()
 if(NSMBU_SDL_HOST)
   add_test(NAME sdl_input COMMAND input_sdl_test)
-  set_tests_properties(sdl_input PROPERTIES ENVIRONMENT "NSMBU_CONTROLS=${CMAKE_BINARY_DIR}/test-controls.json")
   add_test(NAME host_platform COMMAND platform_test)
   add_test(NAME sdl_mouse COMMAND mouse_sdl_test)
   add_test(NAME host_sleep COMMAND sleep_test)

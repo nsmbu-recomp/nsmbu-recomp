@@ -44,5 +44,5 @@ headstart.bin
 /.tmp/
 
 # iOS build output
-ios/build/
-ios/build-sim/
+runtime/ios/build/
+runtime/ios/build-sim/

@@ -5,7 +5,7 @@ usage: package.py --build BUILD_DIR --platform NAME --version VERSION --out OUT_
                   [--license NAME=PATH ...] [--runtime-file PATH ...] [--linkonly-lib PATH ...]
 
 BUILD_DIR is a Ninja build of this repository against placeholder guest code
-(tools/recomp/stubgen.py): the release never contains recompiled game code. This script reads how
+(recomp/stubgen.py): the release never contains recompiled game code. This script reads how
 CMake compiled the placeholder code and linked the executable, and turns that into a recipe
 (sdk/manifest.json) the installer replays on the player's machine with the game code generated
 there:
@@ -38,20 +38,19 @@ LIB_EXT = (".a", ".lib", ".tbd", ".dylib", ".so")
 
 TOOL_FILES = [
     "tools/rpx/rpx.py",
-    "tools/disc/wudextract.py",
-    "tools/recomp/recomp.py",
-    "tools/recomp/analyze.py",
-    "tools/recomp/ppc2c.py",
-    "tools/recomp/crlive.py",
-    "tools/recomp/leaflocal.py",
-    "tools/recomp/singleflow.py",
-    "tools/recomp/builds.py",
-    "tools/recomp/names.py",
+    "recomp/recomp.py",
+    "recomp/analyze.py",
+    "recomp/ppc2c.py",
+    "recomp/crlive.py",
+    "recomp/leaflocal.py",
+    "recomp/singleflow.py",
+    "recomp/builds.py",
+    "recomp/names.py",
 ]
 INSTALLER_FILES = [
-    "tools/installer/setup.py",
-    "tools/installer/toolchains.json",
-    "tools/installer/README.md",
+    "installer/setup.py",
+    "installer/toolchains.json",
+    "installer/README.md",
 ]
 SETUP_APP = "NSMBU"
 PORTABLE_TXT = """NSMBU (native PC port), portable release.
@@ -277,7 +276,7 @@ def add_windows_python(pkg, zip_path, platform="windows-x86_64"):
     (python-windows-arm64-files.json and the python.windows-arm64 pin for windows-arm64), which
     tools/release/guard.py uses too."""
     arm64 = platform == "windows-arm64"
-    with open(os.path.join(ROOT, "tools", "installer", "toolchains.json")) as f:
+    with open(os.path.join(ROOT, "installer", "toolchains.json")) as f:
         pin = json.load(f)["python"]["windows-arm64" if arm64 else "windows"]
     with open(os.path.join(ROOT, "tools", "release", "python-windows-arm64-files.json" if arm64 else "python-windows-files.json")) as f:
         expected = json.load(f)
@@ -345,7 +344,7 @@ def main():
     ap.add_argument("--platform", required=True, help="macos-arm64, linux-x86_64, linux-aarch64, windows-x86_64 or windows-arm64")
     ap.add_argument("--version", required=True)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--toolchain", required=True, help="toolchain id from tools/installer/toolchains.json")
+    ap.add_argument("--toolchain", required=True, help="toolchain id from installer/toolchains.json")
     ap.add_argument("--license", action="append", default=[], help="NAME=PATH of a dependency's license")
     ap.add_argument("--runtime-file", action="append", default=[], help="file to install next to the executable")
     ap.add_argument("--linkonly-lib", action="append", default=[], help="system library to ship for linking only")
@@ -370,7 +369,7 @@ def main():
     for f in a.runtime_file:
         copy(f, os.path.join(pkg, "sdk", "runtime", os.path.basename(f)))
         runtime_files.append(os.path.basename(f))
-    with open(os.path.join(ROOT, "tools", "installer", "toolchains.json")) as f:
+    with open(os.path.join(ROOT, "installer", "toolchains.json")) as f:
         toolchains = json.load(f)
     if a.toolchain not in toolchains["toolchains"]:
         sys.exit("unknown toolchain " + a.toolchain)
@@ -381,16 +380,16 @@ def main():
 
     for rel in TOOL_FILES + INSTALLER_FILES:
         copy(os.path.join(ROOT, rel), os.path.join(pkg, rel))
-    for hp in sorted(os.listdir(os.path.join(ROOT, "tools", "recomp"))):
+    for hp in sorted(os.listdir(os.path.join(ROOT, "recomp"))):
         if re.match(r"hooks.*\.txt$", hp):
-            copy(os.path.join(ROOT, "tools", "recomp", hp), os.path.join(pkg, "tools", "recomp", hp))
+            copy(os.path.join(ROOT, "recomp", hp), os.path.join(pkg, "recomp", hp))
 
-    builds_dir = os.path.join(ROOT, "tools", "recomp", "builds")
+    builds_dir = os.path.join(ROOT, "recomp", "builds")
     if os.path.isdir(builds_dir):
         for bp in sorted(os.listdir(builds_dir)):
             if bp.endswith(".json"):
                 copy(os.path.join(builds_dir, bp),
-                     os.path.join(pkg, "tools", "recomp", "builds", bp))
+                     os.path.join(pkg, "recomp", "builds", bp))
 
     try:
         with open(os.path.join(build, "nsmbu-zstd.txt")) as f:
@@ -402,7 +401,7 @@ def main():
                  "(on by default with -DNSMBU_BUNDLED_DEPS=ON)" % build)
     copy(os.path.join(build, "nsmbu-extract" + exe_suffix), os.path.join(pkg, "tools", "bin", "nsmbu-extract" + exe_suffix))
 
-    inst = os.path.join(ROOT, "tools", "installer")
+    inst = os.path.join(ROOT, "installer")
     if a.platform.startswith("macos"):
         copy(os.path.join(inst, "install-macos.command"), os.path.join(pkg, "tools", "Setup in Terminal.command"))
     elif a.platform.startswith("windows"):

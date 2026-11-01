@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-APP = ROOT / "android/app/src/main/java/org/nsmbrecomp/nsmbu"
+APP = ROOT / "runtime/android/app/src/main/java/org/nsmbrecomp/nsmbu"
 TESTS = ROOT / "tools/android"
 SUITES = {
     "org.nsmbrecomp.nsmbu.ResourceVerifierTest": ["ResourceVerifier.java"],

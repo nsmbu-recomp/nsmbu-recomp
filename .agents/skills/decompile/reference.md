@@ -5,7 +5,7 @@ USA v1.3.0 `red-pro2.rpx` unless a note says Europe.
 ## Tools
 
 - `python3 tools/rpx/ppcdis.py ADDR [COUNT] [RPX]` — `.text` disassembly; annotates `headers_names.txt` callees and imports.
-- `tools/recomp/headers_names.txt` — class and symbol for game addresses (~5k symbols).
+- `recomp/headers_names.txt` — class and symbol for game addresses (~5k symbols).
 - `game/active` — which dump `ppcdis.py` uses by default.
 
 ## TODO workflow
@@ -83,5 +83,5 @@ under `.tmp/nsmbu-sead/`.
 ## Parent repo
 
 Runtime hooks and `f_XXXXXXXX` live in the parent repo.
-Read `docs/how-it-works.md` for `build/gen` and guest memory, `docs/names.md` for hooks and symbol names, `docs/builds.md` for regional maps, and `docs/logs.md` to map a crash log's guest PCs to USA ids.
+Read `docs/developer/how-it-works.md` for `build/gen` and guest memory, `docs/developer/names.md` for hooks and symbol names, `docs/developer/builds.md` for regional maps, and `docs/user/logs.md` to map a crash log's guest PCs to USA ids.
 This skill is for REDPRO2 documentation C++ under `vendor/decomp`.

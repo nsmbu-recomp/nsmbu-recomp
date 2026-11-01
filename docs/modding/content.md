@@ -41,7 +41,11 @@ A translation shipped as `permanent_2d_EuEnglish.pack` (made for the European ga
 A pack with the exact name the game asks for always comes first.
 Choose the language the translation replaces (usually English) in Settings → Language.
 No renaming is needed, and the game folder is never changed.
-Arabic and Hebrew translations are shaped and laid out right to left by the port itself ([../rtl-text.md](../rtl-text.md)).
+Arabic and Hebrew translations are shaped and laid out right to left by the port itself.
+Install the language pack as a content mod, enable it, and restart.
+When the message font has enough Arabic or Hebrew letters, the session log reports `[rtl] right-to-left text on`.
+Use `NSMBU_RTL=0` or `NSMBU_RTL=1` to force off or on.
+Shaping and order are covered by CTest `rtl_text` and `runtime/src/text/`.
 A Cemu code patch that such a translation ships for that purpose is not needed.
 Ship only the content files in the package: a mod that also carries a code patch is refused as a whole.
 
