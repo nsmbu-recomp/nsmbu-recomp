@@ -23,6 +23,9 @@
 #include <vector>
 
 #include "imgui.h"
+#ifdef __ANDROID__
+#include "imgui_internal.h"
+#endif
 #include "hostui.h"
 #include "controls_view.h"
 #include "flow_layout.h"
@@ -2066,6 +2069,36 @@ static bool settings_close_button(bool& open, float size) {
     return pressed;
 }
 
+#ifdef __ANDROID__
+void touch_drag_scroll() {
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.MouseSource != ImGuiMouseSource_TouchScreen || !ImGui::IsMouseDown(ImGuiMouseButton_Left)) return;
+    if (ImGui::GetScrollMaxY() <= 0.0f) return;
+    if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) return;
+    const ImVec2 pos = ImGui::GetWindowPos();
+    const float edge = pos.x + ImGui::GetWindowSize().x - ImGui::GetStyle().ScrollbarSize;
+    if (io.MousePos.x >= edge) return;
+    if (!ImGui::IsMouseDragging(ImGuiMouseButton_Left, 8.0f)) return;
+    ImGui::ClearActiveID();
+    ImGui::SetScrollY(ImGui::GetScrollY() - io.MouseDelta.y);
+}
+
+void settings_tab_button(int i) {
+    if (i) flow::next(flow::button(kTabNames[i]));
+    const bool on = U.tab == i;
+    if (on) ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_TabSelected));
+    const bool pressed = ImGui::Button(kTabNames[i]);
+    const bool tapped = ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+    if (on) ImGui::PopStyleColor();
+    if ((pressed || tapped) && U.tab != i) {
+        U.cap_action = -1;
+        g_capturing_keys = false;
+        U.cap_note.clear();
+        U.tab = i;
+    }
+}
+#endif
+
 void settings_window() {
     ImGuiIO& io = ImGui::GetIO();
     const ImVec2 ds = io.DisplaySize;
@@ -2097,18 +2130,37 @@ void settings_window() {
             if (controller_pressed(input_map::kPadLB)) U.select_tab = (U.tab + kTabs - 1) % kTabs;
             if (controller_pressed(input_map::kPadRB)) U.select_tab = (U.tab + 1) % kTabs;
         }
+#ifdef __ANDROID__
+        if (U.select_tab >= 0 && U.select_tab < kTabs && U.select_tab != U.tab) {
+            U.cap_action = -1;
+            g_capturing_keys = false;
+            U.cap_note.clear();
+            U.tab = U.select_tab;
+        }
+        U.select_tab = -1;
+        for (int i = 0; i < kTabs; i++) settings_tab_button(i);
+        ImGui::BeginChild("page", ImVec2(0, 0), ImGuiChildFlags_NavFlattened, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+        switch (U.tab) {
+        case kControls: tab_controls(); break;
+        case kGraphics: tab_graphics(); break;
+        case kDisplay: tab_display(); break;
+        case kAudio: tab_audio(); break;
+        case kSaves: tab_saves(); break;
+        case kMods: tab_mods(); break;
+        case kAbout: tab_about(); break;
+        case kDebug: tab_debug(); break;
+        case kAndroid: tab_android(); break;
+        }
+        touch_drag_scroll();
+        ImGui::EndChild();
+#else
         if (ImGui::BeginTabBar("tabs", ImGuiTabBarFlags_FittingPolicyShrink)) {
             for (int i = 0; i < kTabs; i++) {
                 ImGuiTabItemFlags f = U.select_tab == i ? ImGuiTabItemFlags_SetSelected : 0;
                 if (ImGui::BeginTabItem(kTabNames[i], nullptr, f)) {
                     if (U.tab != i) U.cap_action = -1, g_capturing_keys = false, U.cap_note.clear();
                     U.tab = i;
-                    ImGui::BeginChild("page", ImVec2(0, 0), ImGuiChildFlags_NavFlattened,
-#ifdef __ANDROID__
-                                      i == kControls ? ImGuiWindowFlags_AlwaysVerticalScrollbar : ImGuiWindowFlags_None);
-#else
-                                      i == kControls ? ImGuiWindowFlags_NoScrollbar : ImGuiWindowFlags_None);
-#endif
+                    ImGui::BeginChild("page", ImVec2(0, 0), ImGuiChildFlags_NavFlattened, ImGuiWindowFlags_NoScrollbar);
                     switch (i) {
                     case kControls: tab_controls(); break;
                     case kGraphics: tab_graphics(); break;
@@ -2118,9 +2170,6 @@ void settings_window() {
                     case kMods: tab_mods(); break;
                     case kAbout: tab_about(); break;
                     case kDebug: tab_debug(); break;
-#ifdef __ANDROID__
-                    case kAndroid: tab_android(); break;
-#endif
                     }
                     ImGui::EndChild();
                     ImGui::EndTabItem();
@@ -2129,6 +2178,7 @@ void settings_window() {
             U.select_tab = -1;
             ImGui::EndTabBar();
         }
+#endif
         ImGui::PopItemWidth();
         restart_confirm();
     }
