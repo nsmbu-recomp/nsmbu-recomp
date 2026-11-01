@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Decomp docs: course-entry save-byte map and `setupCourse` FieldGame/`PlayerMgr` reads; soft-restart audio init vs `startSound` bootstrap order.
 - Decomp: `AttentionMgr` singleton, list, entry/release, and nearest lookat search (`0x0200CB88`–`0x0200CD2C`).
 - Decomp: documented sead frame loop (`procFrame_`, method-tree `call`, DualScreen draw/calc) and course setup helpers (`PlayerMgr::initializeForCourseSetup`, `sub_02742F9C`).
+- Decomp: transcript follow-up — `TaskMgr::afterCalc`, `gpuMesureEnd_`, `InputMgr::applySaveEntry_`, `sub_029F1A50`/`sub_029F1A70`, `PlayerMgr` course field reset (`0x029167BC`).
 
 ### Changed
 
