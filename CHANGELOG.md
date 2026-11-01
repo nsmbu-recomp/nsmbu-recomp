@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - The performance overlay shows 1% low FPS in a FPS / AVG / 1% row (values only in the columns).
 - Documented every agent verification path in `docs/developer/verification.md`.
+- Decomp docs: course-entry save-byte map and `setupCourse` FieldGame/`PlayerMgr` reads; soft-restart audio init vs `startSound` bootstrap order.
 
 ### Changed
 
