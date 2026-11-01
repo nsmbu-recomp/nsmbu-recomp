@@ -7,7 +7,7 @@ on:
       - tools/android/**
       - installer/setup.py
       - tools/release/package.py
-      - tools/recomp/**
+      - recomp/**
       - android/python/**
       - android/app/build.gradle
       - tools/release/guard.py
@@ -22,7 +22,7 @@ on:
       - tools/android/**
       - installer/setup.py
       - tools/release/package.py
-      - tools/recomp/**
+      - recomp/**
       - android/python/**
       - android/app/build.gradle
       - tools/release/guard.py

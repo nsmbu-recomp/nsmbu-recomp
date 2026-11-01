@@ -40,10 +40,10 @@ Open one when the task is in that library.
 | `vendor/Nintendo-File-Formats` | Nintendo file format notes |
 
 The repository does not carry the headers.
-`tools/recomp/names.py` extracts the addresses and names from a local `references/headers` checkout into `tools/recomp/headers_names.txt`, and that file is in git.
+`recomp/names.py` extracts the addresses and names from a local `references/headers` checkout into `recomp/headers_names.txt`, and that file is in git.
 `recomp.py` and `stubgen.py` read the file, so the gen needs no checkout of the headers.
 Credit the names to [nsmbu/headers](https://github.com/nsmbu/headers).
-Refresh the file after a headers update with `python3 tools/recomp/names.py references/headers`.
+Refresh the file after a headers update with `python3 recomp/names.py references/headers`.
 
 ## Read a name out of a header
 
@@ -73,9 +73,9 @@ A nested `class` in the file adds to the scope: in `references/headers/scene/Sce
 
 | Site | Shape | Example | Source of the shape |
 | --- | --- | --- | --- |
-| Generated C | `f_XXXXXXXX`, 8 uppercase hex digits | `f_02994164` | `tools/recomp/recomp.py` names every function by its canonical address |
-| Generated C comments | the header name in a `/* ... */` comment | `/* Scene::setNextScene */` | `tools/recomp/names.py` reads `references/headers` and `recomp.py` writes the name above the definition, next to the prototype in `funcs.h`, and at every call site of a named function |
-| `tools/recomp/hooks.txt` | `XXXXXXXX` for a function entry, `@XXXXXXXX` for an instruction site | `@022A79C4` | the recompiler reads this file |
+| Generated C | `f_XXXXXXXX`, 8 uppercase hex digits | `f_02994164` | `recomp/recomp.py` names every function by its canonical address |
+| Generated C comments | the header name in a `/* ... */` comment | `/* Scene::setNextScene */` | `recomp/names.py` reads `references/headers` and `recomp.py` writes the name above the definition, next to the prototype in `funcs.h`, and at every call site of a named function |
+| `recomp/hooks.txt` | `XXXXXXXX` for a function entry, `@XXXXXXXX` for an instruction site | `@022A79C4` | the recompiler reads this file |
 | A hooked function | `hook_XXXXXXXX` in the runtime, `f_XXXXXXXX_orig` for the game code | `hook_02994164` | `f_` plus the same digits |
 | Runtime code and data | `GC(0xXXXXXXXX)` for code, `GD(0xXXXXXXXX)` for data | `GC(0x02994164)` | [runtime/include/guest_addr.h](../runtime/include/guest_addr.h) |
 | A runtime constant | a `kName` constant that holds the address | `kSetNextScene = GC(0x02994164)` | [runtime/src/mods/sdk/nsmbu.cpp](../runtime/src/mods/sdk/nsmbu.cpp) |
@@ -96,7 +96,7 @@ Keep the canonical USA address inside `GC` and `GD`, and give the constant a nam
    Without a checkout, search the extracted file:
 
    ```sh
-   grep "02994164" tools/recomp/headers_names.txt
+   grep "02994164" recomp/headers_names.txt
    ```
 
 2. Read the class and the symbol from the hit.

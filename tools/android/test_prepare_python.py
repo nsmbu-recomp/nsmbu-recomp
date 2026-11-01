@@ -15,7 +15,7 @@ class ResourceIdentityTests(unittest.TestCase):
     def test_shader_template_is_never_bundled(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            (root / 'tools/recomp').mkdir(parents=True)
+            (root / 'recomp').mkdir(parents=True)
             template = root / 'tools/shadercache/template.bin'
             template.parent.mkdir(parents=True)
             template.write_bytes(b'synthetic asset selection only')
@@ -27,17 +27,17 @@ class ResourceIdentityTests(unittest.TestCase):
     def test_bundle_has_nsmbu_setup_sources_without_tests_or_fixtures(self):
         root = Path(__file__).resolve().parents[2]
         bundled = {path.relative_to(root).as_posix() for path in source_files(root)}
-        for name in ("installer/setup.py", "installer/toolchains.json", "tools/recomp/recomp.py",
-                     "tools/recomp/builds.py", "tools/recomp/hooks.txt", "tools/rpx/rpx.py",
+        for name in ("installer/setup.py", "installer/toolchains.json", "recomp/recomp.py",
+                     "recomp/builds.py", "recomp/hooks.txt", "tools/rpx/rpx.py",
                      "tools/android/setup_adapter.py", "tools/android/ondevice_setup.py"):
             if (root / name).is_file():
                 self.assertIn(name, bundled)
         self.assertFalse([name for name in bundled if Path(name).name.startswith("test_")])
-        self.assertNotIn("tools/recomp/headers_names.txt", bundled)
-        self.assertNotIn("tools/recomp/android_fixture.py", bundled)
+        self.assertNotIn("recomp/headers_names.txt", bundled)
+        self.assertNotIn("recomp/android_fixture.py", bundled)
         self.assertFalse([name for name in bundled if name.startswith(("tools/guestmod/", "tools/story_mods/"))])
         fixtures = {path.relative_to(root).as_posix() for path in source_files(root, True)}
-        self.assertIn("tools/recomp/android_fixture.py", fixtures)
+        self.assertIn("recomp/android_fixture.py", fixtures)
 
     def test_bundle_follows_desktop_release_file_list(self):
         root = Path(__file__).resolve().parents[2]
@@ -69,7 +69,7 @@ class ResourceIdentityTests(unittest.TestCase):
             self.skipTest("host clang required")
         root = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as temp:
-            subprocess.run([sys.executable, str(root / "tools/recomp/stubgen.py"), temp],
+            subprocess.run([sys.executable, str(root / "recomp/stubgen.py"), temp],
                            check=True, stdout=subprocess.DEVNULL)
             source = Path(temp) / "runtime_fixture.c"
             source.write_bytes(runtime_fixture_source(temp))

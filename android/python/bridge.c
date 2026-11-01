@@ -63,7 +63,7 @@ JNIEXPORT void JNICALL Java_org_nsmbrecomp_nsmbu_EmbeddedPython_run(
     }
     PyGILState_STATE gil = PyGILState_Ensure();
     PyObject *path = PySys_GetObject("path");
-    const char *suffixes[] = {"/tools/android", "/tools/recomp"};
+    const char *suffixes[] = {"/tools/android", "/recomp"};
     int ok = 1;
     for (unsigned i = 0; i < 2; i++) {
         PyObject *entry = PyUnicode_FromFormat("%s%s", s, suffixes[i]);

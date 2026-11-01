@@ -122,7 +122,7 @@ class Adapter:
         owner = threading.get_ident()
         stopped = threading.Event()
         failure = []
-        prefix = str(self.package / "tools/recomp") + os.sep
+        prefix = str(self.package / "recomp") + os.sep
         rpx = str(self.package / "tools/rpx/rpx.py")
 
         def interrupt(code, line):
@@ -336,7 +336,7 @@ class Adapter:
                   "rpx": self.hash_file(game / "code/red-pro2.rpx"),
                   "installer": self.hash_file(self.package / "installer/setup.py"),
                   "rpx_reader": self.hash_file(self.package / "tools/rpx/rpx.py"),
-                  "translator": self.hash_tree(self.package / "tools/recomp"),
+                  "translator": self.hash_tree(self.package / "recomp"),
                   "switches": {name: value for name, value in os.environ.items() if name.startswith("NSMBU_RECOMP_")}}
         inputs["translator"] = {name: value for name, value in inputs["translator"].items()
                                 if Path(name).suffix in (".py", ".txt", ".json")}
@@ -382,7 +382,7 @@ class Adapter:
                 return len(text)
 
         def embedded(command, env=None, stdout=None, stderr=None, text=None, bufsize=None):
-            expected = self.package / "tools/recomp/recomp.py"
+            expected = self.package / "recomp/recomp.py"
             if len(command) != 5 or Path(command[1]).resolve() != expected or command[4] != "--progress":
                 raise RuntimeError("unexpected subprocess requested by translation")
             switches = {name: value for name, value in (env or {}).items() if name.startswith("NSMBU_RECOMP_")}

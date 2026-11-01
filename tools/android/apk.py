@@ -226,7 +226,7 @@ def build_apk(*, abi, jobs):
          "--compiler", compiler, "--out", toolchain])
     stub = os.path.join(ROOT, "build", "gen-stub")
     print("== runtime (placeholder game code)")
-    run([sys.executable, os.path.join(ROOT, "tools", "recomp", "stubgen.py"), stub])
+    run([sys.executable, os.path.join(ROOT, "recomp", "stubgen.py"), stub])
     env = os.environ.copy()
     env["ANDROID_SDK"] = sdk
     env["ABI"] = abi

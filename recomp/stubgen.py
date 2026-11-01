@@ -17,7 +17,7 @@ import sys
 here = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, here)
 import names
-root = os.path.normpath(os.path.join(here, "..", ".."))
+root = os.path.normpath(os.path.join(here, ".."))
 
 def hook_lists():
     from builds import _parse_hook, hook_files
@@ -59,7 +59,7 @@ def main(outdir):
         for e in sorted(sites):
             f.write("void site_%08X(Cpu* c);\n" % e)
     with open(os.path.join(outdir, "code_000.c"), "w") as f:
-        f.write('#include "funcs.h"\n\n/* placeholder: written by tools/recomp/stubgen.py, not game code */\n')
+        f.write('#include "funcs.h"\n\n/* placeholder: written by recomp/stubgen.py, not game code */\n')
         for e in funcs:
             if e in hooks:
                 f.write("void f_%08X(Cpu* __restrict c) { hook_%08X(c); }%s\n" % (e, e, comment(e)))

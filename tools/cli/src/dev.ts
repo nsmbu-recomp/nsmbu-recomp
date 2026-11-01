@@ -692,7 +692,7 @@ export function cmdRecomp(repo: string): void {
     if (!v?.extracted) {
         throw new Error(`game/${id}/ is not extracted yet; run nsmbu game`);
     }
-    runPython(repo, "tools/recomp/recomp.py", [`game/${id}/code/red-pro2.rpx`, "build/gen"]);
+    runPython(repo, "recomp/recomp.py", [`game/${id}/code/red-pro2.rpx`, "build/gen"]);
 }
 
 export function cmdScripted(repo: string, name: string, rest: string[]): void {

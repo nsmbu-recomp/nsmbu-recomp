@@ -10,7 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 _spec = importlib.util.spec_from_file_location(
-    "nsmbu_debug_rpx", Path(__file__).resolve().parents[1] / "recomp/android_fixture.py")
+    "nsmbu_debug_rpx", Path(__file__).resolve().parents[2] / "recomp" / "android_fixture.py")
 _fixture = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_fixture)
 synthetic_rpx = _fixture.synthetic_rpx
@@ -28,6 +28,6 @@ def register(setup):
     setup.SUPPORTED_BUILDS = {**setup.SUPPORTED_BUILDS, build.title_id: build}
     recompile = setup.recompile
     def translate(*args, **kwargs):
-        with _fixture.fixture_build_context(Path(setup.PKG) / "tools/recomp"):
+        with _fixture.fixture_build_context(Path(setup.PKG) / "recomp"):
             return recompile(*args, **kwargs)
     setup.recompile = translate

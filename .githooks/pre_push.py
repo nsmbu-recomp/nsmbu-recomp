@@ -154,7 +154,7 @@ def configure_and_test(tree):
     gen = os.path.join(tree, "build", "gen-stub")
     bld = os.path.join(tree, "build", "linux")
     subprocess.run(
-        [sys.executable, os.path.join(tree, "tools", "recomp", "stubgen.py"), gen],
+        [sys.executable, os.path.join(tree, "recomp", "stubgen.py"), gen],
         cwd=tree,
         check=True,
     )
@@ -220,7 +220,7 @@ def configure_and_test(tree):
         check=True,
     )
     subprocess.run(
-        [sys.executable, os.path.join(tree, "tools", "recomp", "test_builds.py")],
+        [sys.executable, os.path.join(tree, "recomp", "test_builds.py")],
         cwd=tree,
         check=True,
     )

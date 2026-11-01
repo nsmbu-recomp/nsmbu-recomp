@@ -8,11 +8,11 @@ Those addresses are the *canonical ids* of the game's functions and globals.
 | Build | Title | Title version | `red-pro2.rpx` SHA-256 | Map |
 | --- | --- | --- | --- | --- |
 | USA (canonical) | `00050000-10101d00` | 64 | `ebd147ce…dc8e` | the identity |
-| USA base disc | `00050000-10101d00` | 0 | `ec31a785…5069` | [`tools/recomp/builds/usa_v0.json`](../../tools/recomp/builds/usa_v0.json) |
-| Europe | `00050000-10101e00` | 80 | `0ea59f40…ea51` | [`tools/recomp/builds/eu.json`](../../tools/recomp/builds/eu.json) |
-| Europe base disc | `00050000-10101e00` | 0 | `2f4f2da5…05c9` | [`tools/recomp/builds/eu_v0.json`](../../tools/recomp/builds/eu_v0.json) |
-| USA + Luigi U | `00050000-1014b700` | 0 | `1031c741…2b05` | [`tools/recomp/builds/nsmbu_nslu_usa.json`](../../tools/recomp/builds/nsmbu_nslu_usa.json) |
-| Europe + Luigi U | `00050000-1014b800` | 0 | `1faa7ce3…a285` | [`tools/recomp/builds/nsmbu_nslu_eu.json`](../../tools/recomp/builds/nsmbu_nslu_eu.json) |
+| USA base disc | `00050000-10101d00` | 0 | `ec31a785…5069` | [`recomp/builds/usa_v0.json`](../../recomp/builds/usa_v0.json) |
+| Europe | `00050000-10101e00` | 80 | `0ea59f40…ea51` | [`recomp/builds/eu.json`](../../recomp/builds/eu.json) |
+| Europe base disc | `00050000-10101e00` | 0 | `2f4f2da5…05c9` | [`recomp/builds/eu_v0.json`](../../recomp/builds/eu_v0.json) |
+| USA + Luigi U | `00050000-1014b700` | 0 | `1031c741…2b05` | [`recomp/builds/nsmbu_nslu_usa.json`](../../recomp/builds/nsmbu_nslu_usa.json) |
+| Europe + Luigi U | `00050000-1014b800` | 0 | `1faa7ce3…a285` | [`recomp/builds/nsmbu_nslu_eu.json`](../../recomp/builds/nsmbu_nslu_eu.json) |
 
 A standalone base disc is title version 0.
 `nsmbu extract` and the installer apply a matching 1.3.0 update folder when present, then check the RPX hash.
@@ -24,21 +24,21 @@ Europe is the same program as USA 1.3.0 with a few language-related functions co
 Each combo pack is that program plus about two thousand NSLU functions inserted in the executable.
 A **build map** turns a canonical USA address into the other build's address so one set of hooks and one runtime serve them.
 
-Derive or re-check a map with `tools/recomp/mkbuildmap.py` from your own dumps, then commit the JSON only:
+Derive or re-check a map with `recomp/mkbuildmap.py` from your own dumps, then commit the JSON only:
 
 ```sh
-python3 tools/recomp/mkbuildmap.py usa/code/red-pro2.rpx eur/code/red-pro2.rpx \
-    --name EU --title 0005000010101e00 --title-version 80 --out tools/recomp/builds/eu.json
-python3 tools/recomp/mkbuildmap.py usa-1.3/code/red-pro2.rpx usa-base/code/red-pro2.rpx \
+python3 recomp/mkbuildmap.py usa/code/red-pro2.rpx eur/code/red-pro2.rpx \
+    --name EU --title 0005000010101e00 --title-version 80 --out recomp/builds/eu.json
+python3 recomp/mkbuildmap.py usa-1.3/code/red-pro2.rpx usa-base/code/red-pro2.rpx \
     --name USA_V0 --title 0005000010101d00 --title-version 0 \
-    --out tools/recomp/builds/usa_v0.json
-python3 tools/recomp/mkbuildmap.py usa-1.3/code/red-pro2.rpx eur-base/code/red-pro2.rpx \
+    --out recomp/builds/usa_v0.json
+python3 recomp/mkbuildmap.py usa-1.3/code/red-pro2.rpx eur-base/code/red-pro2.rpx \
     --name EU_V0 --title 0005000010101e00 --title-version 0 \
-    --out tools/recomp/builds/eu_v0.json
-python3 tools/recomp/mkbuildmap.py usa/code/red-pro2.rpx combo-usa/code/red-pro2.rpx \
-    --name NSMBU_NSLU_USA --title 000500001014b700 --out tools/recomp/builds/nsmbu_nslu_usa.json
-python3 tools/recomp/mkbuildmap.py usa/code/red-pro2.rpx combo-eu/code/red-pro2.rpx \
-    --name NSMBU_NSLU_EU --title 000500001014b800 --out tools/recomp/builds/nsmbu_nslu_eu.json
+    --out recomp/builds/eu_v0.json
+python3 recomp/mkbuildmap.py usa/code/red-pro2.rpx combo-usa/code/red-pro2.rpx \
+    --name NSMBU_NSLU_USA --title 000500001014b700 --out recomp/builds/nsmbu_nslu_usa.json
+python3 recomp/mkbuildmap.py usa/code/red-pro2.rpx combo-eu/code/red-pro2.rpx \
+    --name NSMBU_NSLU_EU --title 000500001014b800 --out recomp/builds/nsmbu_nslu_eu.json
 ```
 
 Japan (`00050000-10101c00`) has no map yet.

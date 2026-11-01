@@ -5,7 +5,7 @@ usage: package.py --build BUILD_DIR --platform NAME --version VERSION --out OUT_
                   [--license NAME=PATH ...] [--runtime-file PATH ...] [--linkonly-lib PATH ...]
 
 BUILD_DIR is a Ninja build of this repository against placeholder guest code
-(tools/recomp/stubgen.py): the release never contains recompiled game code. This script reads how
+(recomp/stubgen.py): the release never contains recompiled game code. This script reads how
 CMake compiled the placeholder code and linked the executable, and turns that into a recipe
 (sdk/manifest.json) the installer replays on the player's machine with the game code generated
 there:
@@ -38,14 +38,14 @@ LIB_EXT = (".a", ".lib", ".tbd", ".dylib", ".so")
 
 TOOL_FILES = [
     "tools/rpx/rpx.py",
-    "tools/recomp/recomp.py",
-    "tools/recomp/analyze.py",
-    "tools/recomp/ppc2c.py",
-    "tools/recomp/crlive.py",
-    "tools/recomp/leaflocal.py",
-    "tools/recomp/singleflow.py",
-    "tools/recomp/builds.py",
-    "tools/recomp/names.py",
+    "recomp/recomp.py",
+    "recomp/analyze.py",
+    "recomp/ppc2c.py",
+    "recomp/crlive.py",
+    "recomp/leaflocal.py",
+    "recomp/singleflow.py",
+    "recomp/builds.py",
+    "recomp/names.py",
 ]
 INSTALLER_FILES = [
     "installer/setup.py",
@@ -380,16 +380,16 @@ def main():
 
     for rel in TOOL_FILES + INSTALLER_FILES:
         copy(os.path.join(ROOT, rel), os.path.join(pkg, rel))
-    for hp in sorted(os.listdir(os.path.join(ROOT, "tools", "recomp"))):
+    for hp in sorted(os.listdir(os.path.join(ROOT, "recomp"))):
         if re.match(r"hooks.*\.txt$", hp):
-            copy(os.path.join(ROOT, "tools", "recomp", hp), os.path.join(pkg, "tools", "recomp", hp))
+            copy(os.path.join(ROOT, "recomp", hp), os.path.join(pkg, "recomp", hp))
 
-    builds_dir = os.path.join(ROOT, "tools", "recomp", "builds")
+    builds_dir = os.path.join(ROOT, "recomp", "builds")
     if os.path.isdir(builds_dir):
         for bp in sorted(os.listdir(builds_dir)):
             if bp.endswith(".json"):
                 copy(os.path.join(builds_dir, bp),
-                     os.path.join(pkg, "tools", "recomp", "builds", bp))
+                     os.path.join(pkg, "recomp", "builds", bp))
 
     try:
         with open(os.path.join(build, "nsmbu-zstd.txt")) as f:

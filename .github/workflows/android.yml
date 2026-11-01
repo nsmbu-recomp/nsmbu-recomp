@@ -1,5 +1,5 @@
 # Android build check: builds the app's native library (libmain.so, android/build_native.sh) and the
-# APK (android/, Gradle) against placeholder guest code (tools/recomp/stubgen.py; no game files
+# APK (android/, Gradle) against placeholder guest code (recomp/stubgen.py; no game files
 # involved), the way the release workflow builds the desktop runtimes.
 #
 # Legal: CI never has the game. The APK built here cannot run it (its game code is placeholders) and
@@ -52,7 +52,7 @@ jobs:
 
       - name: Native library (placeholder game code)
         run: |
-          python3 tools/recomp/stubgen.py build/gen-stub
+          python3 recomp/stubgen.py build/gen-stub
           GEN_DIR="$PWD/build/gen-stub" ANDROID_SDK="$ANDROID_HOME" JOBS=4 android/build_native.sh
 
       - name: APK

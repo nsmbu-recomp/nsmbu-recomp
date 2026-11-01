@@ -74,10 +74,10 @@ USA 1.3.0 is the identity: those code addresses are already the canonical ids in
 1. Save the log under `.tmp/issues/`.
 2. Read the `[boot] game version` line.
    The name in parentheses is the build (`USA`, `USA_V0`, `EU`, `EU_V0`, `NSMBU_NSLU_USA`, `NSMBU_NSLU_EU`), next to the title id and title version.
-3. Load that build from `tools/recomp/builds.py` with `by_name`, or with `by_title_version` when you have the title id and title version.
+3. Load that build from `recomp/builds.py` with `by_name`, or with `by_title_version` when you have the title id and title version.
 4. `Build.canon_code(addr)` is the USA code id.
    A data address uses `build._data.unapply(addr)`.
-5. The nearest lower line in `tools/recomp/headers_names.txt` names the symbol ([names.md](../developer/names.md)).
+5. The nearest lower line in `recomp/headers_names.txt` names the symbol ([names.md](../developer/names.md)).
 6. Match `CHANGELOG.md` Unreleased and `nsmbu test --list` summaries that cite the issue before starting a new repro.
 
 `NSMBU_USER_DIR` (set by the `nsmbu` CLI to `<repo>/nsmbu`) moves settings and the logs folder with it.

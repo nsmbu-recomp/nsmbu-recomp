@@ -1,22 +1,22 @@
 {
- "name": "NSMBU_NSLU_EU",
- "title_id": "000500001014b800",
+ "name": "NSMBU_NSLU_USA",
+ "title_id": "000500001014b700",
  "title_version": 0,
- "rpx_sha256": "1faa7ce3e07de9376a0495f95f32331c910282397e3eb7551bf714a6aba2a285",
+ "rpx_sha256": "1031c741b15a1d6643e27bc040983b34f7a28241e59815643ba425deb66b2b05",
  "derived_from": {
   "name": "USA",
   "rpx_sha256": "ebd147ce4cdedb563db3ac6278186ca5dea282ad315271925b8bb5ac16c7dc8e"
  },
- "comment": "Canonical (USA) address -> NSMBU_NSLU_EU (Europe NSMBU+NSLU pack) address, as a piecewise constant shift. The pack inserts NSLU functions; derived and checked by tools/recomp/mkbuildmap.py; numbers only, no game code.",
+ "comment": "Canonical (USA) address -> NSMBU_NSLU_USA (NSMBU+NSLU pack) address, as a piecewise constant shift. The pack inserts NSLU functions; derived and checked by recomp/mkbuildmap.py; numbers only, no game code.",
  "checked": {
   "functions": 83049,
   "other_functions": 84945,
-  "anchors": 29656,
+  "anchors": 29658,
   "paired": 83045,
   "missing": 4,
-  "calls_checked": 141840,
-  "data_addresses": 72029,
-  "differing": 216
+  "calls_checked": 141850,
+  "data_addresses": 72034,
+  "differing": 214
  },
  "code_bounds": [
   "02000020",
@@ -448,64 +448,56 @@
    129612
   ],
   [
-   "029CCCF4",
-   129620
-  ],
-  [
-   "029CD004",
-   130480
-  ],
-  [
    "029CDCAC",
-   130504
+   129636
   ],
   [
    "029CFC74",
-   131024
+   130156
   ],
   [
    "029D49A4",
-   130264
+   129396
   ],
   [
    "029F81D0",
-   130292
+   129424
   ],
   [
    "02A0EE24",
-   130376
+   129508
   ],
   [
    "02A15300",
-   130368
+   129504
   ],
   [
    "02A538B0",
-   130652
+   129788
   ],
   [
    "02A9F50C",
-   453656
+   452792
   ],
   [
    "02ACFF24",
-   453708
+   452844
   ],
   [
    "02AFCD94",
-   453720
+   452856
   ],
   [
    "02AFEAD8",
-   453572
+   452708
   ],
   [
    "02AFEBF4",
-   454340
+   453476
   ],
   [
    "02AFEE3C",
-   454500
+   453636
   ]
  ],
  "data_steps": [
@@ -622,24 +614,20 @@
    17008
   ],
   [
-   "10189E08",
-   17016
-  ],
-  [
-   "10189F50",
-   17068
-  ],
-  [
    "1018A1B4",
-   17148
+   17088
   ],
   [
    "1018A63C",
-   17152
+   17092
+  ],
+  [
+   "1018B858",
+   17096
   ],
   [
    "101A98B4",
-   17168
+   17112
   ],
   [
    "101B5B00",
@@ -1992,63 +1980,51 @@
    1048
   ],
   [
-   "029CCB5C",
-   408,
-   "029EC5A8",
-   416
-  ],
-  [
-   "029CCCF4",
-   784,
-   "029EC748",
-   1644
-  ],
-  [
    "029CD2E8",
    2500,
-   "029ED098",
+   "029ECD34",
    2524
   ],
   [
    "029CDCAC",
    132,
-   "029EDA74",
+   "029ED710",
    132
   ],
   [
    "029D4548",
    720,
-   "029F4518",
+   "029F41B4",
    356
   ],
   [
    "029DF0DC",
    216,
-   "029FEDB4",
+   "029FEA50",
    216
   ],
   [
    "02A0ED60",
    196,
-   "02A2EA54",
+   "02A2E6F0",
    280
   ],
   [
    "02A152E4",
    28,
-   "02A3502C",
-   20
+   "02A34CC8",
+   24
   ],
   [
    "02AFE9DC",
    252,
-   "02B6D634",
+   "02B6D2D4",
    104
   ],
   [
    "02AFEAD8",
    284,
-   "02B6D69C",
+   "02B6D33C",
    148
   ],
   [
@@ -2072,7 +2048,7 @@
   [
    "029D4818",
    396,
-   "029F47E8",
+   "029F4484",
    0
   ]
  ]

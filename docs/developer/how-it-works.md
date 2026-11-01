@@ -20,7 +20,7 @@ This port translates the game's code into a native macOS program ahead of time a
 
 ## The CPU: static recompilation
 
-`tools/recomp/recomp.py` disassembles the game's executable and turns every PowerPC function into a C
+`recomp/recomp.py` disassembles the game's executable and turns every PowerPC function into a C
 function.
 It writes `build/gen/code_*.c`, `table.c` (guest address to host function), and `imports.c`:
 

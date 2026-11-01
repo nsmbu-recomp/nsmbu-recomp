@@ -16,7 +16,7 @@ def default_rpx():
 
 def load_names():
     root = os.path.join(os.path.dirname(__file__), "..", "..")
-    path = os.path.join(root, "tools", "recomp", "headers_names.txt")
+    path = os.path.join(root, "recomp", "headers_names.txt")
     names = {}
     if not os.path.exists(path):
         return names

@@ -24,7 +24,7 @@ Follow `.agents/skills/upstream-merge/SKILL.md`.
 
 The upstream port and NSMBU are both Wii U titles.
 
-`tools/recomp/recomp.py` turns one RPX into C.
+`recomp/recomp.py` turns one RPX into C.
 
 `runtime/` implements Cafe OS calls and GX2 on Vulkan.
 
@@ -45,7 +45,7 @@ These parts still need NSMBU-specific work.
 
 - Language packs and many mods still follow upstream Cemu pack folder names.
 - The build writes weak stubs for symbols the runtime still names from upstream.
-  CMake runs `tools/recomp/guest_stubs.py` and compiles the output.
+  CMake runs `recomp/guest_stubs.py` and compiles the output.
 
 The upstream built-in mods and cheats are removed.
 
@@ -160,7 +160,7 @@ Use Clang.
 The generated C uses `musttail`.
 
 ```bash
-python3 tools/recomp/recomp.py game/usa-1.3.0/code/red-pro2.rpx build/gen
+python3 recomp/recomp.py game/usa-1.3.0/code/red-pro2.rpx build/gen
 cmake -S . -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
 cmake --build build
 ```

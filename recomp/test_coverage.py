@@ -11,7 +11,7 @@ import unittest
 
 import builds
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 NON_ADDRESS = {
     ("core/runtime.h", 0x02800000): "foreground bucket size",
     ("core/runtime.h", 0x02000000): "MEM1 size",

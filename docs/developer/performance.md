@@ -120,7 +120,7 @@ The thread table at the bottom gives the busy share per game thread (`GX2 render
 `.tmp/perf/nsmbu.data` resolves against the binary by build ID.
 Keep that binary unchanged until the data is read.
 
-Name in-binary sample rows with `grep` on the log offset against `tools/recomp/headers_names.txt` and the rules in [names.md](names.md).
+Name in-binary sample rows with `grep` on the log offset against `recomp/headers_names.txt` and the rules in [names.md](names.md).
 Use Linux `perf` when you need full symbolication of mapped libraries.
 Reads of guest code live in `build/gen/code_*.c` (`f_XXXXXXXX`).
 
@@ -491,7 +491,7 @@ full checks, hashed bytes (Metal), uploads, page write faults and pages protecte
 ## Guest register reloads after calls (2026-10-21)
 
 Functions with calls now keep the guest registers in C locals between calls and reload only the ones a later read needs.
-A backward liveness pass over each function's statement graph (`tools/recomp/leaflocal.py`, `NSMBU_RECOMP_NONLEAF_LIVE`, on by default) drops the reloads of registers and float halves that are overwritten before they are read again, and keeps the ones a return, a tail call or a loop-head sync still needs.
+A backward liveness pass over each function's statement graph (`recomp/leaflocal.py`, `NSMBU_RECOMP_NONLEAF_LIVE`, on by default) drops the reloads of registers and float halves that are overwritten before they are read again, and keeps the ones a return, a tail call or a loop-head sync still needs.
 
 The recompiler emits one reload statement per register per call, and the game has 173,463 calls in functions with calls.
 `report.txt` therefore counts 2,918,797 reload statements with the pass off and 621,916 with it on: 79% of them are gone.
@@ -517,7 +517,7 @@ That is CPU headroom, not frames, on this machine.
 
 `nsmbu recomp` writes the reload count to `report.txt`; recompile the same tree with `NSMBU_RECOMP_NONLEAF_LIVE=0` for the baseline.
 A build with the pass on must still print `62 position checks` and `replay finished at step 2420, player state matched` for `nsmbu replay --release 1-1`.
-`python3 -m unittest tools/recomp/test_leaflocal.py` covers the transform itself.
+`python3 -m unittest recomp/test_leaflocal.py` covers the transform itself.
 
 Three things mislead while measuring this.
 The `[prof]` windows for one setting swing up to 20% between runs here, so compare three runs per side and use the medians; a single pair can show a gain that is not there.

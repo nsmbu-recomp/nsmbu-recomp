@@ -1,5 +1,5 @@
 # Function and global addresses with their class and symbol names.
-# Source: https://github.com/nsmbu/headers (USA v1.3.0), extracted by tools/recomp/names.py. Checkout: 2976c89.
+# Source: https://github.com/nsmbu/headers (USA v1.3.0), extracted by recomp/names.py. Checkout: 2976c89.
 #
 020002CC Actor::removeCollisionCheck
 02000328 Actor::reviveCollisionCheck

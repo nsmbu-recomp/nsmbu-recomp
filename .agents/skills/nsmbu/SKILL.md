@@ -36,7 +36,7 @@ nsmbu build
 `nsmbu game <id>` writes `game/active` and skips prompts.
 Add `--extract` to extract (or re-extract) the disc.
 Add `--recomp` to refresh `build/gen` from that dump's RPX.
-`--recomp` is slow, reuse `build/gen` unless `tools/recomp/recomp.py` changed, you switch game version (e.g. USA  Europe), or `hooks.txt` / `hooks_*.txt` changed.
+`--recomp` is slow, reuse `build/gen` unless `recomp/recomp.py` changed, you switch game version (e.g. USA  Europe), or `hooks.txt` / `hooks_*.txt` changed.
 Runtime-only edits need `nsmbu build` only.
 Then `nsmbu build` (and playtests / `nsmbu open`) use that dump.
 
@@ -50,7 +50,7 @@ Print the SDL summary when the cache is created.
 Every build also regenerates `build/debug/generated/nsmbu_guest_stubs.c` and relinks.
 The line `0 hooks` in that step is normal.
 Hooks live in `build/gen`.
-Regenerate the stubs only when `hooks.txt`, `hooks_*.txt`, or `tools/recomp/recomp.py` changed.
+Regenerate the stubs only when `hooks.txt`, `hooks_*.txt`, or `recomp/recomp.py` changed.
 A runtime-only edit compiles the changed `.cpp` and links.
 
 ## Hidden boot

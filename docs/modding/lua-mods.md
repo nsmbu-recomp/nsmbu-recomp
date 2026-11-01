@@ -183,7 +183,7 @@ Game calls use guest addresses from the public headers (`references/headers`, se
 The Lua runtime should ship a generated `nsmbu.Fn` table of those names.
 A mod can still pass a raw address.
 USA addresses are the authoring target.
-The European build map in SDK v2 (`tools/recomp/builds`) must still translate hook targets and `nsmbu.Hooks.call` targets.
+The European build map in SDK v2 (`recomp/builds`) must still translate hook targets and `nsmbu.Hooks.call` targets.
 Object field offsets are not translated.
 That limit is the same as in SDK v2.
 
@@ -588,5 +588,5 @@ Do not copy their code without a license review.
 | Guest hooks | Removed (`runtime/src/mods/guest_mods.cpp`) |
 | Code-mod rebuild | Removed (`runtime/src/mods/code_mods.cpp`) |
 | Guest toolchain | Removed (`tools/guestmod/`) |
-| Hook emission | Removed for guest mods (`--mod-hooks` in `tools/recomp/recomp.py`) |
+| Hook emission | Removed for guest mods (`--mod-hooks` in `recomp/recomp.py`) |
 | Mod identity in states | `runtime/src/save/portable_state.cpp` |

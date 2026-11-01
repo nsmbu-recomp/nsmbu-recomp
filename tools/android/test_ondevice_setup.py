@@ -15,7 +15,7 @@ from ondevice_setup import run, process_resources
 from setup_adapter import Adapter
 
 ROOT = Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location("job_fixture", ROOT / "tools/recomp/android_fixture.py")
+spec = importlib.util.spec_from_file_location("job_fixture", ROOT / "recomp/android_fixture.py")
 fixture = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fixture)
 

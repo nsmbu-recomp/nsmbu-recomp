@@ -2,8 +2,8 @@
 """Class and function names for guest addresses.
 
 The names come from the [nsmbu/headers](https://github.com/nsmbu/headers) project (USA v1.3.0):
-`python3 tools/recomp/names.py` walks a `references/headers` checkout and writes the extracted
-`{address: name}` table to `tools/recomp/headers_names.txt`, which is in git. Local `recomp.py` and
+`python3 recomp/names.py` walks a `references/headers` checkout and writes the extracted
+`{address: name}` table to `recomp/headers_names.txt`, which is in git. Local `recomp.py` and
 `stubgen.py` read that file when present; if it is missing (release packages omit it), they use an
 empty table.
 
@@ -28,7 +28,7 @@ import subprocess
 import sys
 
 here = os.path.dirname(os.path.abspath(__file__))
-headers_dir = os.path.normpath(os.path.join(here, "..", "..", "references", "headers"))
+headers_dir = os.path.normpath(os.path.join(here, "..", "references", "headers"))
 DATA_FILE = os.path.join(here, "headers_names.txt")
 
 ADDRESS = re.compile(r"Address:\s*(0x[0-9A-Fa-f]{8})\b")
@@ -149,7 +149,7 @@ def extract(argv_paths):
             sys.exit("no headers checkout: %s" % d)
         parser.load_tree(d)
     lines = ["# Function and global addresses with their class and symbol names.",
-             "# Source: https://github.com/nsmbu/headers (USA v1.3.0), extracted by tools/recomp/names.py."]
+             "# Source: https://github.com/nsmbu/headers (USA v1.3.0), extracted by recomp/names.py."]
     commit = source_commit(argv_paths[0])
     if commit:
         lines[1] += " Checkout: %s." % commit

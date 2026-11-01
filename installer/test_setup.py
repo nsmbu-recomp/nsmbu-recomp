@@ -333,7 +333,7 @@ class ArchiveTitles(unittest.TestCase):
 
 class GameVersion(unittest.TestCase):
     """code/red-pro2.rpx must be one of the builds the port knows (version 64 of a region,
-    tools/recomp/builds.py); synthetic files, made-up bytes."""
+    recomp/builds.py); synthetic files, made-up bytes."""
 
     def make(self, d, rpx=b"made-up rpx", app_tid="0005000010101d00", app_ver="0040"):
         os.makedirs(os.path.join(d, "code"), exist_ok=True)

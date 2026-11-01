@@ -32,8 +32,8 @@ if [ "$cpu" != generic ]; then flags=("-DCMAKE_C_FLAGS=-mcpu=$cpu" "-DCMAKE_CXX_
 gen="${GEN_DIR:-$root/build/gen}"
 if [ "$gen" = stub ] || ! compgen -G "$gen/code_*.c" > /dev/null; then
     gen="${OUT:-$here/build}/gen-stub"
-    echo "== placeholder game code (tools/recomp/stubgen.py) in $gen"
-    python3 "$root/tools/recomp/stubgen.py" "$gen"
+    echo "== placeholder game code (recomp/stubgen.py) in $gen"
+    python3 "$root/recomp/stubgen.py" "$gen"
 fi
 
 echo "== game (libmain.so), NDK $(basename "$ndk"), ABI $abi, CPU $cpu"

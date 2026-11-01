@@ -44,7 +44,7 @@ flowchart TD
 
 ## Tier A — No game dump
 
-These use placeholder guest code from `tools/recomp/stubgen.py`, not a `game/` tree.
+These use placeholder guest code from `recomp/stubgen.py`, not a `game/` tree.
 CI runs them in `.github/workflows/linux.yml` (and related workflows).
 
 ### C++ unit tests (`ctest`)
@@ -52,7 +52,7 @@ CI runs them in `.github/workflows/linux.yml` (and related workflows).
 Configure and build like Linux CI, then:
 
 ```bash
-python3 tools/recomp/stubgen.py build/gen-stub
+python3 recomp/stubgen.py build/gen-stub
 cmake -S . -B build/linux -G Ninja -DGEN_DIR="$PWD/build/gen-stub" …
 cmake --build build/linux
 ctest --test-dir build/linux --output-on-failure
@@ -66,7 +66,7 @@ See the `nsmbu` skill for when `--recomp` is required.
 ### Python tool tests (Linux CI, after `ctest`)
 
 - `installer/test_setup.py` (includes issue #11 Windows paste test)
-- `tools/recomp/test_builds.py`, `test_output.py`, `test_pool.py`
+- `recomp/test_builds.py`, `test_output.py`, `test_pool.py`
 - `tools/android/test_apk_cli.py`
 - `tools/lib/test_dev_game_icon.py`
 - `tools/test_shaderprep.py`

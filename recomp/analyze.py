@@ -12,7 +12,7 @@ import struct
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "rpx"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tools", "rpx"))
 from rpx import Rpx, R_PPC_ADDR32, R_PPC_ADDR16_LO, R_PPC_ADDR16_HA, R_PPC_ADDR16_HI, R_PPC_REL24, SHT_NOBITS
 
 def sext(v, bits):

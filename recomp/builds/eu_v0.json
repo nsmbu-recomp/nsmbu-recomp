@@ -7,7 +7,7 @@
   "name": "USA",
   "rpx_sha256": "ebd147ce4cdedb563db3ac6278186ca5dea282ad315271925b8bb5ac16c7dc8e"
  },
- "comment": "Canonical (USA) address -> EU_V0 address, as a piecewise constant shift. Derived and checked by tools/recomp/mkbuildmap.py; numbers only, no game code.",
+ "comment": "Canonical (USA) address -> EU_V0 address, as a piecewise constant shift. Derived and checked by recomp/mkbuildmap.py; numbers only, no game code.",
  "checked": {
   "functions": 83049,
   "other_functions": 80075,

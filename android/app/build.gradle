@@ -84,7 +84,7 @@ tasks.register('verifyReleasePython') {
         if (pythonPackage != null) {
             def archive = new java.util.zip.ZipFile(file(pythonPackage + '/assets/python-source.zip'))
             try {
-                if (['tools/android/debug_fixture_build.py', 'tools/recomp/android_fixture.py',
+                if (['tools/android/debug_fixture_build.py', 'recomp/android_fixture.py',
                      'tools/android/runtime_fixture.c'].any { archive.getEntry(it) != null })
                     throw new GradleException('Debug fixture sources must not ship in release Python packages')
             } finally { archive.close() }

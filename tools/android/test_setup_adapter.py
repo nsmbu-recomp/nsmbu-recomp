@@ -12,7 +12,7 @@ from types import SimpleNamespace
 from setup_adapter import Adapter, Paused, atomic_json, digest, inventory
 
 PACKAGE = Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location("android_fixture", PACKAGE / "tools/recomp/android_fixture.py")
+spec = importlib.util.spec_from_file_location("android_fixture", PACKAGE / "recomp/android_fixture.py")
 fixture = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fixture)
 
@@ -92,7 +92,7 @@ class TranslationTests(unittest.TestCase):
     def test_matches_desktop_and_resumes_after_worker_restart(self):
         desktop = self.root / "desktop"
         subprocess.run([sys.executable, "-c", "import sys; sys.path.insert(0, sys.argv[1]); from android_fixture import translate; translate(sys.argv[2], sys.argv[3])",
-                        str(PACKAGE / "tools/recomp"), str(self.rpx), str(desktop)], check=True, stdout=subprocess.DEVNULL)
+                        str(PACKAGE / "recomp"), str(self.rpx), str(desktop)], check=True, stdout=subprocess.DEVNULL)
         generated = self.adapter().translate(self.game)
         self.assertEqual(inventory(desktop), inventory(generated))
         restarted = self.adapter()
@@ -127,7 +127,7 @@ class TranslationTests(unittest.TestCase):
             return value
         previous = adapter().translate(self.game)
         expected = inventory(previous)
-        hooks = package / "tools/recomp/hooks_update_test.txt"
+        hooks = package / "recomp/hooks_update_test.txt"
         hooks.write_text("02000000\n")
         updated = adapter().translate(self.game)
         self.assertNotEqual(previous, updated)
@@ -192,7 +192,7 @@ class TranslationTests(unittest.TestCase):
         import importlib
         import threading
         import time
-        with patch.object(sys, "path", [str(PACKAGE / "tools/recomp"),
+        with patch.object(sys, "path", [str(PACKAGE / "recomp"),
                                          str(PACKAGE / "tools")] + sys.path):
             ppc2c = importlib.import_module("ppc2c")
         requested = threading.Event()
@@ -226,7 +226,7 @@ class TranslationTests(unittest.TestCase):
         generated = self.adapter().translate(self.game)
         desktop = self.root / "desktop-after-pause"
         subprocess.run([sys.executable, "-c", "import sys; sys.path.insert(0, sys.argv[1]); from android_fixture import translate; translate(sys.argv[2], sys.argv[3])",
-                        str(PACKAGE / "tools/recomp"), str(self.rpx), str(desktop)], check=True, stdout=subprocess.DEVNULL)
+                        str(PACKAGE / "recomp"), str(self.rpx), str(desktop)], check=True, stdout=subprocess.DEVNULL)
         self.assertEqual(inventory(generated), inventory(desktop))
 
     def test_pause_before_work(self):

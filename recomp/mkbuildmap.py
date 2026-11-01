@@ -5,10 +5,10 @@ usage:
   mkbuildmap.py CANONICAL.rpx OTHER.rpx --name EU --title 0005000010101e00 [--out FILE]
   mkbuildmap.py --check FILE [CANONICAL.rpx OTHER.rpx]
 
-Every game address in this repository (tools/recomp/hooks*.txt, runtime/src, the docs) is an
+Every game address in this repository (recomp/hooks*.txt, runtime/src, the docs) is an
 address of the USA build: the canonical id of that function or object. Another build of the same
 game (a region, or a pack that inserts more functions) has the same core code at shifted
-addresses. A build map (tools/recomp/builds/*.json) is a piecewise constant shift that turns a
+addresses. A build map (recomp/builds/*.json) is a piecewise constant shift that turns a
 canonical address into that build's address, for code (.text) and for data (.rodata/.data/.bss).
 
 The map is derived from the two executables and only then committed; it holds numbers, never any
@@ -24,7 +24,7 @@ of the game's code. Deriving it asserts that the two builds really are the same 
 
 Functions whose body differs (region language code, or a pack tweak) are listed in the map. A
 hook on one of them is not valid for the other build, which is why hooks*.txt files can be marked
-as belonging to a build (see tools/recomp/builds.py).
+as belonging to a build (see recomp/builds.py).
 """
 import argparse
 import bisect
@@ -35,7 +35,6 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from analyze import Program, sext
 
 DATA_LO, DATA_HI = 0x10000000, 0x20000000
@@ -344,7 +343,7 @@ def to_json(m, name, title, sha256, canon_sha256, canon_name, title_version=None
         "rpx_sha256": sha256,
         "derived_from": {"name": canon_name, "rpx_sha256": canon_sha256},
         "comment": ("Canonical (%s) address -> %s address, as a piecewise constant shift. Derived and "
-                    "checked by tools/recomp/mkbuildmap.py; numbers only, no game code." % (canon_name, name)),
+                    "checked by recomp/mkbuildmap.py; numbers only, no game code." % (canon_name, name)),
         "checked": m["stats"],
         "code_bounds": ["%08X" % a for a in m["code_bounds"]],
         "data_bounds": ["%08X" % a for a in m["data_bounds"]],

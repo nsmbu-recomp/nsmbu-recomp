@@ -7,7 +7,7 @@ disc dump:
   1. asks for the disc image (.wux/.wud) and its keys, a Cemu Wii U archive (.wua; no keys), or an
      already extracted game folder;
   2. extracts the game files (tools/bin/nsmbu-extract);
-  3. translates the game's PowerPC code to C (tools/recomp/recomp.py);
+  3. translates the game's PowerPC code to C (recomp/recomp.py);
   4. compiles that code with a C compiler (Apple's Command Line Tools on macOS, a pinned llvm-mingw
      on Windows, a pinned zig toolchain on Linux; downloaded and checked automatically);
   5. links it with the prebuilt runtime (sdk/) into the game executable;
@@ -152,7 +152,7 @@ TITLE_IDS = {
     "000500001014b800": "Europe + Luigi U",
 }
 
-sys.path.insert(0, os.path.join(PKG, "tools", "recomp"))
+sys.path.insert(0, os.path.join(PKG, "recomp"))
 import builds as game_builds
 ALL_BUILDS = game_builds.all_builds()
 SUPPORTED_BUILDS = {b.title_id: game_builds.by_title(b.title_id) for b in ALL_BUILDS}
@@ -1002,7 +1002,7 @@ GAME_VERSION_FIX = ("Use New Super Mario Bros. U USA (title version 64 or base d
 UPDATE_DIRNAME = "update"
 
 def check_game_version(path):
-    """The build of the game in `path` (tools/recomp/builds.py), or SetupError if it is not one the
+    """The build of the game in `path` (recomp/builds.py), or SetupError if it is not one the
     port can be built from. The translated code and its hooks are made for exactly those files
     (USA or Europe 1.3.0), so this runs before translating."""
     rpx = os.path.join(path, "code", "red-pro2.rpx")
@@ -1280,7 +1280,7 @@ def installed_build(game_dir):
 def recompile(game_dir, gen_dir):
     shutil.rmtree(gen_dir, ignore_errors=True)
     rpx = os.path.join(game_dir, "code", "red-pro2.rpx")
-    cmd = [sys.executable, os.path.join(PKG, "tools", "recomp", "recomp.py"), rpx, gen_dir, "--progress"]
+    cmd = [sys.executable, os.path.join(PKG, "recomp", "recomp.py"), rpx, gen_dir, "--progress"]
     env = dict(os.environ, NSMBU_RECOMP_MOD_HOOKS="0", PYTHONDONTWRITEBYTECODE="1")
     LOG.write("$ " + " ".join(cmd))
     pr = Progress("translating")

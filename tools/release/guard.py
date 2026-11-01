@@ -6,7 +6,7 @@ usage: guard.py [--allow-android-test-fixtures] ARTIFACT.zip|DIR [...]
 Release packages may contain only this project's runtime, tools and installer (plus third-party
 licenses). This check rejects, by name and by content:
   - generated/recompiled game code (code_NNN.c, funcs.h with guest functions, table.c, imports.c,
-    imports.json, report.txt from tools/recomp), and real-looking generated code inside any file;
+    imports.json, report.txt from recomp), and real-looking generated code inside any file;
   - game files: *.rpx, *.rpl, *.wux, *.wud, disc keys (*.key), tickets/TMDs (title.tik, title.tmd),
     saves (cking*.sav, *.sav), anything under a game/ code/ content/ meta/ tree;
   - shader caches and head starts (shaders.bin, headstart.bin, template.bin, testcache.bin, *.metallib);
@@ -15,7 +15,7 @@ licenses). This check rejects, by name and by content:
 Release packages may contain only this project's runtime, tools and installer (plus third-party
 licenses). This check rejects, by name and by content:
   - generated/recompiled game code (code_NNN.c, funcs.h with guest functions, table.c, imports.c,
-    imports.json, report.txt from tools/recomp), and real-looking generated code inside any file;
+    imports.json, report.txt from recomp), and real-looking generated code inside any file;
   - game files: *.rpx, *.rpl, *.wux, *.wud, disc keys (*.key), tickets/TMDs (title.tik, title.tmd),
     saves (cking*.sav, *.sav), anything under a game/ code/ content/ meta/ tree;
   - shader caches and head starts (shaders.bin, headstart.bin, template.bin, testcache.bin, *.metallib);
@@ -100,7 +100,7 @@ def check_entry(name, data, problems):
 
 ANDROID_TEST_FILES = {
     "tools/android/debug_fixture_build.py",
-    "tools/recomp/android_fixture.py",
+    "recomp/android_fixture.py",
     "tools/android/runtime_fixture.c",
 }
 

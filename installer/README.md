@@ -242,10 +242,10 @@ archive written by the test) and `ArchiveTitles` in `test_setup.py`.
 
 ## Game version check
 
-The hooks (`tools/recomp/hooks*.txt`) use canonical USA addresses.
+The hooks (`recomp/hooks*.txt`) use canonical USA addresses.
 Setup accepts `code/red-pro2.rpx` from New Super Mario Bros. U USA (`00050000-10101d00`, title version 64
 or base disc 0) or Europe (`00050000-10101e00`, title version 80 or base disc 0).
-The build registry (`tools/recomp/builds.py` and `tools/recomp/builds/*.json`) keeps those SHA-256
+The build registry (`recomp/builds.py` and `recomp/builds/*.json`) keeps those SHA-256
 values (checksums only: they identify the file and contain nothing of it;
 `guard.py` flags 32-digit, key-shaped strings, not 64-digit sums) and `check_game_version` compares
 them for every source before anything is translated: an extracted folder at the "folder" step (and

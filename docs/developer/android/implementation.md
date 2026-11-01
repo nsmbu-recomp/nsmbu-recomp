@@ -5,15 +5,15 @@
 The port follows the WWHD recomp's Android host (setup service, embedded CPython, Android-hosted compiler, touch controls).
 Host Python, JVM and C++ tests cover the pieces that run off the device.
 Emulator smokes, release CI and real-device checks are pending; see the [device checklist](device-checklist.md).
-The implementation uses this project's recompiler (`tools/recomp/recomp.py`); no second recompiler is added.
+The implementation uses this project's recompiler (`recomp/recomp.py`); no second recompiler is added.
 Dual displays, gyro aiming, a 40 fps mode and Android code mods are out of scope.
 
 ## Shared setup pipeline
 
 `tools/android/setup_adapter.py` calls the desktop installer's extraction, translation, compilation and linking operations.
-`installer/setup.py` and `tools/recomp/recomp.py` keep their desktop behavior.
+`installer/setup.py` and `recomp/recomp.py` keep their desktop behavior.
 The adapter supplies Android native process execution and durable checkpoints instead of the desktop install entry point, which chooses desktop toolchains and deletes work.
-The game identity is `code/red-pro2.rpx` and the known builds in `tools/recomp/builds.py`.
+The game identity is `code/red-pro2.rpx` and the known builds in `recomp/builds.py`.
 
 Android embeds official CPython through a small JNI bridge in the dedicated `:setup` process.
 The interpreter runs isolated: no environment or site loading, and no bytecode writes.

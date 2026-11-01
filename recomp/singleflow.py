@@ -236,7 +236,7 @@ def runtime_addresses():
     """code addresses written in the runtime's sources (guest_call by address, e.g. mods/climb.cpp):
     functions the runtime may call directly start with nothing known"""
     import re
-    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "runtime")
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "runtime")
     found = set()
     for d, _, files in os.walk(root):
         if "third_party" in d:

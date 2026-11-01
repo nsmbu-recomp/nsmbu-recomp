@@ -308,7 +308,7 @@ def drop_linker_depfile_detection():
 def run_build(version, sdl_prefix, vulkan_root, vulkan_lib):
     os.makedirs(GEN_STUB, exist_ok=True)
     log("generating stub game code")
-    subprocess.run([sys.executable, os.path.join(ROOT, "tools", "recomp", "stubgen.py"), GEN_STUB], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, os.path.join(ROOT, "recomp", "stubgen.py"), GEN_STUB], cwd=ROOT, check=True)
     drop_linker_depfile_detection()
     env = os.environ.copy()
     env["ZIG_GLOBAL_CACHE_DIR"] = ZIG_CACHE

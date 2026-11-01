@@ -5,7 +5,7 @@ USA v1.3.0 `red-pro2.rpx` unless a note says Europe.
 ## Tools
 
 - `python3 tools/rpx/ppcdis.py ADDR [COUNT] [RPX]` — `.text` disassembly; annotates `headers_names.txt` callees and imports.
-- `tools/recomp/headers_names.txt` — class and symbol for game addresses (~5k symbols).
+- `recomp/headers_names.txt` — class and symbol for game addresses (~5k symbols).
 - `game/active` — which dump `ppcdis.py` uses by default.
 
 ## TODO workflow

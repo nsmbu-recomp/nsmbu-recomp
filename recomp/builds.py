@@ -1,9 +1,9 @@
 """The builds of the game this port knows, and how their addresses relate to the canonical ones.
 
 Every game address written in this repository is an address of the **USA** build: the canonical id
-of that function or that global. `tools/recomp/builds/*.json` holds, for every other build, the
+of that function or that global. `recomp/builds/*.json` holds, for every other build, the
 piecewise constant shift from a canonical address to that build's address, derived and checked from
-the two executables by `tools/recomp/mkbuildmap.py` (numbers only, never any of the game's code).
+the two executables by `recomp/mkbuildmap.py` (numbers only, never any of the game's code).
 
 A hooks file (`hooks*.txt`) may start with
 

@@ -55,10 +55,10 @@ class SDKPackage(unittest.TestCase):
                         self.assertIn(sibling.relative_to(package.ROOT).as_posix(), shipped)
 
     def test_recomp_local_imports_are_shipped(self):
-        recomp = Path(package.ROOT) / "tools/recomp"
+        recomp = Path(package.ROOT) / "recomp"
         shipped = set(package.TOOL_FILES)
         for relative in package.TOOL_FILES:
-            if not relative.startswith("tools/recomp/") or not relative.endswith(".py"):
+            if not relative.startswith("recomp/") or not relative.endswith(".py"):
                 continue
             source = Path(package.ROOT) / relative
             for node in ast.walk(ast.parse(source.read_text())):
@@ -71,12 +71,12 @@ class SDKPackage(unittest.TestCase):
                     if sibling.is_file():
                         self.assertIn(sibling.relative_to(package.ROOT).as_posix(), shipped,
                                       relative + " imports " + name)
-        self.assertIn("tools/recomp/names.py", shipped)
-        self.assertNotIn("tools/recomp/headers_names.txt", shipped)
+        self.assertIn("recomp/names.py", shipped)
+        self.assertNotIn("recomp/headers_names.txt", shipped)
 
     def test_names_load_without_data_file(self):
         spec = importlib.util.spec_from_file_location(
-            "recomp_names", Path(package.ROOT) / "tools/recomp/names.py")
+            "recomp_names", Path(package.ROOT) / "recomp/names.py")
         names = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(names)
         with mock.patch.object(names, "DATA_FILE", "/nonexistent/headers_names.txt"):
@@ -89,13 +89,13 @@ class SDKPackage(unittest.TestCase):
                 dest = root / relative
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(Path(package.ROOT) / relative, dest)
-            maps = Path(package.ROOT) / "tools/recomp/builds"
+            maps = Path(package.ROOT) / "recomp/builds"
             if maps.is_dir():
-                shutil.copytree(maps, root / "tools/recomp/builds")
+                shutil.copytree(maps, root / "recomp/builds")
             result = subprocess.run(
                 [sys.executable, "-I", "-B", "-c",
                  "import runpy,sys; runpy.run_path(sys.argv[1], run_name='recomp_import_test')",
-                 str(root / "tools/recomp/recomp.py")],
+                 str(root / "recomp/recomp.py")],
                 cwd=tmp, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
@@ -108,9 +108,9 @@ class SDKPackage(unittest.TestCase):
                     dest = root / relative
                     dest.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copyfile(Path(package.ROOT) / relative, dest)
-                maps = Path(package.ROOT) / "tools/recomp/builds"
+                maps = Path(package.ROOT) / "recomp/builds"
                 if maps.is_dir():
-                    shutil.copytree(maps, root / "tools/recomp/builds")
+                    shutil.copytree(maps, root / "recomp/builds")
                 result = subprocess.run(
                     [sys.executable, "-I", "-B", "-c",
                      "import runpy,sys; runpy.run_path(sys.argv[1], run_name='package_import_test')",

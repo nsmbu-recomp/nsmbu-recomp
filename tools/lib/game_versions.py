@@ -7,7 +7,7 @@ import shutil
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(ROOT, "tools", "recomp"))
+sys.path.insert(0, os.path.join(ROOT, "recomp"))
 import builds
 
 RESERVED = frozenset({

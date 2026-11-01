@@ -98,7 +98,7 @@ frame.
   only takes movement while the game aims.
   `motion::set_aiming` records that state.
   The pointer is captured then (`platform/mouse_sdl.cpp`, `mods/mouse.mm`).
-- `runtime/src/hooks/game_hooks.cpp` (`tools/recomp/hooks_gyro.txt`): in Pro Controller mode, while a source is on,
+- `runtime/src/hooks/game_hooks.cpp` (`recomp/hooks_gyro.txt`): in Pro Controller mode, while a source is on,
   `02618604` skips its mode-0 check, so the game reads the virtual GamePad's motion exactly as with
   the GamePad: same camera code, the in-game Gyro switch, its stick dead zone (now the Pro
   Controller's right stick) and its per-frame calibration. With the source off nothing changes.

@@ -15,7 +15,7 @@ import re
 import sys
 
 here = os.path.dirname(os.path.abspath(__file__))
-root = os.path.normpath(os.path.join(here, "..", ".."))
+root = os.path.normpath(os.path.join(here, ".."))
 pat = re.compile(r"\bf_([0-9A-F]{8})(_orig)?\b")
 hook_def = re.compile(r"\bhook_([0-9A-F]{8})\s*\(")
 site_def = re.compile(r"\bsite_([0-9A-F]{8})\s*\(")

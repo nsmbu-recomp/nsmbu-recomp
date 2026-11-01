@@ -116,18 +116,18 @@ On Linux, `tools/build/build.py` adds the `libstdc++` path when it finds `libstd
 
 `nsmbu build` runs the recompiler when `game/code/red-pro2.rpx` is newer than `build/gen`.
 It also runs the recompiler when the contents of `hooks.txt` or a `hooks_*.txt` file change.
-When that RPX is absent, the build fills `build/gen` with `tools/recomp/stubgen.py` so the tree still links.
+When that RPX is absent, the build fills `build/gen` with `recomp/stubgen.py` so the tree still links.
 
 Set `NSMBU_VERBOSE_BUILD=1` to print full CMake configure output (pkg-config checks and other `--` status lines).
 
 An RPX from a disc that lacks the 1.3.0 update has different addresses.
-Those addresses miss `references/headers` and `tools/recomp/headers_names.txt`.
+Those addresses miss `references/headers` and `recomp/headers_names.txt`.
 
 A warm `nsmbu build` skips `cmake -S` when the build cache already matches the compiler flags and CMake options.
 Regenerate guest stubs only when `hooks.txt`, `hooks_*.txt`, or the recomp inputs changed.
 The `0 hooks` line from stub generation is normal.
 Hooks live in `build/gen`.
-`tools/recomp/guest_stubs.py` writes weak stubs for guest symbols the runtime still names.
+`recomp/guest_stubs.py` writes weak stubs for guest symbols the runtime still names.
 CMake runs that script on every build.
 A generated game function with the same name replaces the stub.
 
@@ -146,7 +146,7 @@ These stay as `python3 tools/…` until they move into the CLI.
 
 | Script | Role |
 | --- | --- |
-| `tools/recomp/analyze.py` | Find branch islands in recomp output ([vendor/decomp/docs/decomp-notes.md](../../vendor/decomp/docs/decomp-notes.md)) |
+| `recomp/analyze.py` | Find branch islands in recomp output ([vendor/decomp/docs/decomp-notes.md](../../vendor/decomp/docs/decomp-notes.md)) |
 | `tools/rpx/ppcdis.py` | Disassemble guest `.text` (see `vendor/decomp/docs/TODO.md`) |
 | `tools/frames/flicker.py` | Compare frame dumps ([automation.md](automation.md)) |
 | `tools/bench/bench_lib.py` | Save-state A/B statistics (unit tests; scenarios use `nsmbu bench`) |
@@ -164,7 +164,7 @@ Linux CI also runs these scripts after that `ctest`.
 
 ```bash
 python3 installer/test_setup.py
-python3 tools/recomp/test_builds.py
+python3 recomp/test_builds.py
 ```
 
 `.githooks/pre_push.py` runs a full local `ctest` before a push.

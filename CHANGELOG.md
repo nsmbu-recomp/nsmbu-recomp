@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Removed leftover docs and runtime checks that said mods need the 1.3.0 update or do not work on base-disc builds.
 - Removed unused developer tools (`tools/check/`, `rpxinfo.py`, Python disc reader, `run_bench.py` CLI).
   `nsmbu extract` uses `nsmbu-extract`; use `nsmbu bench` for performance scenarios.
+- Moved the PowerPC recompiler from `tools/recomp/` to top-level `recomp/`.
 - Dropped `docs/ts-tools-port.md`, Android `--service-fixture` packaging, and the dead `game_sample_report.py` doc reference.
   Renamed bench tests to `test_bench_lib.py`.
 - The release step commits and pushes the changelog before it tags.

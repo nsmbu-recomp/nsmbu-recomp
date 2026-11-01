@@ -7,7 +7,7 @@ usage: recomp.py game/code/red-pro2.rpx OUTDIR [--insns-per-file N] [--build NAM
 the same count. 1 stays on one process. Windows, and NSMBU_RECOMP_SPAWN=1, start fresh workers;
 other systems share the loaded game.
 
-The rpx is identified by its SHA-256 (tools/recomp/builds.py). Functions are named by their
+The rpx is identified by its SHA-256 (recomp/builds.py). Functions are named by their
 *canonical* (USA) address, so the runtime refers to the same f_XXXXXXXX whichever build of the game
 it was translated from; the dispatch table maps this build's real addresses to them.
 
@@ -272,7 +272,7 @@ DATA_IMPORT_STRIDE = 0x1000
 
 class Recompiler:
     def __init__(self, path, build=None):
-        """`build` is which build of the game `path` is (tools/recomp/builds.py); by default it is
+        """`build` is which build of the game `path` is (recomp/builds.py); by default it is
         identified by its SHA-256, and an rpx that is none of them is refused."""
         self.build = build or game_builds.identify(path)
         if self.build is None:
@@ -301,7 +301,7 @@ class Recompiler:
 
     def _check_hooks(self, hook_entries):
         """A hook is written against the canonical code, so check that it can mean the same thing in
-        this build (see tools/recomp/mkbuildmap.py). An instruction-level site inside a function the
+        this build (see recomp/mkbuildmap.py). An instruction-level site inside a function the
         build compiled differently patches different code: that is an error. A hook on the entry of
         such a function wraps it whole, which usually still holds, but it is reported. A line marked
         `same` was already checked, so that wrap is quiet. A function this build does not have is
@@ -841,7 +841,7 @@ class Recompiler:
     def write_build_map(self, f):
         """The address map of this build, for the runtime (runtime/include/guest_addr.h)."""
         b = self.build
-        f.write('\n/* %s build: canonical (USA) address -> this build\'s (tools/recomp/builds.py) */\n' % b.name)
+        f.write('\n/* %s build: canonical (USA) address -> this build\'s (recomp/builds.py) */\n' % b.name)
         f.write('const char g_guest_build_name[] = "%s";\n' % b.name)
         f.write('const char g_guest_build_label[] = "%s";\n' % b.issue_label())
         f.write('const char g_guest_build_title_id[] = "%s";\n' % b.title_id)

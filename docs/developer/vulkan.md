@@ -578,7 +578,7 @@ Earlier validation runs reported unused fragment outputs during depth-only passe
 the final gameplay validation run above reported no warnings.
 Broader gameplay and devices remain to be validated. On Linux (Ubuntu 24.04, Clang 18) the
 executable builds without warnings and links against placeholder guest code
-(`tools/recomp/stubgen.py`), the unit tests pass and `--renderer-smoke` passes on Mesa lavapipe with
+(`recomp/stubgen.py`), the unit tests pass and `--renderer-smoke` passes on Mesa lavapipe with
 the Khronos validation layer reporting nothing (`.github/workflows/linux.yml`); gameplay on Linux
 needs your own recompiled game and remains to be tested. On Windows (x86_64, Clang/MinGW: llvm-mingw
 or MSYS2 CLANG64) the executable builds and links, the unit
