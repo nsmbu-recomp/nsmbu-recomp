@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Decomp: `PlayerMgr` course setup helpers (`0x02916B6C`–`0x02917040`, `sub_02916BF8` actor spawn).
 - Decomp: `sub_02742F9C` course-apply gate, spawn table (`0x02742F88` / `0x02742EA0`), and `CourseInfo` course-type probes.
 - Decomp: course-owner challenge list probes (`0x027430C0`, `0x027431C8`) and `AudAudioPlayer` bootstrap (`0x029E8324`).
+- Decomp: `sub_029E6C38` buffer setup, SoundArchivePlayer Setup chain (`0x02ADB634` / `0x02ADB338`), and course challenge type resolver `0x02743294`.
 
 ### Changed
 
