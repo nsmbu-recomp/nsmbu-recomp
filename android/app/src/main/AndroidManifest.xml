@@ -41,7 +41,9 @@
         <!-- lets simpleperf (NDK) profile the release build from adb shell -->
         <profileable android:shell="true" />
 
+        <!-- own process: quitting the game exits the game process and must leave this screen up -->
         <activity android:name=".SetupActivity" android:exported="true"
+            android:process=":setup"
             android:launchMode="singleTop"
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
             <intent-filter>

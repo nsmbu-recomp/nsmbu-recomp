@@ -39,6 +39,8 @@
 #include "../gfx/renderer.h"
 #ifdef __ANDROID__
 #include "../gfx/vulkan/android_driver.h"
+#include <SDL3/SDL_system.h>
+#include <jni.h>
 #include "../platform/heat_guard.h"
 #include "../platform/phone_rumble.h"
 #include "../platform/touch_buttons.h"
@@ -1735,14 +1737,27 @@ void tab_debug() {
 }
 
 #ifdef __ANDROID__
+static void open_installer() {
+    auto* env = static_cast<JNIEnv*>(SDL_GetAndroidJNIEnv());
+    if (!env) return;
+    jobject activity = static_cast<jobject>(SDL_GetAndroidActivity());
+    if (!activity) return;
+    if (jclass cls = env->GetObjectClass(activity)) {
+        if (jmethodID method = env->GetStaticMethodID(cls, "openInstaller", "()V"))
+            env->CallStaticVoidMethod(cls, method);
+        env->DeleteLocalRef(cls);
+    }
+    if (env->ExceptionCheck()) env->ExceptionClear();
+    env->DeleteLocalRef(activity);
+}
+
 void tab_android() {
     heading("Installer");
-    std::string value;
-    bool skip = hostui::get("skipInstaller", value) && value == "1";
-    bool next = skip;
-    if (check("Skip the installer for future runs", skip, &next))
-        hostui::set("skipInstaller", next ? "1" : "0");
-    help("The app icon opens the installer. Turn this off to keep that. Turn it on to open the game when one is ready.");
+    if (ImGui::Button("Quit to the installer")) open_installer();
+    help("Leaves the game and opens the installer.");
+    note("The app icon skips the installer once a game is ready.");
+    note("A new version of the app opens the installer. The next open of that version starts the game.");
+    help("Rebuild the game there runs setup again. Long-press the app icon and choose Game setup to open it yourself.");
 }
 #endif
 

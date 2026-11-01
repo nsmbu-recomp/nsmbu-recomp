@@ -9,7 +9,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -29,12 +28,11 @@ public class SetupActivity extends Activity {
     private Button choose;
     private Button details;
     private Button resume;
+    private Button rebuild;
     private Button pause;
     private Button continueAnyway;
     private String continueAction;
     private Button play;
-    private CheckBox skipInstaller;
-    private boolean skipSync;
     private Button disc;
     private Button common;
     private Button update;
@@ -55,12 +53,6 @@ public class SetupActivity extends Activity {
         return PcGameFolder.ready(this);
     }
 
-    private File settingsFile() {
-        File root = getExternalFilesDir(null);
-        if (root == null) return null;
-        return new File(AndroidUserDirectories.config(root), "settings.ini");
-    }
-
     /** A game the activity can launch now: the phone build AndroidGame.selected accepts, or the PC route's folder. */
     private boolean launchableGame() {
         try {
@@ -79,16 +71,58 @@ public class SetupActivity extends Activity {
         } catch (Exception unreadable) { return false; }
     }
 
-    /** Skip is on, a game will start, and this open was not an explicit request to show setup. */
+    /** Launcher shortcut extras are strings. A notification puts a real boolean on the same key.
+     *  Quit to the installer also sets show_setup, because leaving the game can exit the process. */
+    private boolean showSetupRequested() {
+        Intent intent = getIntent();
+        boolean extra = intent.getBooleanExtra(EXTRA_SHOW_SETUP, false) ||
+            "true".equals(intent.getStringExtra(EXTRA_SHOW_SETUP));
+        android.content.SharedPreferences prefs = getSharedPreferences("setup", MODE_PRIVATE);
+        boolean held = prefs.getBoolean("show_setup", false);
+        if (held) prefs.edit().remove("show_setup").commit();
+        return extra || held;
+    }
+
+    /** A ready game starts on its own. The installer returns only for a new versionCode. */
     private boolean shouldAutoPlay() {
-        return !getIntent().getBooleanExtra(EXTRA_SHOW_SETUP, false) &&
-            SkipInstaller.enabled(settingsFile()) && launchableGame() && !setupBusy() && !checkingFolder;
+        if (showSetupRequested() || checkingFolder || setupBusy()) return false;
+        if (!launchableGame() || versionChanged()) return false;
+        rememberVersion();
+        return true;
+    }
+
+    private long packageVersion() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).getLongVersionCode();
+        } catch (Exception missing) {
+            return -1;
+        }
+    }
+
+    /** Missing seen_version means this install already has a game, so the icon skips the installer. */
+    private boolean versionChanged() {
+        long version = packageVersion();
+        if (version < 0) return true;
+        android.content.SharedPreferences prefs = getSharedPreferences("setup", MODE_PRIVATE);
+        if (!prefs.contains("seen_version")) return !launchableGame();
+        return prefs.getLong("seen_version", -1) != version;
+    }
+
+    private void rememberVersion() {
+        long version = packageVersion();
+        if (version < 0 || !launchableGame()) return;
+        getSharedPreferences("setup", MODE_PRIVATE).edit().putLong("seen_version", version).commit();
+    }
+
+    private void startGame() {
+        rememberVersion();
+        startActivity(new Intent(this, NsmbuActivity.class));
     }
 
     private void playNow() {
         if (launchingGame || isFinishing()) return;
         launchingGame = true;
-        startActivity(new Intent(this, NsmbuActivity.class));
+        startGame();
         finish();
     }
 
@@ -134,23 +168,8 @@ public class SetupActivity extends Activity {
         detail.setTextSize(16);
         detail.setPadding(0, gap / 2, 0, gap);
         layout.addView(detail);
-        play = button(layout, getString(R.string.setup_play), () -> startActivity(new Intent(this, NsmbuActivity.class)));
-        skipInstaller = new CheckBox(this);
-        skipInstaller.setText(R.string.setup_skip_installer);
-        skipInstaller.setTextSize(16);
-        skipInstaller.setTextColor(0xFFE8EEF2);
-        skipInstaller.setPadding(0, gap, 0, 0);
-        skipInstaller.setOnCheckedChangeListener((button, checked) -> {
-            if (skipSync) return;
-            File settings = settingsFile();
-            if (settings == null) return;
-            try {
-                SkipInstaller.set(settings, checked);
-            } catch (Exception e) {
-                actionMessage = e.getMessage();
-            }
-        });
-        layout.addView(skipInstaller);
+        play = button(layout, getString(R.string.setup_play), this::startGame);
+        rebuild = button(layout, getString(R.string.setup_rebuild), () -> control(SetupService.RESUME));
         button(layout, getString(R.string.setup_share_log), () -> LogShare.share(this));
         play.setTextSize(20);
         play.setTextColor(0xFFFFFFFF);
@@ -596,12 +615,6 @@ public class SetupActivity extends Activity {
                 String hostName = hostState == null ? (job == null ? "" : "selected") : hostState.optString("state");
                 boolean working = hostName.equals("activating") || hostName.equals("importing") || hostName.equals("preparing") || hostName.equals("running");
                 show(play, play.isEnabled() && !working && !checkingFolder);
-                boolean skip = SkipInstaller.enabled(settingsFile());
-                if (skipInstaller.isChecked() != skip) {
-                    skipSync = true;
-                    skipInstaller.setChecked(skip);
-                    skipSync = false;
-                }
                 show(choose, (phoneSetup && !working) || (!phoneSetup && !checkingFolder));
                 show(folderHint, phoneSetup && !working);
                 if (!phoneSetup) {
@@ -609,6 +622,7 @@ public class SetupActivity extends Activity {
                     choose.setOnClickListener(view -> pick(PC_FOLDER));
                 } else setTextIfChanged(choose, getString(job == null ? R.string.setup_choose : R.string.setup_choose_other));
                 show(pause, phoneSetup && working);
+                show(rebuild, phoneSetup && job != null && !working && !checkingFolder && hostName.equals("complete"));
                 show(resume, phoneSetup && job != null && !working && !hostName.equals("complete"));
                 setTextIfChanged(resume, getString(hostName.equals("selected") ? R.string.setup_start : R.string.setup_continue));
                 show(updateStatus, hostState != null && SetupPresentation.showUpdate(hostState.optBoolean("updating"), hostName));
@@ -698,4 +712,9 @@ public class SetupActivity extends Activity {
         }, "nsmbu-setup-check").start();
     }
     @Override protected void onPause() { handler.removeCallbacks(refresh); super.onPause(); }
+
+    @Override protected void onStop() {
+        rememberVersion();
+        super.onStop();
+    }
 }

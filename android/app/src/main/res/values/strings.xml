@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">New Super Mario Bros. U</string>
+    <string name="game_setup">Game setup</string>
     <string name="save_export">Export save</string>
     <string name="save_import">Import save</string>
     <string name="save_share">Send the save to…</string>
@@ -70,9 +71,9 @@
     <string name="touch_layout_reset">Reset</string>
     <string name="touch_layout_done">Done</string>
     <string name="setup_preparing">Getting the tools ready…</string>
+    <string name="setup_rebuild">Rebuild the game</string>
     <string name="setup_ready">Your game is ready</string>
     <string name="setup_ready_detail">Tap Play to start the game.</string>
-    <string name="setup_skip_installer">Skip the installer for future runs</string>
     <string name="setup_restore">Allow access to the chosen game again</string>
     <string name="setup_selected">Your game is chosen</string>
     <string name="setup_selected_detail">Tap Start to prepare it for this Android device.</string>

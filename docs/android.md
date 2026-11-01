@@ -36,11 +36,17 @@ When an update needs it, the device prepares the game again.
    You can leave the app while setup runs.
    **Pause** stops setup safely, and setup also pauses by itself when the device is too warm or the battery is low.
 4. When setup is complete, tap **Play**.
+   **Rebuild the game** runs setup again for this version of the app.
+   Pieces that still match this version are kept.
 
-The app icon opens this installer.
-**Skip the installer for future runs** starts that game the next time the app opens.
-Checking the box leaves this screen up until **Play** is pressed.
-**Settings > Android**, the last tab, turns that off.
+The app icon skips this installer once a game is ready.
+The installer opens again only when you open a new version of the app.
+That screen stays up until you leave it.
+The next open of that version starts the game.
+Long-press the app icon and choose **Game setup** to open the installer yourself.
+**Settings > Android** describes this.
+**Quit to the installer** on that tab leaves the game and opens the installer.
+The installer stays open when the game closes.
 
 When you choose a different game, the app deletes its copy of the earlier choice to free space.
 The game that you can already play stays until the new one is ready.

@@ -7,8 +7,18 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ## [Unreleased]
 
+### Changed
+
+- On Android, **Settings > Android > Quit to the installer** leaves the game and opens the installer.
+- On Android, **Rebuild the game** on the installer runs setup again for this version.
+- On Android, the app icon skips the installer once a game is ready.
+  The installer opens again only when you open a new version of the app.
+  Long-press the icon and choose **Game setup** to open the installer.
+
 ### Fixed
 
+- On Android, **Quit to the installer** leaves the installer open.
+  Closing the game no longer closes that screen with it.
 - Setup finishes translating a USA or Europe base disc (issues #53 and #54).
   The stock HUD hook and the apply-save hook target functions that disc does not have.
 - On Android, the Controls tab no longer draws overlapping binding chips and leader lines on landscape handhelds; touch option rows wrap cleanly.

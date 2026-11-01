@@ -16,3 +16,9 @@ The `nsmbu` target compiles with `-Wall`.
 ## Decomp
 
 Any discoveries you find about the source code document it in the `vendor/decomp/docs` repo.
+
+## Verification
+
+Read the `verify` skill before you finish a change.
+Run every check a command, playtest, boot, or APK install can settle.
+When a person still has to play through a level, end the turn with the verification steps for them.
