@@ -10,9 +10,10 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 ### Fixed
 
 - On Android, the Controls tab no longer draws overlapping binding chips and leader lines on landscape handhelds; touch option rows wrap cleanly.
-- On Android, Controls opens in **List view** by default (the binding table); turn **List view** off to use the controller drawing when the screen is tall enough.
 - On Android, Controls uses one page scroll.
   The header and the binding table no longer sit in their own short scroll areas.
+  **List view** is off unless you turn it on.
+  The controller drawing grows tall enough for its binding columns, and the page scrolls.
 - On a PC-built Android APK, **Choose your game** works again for picking an extracted folder on the device.
 
 ## [0.8.2] - 2026-11-01

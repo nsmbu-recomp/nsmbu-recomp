@@ -199,11 +199,7 @@ struct Ui {
     std::string restart_why;
     bool linearized = false;
     bool just_opened = false;
-#ifdef __ANDROID__
-    bool list_view = true;
-#else
     bool list_view = false;
-#endif
     int hover_action = -1;
     int control_player = 0;
     float options_height = 0;
@@ -1461,28 +1457,23 @@ void tab_controls() {
             status = "Select a button on the controller or a chip to rebind it. Changes are saved to controls.json.";
         }
     }
-    const bool status_idle = U.cap_action < 0 && U.cap_note.empty();
     const float bottom = ImGui::GetTextLineHeightWithSpacing() + std::max(U.options_height, ImGui::GetFrameHeightWithSpacing() * 2) + 4;
     const ImVec2 avail = ImGui::GetContentRegionAvail();
 #ifdef __ANDROID__
     const float h = 0.0f;
-    const float diagram_h = std::max(420.0f, avail.x * 0.42f);
+    float diagram_h = std::max(420.0f, avail.x * 0.42f);
+    if (!U.list_view) {
+        const input_map::FaceLayout face = input_map::face_layout(m);
+        for (int i = 0; i < 20 && !controls_diagram_fits(pro, face, avail.x, diagram_h); i++) diagram_h += 80.0f;
+    }
 #else
     const float room = std::max(0.0f, avail.y - bottom);
     const float h = std::max(room, 1.0f);
     const float diagram_h = h;
 #endif
     U.hover_action = -1;
-    bool use_list = U.list_view;
-#ifdef __ANDROID__
-    if (!use_list && !controls_diagram_fits(pro, input_map::face_layout(m), avail.x, diagram_h)) use_list = true;
-#endif
-    if (use_list) {
+    if (U.list_view) {
         controls_list(m, h, p == 0);
-#ifdef __ANDROID__
-        if (!U.list_view && status_idle)
-            status = "The controller drawing needs more height on this screen; showing the list instead.";
-#endif
     } else {
         ControlsView cv;
         cv.m = m;
