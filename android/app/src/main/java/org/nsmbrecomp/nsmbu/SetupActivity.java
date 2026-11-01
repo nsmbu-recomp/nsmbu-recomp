@@ -61,17 +61,35 @@ public class SetupActivity extends Activity {
         return new File(AndroidUserDirectories.config(root), "settings.ini");
     }
 
-    /** A game is ready: an active phone build that needs no rebuild and no setup in progress, or the
-     *  PC route's game folder. */
-    private boolean readyToPlay() {
+    /** A game the activity can launch now: the phone build AndroidGame.selected accepts, or the PC route's folder. */
+    private boolean launchableGame() {
         try {
             if (!phoneSetup) return pcGame();
-            if (!new File(AndroidGame.storage(this), "active.json").isFile() || AndroidGame.needsRebuild(this))
-                return false;
+            return AndroidGame.selected(this) != null;
+        } catch (Exception unreadable) { return false; }
+    }
+
+    private boolean setupBusy() {
+        try {
             File job = SetupStore.current(this);
             File host = job == null ? null : new File(job, "host.json");
-            return host == null || !host.isFile() || SetupStore.read(host).optString("state").equals("complete");
+            if (host == null || !host.isFile()) return false;
+            String name = SetupStore.read(host).optString("state");
+            return name.equals("activating") || name.equals("importing") || name.equals("preparing") || name.equals("running");
         } catch (Exception unreadable) { return false; }
+    }
+
+    /** Skip is on, a game will start, and this open was not an explicit request to show setup. */
+    private boolean shouldAutoPlay() {
+        return !getIntent().getBooleanExtra(EXTRA_SHOW_SETUP, false) &&
+            SkipInstaller.enabled(settingsFile()) && launchableGame() && !setupBusy() && !checkingFolder;
+    }
+
+    private void playNow() {
+        if (launchingGame || isFinishing()) return;
+        launchingGame = true;
+        startActivity(new Intent(this, NsmbuActivity.class));
+        finish();
     }
 
     @Override public void onCreate(Bundle state) {
@@ -83,12 +101,8 @@ public class SetupActivity extends Activity {
         catch (Exception unavailable) { phoneSetup = false; }
         if (phoneSetup && state == null) cleanJobs();
         if ((state != null && state.getBoolean("launching_game", false)) ||
-        (state == null && Intent.ACTION_MAIN.equals(getIntent().getAction()) &&
-        !getIntent().getBooleanExtra(EXTRA_SHOW_SETUP, false) && readyToPlay() &&
-        SkipInstaller.enabled(settingsFile()))) {
-            launchingGame = true;
-            startActivity(new Intent(this, NsmbuActivity.class));
-            finish();
+                (state == null && shouldAutoPlay())) {
+            playNow();
             return;
         }
         android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
@@ -652,9 +666,15 @@ public class SetupActivity extends Activity {
                 if (actionMessage != null) text += "\n" + actionMessage;
                 setTextIfChanged(status, text + "\n\n" + CHECKPOINTS);
             } catch (Exception failure) { setTextIfChanged(status, "Cannot read setup progress: " + failure.getMessage()); }
-            handler.postDelayed(this, 500);
+            if (!isFinishing()) handler.postDelayed(this, 500);
         }
     };
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (shouldAutoPlay()) playNow();
+    }
 
     @Override protected void onResume() {
         super.onResume();

@@ -19,7 +19,8 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 ### Changed
 
 - The Android app icon opens the installer.
-  **Skip the installer for future runs** on that screen makes later launches open the game when one is ready.
+  **Skip the installer for future runs** starts that game on a later open.
+  Checking the box leaves this screen up until **Play** is pressed.
   **Settings > Android**, the last tab and only on Android, turns that off.
 
 ## [0.8.1] - 2026-10-31

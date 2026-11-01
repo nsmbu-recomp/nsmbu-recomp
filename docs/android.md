@@ -38,7 +38,8 @@ When an update needs it, the device prepares the game again.
 4. When setup is complete, tap **Play**.
 
 The app icon opens this installer.
-**Skip the installer for future runs** makes later taps of the icon open the game when one is ready.
+**Skip the installer for future runs** starts that game the next time the app opens.
+Checking the box leaves this screen up until **Play** is pressed.
 **Settings > Android**, the last tab, turns that off.
 
 When you choose a different game, the app deletes its copy of the earlier choice to free space.
