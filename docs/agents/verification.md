@@ -135,8 +135,7 @@ Registered cases (run `--list` for summaries):
 - `pose-direction-120`, `logic-rate-120` — interpolation / frame pacing
 - `widescreen-map-ui`, `widescreen-title` — 21:9 UI
 
-Each case uses `.tmp/playtest/<name>/` for save, control socket, and log.
-Settings and shader cache still share repo `nsmbu/` (parallel isolation gap: `docs/plans/wwhd-test-ci-release.md`).
+Each case uses `.tmp/playtest/<name>/` for save, control socket, log, and userdata (`NSMBU_USER_DIR` under that folder).
 
 Playtests are **not** in GitHub CI (no game dump in CI).
 Agents with a local dump are the main line for game regressions.
@@ -206,7 +205,7 @@ From `verify`:
 CI `android` workflow: placeholder native build, Gradle release, `tools/release/guard.py`.
 No on-device gameplay in CI.
 
-**Gap:** touch controls and phone vibration are Android-only; `nsmbu test` does not cover them (`docs/android-implementation.md`).
+**Gap:** touch controls and phone vibration are Android-only; `nsmbu test` does not cover them (`docs/platforms/android/implementation.md`).
 
 ## Tier D — Human only
 
@@ -261,14 +260,13 @@ WWHD’s `vendor/ZeldaWWHDRecomp/tools/verify/` harness is upstream reference, n
 - Playtests never run in CI; agents without `game/usa-1.3.0` cannot fully verify game changes
 - Three short-check paths overlap: `scenes`, live look, `nsmbu scripted` — skill says lasting checks → playtest, nothing enforces it
 - `pre_push` ≠ `verify` ≠ `pre-release` — different command subsets
-- Parallel playtests still share `nsmbu/` userdata (`docs/plans/wwhd-test-ci-release.md`)
 - Android verify is install-shaped, not gameplay automation
 - CLI TypeScript has no first-class “run before finish” step in `verify` (modding uses `nsmbu lint`)
 
-**Backlog** — `docs/plans/wwhd-test-ci-release.md`: ctest user isolation, per-playtest `NSMBU_USER_DIR`, scripted compare automation.
+**Backlog** — [shader-rebuild.md](../plans/shader-rebuild.md): in-game rebuild marker and setup Precompile wipe.
 
 ## Related docs
 
-- [automation.md](automation.md) — playtests, scripted boots, gametest compare
-- [cli.md](cli.md) — full `nsmbu` command list
-- [env.md](env.md) — `NSMBU_*` variables and interpolation checks
+- [../automation.md](../automation.md) — playtests, scripted boots, gametest compare
+- [../cli.md](../cli.md) — full `nsmbu` command list
+- [../env.md](../env.md) — `NSMBU_*` variables and interpolation checks

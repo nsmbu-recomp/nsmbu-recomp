@@ -658,7 +658,7 @@ synchronization validation or the bounds above.
 
 The write-only source and previous/next-use approach was inspired by GreenNaugahyde's Android
 renderer (MPL-2.0); this implementation uses upstream resource tracking and copies no fork code.
-See [Android device checks](android-device-checklist.md) for the pending Mali/Adreno capture.
+See [Android device checks](platforms/android/device-checklist.md) for the pending Mali/Adreno capture.
 
 ## Optional performance diagnostics
 

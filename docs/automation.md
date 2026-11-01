@@ -282,7 +282,7 @@ These are separate from `scripted-run.sh` and appear in benches and device check
 
 ## Input replays
 
-The `.replay` format is a text input log; [replay-format.md](replay-format.md) lists each line, key, and field.
+The `.replay` format is a text input log; [replay/format.md](replay/format.md) lists each line, key, and field.
 `NSMBU_RECORD_INPUT` writes one line each time the pad changes.
 The step count starts when in-level play begins (`AreaTask` is live), then follows guest logic steps (one per simulation tick, not per rendered frame).
 New files start with `version=1` and use `replays/<name>.replay` paths from `nsmbu record` / `nsmbu replay`.

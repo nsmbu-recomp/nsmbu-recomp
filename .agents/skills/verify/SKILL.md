@@ -5,7 +5,7 @@ description: "Verify an NSMBU change on Linux with the USA 1.3.0 dump, or instal
 
 # Verify
 
-Full inventory: [docs/agent-verification.md](../../../docs/agent-verification.md).
+Full inventory: [docs/agents/verification.md](../../../docs/agents/verification.md).
 
 The default check is Linux with the USA 1.3.0 dump (`usa-1.3.0`).
 A USB Android device is available.

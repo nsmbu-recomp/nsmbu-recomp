@@ -58,7 +58,7 @@ default, with a maximum of two mid-frame submissions. Explicit values of
 
 A full course measurement uses `nsmbu replay --release 1-1`.
 
-Read `docs/replay-1-1.md` for the 2026-10-17 Release profile.
+See [Partial upload of the 1-1 CPU texture](#partial-upload-of-the-1-1-cpu-texture-2026-10-17) for the 2026-10-17 Release numbers.
 
 Load slot 1 to reach 1-1.
 Do this before you play through the title screen.
@@ -386,7 +386,7 @@ Frame time stayed at the vsync ceiling; the gain is lower render-thread op time 
 
 ## Partial upload of the 1-1 CPU texture (2026-10-17)
 
-`docs/replay-1-1.md` measured a 4.00 MiB texture upload on every logic frame of 1-1.
+On 2026-10-17, a Release `nsmbu replay 1-1` run measured a 4.00 MiB texture upload on every logic frame of 1-1.
 
 That was most of the render-thread CPU inside the vsync limit: textures 1.98 ms/frame, render-thread CPU 3.53 ms/frame.
 

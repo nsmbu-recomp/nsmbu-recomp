@@ -4,7 +4,7 @@
 
 The port follows the WWHD recomp's Android host (setup service, embedded CPython, Android-hosted compiler, touch controls).
 Host Python, JVM and C++ tests cover the pieces that run off the device.
-Emulator smokes, release CI and real-device checks are pending; see the [device checklist](android-device-checklist.md).
+Emulator smokes, release CI and real-device checks are pending; see the [device checklist](device-checklist.md).
 The implementation uses this project's recompiler (`tools/recomp/recomp.py`); no second recompiler is added.
 Dual displays, gyro aiming, a 40 fps mode and Android code mods are out of scope.
 

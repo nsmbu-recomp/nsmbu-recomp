@@ -8,10 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Documented every agent verification path in `docs/agent-verification.md`.
+- Documented every agent verification path in `docs/agents/verification.md`.
 
 ### Changed
 
+- Reorganized docs into `docs/platforms/`, `docs/agents/`, and `docs/replay/`; removed `docs/rtl-text.md` and `docs/replay-1-1.md`.
+- Grouped platform docs under `docs/platforms/{android,linux,macos,ios}/`.
+- Moved recompiler crash notes to `vendor/decomp/docs/decomp-notes.md`.
 - Renamed `.git-hooks` to `.githooks` (update `.git/hooks/pre-push` if it still points at the old path).
 - Removed leftover docs and runtime checks that said mods need the 1.3.0 update or do not work on base-disc builds.
 - Removed unused developer tools (`tools/check/`, `rpxinfo.py`, Python disc reader, `run_bench.py` CLI).
@@ -20,6 +23,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   Renamed bench tests to `test_bench_lib.py`.
 - The release step commits and pushes the changelog before it tags.
 - Windows and Linux release builds download SDL3 from the CI assets repo instead of compiling it.
+
+### Fixed
+
+- Restored the release workflow `version` job on the nightly schedule so it can dispatch development builds when `main` moves.
 
 ## [0.8.2] - 2026-11-01
 

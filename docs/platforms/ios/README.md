@@ -6,7 +6,7 @@ The recompiled game is built into the app, so the app is built on a Mac for one 
 
 ## Build
 
-1. Set up the game on the Mac as for the macOS build ([game/README.md](../game/README.md)), with `--recomp`.
+1. Set up the game on the Mac as for the macOS build ([game/README.md](../../../game/README.md) and [../macos/README.md](../macos/README.md)), with `--recomp`.
    That fills `build/gen`.
 2. Run `ios/build_ios.sh`.
    It writes `ios/build/NSMBU.app` and an unsigned `ios/build/New Super Mario Bros. U.ipa`.

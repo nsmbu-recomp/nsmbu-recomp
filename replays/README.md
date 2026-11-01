@@ -36,4 +36,4 @@ Button names: `A`, `B`, `X`, `Y`, `L`, `R`, `ZL`, `ZR`, `Plus`, `Minus`, `Home`,
 The last line holds until the next line.
 The replay quits when the last line has played, unless `exit=none` is set.
 
-Full format and legacy directives: [../docs/replay-format.md](../docs/replay-format.md).
+Full format and legacy directives: [../docs/replay/format.md](../docs/replay/format.md).

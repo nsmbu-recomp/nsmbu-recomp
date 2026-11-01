@@ -19,7 +19,7 @@ Hold **Select** (−) for half a second to open Settings when the overlay is clo
 
 With the default keyboard layout, press **Enter** and **Tab** together for the same menu.
 
-On Android, the system **Back** gesture also opens and closes Settings; see [New Super Mario Bros. U on Android](docs/android.md).
+On Android, the system **Back** gesture also opens and closes Settings; see [New Super Mario Bros. U on Android](docs/platforms/android/README.md).
 
 While Settings is open, touch the menu directly or use a controller: D-pad or left stick to move, **A** to activate, **B** to go back, **LB**/**RB** for tabs, **Start+Select** to close.
 
@@ -99,7 +99,7 @@ Start **NSMBU**:
 | Linux, x86-64, glibc 2.35 or newer, Vulkan | `nsmbu-launcher`  |
 | Linux, arm64, glibc 2.35 or newer, Vulkan | `nsmbu-launcher`   |
 
-On Android, install the APK instead and follow [New Super Mario Bros. U on Android](docs/android.md).
+On Android, install the APK instead and follow [New Super Mario Bros. U on Android](docs/platforms/android/README.md).
 
 The first start opens the installer.
 Each later start launches the game.
