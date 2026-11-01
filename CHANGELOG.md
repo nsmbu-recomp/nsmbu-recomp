@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Documented every agent verification path in `docs/agent-verification.md`.
+
 ### Changed
 
 - Renamed `.git-hooks` to `.githooks` (update `.git/hooks/pre-push` if it still points at the old path).
