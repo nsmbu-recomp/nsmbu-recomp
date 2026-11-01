@@ -266,6 +266,14 @@ void setup_style() {
 
 void setup_fonts() {
     ImGuiIO& io = ImGui::GetIO();
+    static const ImWchar glyphs[] = {
+        0x0020, 0x00FF,
+        0x2010, 0x2027,
+        0x2190, 0x2193,
+        0x2212, 0x2212,
+        0x2302, 0x2302,
+        0,
+    };
     static const char* const candidates[] = {
 #if defined(__APPLE__)
         "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
@@ -273,6 +281,10 @@ void setup_fonts() {
 #elif defined(_WIN32)
         "C:/Windows/Fonts/segoeui.ttf",
         "C:/Windows/Fonts/arial.ttf",
+#elif defined(__ANDROID__)
+        "/system/fonts/Roboto-Regular.ttf",
+        "/system/fonts/NotoSans-Regular.ttf",
+        "/system/fonts/DroidSans.ttf",
 #else
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/TTF/DejaVuSans.ttf",
@@ -284,7 +296,7 @@ void setup_fonts() {
     for (const char* path : candidates) {
         if (FILE* f = fopen(path, "rb")) {
             fclose(f);
-            if (io.Fonts->AddFontFromFileTTF(path, 17.0f)) {
+            if (io.Fonts->AddFontFromFileTTF(path, 17.0f, nullptr, glyphs)) {
                 LOG("[overlay] font %s", path);
                 return;
             }
