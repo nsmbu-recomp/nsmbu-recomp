@@ -215,8 +215,5 @@ This repository was forked from the [Wind Waker HD recompilation](https://github
 
 The Collision Viewer is based on the collision viewer from [Tsuru](https://github.com/Zenith-Team/Tsuru).
 
-This repository contains no Nintendo property.  
-It has no game code, no game assets, and no keys from Nintendo.  
-
 >  [!NOTE]
 > This project is made with the help of AI agents.

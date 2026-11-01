@@ -261,9 +261,7 @@ WWHD’s `vendor/ZeldaWWHDRecomp/tools/verify/` harness is upstream reference, n
 - Three short-check paths overlap: `scenes`, live look, `nsmbu scripted` — skill says lasting checks → playtest, nothing enforces it
 - `pre_push` ≠ `verify` ≠ `pre-release` — different command subsets
 - Android verify is install-shaped, not gameplay automation
-- CLI TypeScript has no first-class “run before finish” step in `verify` (modding uses `nsmbu lint`)
-
-**Backlog** — [shader-rebuild.md](../plans/shader-rebuild.md): in-game rebuild marker and setup Precompile wipe.
+- CLI TypeScript has no first-class “run before finish” step in `verify` (modding uses `nsmbu lint`).
 
 ## Related docs
 

@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- The performance overlay shows 1% low FPS in a FPS / AVG / 1% row (values only in the columns).
 - Documented every agent verification path in `docs/agents/verification.md`.
 
 ### Changed
@@ -26,6 +27,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Opening the settings menu on the Controls tab no longer crashes when the controller diagram is shorter than its layout needs.
+- The settings menu scrolls on desktop when tab content does not fit (it no longer hides the scrollbar).
 - Restored the release workflow `version` job on the nightly schedule so it can dispatch development builds when `main` moves.
 
 ## [0.8.2] - 2026-11-01

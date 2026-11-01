@@ -677,8 +677,10 @@ std::string performance_report() {
     double avg_logic = 0;
     FrameHistoryAverages::compute(U.frame_ms, U.frame_logic, avg_ms, worst, avg_fps, avg_logic);
     char frame[180];
-    snprintf(frame, sizeof frame, "FPS %.1f (average %.1f), frame %.2f ms (worst %.2f), average logic steps/s %.1f\n",
-             U.fps, avg_fps, avg_ms, worst, avg_logic);
+    const float low1 = FrameHistoryAverages::low1_fps(U.frame_ms);
+    snprintf(frame, sizeof frame,
+             "FPS %.1f (average %.1f, 1%% low %.1f), frame %.2f ms (worst %.2f), average logic steps/s %.1f\n",
+             U.fps, avg_fps, low1, avg_ms, worst, avg_logic);
     std::string report = std::string(frame) + perf::summary();
 #ifdef __ANDROID__
     static AndroidTelemetry telemetry;
@@ -1490,7 +1492,7 @@ void tab_controls() {
     const float bottom = ImGui::GetTextLineHeightWithSpacing() + std::max(U.options_height, ImGui::GetFrameHeightWithSpacing() * 2) + 4;
     const ImVec2 avail = ImGui::GetContentRegionAvail();
 #ifdef __ANDROID__
-    const float h = 0.0f;
+    const float list_h = 0.0f;
     float diagram_h = std::max(420.0f, avail.x * 0.42f);
     if (!U.list_view) {
         const input_map::FaceLayout face = input_map::face_layout(m);
@@ -1498,12 +1500,16 @@ void tab_controls() {
     }
 #else
     const float room = std::max(0.0f, avail.y - bottom);
-    const float h = std::max(room, 1.0f);
-    const float diagram_h = h;
+    const float list_h = room;
+    float diagram_h = std::max(room, 1.0f);
+    if (!U.list_view) {
+        const input_map::FaceLayout face = input_map::face_layout(m);
+        for (int i = 0; i < 20 && !controls_diagram_fits(pro, face, avail.x, diagram_h); i++) diagram_h += 80.0f;
+    }
 #endif
     U.hover_action = -1;
     if (U.list_view) {
-        controls_list(m, h, p == 0);
+        controls_list(m, list_h, p == 0);
     } else {
         ControlsView cv;
         cv.m = m;
@@ -1824,26 +1830,29 @@ static void perf_label_value(const char* label, const ImVec4& labelColor, const 
     ImGui::PopStyleVar();
 }
 
-static void perf_output_row(double fps, float frameMs, float worstMs, double avgFps, bool showAvg) {
+static void perf_output_row(double fps, float frameMs, float worstMs, double avgFps, float low1Fps, bool showAvg) {
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8.0f, 1.0f));
-    if (ImGui::BeginTable("##perf_out", 3, kPerfTableFlags)) {
+    if (ImGui::BeginTable("##perf_out", 4, kPerfTableFlags)) {
         ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, kPerfLabelW);
-        ImGui::TableSetupColumn("a", ImGuiTableColumnFlags_WidthFixed, 80.0f);
-        ImGui::TableSetupColumn("b", ImGuiTableColumnFlags_WidthFixed, 88.0f);
+        ImGui::TableSetupColumn("a", ImGuiTableColumnFlags_WidthFixed, 56.0f);
+        ImGui::TableSetupColumn("b", ImGuiTableColumnFlags_WidthFixed, 56.0f);
+        ImGui::TableSetupColumn("c", ImGuiTableColumnFlags_WidthFixed, 56.0f);
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
-        ImGui::TextColored(kPerfOutLabel, "Frame rate");
+        ImGui::TextColored(kPerfOutLabel, "FPS / AVG / 1%%");
         ImGui::TableSetColumnIndex(1);
-        ImGui::TextColored(kPerfValue, "%.0f FPS", fps);
+        ImGui::TextColored(kPerfValue, "%.1f", fps);
         ImGui::TableSetColumnIndex(2);
-        if (showAvg) ImGui::TextColored(kPerfValue, "avg %.0f", avgFps);
+        if (showAvg) ImGui::TextColored(kPerfValue, "%.1f", avgFps);
+        ImGui::TableSetColumnIndex(3);
+        if (low1Fps > 0) ImGui::TextColored(kPerfValue, "%.1f", low1Fps);
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
-        ImGui::TextColored(kPerfOutLabel, "Frame time");
+        ImGui::TextColored(kPerfOutLabel, "ms / max");
         ImGui::TableSetColumnIndex(1);
-        ImGui::TextColored(kPerfValue, "%.1f ms", frameMs);
+        ImGui::TextColored(kPerfValue, "%.1f", frameMs);
         ImGui::TableSetColumnIndex(2);
-        ImGui::TextColored(kPerfValue, "max %.1f", worstMs);
+        ImGui::TextColored(kPerfValue, "%.1f", worstMs);
         ImGui::EndTable();
     }
     ImGui::PopStyleVar();
@@ -2008,7 +2017,7 @@ void perf_window(bool menu_open) {
     if (ImGui::Begin("##perf", nullptr, fl)) {
         if (perf_shown()) {
             const double avg_out = g_average.started && g_average.fps > 0 ? g_average.fps : avg_fps;
-            perf_output_row(U.fps, avg_ms, worst, avg_out, avg_out > 0);
+            perf_output_row(U.fps, avg_ms, worst, avg_out, FrameHistoryAverages::low1_fps(U.frame_ms), avg_out > 0);
         }
 
         if (perf_timing_shown()) {
@@ -2187,7 +2196,7 @@ void settings_window() {
         }
         U.select_tab = -1;
         for (int i = 0; i < kTabs; i++) settings_tab_button(i);
-        ImGui::BeginChild("page", ImVec2(0, 0), ImGuiChildFlags_NavFlattened, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+        ImGui::BeginChild("page", ImVec2(0, 0), ImGuiChildFlags_NavFlattened);
         switch (U.tab) {
         case kControls: tab_controls(); break;
         case kGraphics: tab_graphics(); break;
@@ -2208,7 +2217,7 @@ void settings_window() {
                 if (ImGui::BeginTabItem(kTabNames[i], nullptr, f)) {
                     if (U.tab != i) U.cap_action = -1, g_capturing_keys = false, U.cap_note.clear();
                     U.tab = i;
-                    ImGui::BeginChild("page", ImVec2(0, 0), ImGuiChildFlags_NavFlattened, ImGuiWindowFlags_NoScrollbar);
+                    ImGui::BeginChild("page", ImVec2(0, 0), ImGuiChildFlags_NavFlattened);
                     switch (i) {
                     case kControls: tab_controls(); break;
                     case kGraphics: tab_graphics(); break;
