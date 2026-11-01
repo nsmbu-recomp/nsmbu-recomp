@@ -42,6 +42,7 @@
         <profileable android:shell="true" />
 
         <activity android:name=".SetupActivity" android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

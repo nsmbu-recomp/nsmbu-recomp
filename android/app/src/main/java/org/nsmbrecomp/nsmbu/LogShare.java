@@ -11,8 +11,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
 
-/** Share only the two diagnostic logs, already filtered by the native crash redactor.
- * Never grant access to the game, saves, or the logs directory itself. */
+/** Share the game's run logs and the current setup job's stage logs.
+ * Game logs are already filtered by the native crash redactor.
+ * Setup sharing copies status and stage logs only, never the dump, saves, or key files. */
 final class LogShare {
     private static final long LIMIT = (64L << 20) + 65536;
     static void share(Activity activity) {
@@ -21,14 +22,14 @@ final class LogShare {
                 Intent share = prepare(activity);
                 activity.runOnUiThread(() -> {
                     if (share == null) {
-                        Toast.makeText(activity, "No game log yet. Start the game once, then share its log.", Toast.LENGTH_LONG).show();
+                        Toast.makeText(activity, "No log yet. Run setup or start the game, then share its log.", Toast.LENGTH_LONG).show();
                         return;
                     }
                     try { activity.startActivity(Intent.createChooser(share, "Share log")); }
                     catch (Exception error) { Toast.makeText(activity, "Cannot open the share sheet", Toast.LENGTH_LONG).show(); }
                 });
             } catch (Exception error) {
-                activity.runOnUiThread(() -> Toast.makeText(activity, "Cannot share game logs", Toast.LENGTH_LONG).show());
+                activity.runOnUiThread(() -> Toast.makeText(activity, "Cannot share logs", Toast.LENGTH_LONG).show());
             }
         }, "share-game-log").start();
     }
@@ -53,6 +54,14 @@ final class LogShare {
                     remaining -= count;
                 }
             }
+            logs.add(FileProvider.getUriForFile(activity, activity.getPackageName() + ".crashlogs", copy));
+        }
+        File job = null;
+        try { job = SetupStore.current(activity); }
+        catch (Exception ignored) { }
+        for (SetupLogFiles.Piece piece : SetupLogFiles.sources(job)) {
+            File copy = new File(folder, piece.shareName);
+            SetupLogFiles.copyTail(piece.file, copy, SetupLogFiles.TAIL);
             logs.add(FileProvider.getUriForFile(activity, activity.getPackageName() + ".crashlogs", copy));
         }
         if (logs.isEmpty()) return null;

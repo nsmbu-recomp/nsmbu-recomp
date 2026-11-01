@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -32,6 +33,8 @@ public class SetupActivity extends Activity {
     private Button continueAnyway;
     private String continueAction;
     private Button play;
+    private CheckBox skipInstaller;
+    private boolean skipSync;
     private Button disc;
     private Button common;
     private Button update;
@@ -52,17 +55,41 @@ public class SetupActivity extends Activity {
         return PcGameFolder.ready(this);
     }
 
-    /** A game is ready: an active phone build that needs no rebuild and no setup in progress, or the
-     *  PC route's game folder. */
-    private boolean readyToPlay() {
+    private File settingsFile() {
+        File root = getExternalFilesDir(null);
+        if (root == null) return null;
+        return new File(AndroidUserDirectories.config(root), "settings.ini");
+    }
+
+    /** A game the activity can launch now: the phone build AndroidGame.selected accepts, or the PC route's folder. */
+    private boolean launchableGame() {
         try {
             if (!phoneSetup) return pcGame();
-            if (!new File(AndroidGame.storage(this), "active.json").isFile() || AndroidGame.needsRebuild(this))
-                return false;
+            return AndroidGame.selected(this) != null;
+        } catch (Exception unreadable) { return false; }
+    }
+
+    private boolean setupBusy() {
+        try {
             File job = SetupStore.current(this);
             File host = job == null ? null : new File(job, "host.json");
-            return host == null || !host.isFile() || SetupStore.read(host).optString("state").equals("complete");
+            if (host == null || !host.isFile()) return false;
+            String name = SetupStore.read(host).optString("state");
+            return name.equals("activating") || name.equals("importing") || name.equals("preparing") || name.equals("running");
         } catch (Exception unreadable) { return false; }
+    }
+
+    /** Skip is on, a game will start, and this open was not an explicit request to show setup. */
+    private boolean shouldAutoPlay() {
+        return !getIntent().getBooleanExtra(EXTRA_SHOW_SETUP, false) &&
+            SkipInstaller.enabled(settingsFile()) && launchableGame() && !setupBusy() && !checkingFolder;
+    }
+
+    private void playNow() {
+        if (launchingGame || isFinishing()) return;
+        launchingGame = true;
+        startActivity(new Intent(this, NsmbuActivity.class));
+        finish();
     }
 
     @Override public void onCreate(Bundle state) {
@@ -74,11 +101,8 @@ public class SetupActivity extends Activity {
         catch (Exception unavailable) { phoneSetup = false; }
         if (phoneSetup && state == null) cleanJobs();
         if ((state != null && state.getBoolean("launching_game", false)) ||
-                (state == null && Intent.ACTION_MAIN.equals(getIntent().getAction()) &&
-                !getIntent().getBooleanExtra(EXTRA_SHOW_SETUP, false) && readyToPlay())) {
-            launchingGame = true;
-            startActivity(new Intent(this, NsmbuActivity.class));
-            finish();
+                (state == null && shouldAutoPlay())) {
+            playNow();
             return;
         }
         android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
@@ -111,6 +135,22 @@ public class SetupActivity extends Activity {
         detail.setPadding(0, gap / 2, 0, gap);
         layout.addView(detail);
         play = button(layout, getString(R.string.setup_play), () -> startActivity(new Intent(this, NsmbuActivity.class)));
+        skipInstaller = new CheckBox(this);
+        skipInstaller.setText(R.string.setup_skip_installer);
+        skipInstaller.setTextSize(16);
+        skipInstaller.setTextColor(0xFFE8EEF2);
+        skipInstaller.setPadding(0, gap, 0, 0);
+        skipInstaller.setOnCheckedChangeListener((button, checked) -> {
+            if (skipSync) return;
+            File settings = settingsFile();
+            if (settings == null) return;
+            try {
+                SkipInstaller.set(settings, checked);
+            } catch (Exception e) {
+                actionMessage = e.getMessage();
+            }
+        });
+        layout.addView(skipInstaller);
         button(layout, getString(R.string.setup_share_log), () -> LogShare.share(this));
         play.setTextSize(20);
         play.setTextColor(0xFFFFFFFF);
@@ -555,6 +595,12 @@ public class SetupActivity extends Activity {
                 String hostName = hostState == null ? (job == null ? "" : "selected") : hostState.optString("state");
                 boolean working = hostName.equals("activating") || hostName.equals("importing") || hostName.equals("preparing") || hostName.equals("running");
                 show(play, play.isEnabled() && !working && !checkingFolder);
+                boolean skip = SkipInstaller.enabled(settingsFile());
+                if (skipInstaller.isChecked() != skip) {
+                    skipSync = true;
+                    skipInstaller.setChecked(skip);
+                    skipSync = false;
+                }
                 show(choose, (phoneSetup && !working) || (!phoneSetup && !checkingFolder));
                 show(folderHint, phoneSetup && !working);
                 if (!phoneSetup) {
@@ -620,9 +666,15 @@ public class SetupActivity extends Activity {
                 if (actionMessage != null) text += "\n" + actionMessage;
                 setTextIfChanged(status, text + "\n\n" + CHECKPOINTS);
             } catch (Exception failure) { setTextIfChanged(status, "Cannot read setup progress: " + failure.getMessage()); }
-            handler.postDelayed(this, 500);
+            if (!isFinishing()) handler.postDelayed(this, 500);
         }
     };
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (shouldAutoPlay()) playNow();
+    }
 
     @Override protected void onResume() {
         super.onResume();

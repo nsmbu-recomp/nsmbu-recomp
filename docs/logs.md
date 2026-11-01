@@ -35,6 +35,8 @@ Then a new `nsmbu.log` is opened.
 Crash handlers write `crash-<date>-<time>.log` into the same folder.
 Set `NSMBU_LOG_FILE` to write somewhere else, or to `0` to skip the file.
 On Android, **Share log** in the setup app shares `nsmbu.log` and `nsmbu-previous.log`.
+It also shares the current setup job's status and the latest extract, translation, compile, and link logs.
+Key files and the imported dump are not included.
 
 ## Setup logs
 

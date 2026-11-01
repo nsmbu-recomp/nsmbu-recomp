@@ -146,9 +146,18 @@ ImGuiKey imgui_key(int code) {
     }
 }
 
-enum Tab { kControls, kGraphics, kDisplay, kAudio, kSaves, kMods, kAbout, kDebug, kTabs };
+enum Tab { kControls, kGraphics, kDisplay, kAudio, kSaves, kMods, kAbout, kDebug,
+#ifdef __ANDROID__
+           kAndroid,
+#endif
+           kTabs };
+#ifdef __ANDROID__
+const char* const kTabNames[kTabs] = {"Controls", "Graphics", "Display", "Audio", "Saves", "Mods", "Language", "Debug", "Android"};
+const char* const kTabIds[kTabs] = {"controls", "graphics", "display", "audio", "saves", "mods", "about", "debug", "android"};
+#else
 const char* const kTabNames[kTabs] = {"Controls", "Graphics", "Display", "Audio", "Saves", "Mods", "Language", "Debug"};
 const char* const kTabIds[kTabs] = {"controls", "graphics", "display", "audio", "saves", "mods", "about", "debug"};
+#endif
 
 struct Ui {
     bool init = false;
@@ -1652,6 +1661,18 @@ void tab_debug() {
     }
 }
 
+#ifdef __ANDROID__
+void tab_android() {
+    heading("Installer");
+    std::string value;
+    bool skip = hostui::get("skipInstaller", value) && value == "1";
+    bool next = skip;
+    if (check("Skip the installer for future runs", skip, &next))
+        hostui::set("skipInstaller", next ? "1" : "0");
+    help("The app icon opens the installer. Turn this off to keep that. Turn it on to open the game when one is ready.");
+}
+#endif
+
 void tab_about() {
     const char* env = env::LANGUAGE();
     const bool env_set = env && *env;
@@ -2052,6 +2073,9 @@ void settings_window() {
                     case kMods: tab_mods(); break;
                     case kAbout: tab_about(); break;
                     case kDebug: tab_debug(); break;
+#ifdef __ANDROID__
+                    case kAndroid: tab_android(); break;
+#endif
                     }
                     ImGui::EndChild();
                     ImGui::EndTabItem();

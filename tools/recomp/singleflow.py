@@ -71,10 +71,11 @@ class _ArrMap:
 
 def _import_mp():
     try:
+        import _multiprocessing as extension
         import multiprocessing as mp
     except ImportError:
         return None
-    return mp
+    return mp if extension is not None else None
 
 
 def _fork_ok():
@@ -358,7 +359,11 @@ class Solver:
             how = "%d processes" % jobs if parallel else "one process"
             log("recomp: float analysis, %d functions, %s" % (len(self.funcs), how))
         if parallel:
-            return self._solve_parallel(jobs, log)
+            try:
+                return self._solve_parallel(jobs, log)
+            except ImportError:
+                if log:
+                    log("recomp: float analysis uses one process; multiprocessing is unavailable")
         return self._solve_worklist(log)
 
     def _solve_worklist(self, log=None):
