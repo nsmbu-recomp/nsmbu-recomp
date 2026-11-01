@@ -119,8 +119,10 @@ class TranslationTests(unittest.TestCase):
     def test_changed_hooks_invalidate_and_preserve_previous_translation(self):
         import shutil
         package = self.root / "package"
-        shutil.copytree(PACKAGE / "tools", package / "tools",
-                        ignore=shutil.ignore_patterns("__pycache__", "node_modules"))
+        ignore = shutil.ignore_patterns("__pycache__", "node_modules")
+        shutil.copytree(PACKAGE / "tools", package / "tools", ignore=ignore)
+        shutil.copytree(PACKAGE / "recomp", package / "recomp", ignore=ignore)
+        shutil.copytree(PACKAGE / "installer", package / "installer", ignore=ignore)
         def adapter():
             value = Adapter(package, self.root / "jobs", "same-port", self.events.append)
             register_fixture_build(value.setup)
