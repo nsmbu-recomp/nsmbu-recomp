@@ -16,7 +16,7 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 - On Android, a touch on a settings tab opens that tab.
   Only the open tab is colored.
 - On Android, settings text shows the arrow characters.
-  The overlay loads a system font that includes them.
+  Roboto has no arrows, so those glyphs come from the Noto symbols font.
 - On Android, drag on the settings page to scroll.
   A finger on the page moves it.
   The scrollbar still works.

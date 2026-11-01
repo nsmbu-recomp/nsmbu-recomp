@@ -272,6 +272,8 @@ void setup_fonts() {
         0x2190, 0x2193,
         0x2212, 0x2212,
         0x2302, 0x2302,
+        0x2326, 0x2326,
+        0x232B, 0x232B,
         0,
     };
     static const char* const candidates[] = {
@@ -282,8 +284,8 @@ void setup_fonts() {
         "C:/Windows/Fonts/segoeui.ttf",
         "C:/Windows/Fonts/arial.ttf",
 #elif defined(__ANDROID__)
+        "/system/fonts/RobotoStatic-Regular.ttf",
         "/system/fonts/Roboto-Regular.ttf",
-        "/system/fonts/NotoSans-Regular.ttf",
         "/system/fonts/DroidSans.ttf",
 #else
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -293,15 +295,30 @@ void setup_fonts() {
         "/usr/share/fonts/noto/NotoSans-Regular.ttf",
 #endif
     };
+    ImFont* font = nullptr;
     for (const char* path : candidates) {
         if (FILE* f = fopen(path, "rb")) {
             fclose(f);
-            if (io.Fonts->AddFontFromFileTTF(path, 17.0f, nullptr, glyphs)) {
+            font = io.Fonts->AddFontFromFileTTF(path, 17.0f, nullptr, glyphs);
+            if (font) {
                 LOG("[overlay] font %s", path);
-                return;
+                break;
             }
         }
     }
+#ifdef __ANDROID__
+    if (font) {
+        const char* symbols = "/system/fonts/NotoSansSymbols-Regular-Subsetted.ttf";
+        if (FILE* f = fopen(symbols, "rb")) {
+            fclose(f);
+            ImFontConfig merge;
+            merge.MergeMode = true;
+            if (io.Fonts->AddFontFromFileTTF(symbols, 17.0f, &merge, glyphs))
+                LOG("[overlay] symbol font %s", symbols);
+        }
+    }
+#endif
+    if (font) return;
     ImFontConfig cfg;
     cfg.SizePixels = 17.0f;
     io.Fonts->AddFontDefaultVector(&cfg);
