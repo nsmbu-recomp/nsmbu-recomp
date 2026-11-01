@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Decomp: base `procDraw_` TV/DRC draw path (`0x02A0358C`, `0x02A032C8`, `0x02A03394`) plus copy/bind helpers (`0x02A03464`, `0x02A034F8`, `0x02A058F0`).
 - Decomp: `PlayerMgr` course setup helpers (`0x02916B6C`–`0x02917040`, `sub_02916BF8` actor spawn).
 - Decomp: `sub_02742F9C` course-apply gate, spawn table (`0x02742F88` / `0x02742EA0`), and `CourseInfo` course-type probes.
+- Decomp: course-owner challenge list probes (`0x027430C0`, `0x027431C8`) and `AudAudioPlayer` bootstrap (`0x029E8324`).
 
 ### Changed
 
