@@ -6,15 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-11-01
+
 ### Fixed
 
 - Opening the settings menu on the Controls tab no longer crashes when the controller diagram is shorter than its layout needs.
 - The settings menu scrolls on desktop when tab content does not fit (it no longer hides the scrollbar).
-
-### Changed
-
-- The release step commits and pushes the changelog before it tags.
-- Windows and Linux release builds download SDL3 from the CI assets repo instead of compiling it.
 
 ## [0.8.2] - 2026-11-01
 
@@ -375,7 +372,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - The TV and GamePad present together on one vsync.
 
-[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.3...HEAD
+[0.8.3]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.7.2...v0.8.0
