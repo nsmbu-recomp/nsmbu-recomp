@@ -191,6 +191,16 @@ class Hooks(unittest.TestCase):
             by_canon = {canon: addr for _, canon, addr, *_ in entries}
             self.assertEqual(by_canon[0x0252D9C0], draw_at)
             self.assertEqual(by_canon[0x0252F900], missing_at)
+            self.assertTrue(build.function_missing(0x0252F900))
+            self.assertTrue(build.function_missing(0x029D7648))
+            self.assertFalse(build.function_missing(0x0252D9C0))
+            self.assertFalse(build.function_missing(0x029D9560))
+            self.assertEqual(
+                builds.hook_on_differing(build, False, 0x0252F900, False, False), "skip")
+            self.assertEqual(
+                builds.hook_on_differing(build, False, 0x029D7648, False, False), "skip")
+            self.assertEqual(
+                builds.hook_on_differing(build, False, 0x0252D9C0, False, True), "warn")
             self.assertEqual(builds.differing_hook(False, False, True, build.mods), "warn")
 
     def test_hook_files_in_folder_with_brackets(self):

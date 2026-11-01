@@ -304,12 +304,17 @@ class Recompiler:
         this build (see tools/recomp/mkbuildmap.py). An instruction-level site inside a function the
         build compiled differently patches different code: that is an error. A hook on the entry of
         such a function wraps it whole, which usually still holds, but it is reported. A line marked
-        `same` was already checked, so that wrap is quiet."""
+        `same` was already checked, so that wrap is quiet. A function this build does not have is
+        skipped. Its mapped address sits inside a different function."""
         self.hooks_in_changed = []
+        self.hooks_missing = []
         kept = []
         for site, canon, addr, where, same in hook_entries:
-            if self.build.body_differs(canon):
-                fate = game_builds.differing_hook(site, same, addr in self.entries, self.build.mods)
+            if self.build.function_missing(canon) or self.build.body_differs(canon):
+                fate = game_builds.hook_on_differing(
+                    self.build, site, canon, same, addr in self.entries)
+                if fate == "skip" and self.build.function_missing(canon):
+                    self.hooks_missing.append((where, canon))
                 if fate == "skip":
                     continue
                 if fate == "refuse":
@@ -866,6 +871,8 @@ class Recompiler:
             for where, canon, addr in self.hooks_in_changed:
                 f.write("hook on a function this build compiled differently: %08X (here %08X, %s)\n" % (
                     canon, addr, where))
+            for where, canon in self.hooks_missing:
+                f.write("hook skipped, function not in this build: %08X (%s)\n" % (canon, where))
             f.write("functions: %d\nfiles: %d\nfixpoint rounds: %d\n" % (len(self.sorted_entries), nfiles, self.fixpoint_rounds))
             f.write("functions with a name from nsmbu/headers: %d of %d\n" % (
                 sum(1 for e in self.sorted_entries if self.names.get(self.sym(e))), len(self.sorted_entries)))

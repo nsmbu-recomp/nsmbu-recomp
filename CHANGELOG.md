@@ -9,6 +9,8 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 ### Fixed
 
+- Setup finishes translating a USA or Europe base disc (issues #53 and #54).
+  The stock HUD hook and the apply-save hook target functions that disc does not have.
 - On Android, the Controls tab no longer draws overlapping binding chips and leader lines on landscape handhelds; touch option rows wrap cleanly.
 - On Android, Controls uses one page scroll.
   **List view** stays off unless you turn it on.
