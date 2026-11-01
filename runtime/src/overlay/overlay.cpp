@@ -2089,10 +2089,15 @@ void touch_drag_scroll() {
 void settings_tab_button(int i) {
     if (i) flow::next(flow::button(kTabNames[i]));
     const bool on = U.tab == i;
-    if (on) ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_TabSelected));
+    const ImVec4 face = ImGui::GetStyleColorVec4(on ? ImGuiCol_TabSelected : ImGuiCol_Button);
+    ImGui::PushItemFlag(ImGuiItemFlags_NoNav, true);
+    ImGui::PushStyleColor(ImGuiCol_Button, face);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, face);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, face);
     const bool pressed = ImGui::Button(kTabNames[i]);
     const bool tapped = ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
-    if (on) ImGui::PopStyleColor();
+    ImGui::PopStyleColor(3);
+    ImGui::PopItemFlag();
     if ((pressed || tapped) && U.tab != i) {
         U.cap_action = -1;
         g_capturing_keys = false;
