@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Moved the Android Gradle project and iOS bundle scripts under `runtime/android/` and `runtime/ios/`.
 - Removed `NSMBU_CONTROLS`; controls always load from the user folder (`controls.json`).
 - The README install steps stay the same on every system.
   Which file to start, the file chooser, and disc-key formats are under `docs/user/`.

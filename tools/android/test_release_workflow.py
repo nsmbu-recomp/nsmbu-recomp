@@ -4,7 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = (ROOT / ".github/workflows/release.yml").read_text()
-GRADLE = (ROOT / "android/app/build.gradle").read_text()
+GRADLE = (ROOT / "runtime/android/app/build.gradle").read_text()
 
 
 def job(name):
@@ -21,7 +21,7 @@ class ReleaseWorkflow(unittest.TestCase):
         self.assertIn("abi: x86_64", android)
         self.assertIn("APK: dist/NSMBU-${{ needs.version.outputs.version }}-android-${{ matrix.name }}.apk", android)
         self.assertIn("recomp/stubgen.py build/gen-stub", android)
-        self.assertLess(android.index('rm "android/app/libs/$ABI/libmain.so"'), android.index("assembleRelease"))
+        self.assertLess(android.index('rm "runtime/android/app/libs/$ABI/libmain.so"'), android.index("assembleRelease"))
         self.assertIn('python3 tools/release/guard.py "$APK"', android)
         self.assertNotIn("--extraction-fixture", android)
         self.assertNotIn("--service-fixture", android)

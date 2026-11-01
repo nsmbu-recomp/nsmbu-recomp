@@ -1,14 +1,14 @@
-# Android build check: builds the app's native library (libmain.so, android/build_native.sh) and the
-# APK (android/, Gradle) against placeholder guest code (recomp/stubgen.py; no game files
+# Android build check: builds the app's native library (libmain.so, runtime/android/build_native.sh) and the
+# APK (runtime/android/, Gradle) against placeholder guest code (recomp/stubgen.py; no game files
 # involved), the way the release workflow builds the desktop runtimes.
 #
 # Legal: CI never has the game. The APK built here cannot run it (its game code is placeholders) and
 # is kept only as a short-lived CI artifact for inspection, never as a release asset: players build
-# their own APK from their own game (android/build_native.sh), and it must not be shared.
+# their own APK from their own game (runtime/android/build_native.sh), and it must not be shared.
 # tools/release/guard.py checks the APK like the release packages.
 #
 # Pinned: the NDK, SDK platform and build tools (sdkmanager checks the packages' checksums), Gradle
-# (android/gradle/wrapper: distributionSha256Sum; the wrapper jar is validated below), and SDL3,
+# (runtime/android/gradle/wrapper: distributionSha256Sum; the wrapper jar is validated below), and SDL3,
 # glslang, zlib and LZ4 (URL + SHA-256 in cmake/WindowsDependencies.cmake, NSMBU_BUNDLED_DEPS).
 name: android
 
@@ -53,21 +53,21 @@ jobs:
       - name: Native library (placeholder game code)
         run: |
           python3 recomp/stubgen.py build/gen-stub
-          GEN_DIR="$PWD/build/gen-stub" ANDROID_SDK="$ANDROID_HOME" JOBS=4 android/build_native.sh
+          GEN_DIR="$PWD/build/gen-stub" ANDROID_SDK="$ANDROID_HOME" JOBS=4 runtime/android/build_native.sh
 
       - name: APK
-        working-directory: android
+        working-directory: runtime/android
         run: ./gradlew --no-daemon assembleRelease
 
       - name: Legal check of the APK
         run: |
-          ls -la android/app/build/outputs/apk/release/
-          python3 tools/release/guard.py android/app/build/outputs/apk/release/*.apk
+          ls -la runtime/android/app/build/outputs/apk/release/
+          python3 tools/release/guard.py runtime/android/app/build/outputs/apk/release/*.apk
 
       - name: Keep the APK for a few days (placeholder code, not a release)
         uses: actions/upload-artifact@v4
         with:
           name: nsmbu-android-placeholder-${{ github.sha }}
-          path: android/app/build/outputs/apk/release/*.apk
+          path: runtime/android/app/build/outputs/apk/release/*.apk
           retention-days: 3
           if-no-files-found: error

@@ -128,8 +128,8 @@ def main():
     if len(compilers) != 1: raise ValueError("NDK clang not uniquely located")
     subprocess.run([str(compilers[0]), f"--target={host}33", "-shared", "-fPIC",
                     "-Wl,-z,max-page-size=16384", "-Wl,-z,defs", "-Wall", "-Wextra", "-Werror",
-                    "-I" + str(prefix / "include/python3.14"), str(root / "android/python/bridge.c"),
-                    str(root / "android/python/process.c"),
+                    "-I" + str(prefix / "include/python3.14"), str(root / "runtime/android/python/bridge.c"),
+                    str(root / "runtime/android/python/process.c"),
                     "-L" + str(prefix / "lib"), "-lpython3.14", "-ldl", "-o", str(native / "libnsmbupython.so")], check=True)
     with zipfile.ZipFile(assets / "python-home.zip", "w", zipfile.ZIP_DEFLATED) as bundle:
         for path in sorted((prefix / "lib/python3.14").rglob("*")):

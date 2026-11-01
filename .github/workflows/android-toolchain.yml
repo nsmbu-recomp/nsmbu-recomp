@@ -8,10 +8,10 @@ on:
       - installer/setup.py
       - tools/release/package.py
       - recomp/**
-      - android/python/**
-      - android/app/build.gradle
+      - runtime/android/python/**
+      - runtime/android/app/build.gradle
       - tools/release/guard.py
-      - android/app/src/main/**
+      - runtime/android/app/src/main/**
       - .github/workflows/android-toolchain.yml
       - .github/workflows/release.yml
       - runtime/src/platform/**
@@ -23,10 +23,10 @@ on:
       - installer/setup.py
       - tools/release/package.py
       - recomp/**
-      - android/python/**
-      - android/app/build.gradle
+      - runtime/android/python/**
+      - runtime/android/app/build.gradle
       - tools/release/guard.py
-      - android/app/src/main/**
+      - runtime/android/app/src/main/**
       - .github/workflows/android-toolchain.yml
       - .github/workflows/release.yml
       - runtime/src/platform/**

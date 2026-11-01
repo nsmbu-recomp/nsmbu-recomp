@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-ANDROID = ROOT / "android"
+ANDROID = ROOT / "runtime/android"
 MASTER = ANDROID / "icon" / "app_icon_1024.png"
 RES = ANDROID / "app" / "src" / "main" / "res"
 

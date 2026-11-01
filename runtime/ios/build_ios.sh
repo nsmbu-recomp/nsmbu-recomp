@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # Builds NSMBU.app for iOS (arm64) and packs an unsigned NSMBU.ipa for re-signing (Signulous, AltStore, ...).
 #   GEN_DIR   recompiler output (default: build/gen; run `nsmbu game <version> --recomp` first)
-#   OUT       build directory (default: ios/build)
+#   OUT       build directory (default: runtime/ios/build)
 #   IOS_MIN   deployment target (default: 17.0)
 #   CPU       -mcpu for the recompiled game (default: apple-a14; apple-a12 runs on every iOS 17 device)
-#   SIGN      codesign identity; unset leaves the app unsigned, "-" signs ad hoc with ios/nsmbu.entitlements
-#   SIM=1     build for the iOS Simulator instead (ios/build-sim, ad hoc signed without entitlements, no .ipa)
+#   SIGN      codesign identity; unset leaves the app unsigned, "-" signs ad hoc with runtime/ios/nsmbu.entitlements
+#   SIM=1     build for the iOS Simulator instead (runtime/ios/build-sim, ad hoc signed without entitlements, no .ipa)
 #   ICON      square PNG for the home screen icon (default: the first PNG in static/)
 #   IPA_NAME  name of the .ipa (default: New Super Mario Bros. U)
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
-root="$(cd "$here/.." && pwd)"
+root="$(cd "$here/../.." && pwd)"
 jobs="${JOBS:-$(sysctl -n hw.ncpu)}"
 if [ -n "${SIM:-}" ]; then
     platform=iphonesimulator

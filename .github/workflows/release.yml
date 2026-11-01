@@ -672,13 +672,13 @@ jobs:
       - name: Runtime, extractor and runtime SDK (placeholder game code, only to build the runtime)
         run: |
           python3 recomp/stubgen.py build/gen-stub
-          GEN_DIR="$PWD/build/gen-stub" ANDROID_SDK="$ANDROID_HOME" ABI="$ABI" JOBS=4 android/build_native.sh
-          cmake --build android/build/game --target nsmbu-extract --parallel 4
+          GEN_DIR="$PWD/build/gen-stub" ANDROID_SDK="$ANDROID_HOME" ABI="$ABI" JOBS=4 runtime/android/build_native.sh
+          cmake --build runtime/android/build/game --target nsmbu-extract --parallel 4
           NDK="$ANDROID_HOME/ndk/$NDK_VERSION"
-          python3 tools/android/package_extractor.py --build android/build/game --ndk "$NDK" --abi "$ABI" --out build/extractor-apk
-          python3 tools/android/package_runtime.py --build android/build/game --ndk "$NDK" --abi "$ABI" --out build/runtime-sdk --version "$VERSION"
-          rm "android/app/libs/$ABI/libmain.so"
-          ls -la "android/app/libs/$ABI"
+          python3 tools/android/package_extractor.py --build runtime/android/build/game --ndk "$NDK" --abi "$ABI" --out build/extractor-apk
+          python3 tools/android/package_runtime.py --build runtime/android/build/game --ndk "$NDK" --abi "$ABI" --out build/runtime-sdk --version "$VERSION"
+          rm "runtime/android/app/libs/$ABI/libmain.so"
+          ls -la "runtime/android/app/libs/$ABI"
 
       - name: Cache the official CPython Android build (checksum-pinned in prepare_python.py)
         uses: actions/cache@v5
@@ -708,12 +708,12 @@ jobs:
           else
             echo "::warning::no signing secrets (fork or dry run): the APK is signed with a throwaway debug key"
           fi
-          android/gradlew -p android --no-daemon -PnsmbuAbi="$ABI" -PnsmbuVersionName="${VERSION#v}" \
+          runtime/android/gradlew -p runtime/android --no-daemon -PnsmbuAbi="$ABI" -PnsmbuVersionName="${VERSION#v}" \
             -PnsmbuVersionCode="${{ github.run_number }}" \
             -PnsmbuPythonDir="$PWD/build/embedded-python/package" -PnsmbuToolchainDir="$PWD/build/compiler/apk-package" \
             -PnsmbuExtractorDir="$PWD/build/extractor-apk" assembleRelease
           mkdir -p dist
-          cp android/app/build/outputs/apk/release/app-release.apk "$APK"
+          cp runtime/android/app/build/outputs/apk/release/app-release.apk "$APK"
           ls -la dist
 
       - name: Guard (no game code, game files, keys or test fixtures) and signature

@@ -42,7 +42,7 @@ import urllib.request
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
-ICON = os.path.join(ROOT, "android", "app", "src", "main", "res", "mipmap-xxxhdpi", "ic_launcher.png")
+ICON = os.path.join(ROOT, "runtime", "android", "app", "src", "main", "res", "mipmap-xxxhdpi", "ic_launcher.png")
 
 APPIMAGETOOL_VERSION = "1.9.1"
 APPIMAGETOOL = {

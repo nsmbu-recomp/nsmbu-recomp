@@ -8,19 +8,19 @@ The recompiled game is built into the app, so the app is built on a Mac for one 
 
 1. Set up the game on the Mac as for the macOS build ([game/README.md](../../../game/README.md) and [../macos/README.md](../macos/README.md)), with `--recomp`.
    That fills `build/gen`.
-2. Run `ios/build_ios.sh`.
-   It writes `ios/build/NSMBU.app` and an unsigned `ios/build/New Super Mario Bros. U.ipa`.
+2. Run `runtime/ios/build_ios.sh`.
+   It writes `runtime/ios/build/NSMBU.app` and an unsigned `runtime/ios/build/New Super Mario Bros. U.ipa`.
    The home screen icon is made from the first PNG in `static/` (or `ICON`).
 3. Sign and install the `.ipa` with a signing service or tool (Signulous, AltStore, Xcode device install).
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `GEN_DIR` | `build/gen` | recompiler output |
-| `OUT` | `ios/build` | build directory |
+| `OUT` | `runtime/ios/build` | build directory |
 | `IOS_MIN` | `17.0` | deployment target |
 | `CPU` | `apple-a14` | `-mcpu` of the recompiled game; `apple-a12` runs on every iOS 17 device |
-| `SIGN` | unset | `codesign` identity; `-` signs ad hoc with `ios/nsmbu.entitlements` |
-| `SIM` | unset | `1` builds for the iOS Simulator (`ios/build-sim`, no `.ipa`) |
+| `SIGN` | unset | `codesign` identity; `-` signs ad hoc with `runtime/ios/nsmbu.entitlements` |
+| `SIM` | unset | `1` builds for the iOS Simulator (`runtime/ios/build-sim`, no `.ipa`) |
 | `ICON` | first `static/*.png` | square PNG for the home screen icon |
 | `IPA_NAME` | `New Super Mario Bros. U` | name of the `.ipa` |
 
@@ -32,7 +32,7 @@ iOS gives an app that much address space only with `com.apple.developer.kernel.e
 The profile that signs the app must grant it.
 Without it the app stops at start with "cannot reserve guest address space".
 `com.apple.developer.kernel.increased-memory-limit` raises the memory the system lets the app use.
-Both are in `ios/nsmbu.entitlements`.
+Both are in `runtime/ios/nsmbu.entitlements`.
 
 ## Game files
 

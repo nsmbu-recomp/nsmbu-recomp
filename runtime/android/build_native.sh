@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
-root="$(cd "$here/.." && pwd)"
+root="$(cd "$here/../.." && pwd)"
 case "$(uname -s)" in
 Darwin) host=darwin-x86_64; exe=; default_sdk="$HOME/Library/Android/sdk" ;;
 Linux) host=linux-x86_64; exe=; default_sdk="$HOME/Android/Sdk" ;;
