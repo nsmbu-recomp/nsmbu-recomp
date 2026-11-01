@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -32,6 +33,8 @@ public class SetupActivity extends Activity {
     private Button continueAnyway;
     private String continueAction;
     private Button play;
+    private CheckBox skipInstaller;
+    private boolean skipSync;
     private Button disc;
     private Button common;
     private Button update;
@@ -50,6 +53,12 @@ public class SetupActivity extends Activity {
 
     private boolean pcGame() {
         return PcGameFolder.ready(this);
+    }
+
+    private File settingsFile() {
+        File root = getExternalFilesDir(null);
+        if (root == null) return null;
+        return new File(AndroidUserDirectories.config(root), "settings.ini");
     }
 
     /** A game is ready: an active phone build that needs no rebuild and no setup in progress, or the
@@ -74,8 +83,9 @@ public class SetupActivity extends Activity {
         catch (Exception unavailable) { phoneSetup = false; }
         if (phoneSetup && state == null) cleanJobs();
         if ((state != null && state.getBoolean("launching_game", false)) ||
-                (state == null && Intent.ACTION_MAIN.equals(getIntent().getAction()) &&
-                !getIntent().getBooleanExtra(EXTRA_SHOW_SETUP, false) && readyToPlay())) {
+        (state == null && Intent.ACTION_MAIN.equals(getIntent().getAction()) &&
+        !getIntent().getBooleanExtra(EXTRA_SHOW_SETUP, false) && readyToPlay() &&
+        SkipInstaller.enabled(settingsFile()))) {
             launchingGame = true;
             startActivity(new Intent(this, NsmbuActivity.class));
             finish();
@@ -111,6 +121,22 @@ public class SetupActivity extends Activity {
         detail.setPadding(0, gap / 2, 0, gap);
         layout.addView(detail);
         play = button(layout, getString(R.string.setup_play), () -> startActivity(new Intent(this, NsmbuActivity.class)));
+        skipInstaller = new CheckBox(this);
+        skipInstaller.setText(R.string.setup_skip_installer);
+        skipInstaller.setTextSize(16);
+        skipInstaller.setTextColor(0xFFE8EEF2);
+        skipInstaller.setPadding(0, gap, 0, 0);
+        skipInstaller.setOnCheckedChangeListener((button, checked) -> {
+            if (skipSync) return;
+            File settings = settingsFile();
+            if (settings == null) return;
+            try {
+                SkipInstaller.set(settings, checked);
+            } catch (Exception e) {
+                actionMessage = e.getMessage();
+            }
+        });
+        layout.addView(skipInstaller);
         button(layout, getString(R.string.setup_share_log), () -> LogShare.share(this));
         play.setTextSize(20);
         play.setTextColor(0xFFFFFFFF);
@@ -555,6 +581,12 @@ public class SetupActivity extends Activity {
                 String hostName = hostState == null ? (job == null ? "" : "selected") : hostState.optString("state");
                 boolean working = hostName.equals("activating") || hostName.equals("importing") || hostName.equals("preparing") || hostName.equals("running");
                 show(play, play.isEnabled() && !working && !checkingFolder);
+                boolean skip = SkipInstaller.enabled(settingsFile());
+                if (skipInstaller.isChecked() != skip) {
+                    skipSync = true;
+                    skipInstaller.setChecked(skip);
+                    skipSync = false;
+                }
                 show(choose, (phoneSetup && !working) || (!phoneSetup && !checkingFolder));
                 show(folderHint, phoneSetup && !working);
                 if (!phoneSetup) {

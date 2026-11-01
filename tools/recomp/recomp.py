@@ -107,10 +107,11 @@ def _job_count(requested):
 
 def _import_mp():
     try:
+        import _multiprocessing as extension
         import multiprocessing as mp
     except ImportError:
         return None
-    return mp
+    return mp if extension is not None else None
 
 
 def _fork_ok():
@@ -118,13 +119,10 @@ def _fork_ok():
         return False
     try:
         mp = _import_mp()
-    except ImportError:
-        return False
-    if mp is None:
-        return False
-    try:
+        if mp is None:
+            return False
         mp.get_context("fork")
-    except ValueError:
+    except (ImportError, ValueError):
         return False
     return True
 
@@ -172,18 +170,22 @@ def _open_pool(jobs, rc):
         return _SeqPool(), None
     if mp is None:
         return _SeqPool(), None
-    if _fork_ok():
-        try:
-            return mp.get_context("fork").Pool(jobs), None
-        except OSError:
-            pass
-    path = _dump_rc(rc)
     try:
-        ctx = mp.get_context("spawn")
-        return ctx.Pool(jobs, initializer=_load_rc, initargs=(path,)), path
-    except Exception:
-        os.remove(path)
-        raise
+        if _fork_ok():
+            try:
+                return mp.get_context("fork").Pool(jobs), None
+            except OSError:
+                pass
+        path = _dump_rc(rc)
+        try:
+            ctx = mp.get_context("spawn")
+            return ctx.Pool(jobs, initializer=_load_rc, initargs=(path,)), path
+        except Exception:
+            os.remove(path)
+            raise
+    except ImportError:
+        _log("recomp: one process; the _multiprocessing module is unavailable")
+        return _SeqPool(), None
 
 
 def _shutdown_pool(pool, pickle_path, failed):

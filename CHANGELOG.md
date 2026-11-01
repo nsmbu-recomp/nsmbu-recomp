@@ -11,6 +11,16 @@ Append each change under Unreleased as it lands; at release the `changelog` skil
 
 - Windows Vulkan on older Intel integrated GPUs no longer crashes after the intro when loading the title screen (issue #42).
   Attachment layer views now name their usage on Intel drivers; `NSMBU_VK_ATTACHMENT_VIEW_USAGE=0` turns that off.
+- Android setup finishes translating when the phone's Python can import `multiprocessing` but has no `_multiprocessing` extension.
+  It uses one process instead of stopping.
+- **Share log** on Android also shares the setup status and the latest extract, translation, compile, and link logs.
+  A failed setup can be sent before the game has run.
+
+### Changed
+
+- The Android app icon opens the installer.
+  **Skip the installer for future runs** on that screen makes later launches open the game when one is ready.
+  **Settings > Android**, the last tab and only on Android, turns that off.
 
 ## [0.8.1] - 2026-10-31
 

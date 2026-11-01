@@ -71,7 +71,8 @@
     <string name="touch_layout_done">Done</string>
     <string name="setup_preparing">Getting the tools ready…</string>
     <string name="setup_ready">Your game is ready</string>
-    <string name="setup_ready_detail">From now on the app icon starts the game.</string>
+    <string name="setup_ready_detail">Tap Play to start the game.</string>
+    <string name="setup_skip_installer">Skip the installer for future runs</string>
     <string name="setup_restore">Allow access to the chosen game again</string>
     <string name="setup_selected">Your game is chosen</string>
     <string name="setup_selected_detail">Tap Start to prepare it for this Android device.</string>

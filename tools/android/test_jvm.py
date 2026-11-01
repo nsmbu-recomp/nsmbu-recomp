@@ -17,6 +17,8 @@ SUITES = {
     "org.nsmbrecomp.nsmbu.SetupPickerTest": ["SetupPicker.java"],
     "SetupKeyRecoveryPolicyTest": ["SetupKeyRecoveryPolicy.java"],
     "SetupPolicyTest": ["SetupPolicy.java"],
+    "org.nsmbrecomp.nsmbu.SetupLogFilesTest": ["SetupLogFiles.java"],
+    "org.nsmbrecomp.nsmbu.SkipInstallerTest": ["SkipInstaller.java"],
     "SetupPresentationTest": ["SetupPresentation.java"],
     "SetupRecoveryPolicyTest": ["SetupRecoveryPolicy.java"],
     "org.nsmbrecomp.nsmbu.HeatGuardDeviceTest": ["HeatGuardDevice.java"],

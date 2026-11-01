@@ -24,6 +24,9 @@ class PhoneWiring(unittest.TestCase):
             self.assertIn(name, main)
             self.assertIn('"%s"' % name, text(JAVA / "LogShare.java"))
         self.assertIn('new File(AndroidUserDirectories.config(root), "logs")', text(JAVA / "LogShare.java"))
+        self.assertIn("SetupLogFiles.sources", text(JAVA / "LogShare.java"))
+        for name in ("host.json", "state.json", "translation.log", "compile.log", "extract.log", "link.log"):
+            self.assertIn('"%s"' % name, text(JAVA / "SetupLogFiles.java"))
         self.assertIn('return config_dir() + "/logs";', text("runtime/src/platform/host.h"))
         self.assertNotRegex(main, r"#ifdef __ANDROID__\s*\n\s*if \(!e \|\| !\*e\) return;")
 
@@ -38,6 +41,14 @@ class PhoneWiring(unittest.TestCase):
         self.assertIn('GetStaticMethodID(cls,"phoneRumble","(I)V")', text("runtime/src/platform/input_sdl.cpp"))
         self.assertIn("public static void phoneRumble(int level)", text(JAVA / "NsmbuActivity.java"))
         self.assertIn('ENV(PHONE_RUMBLE, "NSMBU_PHONE_RUMBLE")', text("runtime/src/core/env.h"))
+
+    def test_installer_skip_is_optional_and_android_settings_can_clear_it(self):
+        self.assertIn("SkipInstaller.enabled", text(JAVA / "SetupActivity.java"))
+        self.assertIn("setup_skip_installer", text(APP / "res/values/strings.xml"))
+        overlay = text("runtime/src/overlay/overlay.cpp")
+        self.assertIn("kAndroid", overlay)
+        self.assertIn('"Debug", "Android"', overlay)
+        self.assertIn("skipInstaller", overlay)
 
     def test_back_opens_settings(self):
         self.assertIn("SDL_SCANCODE_AC_BACK", text("runtime/src/platform/input_sdl.cpp"))
