@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `tools/lib/test_dev_game_icon.py` tracks `runtime/android` paths after the Android project move.
+- Windows CI installs Node.js before the compare-runs CLI test.
+
 ### Added
 
 - A named test pre-release, for example `issue-60`, can be published without replacing the rolling development build.

@@ -50,6 +50,10 @@ jobs:
       - name: Unit tests
         run: ctest --test-dir build/windows --output-on-failure
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Shader preparation and benchmark tooling unit tests
         run: |
           python tools/test_shaderprep.py
