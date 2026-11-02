@@ -56,6 +56,14 @@ class Notes(unittest.TestCase):
         self.assertIn("Development build of main @ 0123abc: not a release.", text)
         self.assertIn("native PC port, v0.2.0-devel.0123abcd**", text)
 
+    def test_named_test_build_takes_the_unreleased_block(self):
+        text = self.notes("v0.2.0-test.issue-60.0123abcd", "--test", "issue-60", "0123abcd" + "0" * 32)
+        self.assertIn("Rolling change.", text)
+        self.assertNotIn("Released change.", text)
+        self.assertIn("Test build `issue-60` @ 0123abc: not a release.", text)
+        self.assertIn("does not replace the development build", text)
+        self.assertNotIn("Development build of main", text)
+
     def test_windows_arm64_is_named(self):
         self.assertIn("`windows-arm64`", self.notes("v0.2.0"))
 
