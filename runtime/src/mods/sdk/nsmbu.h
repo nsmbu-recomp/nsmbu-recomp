@@ -38,9 +38,25 @@ struct SceneReport {
     int32_t world = 0;
     bool node_known = false;
     int32_t node = 0;
+    bool area_known = false;
+    bool area = false;
+    std::string node_name;
+    bool node_pos_known = false;
+    float node_x = 0;
+    float node_y = 0;
+    bool map_player_known = false;
+    float map_x = 0;
+    float map_y = 0;
+    bool map_lock_known = false;
+    int map_lock = 0;
+    bool map_title_known = false;
+    int32_t map_title = -1;
+    bool map_players_known = false;
+    int map_players = 0;
 };
 
 void scene_report(SceneReport& out);
+bool leave_course(std::string& err);
 bool load_story_course(int32_t world, int32_t course, std::string& err);
 bool open_course_select(std::string& err);
 

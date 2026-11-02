@@ -7,8 +7,8 @@ Expose it globally as `nsmbu` via `npm link` from `tools/cli/`.
 Agents and automation always invoke `nsmbu …` on `PATH`.
 Game regressions belong in `nsmbu test` playtest cases (see [automation.md](automation.md)).
 Short live control (`status`, `press`, `stick`, `screenshot`, `wait`, `quit`) is for a look while writing a case.
-
-Keep `NSMBU_RECORD_INPUT` / `NSMBU_REPLAY_INPUT` and `replays/<name>.replay` for complex timelines (see [automation.md](automation.md)).
+Course pad logs live under `tools/cli/src/playtest/replays/` and run as `nsmbu test replay-1-1` and `replay-2-1`.
+`replay-bug-1` checks the intro-skip quit.
 
 Only one game instance is supported.
 The process is too heavy to run more than one, so there is no `--session` flag and no multi-instance control.
@@ -60,7 +60,7 @@ No HTTP server.
 Live pad overlay merged in `input::read()` in `runtime/src/platform/input_sdl.cpp` (same layering idea as `mods::lua_press`).
 Hold bits or stick axes until released or until a short pulse duration (default about 20 frames).
 Does not write replay files.
-`nsmbu record` and `nsmbu replay` keep using env and launch as today.
+Course recordings are the `replay-*` playtests.
 
 ### Observation
 
@@ -82,13 +82,14 @@ The CLI exports `NSMBU_CLI=1` and `NSMBU_USER_DIR=<repo>/nsmbu` on every dev com
 | `nsmbu run` / `run --release` | build then launch |
 | `nsmbu extract` | `tools/disc/extract.py` |
 | `nsmbu save <save.dat\|save.json> [output] [--output PATH]` | convert `rp_savedata.dat` to JSON and back |
-| `nsmbu record <course> [name]` / `replay [--release] [--uncapped] [--no-exit-on-input] [--exit-at N] [--log PATH] <name>` | env + launch (see [automation.md](automation.md)) |
 | `nsmbu profile` / `perf` | profiling helpers |
 | `nsmbu installer [--version VERSION] [--no-open]` | builds this Linux host's GitHub Release folder (the zip contents) at `build/installer` with the release workflow's pinned zig toolchain, then opens that folder's setup window; `--no-open` returns after the package is ready; does not publish |
 | `nsmbu apk` | builds the same setup APK as a release: Python, the compiler and the extractor are inside, and the game code is not. Installs it on a USB device (`adb`). `--build-only` skips adb. `--install-only` installs the last APK. |
 | `nsmbu lint` / `recomp` | TypeScript mod build, recomp only |
 | `nsmbu scripted <name>` | wraps `tools/run/scripted-run.sh` |
-| `nsmbu test [--list] [name…]` | boots a game per playtest and runs selected cases in parallel ([automation.md](automation.md)); only `--list` is a valid flag |
+| `nsmbu test [--list] [--show] [name…]` | boots a game per playtest and runs selected cases in parallel ([automation.md](automation.md)); `--show` leaves the window on screen and runs one case at a time |
+| `nsmbu scenario OUT [VAR=value …]` | headless logic-step trace for build-to-build comparison ([automation.md](automation.md)) |
+| `nsmbu compare-runs RUN_A RUN_B [--scene NAME] [--steps N]` | diff two `scenario` output folders ([automation.md](automation.md)) |
 | `nsmbu bench [--list] [name…]` | opens one visible game and records a render trace for a performance scenario ([automation.md](automation.md)); only `--list` is a valid flag |
 
 Run `nsmbu` with no arguments (or `--help`) for the full list.
@@ -188,7 +189,11 @@ Use them for a short look while writing a playtest case; lasting coverage stays 
   A course file is a `course_res_pack` archive, such as `game/content/Common/course_res_pack/1-27.szs`, and starts that course the same way as `1-27`.
   Refuse if a game is already running.
 - `nsmbu status` — one line from the guest thread: frame, logic step, pid, scene name, whether the world map or a course task is alive, course pack, entering pack when it differs, save file, map checkpoint, map node and world, and the player snapshot or `player=none`.
+  On the world map the line also has the node name, the node position, and the map player position.
+  `area=1` means a course area is running.
   Fields that are not ready are omitted.
+- `nsmbu leave` — quit the live course through `requestCourseOut_Normal` on the guest thread.
+  The command returns an error when no course is running.
 - `nsmbu press A` / `press 8000` — short pulse (configurable frames).
 - `nsmbu stick <x> <y> [--frames N]` / `rstick …`
 - `nsmbu screenshot [path]` — wait until PNG written; print path.
@@ -197,7 +202,7 @@ Use them for a short look while writing a playtest case; lasting coverage stays 
   A timeout includes the last status line.
 - `nsmbu quit` / `close` — graceful quit and tear down control files under `.tmp/agent/`.
 
-These commands block until their work is done: `open` waits for the socket, `press` / `stick` hold for their frames, `screenshot` waits for the PNG, `status` waits for the guest thread to read the scene, and `wait` polls until the frame, step, or scene bound.
+These commands block until their work is done: `open` waits for the socket, `leave` waits for the guest thread to quit the course, `press` / `stick` hold for their frames, `screenshot` waits for the PNG, `status` waits for the guest thread to read the scene, and `wait` polls until the frame, step, or scene bound.
 Use `wait --step N` or `wait --scene NAME` when the next action needs guest progress.
 `nsmbu scripted <name>` remains for exit-at-frame dumps (see [automation.md](automation.md)).
 

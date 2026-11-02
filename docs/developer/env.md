@@ -63,7 +63,7 @@ Other interpolation variables (`NSMBU_INTERP_PACED`, and the rest in `env.h`) ar
 
 ## Scripted compare runs
 
-These variables are used by `tools/gametest/run_scenario.sh` and `tools/gametest/compare.py` (see `docs/developer/automation.md`).
+These variables are used by `nsmbu scenario` and `nsmbu compare-runs` (see `docs/developer/automation.md`).
 
 - `NSMBU_TEST_STATUS_TRACE=path` appends one line per logic step: step, scene, map, course, pack, and player x, y, z.
 - `NSMBU_TEST_ALIGN_SCENE=name` names the scene (`Title`, `Map`, `CourseTask`, ...) whose first logic step is the align point.

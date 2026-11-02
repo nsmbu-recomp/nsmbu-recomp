@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Playtests start in fast forward (`NSMBU_UNCAPPED=1`).
+- Frame-rate cases keep pacing with `NSMBU_UNCAPPED=0`.
+- `replay-bug-1` opens `2-1` with the intro skip, quits, and requires the map player on `W201`.
+- `nsmbu scenario` and `nsmbu compare-runs` replace the old `tools/gametest/` compare runner; diff logic lives in `tools/cli/src/gametest/`.
 - The performance overlay shows 1% low FPS in a FPS / AVG / 1% row (values only in the columns).
 - Documented every agent verification path in `docs/developer/verification.md`.
 - Decomp docs: course-entry save-byte map and `setupCourse` FieldGame/`PlayerMgr` reads; soft-restart audio init vs `startSound` bootstrap order.
@@ -23,6 +27,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Agent status reports the map node name, the node position, and the map player.
+- `nsmbu leave` quits the live course on the guest thread.
+- Playtests read that status and quit with `leave`.
+- Removed `nsmbu record` and `nsmbu replay`.
+  Course recordings are the `replay-*` playtests.
 - Moved the Android Gradle project and iOS bundle scripts under `runtime/android/` and `runtime/ios/`.
 - Removed `NSMBU_CONTROLS`; controls always load from the user folder (`controls.json`).
 - The README install steps stay the same on every system.
@@ -42,6 +51,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- `replay-bug-1` waits until Mario is in `2-1` before quitting, so the intro-skip map spawn is the check.
 - Opening the settings menu on the Controls tab no longer crashes when the controller diagram is shorter than its layout needs.
 - The settings menu scrolls on desktop when tab content does not fit (it no longer hides the scrollbar).
 - Restored the release workflow `version` job on the nightly schedule so it can dispatch development builds when `main` moves.

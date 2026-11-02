@@ -20,6 +20,15 @@ export type PlayStatus = {
     cp?: number;
     node?: number;
     world?: number;
+    area?: boolean;
+    node_name?: string;
+    node_x?: number;
+    node_y?: number;
+    map_x?: number;
+    map_y?: number;
+    map_lock?: number;
+    map_title?: number;
+    map_players?: number;
     player?: { x: number; y: number; z: number } | null;
     sound_ready?: boolean;
     audio_buffered?: number;
@@ -36,6 +45,10 @@ export function formatStatus(s: PlayStatus): string {
     if (s.cp !== undefined) parts.push(`cp=${s.cp}`);
     if (s.node !== undefined) parts.push(`node=${s.node}`);
     if (s.world !== undefined) parts.push(`world=${s.world}`);
+    if (s.area !== undefined) parts.push(`area=${s.area ? 1 : 0}`);
+    if (s.node_name) parts.push(`name=${s.node_name}`);
+    if (s.node_x !== undefined && s.node_y !== undefined) parts.push(`node_pos=(${s.node_x}, ${s.node_y})`);
+    if (s.map_x !== undefined && s.map_y !== undefined) parts.push(`map_player=(${s.map_x}, ${s.map_y})`);
     if (s.player) parts.push(`player=(${s.player.x}, ${s.player.y}, ${s.player.z})`);
     else parts.push("player=none");
     if (s.sound_ready !== undefined) parts.push(`sound_ready=${s.sound_ready ? 1 : 0}`);
@@ -77,15 +90,17 @@ export class Session {
     readonly saveDir: string;
     readonly userDir: string;
     readonly logPath: string;
+    readonly show: boolean;
     private client: AgentClient | null = null;
     private pid: number | null = null;
     private openPack: string | undefined;
     private env: Record<string, string> = {};
     last = "";
 
-    constructor(repo: string, name: string) {
+    constructor(repo: string, name: string, opts?: { show?: boolean }) {
         this.repo = repo;
         this.name = name;
+        this.show = opts?.show ?? false;
         this.workDir = join(repo, ".tmp", "playtest", name);
         this.saveDir = join(this.workDir, "save");
         this.userDir = join(this.workDir, "user");
@@ -165,7 +180,12 @@ export class Session {
         }
     }
 
-    async start(opts: { save: "fresh" | "repo" | "keep"; open?: string; env?: Record<string, string> }): Promise<void> {
+    async start(opts: {
+        save: "fresh" | "repo" | "keep";
+        open?: string;
+        env?: Record<string, string>;
+        warmShaders?: boolean;
+    }): Promise<void> {
         await this.ensureOwnIdle();
         if (opts.save !== "keep") {
             rmSync(this.workDir, { recursive: true, force: true });
@@ -177,6 +197,10 @@ export class Session {
                     const from = join(this.repo, "nsmbu", file);
                     if (existsSync(from)) cpSync(from, join(this.userDir, file));
                 }
+            }
+            if (opts.warmShaders) {
+                const from = join(this.repo, "nsmbu", "shadercache");
+                if (existsSync(from)) cpSync(from, join(this.userDir, "shadercache"), { recursive: true });
             }
         } else {
             mkdirSync(this.saveDir, { recursive: true });
@@ -210,8 +234,10 @@ export class Session {
             NSMBU_NO_AUDIO: "1",
             NSMBU_VK_PRESENT_MODE: "immediate",
             NSMBU_RES_SCALE: "1",
+            NSMBU_UNCAPPED: "1",
             ...this.env,
         };
+        extraEnv.NSMBU_HIDDEN_WINDOWS = this.show ? "0" : "1";
         if (this.env.NSMBU_NO_AUDIO === "0") delete extraEnv.NSMBU_NO_AUDIO;
         const child = spawnPython(this.repo, "tools/run/launch.py", args, {
             detached: true,
@@ -245,12 +271,26 @@ export class Session {
             cp: r.cp,
             node: r.node,
             world: r.world,
+            area: r.area,
+            node_name: r.node_name,
+            node_x: r.node_x,
+            node_y: r.node_y,
+            map_x: r.map_x,
+            map_y: r.map_y,
+            map_lock: r.map_lock,
+            map_title: r.map_title,
+            map_players: r.map_players,
             player: r.player,
             sound_ready: r.sound_ready,
             audio_buffered: r.audio_buffered,
         };
         this.last = formatStatus(s);
         return s;
+    }
+
+    async leave(): Promise<void> {
+        const r = await withTimeout(this.live().request({ cmd: "leave" }), 20_000, "leave");
+        if (!r.ok) throw new Error(r.error ?? "leave failed");
     }
 
     async eval(code: string, timeoutMs = 8000): Promise<string> {

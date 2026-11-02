@@ -7,7 +7,7 @@ Addresses are USA v1.3.0.
 ## Usage
 
 The runtime has a native boot skip.
-`nsmbu run W-C`, `nsmbu launch W-C`, `nsmbu open W-C`, `nsmbu record`, and `nsmbu replay`
+`nsmbu run W-C`, `nsmbu launch W-C`, and `nsmbu open W-C`
 pass `--open W-C`.
 The native skip uses save file 1.
 It presses A on the boot GamePad popup, forces the title if needed, applies the save,

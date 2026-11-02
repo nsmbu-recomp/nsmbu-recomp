@@ -54,7 +54,7 @@ jobs:
         run: |
           python tools/test_shaderprep.py
           python -m unittest discover -s tools/bench -p "test_*.py"
-          python -m unittest discover -s tools/gametest -p "test_*.py"
+          node --test tools/cli/test/compare-runs.test.ts
 
       # Setup unpacks the compiler with \\?\ paths and stops early in a folder too deep for the game.
       # MSYS2's Python joins paths with "/" and keeps ordinary paths (setup.NATIVE_WINDOWS_PATHS); the

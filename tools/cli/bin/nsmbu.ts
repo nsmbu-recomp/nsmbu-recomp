@@ -14,13 +14,12 @@ import {
     cmdPerf,
     cmdProfile,
     cmdRecomp,
-    cmdRecord,
-    cmdReplay,
     cmdRun,
     cmdScripted,
     cmdWine,
 } from "../src/dev.ts";
 import {
+    cmdLeave,
     cmdOpen,
     cmdPress,
     cmdQuit,
@@ -33,6 +32,8 @@ import { cmdCompletion } from "../src/completion.ts";
 import { cmdSave } from "../src/save.ts";
 import { cmdBench } from "../src/bench/cmd.ts";
 import { cmdTest } from "../src/playtest/cmd.ts";
+import { cmdCompareRuns } from "../src/gametest/compare-runs.ts";
+import { cmdScenario } from "../src/gametest/scenario.ts";
 
 async function main(): Promise<void> {
     const argv = process.argv.slice(2);
@@ -112,50 +113,6 @@ async function main(): Promise<void> {
                 cmdSave(input, flagString(flags, "output") ?? output);
                 break;
             }
-            case "record": {
-                const [course, ...tail] = rest;
-                if (!course) {
-                    throw new Error("usage: nsmbu record <course> [name] […]");
-                }
-                const named = tail.length > 0 && !tail[0].startsWith("-");
-                const name = named ? tail[0] : course;
-                cmdRecord(repo, course, name, named ? tail.slice(1) : tail);
-                break;
-            }
-            case "replay": {
-                const { flags, positional } = parseArgv(
-                    rest,
-                    ["release", "uncapped", "exit-at", "log", "no-exit-on-input"],
-                    ["exit-at", "log"],
-                );
-                const [name, ...launchRest] = positional;
-                if (!name) {
-                    throw new Error(
-                        "usage: nsmbu replay [--release] [--uncapped] [--no-exit-on-input] [--exit-at N] [--log PATH] <name> […]",
-                    );
-                }
-                const exitAt = flagString(flags, "exit-at");
-                if (hasFlag(flags, "exit-at") && (exitAt === undefined || !/^\d+$/.test(exitAt))) {
-                    throw new Error("usage: nsmbu replay --exit-at N");
-                }
-                const log = flagString(flags, "log");
-                if (hasFlag(flags, "log") && !log) {
-                    throw new Error("usage: nsmbu replay --log PATH");
-                }
-                cmdReplay(
-                    repo,
-                    name,
-                    {
-                        release: hasFlag(flags, "release"),
-                        uncapped: hasFlag(flags, "uncapped"),
-                        noExitOnInput: hasFlag(flags, "no-exit-on-input"),
-                        exitAt,
-                        log,
-                    },
-                    launchRest,
-                );
-                break;
-            }
             case "profile":
                 cmdProfile(repo, rest);
                 break;
@@ -185,6 +142,12 @@ async function main(): Promise<void> {
             case "test":
                 await cmdTest(repo, rest);
                 break;
+            case "scenario":
+                await cmdScenario(repo, rest);
+                break;
+            case "compare-runs":
+                cmdCompareRuns(repo, rest);
+                break;
             case "bench":
                 await cmdBench(repo, rest);
                 break;
@@ -193,6 +156,9 @@ async function main(): Promise<void> {
                 break;
             case "status":
                 await cmdStatus(repo);
+                break;
+            case "leave":
+                await cmdLeave(repo);
                 break;
             case "press":
                 await cmdPress(repo, rest);

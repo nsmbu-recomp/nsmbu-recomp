@@ -21,8 +21,7 @@ export const openedCourse: PlayCase = {
         }
         await loadPack(session, "1-2");
         await waitCourse(session, "1-2", 180);
-        const left = await session.eval("return nsmbu.Scene.leave_course()");
-        if (!left.startsWith("true")) throw new Error(`leave_course failed: ${left} ${session.last}`);
+        await session.leave();
         await session.wait((s) => s.map === true && (s.scene === "Map" || s.scene === "CourseSelect"), 120);
         const view = await waitMap(session, 90, false);
         if (view.name !== "W102") throw new Error(`map node is ${view.name}, want W102 (${view.raw})`);

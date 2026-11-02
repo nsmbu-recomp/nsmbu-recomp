@@ -1,19 +1,20 @@
 import { CASES } from "./cases/index.ts";
 import { ensureLiveAgentIdle, Session } from "./session.ts";
 
-export function parseTestArgs(rest: string[]): { list: boolean; names: string[] } {
+export function parseTestArgs(rest: string[]): { list: boolean; show: boolean; names: string[] } {
     const list = rest.includes("--list");
+    const show = rest.includes("--show");
     const names: string[] = [];
     const bad: string[] = [];
     for (const a of rest) {
-        if (a === "--list") continue;
+        if (a === "--list" || a === "--show") continue;
         if (a.startsWith("-")) bad.push(a);
         else names.push(a);
     }
     if (bad.length > 0) {
-        throw new Error(`unknown option: ${bad.join(", ")}\nusage: nsmbu test [--list] [name…]`);
+        throw new Error(`unknown option: ${bad.join(", ")}\nusage: nsmbu test [--list] [--show] [name…]`);
     }
-    return { list, names };
+    return { list, show, names };
 }
 
 async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
@@ -31,7 +32,7 @@ async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise
 }
 
 export async function cmdTest(repo: string, rest: string[]): Promise<void> {
-    const { list, names } = parseTestArgs(rest);
+    const { list, show, names } = parseTestArgs(rest);
     if (list && names.length === 0) {
         for (const c of CASES) console.log(`${c.name}\t${c.summary}`);
         return;
@@ -42,9 +43,10 @@ export async function cmdTest(repo: string, rest: string[]): Promise<void> {
     }
     const selected = names.length === 0 ? CASES : CASES.filter((c) => names.includes(c.name));
     await ensureLiveAgentIdle(repo);
-    const jobs = Math.max(1, Number.parseInt(process.env.NSMBU_TEST_JOBS ?? "2", 10) || 2);
+    let jobs = Math.max(1, Number.parseInt(process.env.NSMBU_TEST_JOBS ?? "2", 10) || 2);
+    if (show) jobs = 1;
     const results = await mapPool(selected, jobs, async (c) => {
-        const session = new Session(repo, c.name);
+        const session = new Session(repo, c.name, { show });
         const t0 = Date.now();
         process.stdout.write(`playtest ${c.name}\n`);
         try {

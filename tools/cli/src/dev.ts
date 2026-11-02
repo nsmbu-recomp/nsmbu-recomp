@@ -1,7 +1,6 @@
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { flagString, hasFlag, parseArgv } from "./parse.ts";
-import { nsmbuUserDir } from "./repo.ts";
 import { runPython, runPythonCapture, runPythonChecked, runShell } from "./run.ts";
 import { clack, confirm, selectOption, textInput } from "./select.ts";
 
@@ -500,101 +499,6 @@ export async function cmdGame(repo: string, rest: string[]): Promise<void> {
             ? `Active dump: game/${chosenId}/ (${final.label}). Next: nsmbu build`
             : `Active dump: game/${chosenId}/. Fix keys under game/ (or drop a .wux) and run nsmbu game again.`,
     );
-}
-
-const REPLAY_NAME = /^[A-Za-z0-9._-]+$/;
-
-function replayName(name: string): string {
-    const trimmed = name.toLowerCase().endsWith(".replay") ? name.slice(0, -".replay".length) : name;
-    if (!trimmed || trimmed === "." || trimmed === ".." || !REPLAY_NAME.test(trimmed)) {
-        throw new Error(`bad replay name: ${name}`);
-    }
-    return trimmed;
-}
-
-function courseToken(arg: string): string | undefined {
-    const base = arg.replace(/\\/g, "/").split("/").pop() ?? arg;
-    if (base.toLowerCase().endsWith(".szs")) {
-        const match = /^([1-9])-([1-9]\d*)\.szs$/i.exec(base);
-        return match ? `${match[1]}-${match[2]}` : undefined;
-    }
-    return /^\d+-\d+$/.test(arg) ? arg : undefined;
-}
-
-export function cmdRecord(repo: string, course: string, name: string, rest: string[]): void {
-    const replays = join(repo, "replays");
-    mkdirSync(replays, { recursive: true });
-    const replayPath = join(replays, `${replayName(name)}.replay`);
-    const extra: Record<string, string> = { NSMBU_RECORD_INPUT: replayPath };
-    const token = courseToken(course);
-    if (token) {
-        extra.NSMBU_RECORD_COURSE = token;
-    }
-    console.log(`[record] ${replayPath}`);
-    cmdLaunch(repo, { noDebug: false, trace: false, gdb: false, lldb: false }, [course, ...rest], extra);
-}
-
-const REPLAY_PROFILE_ENV: Record<string, string> = {
-    NSMBU_PROFILE: "1",
-    NSMBU_VK_STATS: "1",
-    NSMBU_SYNC_STATS: "1",
-    NSMBU_CRASH_RECOVERY: "1",
-};
-
-export type ReplayOpts = {
-    release: boolean;
-    uncapped: boolean;
-    noExitOnInput: boolean;
-    exitAt?: string;
-    log?: string;
-};
-
-function replayCourse(path: string, name: string): string {
-    const text = readFileSync(path, "utf8");
-    for (const line of text.split("\n")) {
-        const match = /^course=(\S+)/.exec(line) ?? /^[!#]\s*course\s+(\S+)/.exec(line);
-        if (match) {
-            return match[1];
-        }
-    }
-    const token = courseToken(name);
-    if (token) {
-        return token;
-    }
-    throw new Error(`${path} has no "course=" line; add one or name the replay after its course`);
-}
-
-export function cmdReplay(repo: string, name: string, opts: ReplayOpts, rest: string[]): void {
-    const replayPath = join(repo, "replays", `${replayName(name)}.replay`);
-    if (!existsSync(replayPath)) {
-        console.error(`missing ${replayPath}`);
-        process.exit(1);
-    }
-    const course = replayCourse(replayPath, name);
-    const extra: Record<string, string> = {
-        NSMBU_REPLAY_INPUT: replayPath,
-    };
-    for (const [key, value] of Object.entries(REPLAY_PROFILE_ENV)) {
-        if (process.env[key] === undefined) {
-            extra[key] = value;
-        }
-    }
-    if (opts.uncapped) {
-        extra.NSMBU_UNCAPPED = "1";
-    }
-    if (opts.noExitOnInput) {
-        extra.NSMBU_REPLAY_EXIT = "none";
-    }
-    if (opts.exitAt !== undefined) {
-        extra.NSMBU_EXIT_AT_FRAME = opts.exitAt;
-    }
-    const log = opts.log ?? join(nsmbuUserDir(repo), "logs", "nsmbu.log");
-    if (opts.log) {
-        mkdirSync(dirname(opts.log), { recursive: true });
-        extra.NSMBU_LOG_FILE = opts.log;
-    }
-    console.log(`[replay] log ${log}`);
-    cmdLaunch(repo, { noDebug: opts.release, trace: false, gdb: false, lldb: false }, [course, ...rest], extra);
 }
 
 export function cmdProfile(repo: string, rest: string[]): void {

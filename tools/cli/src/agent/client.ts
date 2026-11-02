@@ -18,6 +18,15 @@ type AgentResponse = {
     cp?: number;
     node?: number;
     world?: number;
+    area?: boolean;
+    node_name?: string;
+    node_x?: number;
+    node_y?: number;
+    map_x?: number;
+    map_y?: number;
+    map_lock?: number;
+    map_title?: number;
+    map_players?: number;
     player?: { x: number; y: number; z: number } | null;
     sound_ready?: boolean;
     audio_buffered?: number;

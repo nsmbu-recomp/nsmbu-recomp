@@ -1,8 +1,9 @@
 # Replay file format
 
 A `.replay` file in this repo is a plain text input log, not the game's binary `RPRH` replay.
-`nsmbu record` writes it and `nsmbu replay` reads it.
-`NSMBU_RECORD_INPUT` and `NSMBU_REPLAY_INPUT` point the runtime at the same files directly.
+The course playtests point `NSMBU_REPLAY_INPUT` at the files under `tools/cli/src/playtest/replays/`.
+`NSMBU_RECORD_INPUT` still writes the same format when that variable is set.
+There is no `nsmbu record` or `nsmbu replay` command.
 
 The file holds initial config lines, then one line for each change of the pad state in a course.
 Lines are read with a 512-byte buffer, so keep each line below 511 bytes.
@@ -15,22 +16,21 @@ These lines set up the run.
 Only `version` is required among the keys, and only for new files.
 Start snapshot keys are optional.
 
-- `version=1` — format marker. Any value marks the current format, and writers use `1`
-- `course=1-1` — course name such as `1-1` or `2-1`. `nsmbu replay <name>` launches this course
+- `version=1` — format marker (writers use `1`)
+- `course=1-1` — course name such as `1-1` or `2-1`, which the playtest opens
 - `origin=control` — arms the step clock when the game hands control to the player
-- `exit=none` — keeps the game running on live input after the last line. Without the key, the replay quits when the input ends
+- `exit=none` — keeps the game running on live input after the last line (without the key, playback quits when the input ends)
 - `player=0` — player index `0`–`3` for the start snapshot
 - `lives=5` — remaining lives in the start snapshot
 - `player_coins=0` — coins for that player, from the per-player `coin_cnt` in `FieldGameData`
 - `coins=0` — course-wide coin total, from `FieldGameData::mCoinNum`
 - `mode=fire` — power-up mode in the start snapshot
 
-`nsmbu record` writes `version`, `course`, and `origin` first, then the start snapshot values, then a `# step buttons lx ly rx ry touch tx ty x y z` legend line, then the pad lines.
+The runtime writes `version`, `course`, and `origin` first when `NSMBU_RECORD_INPUT` is set, then the start snapshot values, then a `# step buttons lx ly rx ry touch tx ty x y z` legend line, then the pad lines.
 The `exit` key is optional and is not written by the recorder.
-When no player is active at the first pad read, `nsmbu record` omits the start snapshot.
+When no player is active at the first pad read, the writer omits the start snapshot.
 
-When `course` is absent, `nsmbu replay` uses the file name when it looks like `W-L`.
-Otherwise the command stops and asks for a `course` line.
+When `course` is absent, a playback run has no pack name of its own.
 `NSMBU_RECORD_COURSE` supplies the course value when the runtime writes the file.
 `NSMBU_REPLAY_EXIT` overrides the `exit` key for one run.
 
@@ -59,11 +59,11 @@ Each line describes the pad state from that step until the next line.
 - `<rx> <ry>` — right stick, `-1` to `1`
 - `<touch>` — `0` or `1` for touch screen contact
 - `<tx> <ty>` — touch point
-- `<x> <y> <z>` — player position after the change. Optional
+- `<x> <y> <z>` — optional player position after the change
 
 The replay applies the newest line whose `step` is at or before the current step.
 Lines must be in ascending step order, because the reader only moves forward.
-`nsmbu record` writes one line for each change of buttons, sticks, or touch, and writes the position with `%.9g`.
+`NSMBU_RECORD_INPUT` writes one line for each change of buttons, sticks, or touch, and writes the position with `%.9g`.
 It also writes the first line at the step where the pad state is first read, so a replay can start with no button down.
 
 ### Buttons
@@ -101,7 +101,7 @@ Older files use `!` or `#` directives, which still load through `NSMBU_REPLAY_IN
 `#` also starts a comment, so only the directive names below are read.
 
 - `nsmbu-replay` — current format and course-relative steps
-- `nsmbu-input <n>` — format version. Version `1` uses absolute boot steps; version `2` and later use course-relative steps
+- `nsmbu-input <n>` — format version, where `1` uses absolute boot steps and later versions use course-relative steps
 - `course <name>` — course name
 - `origin <value>` — `control` arms the clock at control handover
 - `start ...` — inline start snapshot, same keys as above
@@ -135,6 +135,5 @@ The left stick stays at `1 0`, which the recorder captured at the start.
 
 ## Related
 
-- [../../replays/README.md](../../replays/README.md) is the short key and field summary next to the files.
-- [automation.md](automation.md) describes `nsmbu record`, `nsmbu replay`, and the input environment variables.
-- [cli.md](cli.md) lists the command forms.
+- [automation.md](automation.md) describes the `replay-1-1`, `replay-2-1`, and `replay-bug-1` playtests.
+- [cli.md](cli.md) lists `nsmbu test`.

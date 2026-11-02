@@ -2,20 +2,25 @@
 
 Issue and release game regressions belong in playtests.
 Use `nsmbu scripted` when you need exit-at-frame dumps or a fixed `NSMBU_PRESS` timeline without a playtest case.
-Long pad timelines stay on `record` / `replay`.
+A recorded course pad log is a playtest (`replay-1-1`, `replay-2-1`).
+`replay-bug-1` checks the intro-skip quit lands on `W201`.
 
 ## Playtests
 
 `nsmbu test` boots a debug game per case and checks issue and release regressions.
 Selected cases run in parallel (default 2 at a time; set `NSMBU_TEST_JOBS` to change).
+Each case starts in fast forward (`NSMBU_UNCAPPED=1`) so logic steps are not held to 60 per second.
+`course-enter`, `course-enter-120`, `map-shadow-120`, `logic-rate-120`, and `pose-direction-120` set `NSMBU_UNCAPPED=0` because they check a frame rate.
 Add or extend a case under `tools/cli/src/playtest/cases/` and register it in `cases/index.ts`.
 Reuse helpers in `tools/cli/src/playtest/helpers.ts` (`reachMap`, `loadPack`, `leaveCourse`, `enterCourse`, `quickSaveHere`, and the other exports) before inventing a new flow.
-Map round-trips use `leaveCourse` / `enterCourse`, not `Scene.leave_course` alone.
+Map round-trips use `leaveCourse` / `enterCourse`.
+A direct-open quit uses `Session.leave`.
+The map node name, the node position, and the map player come from agent status.
 Scene moves that need guest Lua stay inside the case through `Session` helpers.
 
 `nsmbu test --list` prints the case names and summaries (the live list).
 `nsmbu test opened-course` runs one case.
-Only `--list` is a valid flag; other options are rejected.
+`--show` leaves the game window on screen and runs one case at a time.
 Each case uses `.tmp/playtest/<name>/` for its save, control socket, and log file, so `nsmbu/save` and the live agent socket stay unread.
 Shader cache and settings stay in the shared `nsmbu/` userdata.
 
@@ -26,6 +31,8 @@ Issue links that the cases cover:
 - `course-enter-120` — [#15](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/15) at 120 fps
 - `map-shadow-120` — [#20](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/20) at 120 fps (world map stays open)
 - `opened-course` — 0.6.1 course-open / leave-to-map regressions
+- `replay-1-1`, `replay-2-1` — recorded course input; the run passes when the player path matches, and `[prof]` in the case log is the course measurement
+- `replay-bug-1` — intro skip into 2-1, then quit; the map player must stand on `W201`
 
 Closed-issue coverage outside playtests:
 
@@ -156,23 +163,25 @@ A world-map boot that stops before that last A is in Boot recipes below.
 
 ### Compare two scripted runs
 
-`tools/gametest/run_scenario.sh OUT [VAR=value ...]` is the compare path.
+`nsmbu scenario OUT [VAR=value …]` is the compare path.
 It boots hidden and muted on a copy of the save, with the user folder, the shader cache, and the states under `OUT`.
 It waits for the first logic step of scene `ALIGN` (default `Title`; others are `Map` and `CourseTask`), then records `STEPS` more logic steps (default 300).
 A boot that never reaches the scene is retried (`BOOT_TRIES`, default 3) and its log stays next to `OUT` as `OUT.bootfailN.log`.
+
+Environment: `NSMBU_BIN`, `GAME`, `SAVE`, `ALIGN`, `STEPS`, `FIXED_SEED` (default 1), `SHADER_CACHE`, `BOOT_TRIES`, `BOOT_LIMIT`, `RUN_LIMIT` (same roles as before).
 
 `OUT/status.txt` has one line per logic step: step, scene, map, course, pack, and player x, y, z.
 `-` marks a value the game does not have yet.
 The runtime writes it when `NSMBU_TEST_STATUS_TRACE` is set.
 
-`tools/gametest/compare.py RUN_A RUN_B --scene CourseTask` aligns both runs on the log line `[test] align at logic step N scene=NAME`, rebases the step numbers, and diffs the lines.
+`nsmbu compare-runs RUN_A RUN_B [--scene CourseTask]` aligns both runs on the log line `[test] align at logic step N scene=NAME`, rebases the step numbers, and diffs the lines.
 It prints the first differing step.
 The exit status is 0 for identical runs, 1 for a difference, and 2 when a run never reached the scene.
 
 ```
-ALIGN=CourseTask tools/gametest/run_scenario.sh .tmp/runs/a NSMBU_PRESS='1800-1820:8000'
-ALIGN=CourseTask tools/gametest/run_scenario.sh .tmp/runs/b NSMBU_PRESS='1800-1820:8000'
-python3 tools/gametest/compare.py .tmp/runs/a .tmp/runs/b --scene CourseTask
+ALIGN=CourseTask nsmbu scenario .tmp/runs/a NSMBU_PRESS='1800-1820:8000'
+ALIGN=CourseTask nsmbu scenario .tmp/runs/b NSMBU_PRESS='1800-1820:8000'
+nsmbu compare-runs .tmp/runs/a .tmp/runs/b --scene CourseTask
 ```
 
 With `NSMBU_TEST_FIXED_SEED=1` (the runner default) `NSMBU_PRESS`, `NSMBU_KEYS`, `NSMBU_STICK`, `NSMBU_RSTICK`, and `NSMBU_DUMP_FRAMES` count from the align scene.
@@ -259,8 +268,9 @@ A menu check should enter `FileSelect` directly instead of waiting out this titl
 
 ### Other boots
 
-- `nsmbu replay --release 1-1` is the course benchmark.
-  The baseline is in [performance.md](performance.md).
+- `nsmbu test replay-1-1` is the 1-1 course measurement.
+  The log is `.tmp/playtest/replay-1-1/nsmbu.log`.
+  The baseline notes are in [performance.md](performance.md).
 - `nsmbu status` is the live scene line.
   `scene=CourseSelect` with `map=1` is the world map.
 - `NSMBU_LOG_FILE=0` skips the log file.
@@ -280,47 +290,39 @@ These are separate from `scripted-run.sh` and appear in benches and device check
 - `NSMBU_DUMP_PRESENT`, `NSMBU_DUMP_LOAD_FRAMES`, `NSMBU_CAPTURE` — present / load-path captures (see [vulkan.md](vulkan.md))
 - `NSMBU_STATE_LOAD_AT`, `NSMBU_PORTABLE_SAVE_AT` — save-state load points (see [portable-save-states.md](../user/portable-save-states.md))
 
-## Input replays
+## Course replay playtests
+
+`replay-1-1` and `replay-2-1` play the pad logs in `tools/cli/src/playtest/replays/`.
+Each of those cases opens the `course=` pack, sets `NSMBU_REPLAY_INPUT` to that file, and copies `nsmbu/shadercache` into the case user folder when it exists.
+`replay-bug-1` opens `2-1` with the intro skip, quits with `leave`, and requires the map player to stand on `W201`.
+The run passes when the log reports `player state matched`.
+`[prof]` lines in `.tmp/playtest/<name>/nsmbu.log` are the course measurement.
+The case uses the debug build, fast forward, immediate present, and resolution scale 1.
+The window stays off screen unless you pass `--show`.
 
 The `.replay` format is a text input log; [replay-format.md](replay-format.md) lists each line, key, and field.
-`NSMBU_RECORD_INPUT` writes one line each time the pad changes.
+`NSMBU_RECORD_INPUT` still writes one line each time the pad changes when that variable is set.
+There is no `nsmbu record` command.
 The step count starts when in-level play begins (`AreaTask` is live), then follows guest logic steps (one per simulation tick, not per rendered frame).
-New files start with `version=1` and use `replays/<name>.replay` paths from `nsmbu record` / `nsmbu replay`.
 Metadata lines are `key=value`; `#` starts a comment.
-`course=` names the course; `nsmbu replay` launches it.
-`origin=control` (what new files write) arms the step count when the game hands control to the player, so a slow boot or an uncapped run does not shift the recording.
-Files without `origin=` fall back to arming when the player reaches a recorded `pos=`, which depends on how long the load takes.
-`NSMBU_RECORD_COURSE` supplies that name when the runtime writes the file.
+`course=` names the course the playtest opens.
+`origin=control` arms the step count when the game hands control to the player, so a slow boot does not shift the recording.
+Files without `origin=` fall back to arming when the player reaches a recorded `pos=`.
+`NSMBU_RECORD_COURSE` supplies the course name when the runtime writes a file.
 Each pad line ends with the player position (`x y z`).
-Start config lines record `player=`, `lives=`, `player_coins=`, `coins=`, and `mode=`, one per line; replay starts the player with the recorded power-up mode.
+Start config lines record `player=`, `lives=`, `player_coins=`, `coins=`, and `mode=`, one per line; playback starts the player with the recorded power-up mode.
 `mode=` is `small`, `normal`, `fire`, `mini`, `propeller`, `penguin`, `ice`, `squirrel`, or `psquirrel`; numeric `0`–`8` still loads.
 The buttons field is `-` when no button is down, otherwise `+`-joined names such as `A+Y`; legacy hex values still load.
 `exit=input` (the default) quits when the recorded input ends; `exit=none` keeps the game running and hands control back to live input.
-`--no-exit-on-input` sets `NSMBU_REPLAY_EXIT=none` for one run.
-Replay logs the first step where position differs by more than 5 cm, and a match or mismatch count when it finishes.
+`NSMBU_REPLAY_EXIT=none` overrides that for one run.
+Playback logs the first step where position differs by more than 5 cm, and a match or a mismatch count when it finishes.
 A slow boot does not shift later lines.
 Legacy `!` and `#` directive files, including `# nsmbu-input` version 1 boot logic steps and v3 `@` witness lines, still load when pointed at by `NSMBU_REPLAY_INPUT`.
 `NSMBU_REPLAY_INPUT` applies the latest line whose step is at or before the current step.
 Live keyboard, mouse, and gamepad input is replaced for that run.
-Intro-skip button pulses stay outside the file, so play the file back with the same course pack.
 
 ```
-nsmbu record 1-1
-nsmbu record 2-1 bug-1
-nsmbu replay 1-1
-nsmbu replay bug-1
-nsmbu replay --release 1-1
+nsmbu test replay-1-1
+nsmbu test replay-2-1
+nsmbu test replay-bug-1
 ```
-
-`nsmbu record 1-1` writes `replays/1-1.replay` from the start of that course.
-`nsmbu record 2-1 bug-1` writes `replays/bug-1.replay` with `course=2-1`.
-`nsmbu replay 1-1` plays `replays/1-1.replay` on `build/debug/nsmbu`.
-`nsmbu replay bug-1` plays that file on the course named in its header.
-`nsmbu replay --release 1-1` plays it on `build/release/nsmbu`.
-Both set `NSMBU_PROFILE`, `NSMBU_VK_STATS`, `NSMBU_SYNC_STATS`, and `NSMBU_CRASH_RECOVERY` when those variables are unset.
-The command prints `[replay] log <path>`.
-The default path is `nsmbu/logs/nsmbu.log`.
-`--uncapped` sets `NSMBU_UNCAPPED=1`.
-`--exit-at N` quits at that TV frame.
-`--log PATH` writes that file instead.
-The game quits once the guest passes the last recorded step.

@@ -71,7 +71,7 @@ See the `nsmbu` skill for when `--recomp` is required.
 - `tools/lib/test_dev_game_icon.py`
 - `tools/test_shaderprep.py`
 - `python3 -m unittest discover -s tools/bench -p "test_*.py"`
-- `python3 -m unittest discover -s tools/gametest -p "test_*.py"`
+- `node --test tools/cli/test/compare-runs.test.ts`
 
 ### Vulkan renderer smoke (no gameplay)
 
@@ -98,8 +98,8 @@ Builds modding TypeScript→Lua and runs stylua on examples.
 Documented in `docs/developer/automation.md`.
 Not the same as playtests.
 
-- `tools/gametest/run_scenario.sh` writes `status.txt` per logic step.
-- `tools/gametest/compare.py` aligns two runs on a scene and diffs them.
+- `nsmbu scenario OUT [VAR=value …]` writes `status.txt` per logic step.
+- `nsmbu compare-runs RUN_A RUN_B` aligns two runs on a scene and diffs them.
 
 Useful for comparing two builds without adding a new `PlayCase`.
 
@@ -118,7 +118,7 @@ Do not run bare `nsmbu game` (TUI).
 
 ```bash
 nsmbu test --list
-nsmbu test [name…]
+nsmbu test [--show] [name…]
 ```
 
 Cases run in parallel (default 2 jobs; override with `NSMBU_TEST_JOBS`).
@@ -133,6 +133,8 @@ Registered cases (run `--list` for summaries):
 - `map-shadow-120` — #20 at 120 fps
 - `opened-course` — 0.6.1 course-open / leave-to-map
 - `pose-direction-120`, `logic-rate-120` — interpolation / frame pacing
+- `replay-1-1`, `replay-2-1` — recorded course input and `[prof]` course measurement
+- `replay-bug-1` — intro skip into 2-1, then quit onto `W201`
 - `widescreen-map-ui`, `widescreen-title` — 21:9 UI
 
 Each case uses `.tmp/playtest/<name>/` for save, control socket, log, and userdata (`NSMBU_USER_DIR` under that folder).
@@ -166,9 +168,12 @@ One game, one socket under `.tmp/agent/`.
 Frame PNGs land in `.tmp/<name>/`.
 Flicker checks: `python3 tools/frames/flicker.py`.
 
-### Record and replay
+### Course replay playtests
 
-`nsmbu record` / `nsmbu replay` (and `--release` for measured course runs) for long pad timelines.
+`nsmbu test replay-1-1` and `replay-2-1` play the pad logs in `tools/cli/src/playtest/replays/`.
+`replay-bug-1` opens `2-1` with the intro skip, quits with `leave`, and checks the map player stands on `W201`.
+The case passes on a position match.
+`[prof]` in `.tmp/playtest/<name>/nsmbu.log` is the course measurement.
 See `docs/developer/automation.md`.
 
 ### Performance bench

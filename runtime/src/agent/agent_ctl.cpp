@@ -73,9 +73,11 @@ std::deque<ShotWait> g_shots;
 std::deque<std::string> g_out_lines;
 std::atomic<bool> g_quit{false};
 
+enum class GuestOp { Status, Eval, Leave };
+
 struct GuestJob {
     int id = 0;
-    bool status = false;
+    GuestOp op = GuestOp::Eval;
     std::string code;
     int timeout_ms = 5000;
 };
@@ -155,6 +157,19 @@ std::string handle_status(int id) {
     if (scene.cp_known) v.object["cp"] = scene.cp;
     if (scene.node_known) v.object["node"] = scene.node;
     if (scene.world_known) v.object["world"] = scene.world;
+    if (scene.area_known) v.object["area"] = scene.area;
+    if (!scene.node_name.empty()) v.object["node_name"] = scene.node_name;
+    if (scene.node_pos_known) {
+        v.object["node_x"] = (double)scene.node_x;
+        v.object["node_y"] = (double)scene.node_y;
+    }
+    if (scene.map_player_known) {
+        v.object["map_x"] = (double)scene.map_x;
+        v.object["map_y"] = (double)scene.map_y;
+    }
+    if (scene.map_lock_known) v.object["map_lock"] = scene.map_lock;
+    if (scene.map_title_known) v.object["map_title"] = scene.map_title;
+    if (scene.map_players_known) v.object["map_players"] = scene.map_players;
     return mods::json::dump(v);
 }
 
@@ -194,7 +209,12 @@ void handle_request(const mods::json::Value& req) {
     const std::string cmd = req.get("cmd").string();
     if (cmd == "status") {
         std::lock_guard<std::mutex> lk(g_mu);
-        g_jobs.push_back(GuestJob{id, true, {}, 0});
+        g_jobs.push_back(GuestJob{id, GuestOp::Status, {}, 0});
+        return;
+    }
+    if (cmd == "leave") {
+        std::lock_guard<std::mutex> lk(g_mu);
+        g_jobs.push_back(GuestJob{id, GuestOp::Leave, {}, 0});
         return;
     }
     if (cmd == "press") {
@@ -243,7 +263,7 @@ void handle_request(const mods::json::Value& req) {
         const auto& tv = req.get("timeout");
         if (tv.type == mods::json::Value::Number && tv.number > 0) timeout_ms = int(tv.number);
         std::lock_guard<std::mutex> lk(g_mu);
-        g_jobs.push_back(GuestJob{id, false, cv.text, timeout_ms});
+        g_jobs.push_back(GuestJob{id, GuestOp::Eval, cv.text, timeout_ms});
         return;
     }
     if (cmd == "quit") {
@@ -479,9 +499,9 @@ namespace {
 
 bool take_job(GuestJob& job, bool status_only) {
     std::lock_guard<std::mutex> lk(g_mu);
-    if (status_only) {
+        if (status_only) {
         for (auto it = g_jobs.begin(); it != g_jobs.end(); ++it) {
-            if (!it->status) continue;
+            if (it->op != GuestOp::Status) continue;
             job = std::move(*it);
             g_jobs.erase(it);
             return true;
@@ -490,7 +510,7 @@ bool take_job(GuestJob& job, bool status_only) {
     }
     if (g_jobs.empty()) return false;
     for (auto it = g_jobs.begin(); it != g_jobs.end(); ++it) {
-        if (!it->status) continue;
+        if (it->op != GuestOp::Status) continue;
         job = std::move(*it);
         g_jobs.erase(it);
         return true;
@@ -519,6 +539,15 @@ void run_eval(const GuestJob& job) {
     queue_line(mods::json::dump(v));
 }
 
+void run_leave(const GuestJob& job) {
+    std::string err;
+    if (!mods::lua_sdk::leave_course(err)) {
+        queue_line(response_err(job.id, err.empty() ? "leave failed" : err));
+        return;
+    }
+    queue_line(response_ok(job.id));
+}
+
 }
 
 void guest_service() {
@@ -527,8 +556,10 @@ void guest_service() {
     for (;;) {
         GuestJob job;
         if (!take_job(job, false)) return;
-        if (job.status)
+        if (job.op == GuestOp::Status)
             queue_line(handle_status(job.id));
+        else if (job.op == GuestOp::Leave)
+            run_leave(job);
         else
             run_eval(job);
     }
