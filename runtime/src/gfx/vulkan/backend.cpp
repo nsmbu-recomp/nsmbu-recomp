@@ -15,6 +15,8 @@
 #include "core/build_info.h"
 #include "backend.h"
 #include "attachment_view_usage.h"
+#include "pass.h"
+#include "rendering_path.h"
 #include "device_choice.h"
 #include "bc_decode.h"
 #include "android_driver.h"
@@ -179,6 +181,7 @@ void init_pipeline_cache() try {
     }
 #endif
   }
+  if (R.renderPasses && !pipelineCachePath.empty()) pipelineCachePath += "-rp";
   std::vector<uint8_t> bytes;
   if (!pipelineCachePath.empty()) {
     std::error_code ec;
@@ -742,7 +745,7 @@ GpuScopeToken gpu_begin_feedback_scope(const Surface& source) {
 void gpu_end_feedback_scope(GpuScopeToken token) { end_gpu_scope(token); }
 void end_encoder() {
   if (R.rendering) {
-    vkCmdEndRendering(R.cmd);
+    end_pass(R.cmd);
     R.rendering = false;
     R.passTracked = false;
     if(R.gpuPassTimestampsEnabled) {
@@ -827,6 +830,7 @@ static void cleanup_submission(Renderer::Submission& slot) {
   buffer_cache_free(slot.garbageCacheRegions);
   slot.garbageCacheRegions.clear();
   for (auto &i : slot.garbageImages) {
+    retire_image_views(i.views.data(), i.views.size());
     for (auto v : i.views)
       if (v)
         vkDestroyImageView(R.device, v, nullptr);
@@ -2210,6 +2214,14 @@ static void init_device(std::vector<const char *> extensions,
       attachment_view_usage_wanted(R.properties.vendorID, env::VK_ATTACHMENT_VIEW_USAGE());
   if (R.attachmentViewUsage)
     LOG("[vulkan] attachment views name their usage (NSMBU_VK_ATTACHMENT_VIEW_USAGE=0 turns it off)");
+  RenderingCapabilities renderingCaps;
+  renderingCaps.api = deviceApi;
+  renderingCaps.core = !R.dynamicRenderingKHR;
+  renderingCaps.khr = R.dynamicRenderingKHR;
+  const RenderingChoice renderingChoice = choose_rendering_path(
+      renderingCaps, R.properties.vendorID, R.properties.driverVersion, kWindows, env::VK_FORCE_RENDERPASS());
+  R.renderPasses = renderingChoice.path == RenderingPath::RenderPass;
+  LOG("[vulkan] rendering path: %s (%s)", rendering_path_name(renderingChoice.path), renderingChoice.reason);
   if (perf_enabled()) {
     const auto& limits=R.properties.limits;
     LOG("[vulkan uniforms] dynamic/set %u; uniform/stage %u; uniform/set %u; resources/stage %u; alignment %llu; range %u",
@@ -2219,7 +2231,7 @@ static void init_device(std::vector<const char *> extensions,
   }
   const std::vector<VkExtensionProperties> des = device_extensions(R.physicalDevice);
   std::vector<const char *> de{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-  if (R.dynamicRenderingKHR) {
+  if (R.dynamicRenderingKHR && !R.renderPasses) {
     de.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
     if (deviceApi < VK_API_VERSION_1_2) {
       de.push_back(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME);
@@ -2287,8 +2299,12 @@ static void init_device(std::vector<const char *> extensions,
   VkPhysicalDeviceDynamicRenderingFeaturesKHR fdr{
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR};
   f13.dynamicRendering = fdr.dynamicRendering = VK_TRUE;
-  void *chain = R.dynamicRenderingKHR ? static_cast<void *>(&fdr) : &f13;
-  tail = R.dynamicRenderingKHR ? &fdr.pNext : &f13.pNext;
+  void *chain = nullptr;
+  if (R.renderPasses) tail = &chain;
+  else {
+    chain = R.dynamicRenderingKHR ? static_cast<void *>(&fdr) : &f13;
+    tail = R.dynamicRenderingKHR ? &fdr.pNext : &f13.pNext;
+  }
   if (vulkan12) {
     *tail = &enabled12;
     tail = &enabled12.pNext;
@@ -2309,7 +2325,8 @@ static void init_device(std::vector<const char *> extensions,
   di.ppEnabledExtensionNames = de.data();
   vk_check(vkCreateDevice(R.physicalDevice, &di, nullptr, &R.device),
            "create Vulkan device");
-  load_device_functions(R.device, R.dynamicRenderingKHR);
+  load_device_functions(R.device, R.dynamicRenderingKHR, R.renderPasses);
+  if (R.renderPasses) init_pass_caches();
   vkGetDeviceQueue(R.device, R.queueFamily, 0, &R.queue);
   init_pipeline_cache();
   for (auto& slot:R.submissions) {

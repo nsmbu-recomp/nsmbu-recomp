@@ -44,11 +44,12 @@ void load_instance_functions(VkInstance instance) {
 #undef NSMBU_VK_LOAD
 }
 
-void load_device_functions(VkDevice device, bool khrDynamicRendering) {
+void load_device_functions(VkDevice device, bool khrDynamicRendering, bool renderPasses) {
 #define NSMBU_VK_LOAD(name) \
   if (!(name = reinterpret_cast<PFN_##name>(vkGetDeviceProcAddr(device, #name)))) missing(#name);
   NSMBU_VK_DEVICE_FUNCTIONS(NSMBU_VK_LOAD)
 #undef NSMBU_VK_LOAD
+  if (renderPasses) return;
 
 #define NSMBU_VK_LOAD(name)                                                                          \
   {                                                                                                 \

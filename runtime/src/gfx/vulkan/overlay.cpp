@@ -1,6 +1,7 @@
 
 
 #include "backend.h"
+#include "pass.h"
 #include "present.h"
 #include "shaders.h"
 #include "imgui.h"
@@ -150,6 +151,7 @@ VkPipeline pipeline(VkFormat format) {
         rendering.pColorAttachmentFormats = &format;
         VkGraphicsPipelineCreateInfo ci{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
         ci.pNext = &rendering;
+        apply_pipeline_pass(ci, rendering);
         ci.stageCount = 2;
         ci.pStages = stages;
         ci.pVertexInputState = &vi;
