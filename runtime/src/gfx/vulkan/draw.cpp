@@ -8,6 +8,7 @@
 #include "Cafe/HW/Latte/ISA/LatteReg.h"
 #include "Cafe/HW/Latte/ISA/RegDefines.h"
 #include "backend.h"
+#include "pass.h"
 #include "buffer_cache.h"
 #include "gfx/render_prof.h"
 #include "platform/host.h"
@@ -1053,6 +1054,7 @@ Pipeline &pipeline(const uint32_t *r, vk::Shader *vs, vk::Shader *ps,
   VkGraphicsPipelineCreateInfo ci{
       VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
   ci.pNext = &rc;
+  apply_pipeline_pass(ci, rc);
   ci.stageCount = 2;
   ci.pStages = stages;
   ci.pVertexInputState = &vi;
@@ -2202,7 +2204,15 @@ void draw(const uint32_t *r, uint32_t prim, uint32_t count, uint32_t indexType,
     ri.pDepthAttachment = depth ? &da : nullptr;
     ri.pStencilAttachment = depth && depth->fmt.stencil ? &da : nullptr;
     if(R.gpuPassTimestampsEnabled) gpu_begin_render_scope(colors,depth,slices,depthSlice,width,height);
-    vkCmdBeginRendering(cmd, &ri);
+    PassFormats passFormats;
+    passFormats.colorCount = ncolor;
+    for (uint32_t i = 0; i < ncolor; ++i)
+      passFormats.colors[i] = colors[i] ? colors[i]->fmt.pixel : VK_FORMAT_UNDEFINED;
+    if (depth) {
+      passFormats.depth = depth->fmt.pixel;
+      passFormats.stencil = depth->fmt.stencil;
+    }
+    begin_pass(cmd, ri, passFormats);
     ++R.renderPassCount;
     R.rendering = true;
     R.passTracked = true;

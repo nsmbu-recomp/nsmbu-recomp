@@ -239,9 +239,16 @@ That choice is saved and applies the next time the game starts.
 Its value is `dedicated`, `integrated`, a card id such as `10de:2184`, or part of the card name.
 
 On Windows, Intel's Vulkan driver (for example HD Graphics 520 with driver 101.2115) can crash inside
-`igvk64.dll` when a depth attachment view does not state its usage and the title screen draws shadow
-maps. The renderer enables `VkImageViewUsageCreateInfo` on attachment layer views for Intel GPUs
-automatically. `NSMBU_VK_ATTACHMENT_VIEW_USAGE=1` forces it on any vendor; `=0` turns it off.
+`igvk64.dll` when the title screen draws shadow maps.
+Two workarounds apply together.
+Attachment layer views pass `VkImageViewUsageCreateInfo` on Intel GPUs so the driver records depth and color usage at view creation.
+`NSMBU_VK_ATTACHMENT_VIEW_USAGE=1` forces that on any vendor, and `=0` turns it off.
+The same drivers also crash in dynamic rendering (`vkCmdBeginRendering`) even after the view usage is set.
+Intel Windows drivers older than 101.5000 therefore use classic render passes.
+`NSMBU_VK_FORCE_RENDERPASS=1` forces render passes on any GPU.
+`NSMBU_VK_FORCE_RENDERPASS=0` keeps dynamic rendering on those Intel drivers.
+The startup log names the path, for example `render passes (driver rule: Intel Windows < 101.5000)`.
+Render-pass mode stores its pipeline cache in a separate file with a `-rp` suffix.
 
 ## CPU paths (on by default since 2026-10-07; formerly "opt-in CPU experiments")
 

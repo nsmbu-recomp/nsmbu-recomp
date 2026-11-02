@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Windows on older Intel graphics uses classic Vulkan render passes, so the title screen no longer crashes in `igvk64.dll` after the intro (#60).
+
 ## [0.8.3] - 2026-11-01
 
 ### Fixed

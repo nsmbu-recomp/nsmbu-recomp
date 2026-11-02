@@ -35,7 +35,9 @@
   X(vkGetBufferMemoryRequirements) X(vkGetDeviceQueue) X(vkGetFenceStatus) X(vkGetImageMemoryRequirements) \
   X(vkGetPipelineCacheData) X(vkGetQueryPoolResults) X(vkGetSwapchainImagesKHR) X(vkMapMemory) \
   X(vkQueuePresentKHR) X(vkQueueSubmit) X(vkQueueWaitIdle) X(vkResetCommandPool) X(vkResetDescriptorPool) \
-  X(vkResetFences) X(vkUnmapMemory) X(vkUpdateDescriptorSets) X(vkWaitForFences)
+  X(vkResetFences) X(vkUnmapMemory) X(vkUpdateDescriptorSets) X(vkWaitForFences) \
+  X(vkCreateRenderPass) X(vkDestroyRenderPass) X(vkCreateFramebuffer) X(vkDestroyFramebuffer) \
+  X(vkCmdBeginRenderPass) X(vkCmdEndRenderPass)
 
 #define NSMBU_VK_RENDERING_FUNCTIONS(X) X(vkCmdBeginRendering) X(vkCmdEndRendering)
 
@@ -53,5 +55,5 @@ NSMBU_VK_RENDERING_FUNCTIONS(NSMBU_VK_DECLARE)
 void load_global_functions(PFN_vkGetInstanceProcAddr gipa);
 void load_instance_functions(VkInstance instance);
 
-void load_device_functions(VkDevice device, bool khrDynamicRendering);
+void load_device_functions(VkDevice device, bool khrDynamicRendering, bool renderPasses);
 }
