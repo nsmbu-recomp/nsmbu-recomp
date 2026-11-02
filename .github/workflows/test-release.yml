@@ -1,0 +1,30 @@
+# Named test pre-release. Publishes the same packages as the release workflow under the
+# given name (for example issue-60), marked as a pre-release and never marked latest.
+# Re-running the same name replaces only that release. It does not replace devel-build.
+name: test release
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: "Pre-release name, for example issue-60 or 60"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  start:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NAME: ${{ inputs.name }}
+      REF: ${{ github.ref_name }}
+    steps:
+      - name: Start the named pre-release
+        run: |
+          gh workflow run release.yml --ref "$REF" -f test_name="$NAME" -f dry_run=true -f devel_build=false
+          echo "named pre-release '$NAME' started from $REF"
+          echo "watch the release workflow; this job only starts it"

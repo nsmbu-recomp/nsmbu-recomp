@@ -21,6 +21,14 @@ class ReleaseWorkflowLinux(unittest.TestCase):
         self.assertNotIn("cmake -S SDL3", linux)
         self.assertNotIn("path: ~/sdl3", linux)
 
+    def test_named_test_release_replaces_only_its_own_tag(self):
+        publish = job("publish")
+        self.assertIn("test_name:", WORKFLOW)
+        self.assertIn('gh release delete "$TEST_TAG" --cleanup-tag --yes', publish)
+        self.assertIn("--prerelease --latest=false", publish)
+        self.assertIn('notes.py README.md "$VERSION" --test "$TEST_TAG"', publish)
+        self.assertIn("gh release delete devel-build --cleanup-tag --yes", publish)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -16,6 +16,10 @@
 # schedule runs on the default branch and only starts such a run when main has moved since the
 # current "devel-build" pre-release.
 #
+# Named test builds: the "test release" workflow (or test_name here) publishes a pre-release
+# under that name, for example issue-60. Re-running replaces only that name. It does not
+# replace devel-build and it is never marked latest. The git tag is the name, not a v* tag.
+#
 # Toolchains: tools/installer/toolchains.json pins the exact compilers. The Windows and Linux
 # runtimes are built with the same pinned llvm-mingw / zig the installer downloads for players,
 # so the prebuilt runtime links with the player's locally compiled game code.
@@ -38,6 +42,10 @@ on:
         description: "Development build: publish as the rolling pre-release 'devel-build' (run on main)"
         type: boolean
         default: false
+      test_name:
+        description: "Named pre-release, for example issue-60 or 60. Replaces only that name. Does not replace devel-build."
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -59,10 +67,13 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       publish: ${{ steps.v.outputs.publish }}
       devel: ${{ steps.v.outputs.devel }}
+      test_tag: ${{ steps.v.outputs.test_tag }}
       skip: ${{ steps.v.outputs.skip }}
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
+      TEST_NAME: ${{ inputs.test_name }}
+      DEVEL_BUILD: ${{ inputs.devel_build }}
     steps:
       - id: v
         run: |
@@ -78,7 +89,28 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "${{ inputs.devel_build }}" == true ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -n "$TEST_NAME" ]]; then
+            if [[ "$DEVEL_BUILD" == true ]]; then
+              echo "::error::pick a development build or a named test release, not both"; exit 1
+            fi
+            name="$TEST_NAME"
+            if [[ "$name" =~ ^[0-9]+$ ]]; then name="issue-$name"; fi
+            if [[ ! "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,40}$ || "$name" == *..* || "$name" == .* || "$name" == *. ]]; then
+              echo "::error::test release name must look like issue-60 (got '$TEST_NAME')"; exit 1
+            fi
+            if [[ "$name" == "devel-build" || "$name" == v* || "$name" == "latest" ]]; then
+              echo "::error::test release name '$name' is reserved"; exit 1
+            fi
+            base=$(gh api "repos/$GH_REPO/releases/latest" -q .tag_name 2>/dev/null || true)
+            [[ "$base" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::no latest release tag (got '$base')"; exit 1; }
+            echo "version=$base-test.$name.${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "devel=false" >> "$GITHUB_OUTPUT"
+            echo "test_tag=$name" >> "$GITHUB_OUTPUT"
+            echo "version: $base-test.$name.${GITHUB_SHA::8}, test pre-release $name"
+            exit 0
+          fi
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$DEVEL_BUILD" == true ]]; then
             if [[ "$GITHUB_REF" != refs/heads/main ]]; then
               echo "::error::development builds run on main (this run is on $GITHUB_REF)"; exit 1
             fi
@@ -750,6 +782,7 @@ jobs:
       VERSION: ${{ needs.version.outputs.version }}
       PUBLISH: ${{ needs.version.outputs.publish }}
       DEVEL: ${{ needs.version.outputs.devel }}
+      TEST_TAG: ${{ needs.version.outputs.test_tag }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
@@ -766,7 +799,9 @@ jobs:
       - name: Checksums and release notes
         run: |
           cd dist && sha256sum *.zip *.AppImage *.apk > SHA256SUMS.txt && cat SHA256SUMS.txt && cd ..
-          if [[ "$DEVEL" == true ]]; then
+          if [[ -n "$TEST_TAG" ]]; then
+            python3 tools/release/notes.py README.md "$VERSION" --test "$TEST_TAG" "$GITHUB_SHA" > dist/notes.md
+          elif [[ "$DEVEL" == true ]]; then
             python3 tools/release/notes.py README.md "$VERSION" --devel "$GITHUB_SHA" > dist/notes.md
           else
             python3 tools/release/notes.py README.md "$VERSION" > dist/notes.md
@@ -792,4 +827,15 @@ jobs:
           gh release delete devel-build --cleanup-tag --yes 2>/dev/null || true
           gh release create devel-build dist/*.zip dist/*.AppImage dist/SHA256SUMS.txt --prerelease --latest=false \
             --target "$GITHUB_SHA" --title "Development build (main @ ${GITHUB_SHA::7}, $(date -u +%Y-%m-%d))" \
+            --notes-file dist/notes.md
+
+      # A named pre-release such as issue-60. Re-running replaces only that tag.
+      - name: Publish named test pre-release
+        if: env.TEST_TAG != ''
+        run: |
+          gh release delete "$TEST_TAG" --cleanup-tag --yes 2>/dev/null || true
+          gh release create "$TEST_TAG" dist/*.zip dist/*.AppImage dist/*.apk dist/SHA256SUMS.txt \
+            --prerelease --latest=false \
+            --target "$GITHUB_SHA" \
+            --title "Test build $TEST_TAG (${GITHUB_SHA::7}, $(date -u +%Y-%m-%d))" \
             --notes-file dist/notes.md
