@@ -1,4 +1,5 @@
-import { waitMap, type PlayCase } from "../helpers.ts";
+import { join } from "node:path";
+import { coursePlaying, waitMap, type PlayCase } from "../helpers.ts";
 import type { PlayStatus } from "../session.ts";
 
 export function quitPlaceError(s: PlayStatus): string | null {
@@ -25,20 +26,19 @@ export const replayBug1: PlayCase = {
     name: "replay-bug-1",
     summary: "Intro skip into 2-1, then quit: the map player stands on W201.",
     run: async (session) => {
-        await session.start({ save: "repo", open: "2-1" });
-        await session.wait(
-            (s) =>
-                s.area === true &&
-                s.course === true &&
-                s.map !== true &&
-                s.pack === "2-1" &&
-                s.player != null &&
-                Math.abs(s.player.x) + Math.abs(s.player.y) > 10,
-            180,
-        );
+        await session.start({ save: "repo", open: "2-1", env: { NSMBU_UNCAPPED: "0" } });
+        await session.wait((s) => coursePlaying(s, "2-1"), 180);
+        await session.advance(20, 20);
+        await session.screenshot(join(session.workDir, "card.png"));
+        await session.advance(220, 30);
+        await session.screenshot(join(session.workDir, "course.png"));
         await session.leave();
         await session.wait((s) => s.map === true && (s.scene === "Map" || s.scene === "CourseSelect"), 120);
         await waitMap(session, 90, false);
+        await session.advance(30, 20);
+        await session.screenshot(join(session.workDir, "map-a.png"));
+        await session.advance(300, 30);
+        await session.screenshot(join(session.workDir, "map.png"));
         const err = quitPlaceError(await session.status());
         if (err) throw new Error(err);
     },

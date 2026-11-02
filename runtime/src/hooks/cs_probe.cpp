@@ -164,12 +164,49 @@ static void seed_player_map_fields(uint32_t player, uint32_t node, uint8_t world
 }
 
 static bool g_left_course = false;
+static bool g_directed_pose = false;
+static uint8_t g_directed_world = 0;
+static uint8_t g_directed_course = 0;
+static bool g_banner_entry_armed = false;
+
+static bool map_pose_override_active() {
+    return g_left_course || g_directed_pose;
+}
+
+static bool banner_digits_for_course(uint8_t course, uint8_t banner[3]) {
+    int display = (int)course + 1;
+    if (display < 1 || display > 999) return false;
+    char buf[4];
+    int n = snprintf(buf, sizeof(buf), "%d", display);
+    if (n < 1 || n > 3) return false;
+    banner[0] = banner[1] = banner[2] = 0xFF;
+    for (int i = 0; i < n; i++) {
+        int d = buf[i] - '0';
+        banner[i] = (d >= 1 && d <= 5) ? (uint8_t)(d - 1) : 0xFF;
+    }
+    return true;
+}
+
+static void write_field_banner_digits(uint8_t course) {
+    uint8_t banner[3];
+    if (!banner_digits_for_course(course, banner)) return;
+    uint32_t field_game = ld32(kFieldGame);
+    if (field_game == 0 || !in_mem2(field_game)) return;
+    const uint32_t base = field_game + 0x10u + 0x13Du;
+    if (base + 3u > mem::kMem2End) return;
+    for (int i = 0; i < 3; i++) st8(base + (uint32_t)i, banner[i]);
+}
 
 static void seed_map_return_pose(uint32_t player, bool pack_create_pos) {
-    if (!g_left_course) return;
+    if (!map_pose_override_active()) return;
     uint8_t world = 0;
     uint8_t course = 0;
-    if (!read_course_info(&world, &course)) return;
+    if (g_directed_pose) {
+        world = g_directed_world;
+        course = g_directed_course;
+    } else if (!read_course_info(&world, &course)) {
+        return;
+    }
     if (!course_pair_ok(world, course)) return;
     uint32_t section = 0;
     uint32_t node_idx = 0;
@@ -260,13 +297,51 @@ extern "C" bool nsmbu_apply_map_pose(int32_t world, int32_t section, int32_t nod
     return true;
 }
 
-extern "C" void nsmbu_banner_entry_arm(void) {}
+extern "C" void nsmbu_banner_entry_arm(void) {
+    g_banner_entry_armed = true;
+}
 
-extern "C" void nsmbu_fill_course_banner_digits(void) {}
+extern "C" void nsmbu_fill_course_banner_digits(void) {
+    if (!g_banner_entry_armed) return;
+    g_banner_entry_armed = false;
+    uint8_t world = 0;
+    uint8_t course = 0;
+    if (g_directed_pose) {
+        world = g_directed_world;
+        course = g_directed_course;
+    } else if (!read_course_info(&world, &course)) {
+        return;
+    }
+    if (!course_pair_ok(world, course)) return;
+    write_field_banner_digits(course);
+}
+
+extern "C" void nsmbu_directed_open(uint8_t world, uint8_t course) {
+    if (!course_pair_ok(world, course)) return;
+    g_directed_world = world;
+    g_directed_course = course;
+    g_directed_pose = true;
+    uint32_t game = ld32(kMainGame);
+    if (game != 0 && in_mem2(game)) {
+        st32(game + 0x19Cu, world);
+        st32(game + 0x1A8u, course);
+    }
+    write_field_banner_digits(course);
+    if (g_banner_entry_armed) nsmbu_fill_course_banner_digits();
+}
+
+extern "C" void nsmbu_map_pose_tick(void) {
+    if (!g_directed_pose) return;
+    if (ld32(kAreaTask) != 0) return;
+    seed_map_return_pose(0, false);
+}
 
 extern "C" void hook_02994164(Cpu* c) {
     uint32_t factory = ld32(c->r[5] + 4);
-    if (factory == GC(0x0202B4C8)) g_left_course = false;
+    if (factory == GC(0x0202B4C8)) {
+        g_left_course = false;
+        g_directed_pose = false;
+    }
     if (factory == GC(0x0298AD3C))
         LOG("[scene] FileSelect (controller %s)", input::pro_controller() ? "Pro" : "GamePad");
     else if (factory == GC(0x0202B570))
@@ -354,11 +429,17 @@ extern "C" void site_022703A4(Cpu* c) {
 }
 
 static void retarget_focus_node(Cpu* c, int copied_reg) {
-    if (!g_left_course) return;
+    if (!map_pose_override_active()) return;
     seed_map_return_pose(0, false);
     uint8_t world = 0;
     uint8_t course = 0;
-    if (!read_course_info(&world, &course) || !course_pair_ok(world, course)) return;
+    if (g_directed_pose) {
+        world = g_directed_world;
+        course = g_directed_course;
+    } else if (!read_course_info(&world, &course)) {
+        return;
+    }
+    if (!course_pair_ok(world, course)) return;
     uint32_t section = 0;
     uint32_t node_idx = 0;
     if (!find_course_map_node(world, course, &section, &node_idx, nullptr)) return;

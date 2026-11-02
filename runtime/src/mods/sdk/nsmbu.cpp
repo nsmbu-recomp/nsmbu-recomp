@@ -26,6 +26,8 @@ extern "C" {
 extern "C" void nsmbu_fill_course_banner_digits(void);
 extern "C" void nsmbu_banner_entry_arm(void);
 extern "C" void nsmbu_mark_course_left(void);
+extern "C" void nsmbu_directed_open(uint8_t world, uint8_t course);
+extern "C" void nsmbu_map_pose_tick(void);
 
 namespace mods::lua_sdk {
 std::atomic<bool> g_story_leave_queued{false};
@@ -2303,6 +2305,7 @@ bool scene_load_story_transition(int32_t world, int32_t course, std::string& err
     g_story_load_generation.fetch_add(1, std::memory_order_acq_rel);
     ::nsmbu_banner_entry_arm();
     ::nsmbu_fill_course_banner_digits();
+    if (world >= 0 && world <= 8 && course >= 0 && course <= 255) nsmbu_directed_open((uint8_t)world, (uint8_t)course);
     return true;
 }
 
@@ -2683,6 +2686,7 @@ uint64_t story_load_generation() {
 
 void native_intro_skip_tick(uint64_t step) {
     native_intro_skip_tick_impl(step);
+    nsmbu_map_pose_tick();
 }
 
 namespace {

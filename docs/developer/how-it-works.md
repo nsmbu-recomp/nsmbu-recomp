@@ -101,8 +101,12 @@ Examples are flips waiting for the GPU, aliasing render targets in the same memo
 
 ## What is shared with Cemu
 
-Cemu (MPL-2.0) is the reference for hardware behaviour and supplies vendored components in
-`runtime/third_party/cemu`:
+Cemu (MPL-2.0) is the reference for hardware behaviour.
+The Latte slice this port compiles is `vendor/cemu`.
+That slice is adapted source in this repository.
+fmt 12.1.0, Dear ImGui v1.92.9b, xxHash 0.8.3, and metal-cpp are git submodules under `vendor/`.
+
+The Latte slice supplies:
 
 - the Latte shader decompiler (MSL backend), fetch-shader and GS copy-shader parsers;
 - the address library (tiling/detiling);

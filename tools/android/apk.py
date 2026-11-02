@@ -160,10 +160,16 @@ def device_abi(serial):
 
 
 def ensure_luajit():
-    luajit = os.path.join(ROOT, "vendor", "luajit", "Makefile")
-    if os.path.isfile(luajit):
-        return
-    run(["git", "submodule", "update", "--init", "vendor/luajit"])
+    needed = [
+        ("vendor/luajit", "Makefile"),
+        ("vendor/fmt", "include/fmt/base.h"),
+        ("vendor/imgui", "imgui.h"),
+        ("vendor/xxHash", "xxhash.h"),
+        ("vendor/metal-cpp", "Metal/Metal.hpp"),
+    ]
+    missing = [rel for rel, marker in needed if not os.path.isfile(os.path.join(ROOT, rel, marker))]
+    if missing:
+        run(["git", "submodule", "update", "--init", *missing])
 
 
 def sdk_and_ndk():

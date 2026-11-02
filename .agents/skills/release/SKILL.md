@@ -1,6 +1,6 @@
 ---
 name: release
-description: "Publish an NSMBU GitHub release by committing the changelog, tagging the tip of main, and watching the release workflow. Use when the user asks to publish a release, push a v* tag, or watch a release workflow until it is published. Changelog cleanup and local tests are the pre-release skill."
+description: "Publish an NSMBU GitHub release by committing the changelog, tagging the tip of main, and watching the release workflow. Use when the user asks to publish a release, push a v* tag, watch a release workflow until it is published, or publish a named test pre-release such as issue-60. Changelog cleanup and local tests are the pre-release skill."
 ---
 
 # Release
@@ -8,7 +8,8 @@ description: "Publish an NSMBU GitHub release by committing the changelog, taggi
 Ship a versioned GitHub Release by pushing a `v*` tag on the tip of `main`.
 The workflow is `.github/workflows/release.yml`.
 It publishes on that tag push.
-Run every command in `/home/econn/git/nsmbu-recomp` on `main`.
+For a versioned release, run every command in `/home/econn/git/nsmbu-recomp` on `main`.
+A named test pre-release uses the ref that contains the fix.
 The `pre-release` skill leaves the cleaned changelog uncommitted for review.
 This skill commits that changelog, pushes `main`, then tags that tip.
 Keep retagging until the workflow conclusion is `success` and the GitHub Release exists and is not a draft.
@@ -45,6 +46,27 @@ Done when the tag is on `origin`, the release workflow conclusion is `success`, 
 - A changelog edit after the tag is published needs `gh release edit` to change the GitHub Release body.
 - Dry run without publishing: `gh workflow run release.yml -f dry_run=true` (no tag required).
   Use that only when the user asks for a dry run.
+- A named test pre-release is not this path.
+  Use the section below.
+  Do not tag `v*` and do not replace `devel-build`.
+
+## Named test pre-release
+
+Use this when the user wants a pre-release for one fix and the rolling `devel-build` must stay as it is.
+The workflow is `.github/workflows/test-release.yml`.
+It starts `release.yml` with `test_name`.
+The git tag is the name, for example `issue-60`, and it is marked as a pre-release.
+Re-running the same name replaces only that tag.
+
+1. Confirm the name.
+   A bare issue number becomes `issue-` plus that number, for example `60` becomes `issue-60`.
+   The name must not start with `v` and must not be `devel-build`.
+2. Dispatch on the ref that contains the fix.
+   That ref must already contain this workflow.
+   `gh workflow run "test release" --ref <branch> -f name=issue-60`
+3. Watch the `release` run that step starts, not the short test-release run.
+   `gh run list --workflow=release.yml --limit 3`, then `gh run watch <id> --exit-status`.
+4. Done when `gh release view <name> --json isPrerelease,url` shows a pre-release URL, and `gh release view devel-build --json tagName` is still `devel-build`.
 
 ## Jobs to expect
 

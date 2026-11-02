@@ -80,7 +80,6 @@ def main():
     licenses = [
         ("SDL3 (zlib)", first_existing([
             os.path.join(BUILD, "_deps", "sdl3-src", "LICENSE.txt"),
-            os.path.join(ROOT, "runtime", "third_party", "SDL", "LICENSE.txt"),
         ])),
         ("zlib (zlib)", first_existing([os.path.join(BUILD, "_deps", "zlib-src", "LICENSE")])),
         ("LZ4 (BSD-2-Clause)", first_existing([os.path.join(BUILD, "_deps", "lz4-src", "lib", "LICENSE")])),

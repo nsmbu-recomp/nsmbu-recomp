@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: LuaJIT submodule
-        run: git submodule update --init vendor/luajit
+        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - name: Install dependencies
         run: |

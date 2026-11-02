@@ -121,10 +121,19 @@ def curl_download(url, dest):
         die("curl failed for " + url)
 
 
+VENDOR_SUBMODULES = (
+    ("vendor/luajit", "src/lj_arch.h"),
+    ("vendor/fmt", "include/fmt/base.h"),
+    ("vendor/imgui", "imgui.h"),
+    ("vendor/xxHash", "xxhash.h"),
+    ("vendor/metal-cpp", "Metal/Metal.hpp"),
+)
+
+
 def check_luajit():
-    if os.path.isfile(os.path.join(LUAJIT, "src", "Makefile")) and os.path.isfile(os.path.join(LUAJIT, "src", "lj_arch.h")):
-        return
-    die("vendor/luajit has no sources; run: git submodule update --init vendor/luajit")
+    missing = [rel for rel, marker in VENDOR_SUBMODULES if not os.path.isfile(os.path.join(ROOT, rel, marker))]
+    if missing:
+        die("missing sources in %s; run: git submodule update --init %s" % (", ".join(missing), " ".join(missing)))
 
 
 def load_toolchain(toolchain_id):

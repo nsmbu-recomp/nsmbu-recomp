@@ -3,7 +3,7 @@
 //
 // Disc images: native port of tools/disc/wudextract.py (itself a port of Cemu's
 // src/Cafe/Filesystem/WUD/wud.cpp and FST/FST.cpp, Copyright (c) Cemu contributors, Mozilla Public
-// License 2.0, see runtime/third_party/cemu/LICENSE.txt), without Python or pycryptodome.
+// License 2.0, see vendor/cemu/LICENSE.txt), without Python or pycryptodome.
 // Cemu archives: ZArchive files (zarchive.h), already decrypted, so no keys; one folder per title
 // (<title id>_v<version>, e.g. 0005000010101d00_v64 for the game, 0005000e10101d00_v.. for an update).
 //

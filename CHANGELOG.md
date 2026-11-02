@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- A named test pre-release, for example `issue-60`, can be published without replacing the rolling development build.
 - Playtests start in fast forward (`NSMBU_UNCAPPED=1`).
 - Frame-rate cases keep pacing with `NSMBU_UNCAPPED=0`.
 - `replay-bug-1` opens `2-1` with the intro skip, quits, and requires the map player on `W201`.
@@ -27,6 +28,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- fmt, Dear ImGui, xxHash, and metal-cpp are git submodules under `vendor/` instead of copied trees in `runtime/third_party`.
+- The reduced Cemu Latte slice lives at `vendor/cemu`.
 - Agent status reports the map node name, the node position, and the map player.
 - `nsmbu leave` quits the live course on the guest thread.
 - Playtests read that status and quit with `leave`.
@@ -51,6 +54,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Restored directed course-open helpers in `cs_probe.cpp` so `nsmbu` links after the Lua SDK calls them.
+- Intro skip quit puts the map player on the opened course node.
+- A direct open names that course on the loading card, and quitting it frames the opened course on the world map (camera follows the course node, not only the save start).
+- Directed quit shifts the map camera into the opened world's map layer and prefers that world's path section when resolving the course node.
+- Playtests wait until the course area is running and Mario has left the origin before they treat the course as open.
 - `replay-bug-1` waits until Mario is in `2-1` before quitting, so the intro-skip map spawn is the check.
 - Opening the settings menu on the Controls tab no longer crashes when the controller diagram is shorter than its layout needs.
 - The settings menu scrolls on desktop when tab content does not fit (it no longer hides the scrollbar).

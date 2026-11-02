@@ -36,7 +36,7 @@ jobs:
 
       - name: LuaJIT submodule
         shell: pwsh
-        run: git submodule update --init vendor/luajit
+        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - name: Configure
         run: |

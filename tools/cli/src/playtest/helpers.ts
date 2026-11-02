@@ -130,8 +130,19 @@ export async function waitUntilMoves(session: Session, timeoutSec: number): Prom
     throw new Error(`map did not take control on a course node: ${last} ${session.last}`);
 }
 
+export function coursePlaying(s: PlayStatus, pack?: string): boolean {
+    return (
+        s.area === true &&
+        s.course === true &&
+        s.map !== true &&
+        (pack === undefined ? !!s.pack : s.pack === pack) &&
+        s.player != null &&
+        Math.abs(s.player.x) + Math.abs(s.player.y) > 10
+    );
+}
+
 export async function waitCourse(session: Session, pack: string, timeoutSec: number): Promise<void> {
-    await session.wait((s) => s.course === true && s.map !== true && s.pack === pack && s.player != null, timeoutSec);
+    await session.wait((s) => coursePlaying(s, pack), timeoutSec);
 }
 
 export async function reachMap(session: Session, timeoutSec: number): Promise<void> {
@@ -160,7 +171,7 @@ export function onWorldMap(s: PlayStatus): boolean {
 }
 
 export function inCourse(s: PlayStatus): boolean {
-    return s.course === true && s.map !== true && s.player != null && !!s.pack;
+    return coursePlaying(s);
 }
 
 export async function reachWorldMap(session: Session, timeoutSec: number): Promise<PlayStatus> {

@@ -116,11 +116,11 @@ def add_setup_gui(pkg, platform, exe, version):
             f.write(LINUX_SETUP_DESKTOP)
         os.chmod(os.path.join(pkg, SETUP_APP + ".desktop"), 0o755)
 VENDORED_LICENSES = {
-    "Cemu (MPL-2.0)": "runtime/third_party/cemu/LICENSE.txt",
-    "Dear ImGui (MIT)": "runtime/third_party/imgui/LICENSE.txt",
-    "fmt (MIT)": "runtime/third_party/fmt/LICENSE",
-    "metal-cpp (Apache-2.0)": "runtime/third_party/metal-cpp/LICENSE.txt",
-    "xxHash (BSD-2-Clause)": "runtime/third_party/xxhash/LICENSE",
+    "Cemu (MPL-2.0)": "vendor/cemu/LICENSE.txt",
+    "Dear ImGui (MIT)": "vendor/imgui/LICENSE.txt",
+    "fmt (MIT)": "vendor/fmt/LICENSE",
+    "metal-cpp (Apache-2.0)": "vendor/metal-cpp/LICENSE.txt",
+    "xxHash (BSD-2-Clause)": "vendor/xxHash/LICENSE",
 }
 
 def split_command(cmd):

@@ -96,8 +96,8 @@ The message tags read `MainGame` (`0x101E7D7C`) at `+0x19C` (world) and `+0x1A8`
 `f_0267CB3C` prints `course + 1`.
 Course byte 0 prints 1.
 World byte 0 selects Acorn Plains.
-The port does not rewrite those tags on a direct open.
-The card can still name the save's world.
+A direct open writes that world and course into `MainGame+0x19C` and `MainGame+0x1A8` before the card expands.
+The card names the opened course.
 
 ## State a direct open needs
 

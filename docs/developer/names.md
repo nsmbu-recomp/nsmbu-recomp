@@ -23,7 +23,8 @@ Use `vendor/decomp` for the body of a function, the member order, and the layout
 Use `references/Cemu` for HLE behaviour, not for names.
 
 `vendor/decomp` and `vendor/Nintendo-File-Formats` are submodules of this repository.
-`vendor/luajit` is also a submodule; run `git submodule update --init vendor/luajit` before a build.
+`vendor/luajit`, `vendor/fmt`, `vendor/imgui`, `vendor/xxHash`, and `vendor/metal-cpp` are submodules.
+Run `git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp` before a build.
 The other trees here are gitignored local checkouts.
 The trees below are not name sources.
 Open one when the task is in that library.
