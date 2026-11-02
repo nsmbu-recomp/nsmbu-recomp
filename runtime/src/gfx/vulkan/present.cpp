@@ -1,6 +1,7 @@
 
 #include "present.h"
 #include "backend.h"
+#include "pass.h"
 #include "shaders.h"
 #include "settings.h"
 #include <algorithm>
@@ -179,7 +180,7 @@ VkPipeline pipeline(VkFormat format,Kind kind=kImage) {
   VkPipelineColorBlendStateCreateInfo bs{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};bs.attachmentCount=1;bs.pAttachments=&blend;
   VkDynamicState states[]={VK_DYNAMIC_STATE_VIEWPORT,VK_DYNAMIC_STATE_SCISSOR};VkPipelineDynamicStateCreateInfo ds{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};ds.dynamicStateCount=2;ds.pDynamicStates=states;
   VkPipelineRenderingCreateInfo rendering{VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};rendering.colorAttachmentCount=1;rendering.pColorAttachmentFormats=&format;
-  VkGraphicsPipelineCreateInfo ci{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};ci.pNext=&rendering;ci.stageCount=2;ci.pStages=stages;ci.pVertexInputState=&vi;ci.pInputAssemblyState=&ia;ci.pViewportState=&vp;ci.pRasterizationState=&rs;ci.pMultisampleState=&ms;ci.pColorBlendState=&bs;ci.pDynamicState=&ds;ci.layout=resources.layout;
+  VkGraphicsPipelineCreateInfo ci{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};ci.pNext=&rendering;apply_pipeline_pass(ci,rendering);ci.stageCount=2;ci.pStages=stages;ci.pVertexInputState=&vi;ci.pInputAssemblyState=&ia;ci.pViewportState=&vp;ci.pRasterizationState=&rs;ci.pMultisampleState=&ms;ci.pColorBlendState=&bs;ci.pDynamicState=&ds;ci.layout=resources.layout;
   const auto started=std::chrono::steady_clock::now();
   vk_check(vkCreateGraphicsPipelines(R.device,R.pipelineCache,1,&ci,nullptr,&result),"presentation pipeline");
   R.pipelineCreateNs+=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-started).count();
@@ -190,6 +191,7 @@ VkPipeline pipeline(VkFormat format,Kind kind=kImage) {
 }
 void reset_present_screen(Screen& screen) {
  auto found=resources.screens.find(&screen);if(found==resources.screens.end())return;
+ retire_image_views(found->second.views.data(),found->second.views.size());
  for(auto view:found->second.views)vkDestroyImageView(resources.device,view,nullptr);
  resources.screens.erase(found);
 }
@@ -208,7 +210,10 @@ void prepare_present_screen(Screen& screen,bool colorAttachmentSupported,bool ca
 void reset_present_resources() {
  if(present_capture().buffer.buffer) { defer_buffer(present_capture().buffer);present_capture().buffer={}; }
 
- for(auto& [screen,state]:resources.screens)for(auto view:state.views)vkDestroyImageView(resources.device,view,nullptr);
+ for(auto& [screen,state]:resources.screens){
+  retire_image_views(state.views.data(),state.views.size());
+  for(auto view:state.views)vkDestroyImageView(resources.device,view,nullptr);
+ }
  for(auto [key,p]:resources.pipelines)vkDestroyPipeline(resources.device,p,nullptr);
  if(resources.linear)vkDestroySampler(resources.device,resources.linear,nullptr);
  if(resources.nearest)vkDestroySampler(resources.device,resources.nearest,nullptr);
@@ -246,7 +251,7 @@ void compose(VkImage image,VkImageView view,VkImageLayout& layout,VkExtent2D ext
  VkRenderingAttachmentInfo attachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};attachment.imageView=view;attachment.imageLayout=VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;attachment.loadOp=VK_ATTACHMENT_LOAD_OP_CLEAR;attachment.storeOp=VK_ATTACHMENT_STORE_OP_STORE;
  attachment.clearValue.color.float32[3]=1;
  VkRenderingInfo rendering{VK_STRUCTURE_TYPE_RENDERING_INFO};rendering.renderArea.extent=extent;rendering.layerCount=1;rendering.colorAttachmentCount=1;rendering.pColorAttachments=&attachment;
- vkCmdBeginRendering(cmd,&rendering);R.rendering=true;R.passTracked=false;
+ begin_pass(cmd,rendering,one_color(format));R.rendering=true;R.passTracked=false;
  VkRect2D scissor{{0,0},extent};vkCmdSetScissor(cmd,0,1,&scissor);
  const bool targetLinear=srgb_format(format);
  for(auto& q:quads) {
@@ -274,7 +279,7 @@ void compose(VkImage image,VkImageView view,VkImageLayout& layout,VkExtent2D ext
   vkCmdPushConstants(cmd,resources.layout,VK_SHADER_STAGE_FRAGMENT_BIT,0,sizeof(params),&params);vkCmdDraw(cmd,3,1,0,0);
  }
  if(overlay)overlay_draw(overlay,cmd,format,extent,targetLinear);
- vkCmdEndRendering(cmd);
+ end_pass(cmd);
  barrier.oldLayout=VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;barrier.newLayout=finalLayout;barrier.srcAccessMask=VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;barrier.dstAccessMask=0;
  vkCmdPipelineBarrier(cmd,VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,0,0,nullptr,0,nullptr,1,&barrier);layout=finalLayout;
  R.rendering=false;R.passTracked=false;
