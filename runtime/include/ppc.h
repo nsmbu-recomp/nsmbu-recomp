@@ -95,7 +95,7 @@ static inline void cr_set_u(Cpu* c, int f, uint32_t a, uint32_t b) {
     c->cr[4 * f + 0] = a < b; c->cr[4 * f + 1] = a > b; c->cr[4 * f + 2] = a == b; c->cr[4 * f + 3] = c->xer_so;
 }
 static inline void cr0_rc(Cpu* c, uint32_t v) { cr_set_s(c, 0, (int32_t)v, 0); }
-/* The recompiler's condition-register liveness pass (tools/recomp/crlive.py) stores only the bits
+/* The recompiler's condition-register liveness pass (recomp/crlive.py) stores only the bits
  * that are read later: m has bit 0 = lt, 1 = gt, 2 = eq, 3 = so of the field. With PPC_CR_CHECK, the
  * dropped bits get a poison value that ppc_cr_read() refuses (a check build of the recompiler). */
 #ifdef PPC_CR_CHECK
@@ -176,7 +176,7 @@ static inline double round25(double d) {
 }
 static inline double to_single(double d) { return (double)(float)d; }
 /* check builds (NSMBU_RECOMP_SINGLE_CHECK=1): a multiplier operand the recompiler found to be single
- * precision, so round25 was left out (tools/recomp/ppc2c.py M), must come back unchanged from it */
+ * precision, so round25 was left out (recomp/ppc2c.py M), must come back unchanged from it */
 void ppc_single_failed(uint32_t at, double v);
 static inline double ppc_single_check(double v, uint32_t at) {
     if (f64_as_u64(round25(v)) != f64_as_u64(v)) ppc_single_failed(at, v);
@@ -198,7 +198,7 @@ static inline __attribute__((always_inline)) void cr_set_f_m(Cpu* c, int f, doub
     if (m & 8) c->cr[4 * f + 3] = (uint8_t)__builtin_isunordered(a, b); else PPC_CR_DEAD(c, 4 * f + 3);
 }
 
-/* The same compares for leaf functions that keep CR bits in C locals (tools/recomp/leaflocal.py):
+/* The same compares for leaf functions that keep CR bits in C locals (recomp/leaflocal.py):
  * lt, gt, eq, so point at the field's four locals. */
 #ifdef PPC_CR_CHECK
 #define PPC_CRL_DEAD(p) (*(p) = 0x55)

@@ -5,13 +5,13 @@ on:
   pull_request:
     paths:
       - tools/android/**
-      - tools/installer/setup.py
+      - installer/setup.py
       - tools/release/package.py
-      - tools/recomp/**
-      - android/python/**
-      - android/app/build.gradle
+      - recomp/**
+      - runtime/android/python/**
+      - runtime/android/app/build.gradle
       - tools/release/guard.py
-      - android/app/src/main/**
+      - runtime/android/app/src/main/**
       - .github/workflows/android-toolchain.yml
       - .github/workflows/release.yml
       - runtime/src/platform/**
@@ -20,13 +20,13 @@ on:
     branches: [main]
     paths:
       - tools/android/**
-      - tools/installer/setup.py
+      - installer/setup.py
       - tools/release/package.py
-      - tools/recomp/**
-      - android/python/**
-      - android/app/build.gradle
+      - recomp/**
+      - runtime/android/python/**
+      - runtime/android/app/build.gradle
       - tools/release/guard.py
-      - android/app/src/main/**
+      - runtime/android/app/src/main/**
       - .github/workflows/android-toolchain.yml
       - .github/workflows/release.yml
       - runtime/src/platform/**

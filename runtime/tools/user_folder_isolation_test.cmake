@@ -5,7 +5,7 @@ set(user "$ENV{NSMBU_USER_DIR}")
 file(REMOVE_RECURSE "${WORK}" "${user}")
 file(MAKE_DIRECTORY "${WORK}/home")
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env "HOME=${WORK}/home" "APPDATA=${WORK}/home/AppData"
-                        "XDG_CONFIG_HOME=${WORK}/home/.config" --unset=NSMBU_CONTROLS
+                        "XDG_CONFIG_HOME=${WORK}/home/.config"
                         "${PROBE}"
                 WORKING_DIRECTORY "${WORK}" RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
 if(NOT rc EQUAL 0)

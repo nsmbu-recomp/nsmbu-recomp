@@ -19,9 +19,8 @@ Done when status shows `scene=CourseTask`, `course=1`, `map=0`, `pack=1-1`, and 
 Check soon after play starts.
 A long idle in `1-1` lets the Goomba hit Mario.
 
-`nsmbu replay 1-1` plays `replays/1-1.replay` on the debug build.
-`nsmbu replay --release 1-1` is the course benchmark.
-Use replay when the question is that recording.
+`nsmbu test replay-1-1` plays the recorded 1-1 pad log and checks the player path.
+`[prof]` in `.tmp/playtest/replay-1-1/nsmbu.log` is the course measurement.
 Use `nsmbu open 1-1` when the question is the live course.
 
 ## From the world map

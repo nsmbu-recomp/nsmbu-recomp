@@ -20,5 +20,6 @@ Any discoveries you find about the source code document it in the `vendor/decomp
 ## Verification
 
 Read the `verify` skill before you finish a change.
+See [docs/developer/verification.md](docs/developer/verification.md) for the full check inventory.
 Run every check a command, playtest, boot, or APK install can settle.
 When a person still has to play through a level, end the turn with the verification steps for them.

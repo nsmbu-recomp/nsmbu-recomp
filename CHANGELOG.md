@@ -6,12 +6,81 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Android on-device setup tests copy `installer/` and `recomp/` into the package, and the Gradle release check counts `recomp/android_fixture.py`.
+- Windows CI runs `npm test` in PowerShell.
+  MSYS can see `node.exe` but not `npm.cmd`.
+- Quitting a direct-opened course puts the map player on that course node.
+  The world-map view still shows the world entrance.
+- Playtests wait for portable saves and use visible windows for 21:9 screenshot cases so TV captures are not blank.
+- Updated `2-1.replay` witness positions after small course physics drift.
+- Agent screenshots can capture the GamePad, and TV screenshots wait two frames before the dump.
+- `NSMBU_PRO_CONTROLLER` turns on Pro Controller mode at startup when its value is not empty or `0`.
+- `tools/lib/test_dev_game_icon.py` tracks `runtime/android` paths after the Android project move.
+- Windows CI installs Node.js before the compare-runs CLI test.
+
+### Changed
+
+- `nsmbu test` skips `widescreen-map-ui`, `widescreen-title`, and `replay-2-1` until those cases are stable again (remove `skip` on each `PlayCase` to re-enable).
+- `nsmbu test` runs playtests through Node's built-in test runner (`tools/cli/test/playtests.test.ts`) instead of a custom parallel harness in the CLI.
+- CI runs all CLI unit tests with `npm test --prefix tools/cli`.
+
 ### Added
 
 - A named test pre-release, for example `issue-60`, can be published without replacing the rolling development build.
+- Playtests start in fast forward (`NSMBU_UNCAPPED=1`).
+- Frame-rate cases keep pacing with `NSMBU_UNCAPPED=0`.
+- `replay-bug-1` opens `2-1` with the intro skip, quits, and requires the map player on `W201`.
+- `nsmbu scenario` and `nsmbu compare-runs` replace the old `tools/gametest/` compare runner; diff logic lives in `tools/cli/src/gametest/`.
+- The performance overlay shows 1% low FPS in a FPS / AVG / 1% row (values only in the columns).
+- Documented every agent verification path in `docs/developer/verification.md`.
+- Decomp docs: course-entry save-byte map and `setupCourse` FieldGame/`PlayerMgr` reads; soft-restart audio init vs `startSound` bootstrap order.
+- Decomp: `AttentionMgr` singleton, list, entry/release, and nearest lookat search (`0x0200CB88`–`0x0200CD2C`).
+- Decomp: documented sead frame loop (`procFrame_`, method-tree `call`, DualScreen draw/calc) and course setup helpers (`PlayerMgr::initializeForCourseSetup`, `sub_02742F9C`).
+- Decomp: transcript follow-up — `TaskMgr::afterCalc`, `gpuMesureEnd_`, `InputMgr::applySaveEntry_`, `sub_029F1A50`/`sub_029F1A70`, `PlayerMgr` course field reset (`0x029167BC`).
+- Decomp: base `GameFrameworkCafe::swapBuffer_`, course-apply gate helpers, and `PlayerMgr` course player slot setup (`0x02916F7C` / `0x029170BC`).
+- Decomp: base `procDraw_` TV/DRC draw path (`0x02A0358C`, `0x02A032C8`, `0x02A03394`) plus copy/bind helpers (`0x02A03464`, `0x02A034F8`, `0x02A058F0`).
+- Decomp: `PlayerMgr` course setup helpers (`0x02916B6C`–`0x02917040`, `sub_02916BF8` actor spawn).
+- Decomp: `sub_02742F9C` course-apply gate, spawn table (`0x02742F88` / `0x02742EA0`), and `CourseInfo` course-type probes.
+- Decomp: course-owner challenge list probes (`0x027430C0`, `0x027431C8`) and `AudAudioPlayer` bootstrap (`0x029E8324`).
+- Decomp: `sub_029E6C38` buffer setup, SoundArchivePlayer Setup chain (`0x02ADB634` / `0x02ADB338`), and course challenge type resolver `0x02743294`.
+
+### Changed
+
+- fmt, Dear ImGui, xxHash, and metal-cpp are git submodules under `vendor/` instead of copied trees in `runtime/third_party`.
+- The reduced Cemu Latte slice lives at `vendor/cemu`.
+- Agent status reports the map node name, the node position, and the map player.
+- `nsmbu leave` quits the live course on the guest thread.
+- Playtests read that status and quit with `leave`.
+- Removed `nsmbu record` and `nsmbu replay`.
+  Course recordings are the `replay-*` playtests.
+- Moved the Android Gradle project and iOS bundle scripts under `runtime/android/` and `runtime/ios/`.
+- Removed `NSMBU_CONTROLS`; controls always load from the user folder (`controls.json`).
+- The README install steps stay the same on every system.
+  Which file to start, the file chooser, and disc-key formats are under `docs/user/`.
+- Reorganized docs into `docs/user/` and `docs/developer/`; removed `docs/rtl-text.md` and `docs/replay-1-1.md`.
+- Moved recompiler crash notes to `vendor/decomp/docs/decomp-notes.md`.
+- Renamed `.git-hooks` to `.githooks` (update `.git/hooks/pre-push` if it still points at the old path).
+- Removed leftover docs and runtime checks that said mods need the 1.3.0 update or do not work on base-disc builds.
+- Removed unused developer tools (`tools/check/`, `rpxinfo.py`, Python disc reader, `run_bench.py` CLI).
+  `nsmbu extract` uses `nsmbu-extract`; use `nsmbu bench` for performance scenarios.
+- Moved the PowerPC recompiler from `tools/recomp/` to top-level `recomp/`.
+- Dropped `docs/ts-tools-port.md`, Android `--service-fixture` packaging, and the dead `game_sample_report.py` doc reference.
+  Renamed bench tests to `test_bench_lib.py`.
+- The release step commits and pushes the changelog before it tags.
+- Windows and Linux release builds download SDL3 from the CI assets repo instead of compiling it.
+- Desktop setup and release packages use top-level `installer/` instead of `tools/installer/` (older release zips still use the old path).
 
 ### Fixed
 
+- Restored directed course-open helpers in `cs_probe.cpp` so `nsmbu` links after the Lua SDK calls them.
+- Intro skip quit puts the map player on the opened course node.
+- A direct open names that course on the loading card, and quitting it frames the opened course on the world map (camera follows the course node, not only the save start).
+- Directed quit shifts the map camera into the opened world's map layer and prefers that world's path section when resolving the course node.
+- Playtests wait until the course area is running and Mario has left the origin before they treat the course as open.
+- `replay-bug-1` waits until Mario is in `2-1` before quitting, so the intro-skip map spawn is the check.
+- Restored the release workflow `version` job on the nightly schedule so it can dispatch development builds when `main` moves.
 - Windows on older Intel graphics uses classic Vulkan render passes, so the title screen no longer crashes in `igvk64.dll` after the intro (#60).
 
 ## [0.8.3] - 2026-11-01

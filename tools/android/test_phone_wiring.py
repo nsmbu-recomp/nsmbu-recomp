@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-APP = ROOT / "android/app/src/main"
+APP = ROOT / "runtime/android/app/src/main"
 JAVA = APP / "java/org/nsmbrecomp/nsmbu"
 
 

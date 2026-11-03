@@ -23,7 +23,7 @@ def run_recomp(dump):
     os.makedirs(gen, exist_ok=True)
     say("recompiling %s -> build/gen ..." % os.path.relpath(rpx, ROOT))
     subprocess.run(
-        [sys.executable, os.path.join(ROOT, "tools", "recomp", "recomp.py"), rpx, gen],
+        [sys.executable, os.path.join(ROOT, "recomp", "recomp.py"), rpx, gen],
         check=True,
         cwd=ROOT,
     )

@@ -18,3 +18,4 @@ Save a picture with `nsmbu screenshot .tmp/repro/<name>.png`.
 
 A check that must keep passing is a playtest case.
 The `nsmbu` skill owns that path.
+Build-to-build logic-step diffs under a fixed `NSMBU_PRESS` recipe use `nsmbu scenario` and `nsmbu compare-runs` (see the run comparison section in the `nsmbu` skill), not a scene boot alone.

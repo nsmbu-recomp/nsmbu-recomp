@@ -79,6 +79,7 @@ export const poseDirection120: PlayCase = {
                 NSMBU_INTERP: "1",
                 NSMBU_INTERP_FPS: "120",
                 NSMBU_INTERP_MODEL_TRACE: "8000",
+                NSMBU_UNCAPPED: "0",
             },
         });
         await waitCourse(session, "1-1", 180);

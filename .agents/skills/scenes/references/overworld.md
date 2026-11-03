@@ -34,5 +34,5 @@ One stick-right reaches `W101`.
 That walk is in [course.md](course.md).
 
 `nsmbu scripted` forces a hidden window, immediate present, and resolution scale 1.
-Use it only for a log that must match [automation.md](../../../../docs/automation.md).
+Use it only for a log that must match [automation.md](../../../../docs/developer/automation.md).
 The press list there is the same map, measured in TV frames.

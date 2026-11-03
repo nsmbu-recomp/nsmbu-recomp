@@ -29,6 +29,9 @@
 
 #include "core/env.h"
 #include "gfx/renderer.h"
+#ifdef NSMBU_VULKAN
+#include "gfx/vulkan/api.h"
+#endif
 #include "hooks/interp.h"
 #include "mods/lua_eval.h"
 #include "mods/mod_json.h"
@@ -68,14 +71,17 @@ struct ShotWait {
     std::string path;
     std::chrono::steady_clock::time_point started;
     bool requested = false;
+    bool drc = false;
 };
 std::deque<ShotWait> g_shots;
 std::deque<std::string> g_out_lines;
 std::atomic<bool> g_quit{false};
 
+enum class GuestOp { Status, Eval, Leave };
+
 struct GuestJob {
     int id = 0;
-    bool status = false;
+    GuestOp op = GuestOp::Eval;
     std::string code;
     int timeout_ms = 5000;
 };
@@ -155,6 +161,19 @@ std::string handle_status(int id) {
     if (scene.cp_known) v.object["cp"] = scene.cp;
     if (scene.node_known) v.object["node"] = scene.node;
     if (scene.world_known) v.object["world"] = scene.world;
+    if (scene.area_known) v.object["area"] = scene.area;
+    if (!scene.node_name.empty()) v.object["node_name"] = scene.node_name;
+    if (scene.node_pos_known) {
+        v.object["node_x"] = (double)scene.node_x;
+        v.object["node_y"] = (double)scene.node_y;
+    }
+    if (scene.map_player_known) {
+        v.object["map_x"] = (double)scene.map_x;
+        v.object["map_y"] = (double)scene.map_y;
+    }
+    if (scene.map_lock_known) v.object["map_lock"] = scene.map_lock;
+    if (scene.map_title_known) v.object["map_title"] = scene.map_title;
+    if (scene.map_players_known) v.object["map_players"] = scene.map_players;
     return mods::json::dump(v);
 }
 
@@ -194,7 +213,12 @@ void handle_request(const mods::json::Value& req) {
     const std::string cmd = req.get("cmd").string();
     if (cmd == "status") {
         std::lock_guard<std::mutex> lk(g_mu);
-        g_jobs.push_back(GuestJob{id, true, {}, 0});
+        g_jobs.push_back(GuestJob{id, GuestOp::Status, {}, 0});
+        return;
+    }
+    if (cmd == "leave") {
+        std::lock_guard<std::mutex> lk(g_mu);
+        g_jobs.push_back(GuestJob{id, GuestOp::Leave, {}, 0});
         return;
     }
     if (cmd == "press") {
@@ -225,11 +249,13 @@ void handle_request(const mods::json::Value& req) {
             queue_line(response_err(id, "missing path"));
             return;
         }
+        const bool drc = req.get("drc").type == mods::json::Value::Bool ? req.get("drc").boolean
+                         : req.get("drc").type == mods::json::Value::Number && req.get("drc").number != 0;
         std::error_code ec;
         std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
         {
             std::lock_guard<std::mutex> lk(g_mu);
-            g_shots.push_back(ShotWait{id, path, std::chrono::steady_clock::now(), false});
+            g_shots.push_back(ShotWait{id, path, std::chrono::steady_clock::now(), false, drc});
         }
         return;
     }
@@ -243,7 +269,7 @@ void handle_request(const mods::json::Value& req) {
         const auto& tv = req.get("timeout");
         if (tv.type == mods::json::Value::Number && tv.number > 0) timeout_ms = int(tv.number);
         std::lock_guard<std::mutex> lk(g_mu);
-        g_jobs.push_back(GuestJob{id, false, cv.text, timeout_ms});
+        g_jobs.push_back(GuestJob{id, GuestOp::Eval, cv.text, timeout_ms});
         return;
     }
     if (cmd == "quit") {
@@ -439,17 +465,28 @@ void service() {
         std::_Exit(0);
 #endif
     }
-    std::vector<std::pair<int, std::string>> to_request;
+    std::vector<std::tuple<int, std::string, bool>> to_request;
     {
         std::lock_guard<std::mutex> lk(g_mu);
         for (auto& s : g_shots)
             if (!s.requested) {
                 s.requested = true;
-                to_request.emplace_back(s.id, s.path);
+                to_request.emplace_back(s.id, s.path, s.drc);
             }
     }
-    for (const auto& shot : to_request)
-        hostui::post([path = shot.second] { render::request_tv_dump(path, 0); });
+    for (const auto& shot : to_request) {
+        const int id = std::get<0>(shot);
+        const std::string& path = std::get<1>(shot);
+        const bool drc = std::get<2>(shot);
+        hostui::post([path, drc] {
+#ifdef NSMBU_VULKAN
+            if (drc) gfxvk::request_drc_dump(path, 0);
+            else
+#endif
+                render::request_tv_dump(path, 2);
+        });
+        (void)id;
+    }
     constexpr auto kTimeout = std::chrono::seconds(30);
     {
         std::lock_guard<std::mutex> lk(g_mu);
@@ -479,9 +516,9 @@ namespace {
 
 bool take_job(GuestJob& job, bool status_only) {
     std::lock_guard<std::mutex> lk(g_mu);
-    if (status_only) {
+        if (status_only) {
         for (auto it = g_jobs.begin(); it != g_jobs.end(); ++it) {
-            if (!it->status) continue;
+            if (it->op != GuestOp::Status) continue;
             job = std::move(*it);
             g_jobs.erase(it);
             return true;
@@ -490,7 +527,7 @@ bool take_job(GuestJob& job, bool status_only) {
     }
     if (g_jobs.empty()) return false;
     for (auto it = g_jobs.begin(); it != g_jobs.end(); ++it) {
-        if (!it->status) continue;
+        if (it->op != GuestOp::Status) continue;
         job = std::move(*it);
         g_jobs.erase(it);
         return true;
@@ -519,6 +556,15 @@ void run_eval(const GuestJob& job) {
     queue_line(mods::json::dump(v));
 }
 
+void run_leave(const GuestJob& job) {
+    std::string err;
+    if (!mods::lua_sdk::leave_course(err)) {
+        queue_line(response_err(job.id, err.empty() ? "leave failed" : err));
+        return;
+    }
+    queue_line(response_ok(job.id));
+}
+
 }
 
 void guest_service() {
@@ -527,8 +573,10 @@ void guest_service() {
     for (;;) {
         GuestJob job;
         if (!take_job(job, false)) return;
-        if (job.status)
+        if (job.op == GuestOp::Status)
             queue_line(handle_status(job.id));
+        else if (job.op == GuestOp::Leave)
+            run_leave(job);
         else
             run_eval(job);
     }

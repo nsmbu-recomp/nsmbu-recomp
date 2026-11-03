@@ -23,8 +23,6 @@ void initialize();
 void reinitialize();
 void set_open_pack(std::string pack);
 std::string open_pack_value();
-bool supported();
-std::string unsupported_reason();
 std::string directory();
 std::vector<View> list();
 bool install(const std::string& source,std::string& error,std::string* installed_id=nullptr);

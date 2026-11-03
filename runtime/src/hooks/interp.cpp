@@ -33,6 +33,7 @@ void f_024F30DC_orig(Cpu* c);
 void f_029C5104(Cpu* c);
 void f_024FA76C(Cpu* c);
 void f_02A05A9C(Cpu* c);
+void nsmbu_align_map_camera(void);
 }
 
 namespace gx2 { bool uncapped(); void set_uncapped(bool on); int gpu_frames_queued(); void sync_submitted(); }
@@ -1084,6 +1085,7 @@ extern "C" void hook_029C52CC(Cpu* c) {
             g_wake_hold = false;
             g_skip_map_draw = false;
             f_029C52CC_orig(c);
+            nsmbu_align_map_camera();
             finish_logic_pass();
             finish_wake();
             status_trace::on_logic_step(logic_steps());
@@ -1125,6 +1127,7 @@ extern "C" void hook_029C52CC(Cpu* c) {
         PassTimer timer(0);
         f_029C52CC_orig(c);
     }
+    nsmbu_align_map_camera();
     if (course_play_active()) {
         const uint32_t r3 = c->r[3], r4 = c->r[4], r5 = c->r[5];
         for (int player = 0; player < 4; player++) {

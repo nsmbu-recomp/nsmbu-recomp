@@ -251,7 +251,7 @@ void validate_conflicts(const std::set<std::string>& enabled){
     cemu::validate(graphics);
     for(const auto& id:enabled){const auto& m=records.at(id).manifest;for(const auto& [file,path]:m.files){auto [it,inserted]=file_owners.emplace(file,id);require(inserted,"Content file conflict: "+file+" between "+id+" and "+it->second);}for(const auto& conflict:m.conflicts){require(!enabled.contains(conflict),m.name+" conflicts with "+conflict);}}
 }
-template<class Fn> bool operation(std::string& error,Fn fn){try{std::lock_guard guard(mutex);require(supported(),unsupported_reason());require(ready,"Mod manager storage is unavailable");fn();error.clear();return true;}catch(const std::exception& e){error=e.what();return false;}}
+template<class Fn> bool operation(std::string& error,Fn fn){try{std::lock_guard guard(mutex);require(ready,"Mod manager storage is unavailable");fn();error.clear();return true;}catch(const std::exception& e){error=e.what();return false;}}
 struct Live {
     std::unique_ptr<mods::lua_mod::Instance> lua;
     std::string kind;
@@ -295,12 +295,6 @@ bool reload_live(const std::string& id,const Record& record,const Value& cfg){
 }
 
 
-bool supported(){return g_guest_build_mods!=0;}
-std::string unsupported_reason(){
-    if(supported())return {};
-    return std::string("Mods are not supported on this game build (")+g_guest_build_name
-        +"). Rebuild the game with a current port version.";
-}
 void set_open_pack(std::string pack){std::lock_guard guard(mutex);open_pack=std::move(pack);}
 std::string open_pack_value(){std::lock_guard guard(mutex);return open_pack;}
 void reinitialize(){
@@ -331,11 +325,6 @@ void reinitialize(){
 void initialize(){
     std::lock_guard guard(mutex);if(ready)return;const char* override=env::MOD_MANAGER_DIR();if(env::NO_HOST_INPUT()&&!override)return;
     root=override?fs::path(override):fs::path(host::config_dir());
-    if(!supported()){
-        ready=true;last_problem=unsupported_reason();
-        fprintf(stderr,"[mod-manager] %s\n",last_problem.c_str());
-        return;
-    }
     ready=true;defaults();
     try{fs::create_directories(root);auto path=root/"mods.json";if(!fs::exists(path)&&fs::exists(root/"profiles.json"))path=root/"profiles.json";if(fs::exists(path)){database=json::parse(read_text(path));normalize_database();}
         scan();

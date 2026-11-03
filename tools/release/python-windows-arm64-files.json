@@ -1,5 +1,5 @@
 {
- "_comment": "The official embeddable Python shipped in the Windows on ARM64 release as tools/python/ (tools/release/package.py --windows-python). Every file of the pinned zip (tools/installer/toolchains.json python.windows-arm64) with its SHA-256; tools/release/guard.py allows exactly these files there. Regenerate together with the pin.",
+ "_comment": "The official embeddable Python shipped in the Windows on ARM64 release as tools/python/ (tools/release/package.py --windows-python). Every file of the pinned zip (installer/toolchains.json python.windows-arm64) with its SHA-256; tools/release/guard.py allows exactly these files there. Regenerate together with the pin.",
  "url": "https://www.python.org/ftp/python/3.13.16/python-3.13.16-embed-arm64.zip",
  "sha256": "790d097697a2020477549a6764d89d22194c88d6e42caebcb2db63791e004c94",
  "files": {

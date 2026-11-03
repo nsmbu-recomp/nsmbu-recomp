@@ -30,7 +30,7 @@ The example only calls `set_store_extra(true)` from `onLoaded` and `set_store_ex
 
 ## Runtime
 
-Decompile the stock field and the item-type values the `ItemList` panes use, and record them under `vendor/decomp` and `tools/recomp/headers_names.txt`.
+Decompile the stock field and the item-type values the `ItemList` panes use, and record them under `vendor/decomp` and `recomp/headers_names.txt`.
 Hook `setItem`.
 When store-extra is on, the player is Super or better, the bubble is empty, and the mode has a stock type: write the stock field and skip the original call.
 Otherwise call `f_02931C1C_orig`.
@@ -54,7 +54,7 @@ After the stock field is known, one headless `nsmbu` script checks three cases o
 ## Work
 
 1. Decompile the per-player stock field, item types, and ItemList update path.
-   Name them in `vendor/decomp` and `tools/recomp/headers_names.txt`.
+   Name them in `vendor/decomp` and `recomp/headers_names.txt`.
 2. Add `set_store_extra`, `stock`, and `set_stock` on the Player API and implement them in the `setItem` hook.
 3. Add the powerup-storage example as the store-extra switch, with no HUD or use-button options, and update the README and changelogs.
 4. Run the headless check above.

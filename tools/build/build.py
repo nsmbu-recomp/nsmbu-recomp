@@ -9,13 +9,13 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib"))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "recomp"))
+
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(ROOT, "recomp"))
 import builds
 import dev_game_icon
 import game_versions as gv
 import slot
-
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def default_build_dir(release, no_debug):
     if release or no_debug:
@@ -184,7 +184,7 @@ def ensure_gen_dir():
         )
         if stale:
             subprocess.run(
-                [sys.executable, os.path.join(ROOT, "tools", "recomp", "recomp.py"), rpx, gen],
+                [sys.executable, os.path.join(ROOT, "recomp", "recomp.py"), rpx, gen],
                 check=True,
                 cwd=ROOT,
             )
@@ -192,7 +192,7 @@ def ensure_gen_dir():
     if glob.glob(os.path.join(gen, "code_*.c")) and not gen_is_stub(gen):
         return
     subprocess.run(
-        [sys.executable, os.path.join(ROOT, "tools", "recomp", "stubgen.py"), gen],
+        [sys.executable, os.path.join(ROOT, "recomp", "stubgen.py"), gen],
         check=True,
         cwd=ROOT,
     )

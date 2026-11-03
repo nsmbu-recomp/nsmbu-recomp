@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import game_versions as gv
 
 ICON_NAME = "iconTex.tga"
-MAKE_ICON = os.path.join(ROOT, "android", "make_icon.py")
+MAKE_ICON = os.path.join(ROOT, "runtime", "android", "make_icon.py")
 
 
 def running_in_ci():
@@ -25,11 +25,11 @@ def icon_tga_path(root=None):
 
 
 def android_local_icon_ready(root=None):
-    return os.path.isdir(os.path.join(root or ROOT, "android", "app", "local-res"))
+    return os.path.isdir(os.path.join(root or ROOT, "runtime", "android", "app", "local-res"))
 
 
 def refresh_android_local_icon(root=None):
-    """Write android/app/local-res from the active dump when not in CI. Returns True on success."""
+    """Write runtime/android/app/local-res from the active dump when not in CI. Returns True on success."""
     root = root or ROOT
     if running_in_ci():
         return False

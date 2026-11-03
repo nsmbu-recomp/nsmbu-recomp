@@ -29,17 +29,30 @@ else()
   set(NSMBU_SETUP_SDL SDL3::SDL3)
 endif()
 
+if(ANDROID)
+  set(IMGUI_SDL3_CPP ${CMAKE_BINARY_DIR}/generated/imgui_impl_sdl3.cpp)
+  add_custom_command(
+    OUTPUT ${IMGUI_SDL3_CPP}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/generated
+    COMMAND ${CMAKE_COMMAND} -E copy ${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp ${IMGUI_SDL3_CPP}
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/cmake/imgui_android_ime.py ${IMGUI_SDL3_CPP}
+    DEPENDS ${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp ${CMAKE_SOURCE_DIR}/cmake/imgui_android_ime.py
+    VERBATIM)
+else()
+  set(IMGUI_SDL3_CPP ${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp)
+endif()
+
 add_executable(nsmbu-setup WIN32
-  tools/installer/gui/setup_gui.cpp
-  ${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp
+  installer/gui/setup_gui.cpp
+  ${IMGUI_SDL3_CPP}
   ${IMGUI_DIR}/backends/imgui_impl_sdlrenderer3.cpp)
 target_include_directories(nsmbu-setup PRIVATE ${IMGUI_DIR} ${IMGUI_DIR}/backends)
 target_link_libraries(nsmbu-setup PRIVATE imgui ${NSMBU_SETUP_SDL})
-set_source_files_properties(${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp ${IMGUI_DIR}/backends/imgui_impl_sdlrenderer3.cpp
+set_source_files_properties(${IMGUI_SDL3_CPP} ${IMGUI_DIR}/backends/imgui_impl_sdlrenderer3.cpp
   PROPERTIES COMPILE_OPTIONS "-w")
 if(WIN32)
 
-  target_sources(nsmbu-setup PRIVATE tools/installer/gui/console_setup_win.cpp)
+  target_sources(nsmbu-setup PRIVATE installer/gui/console_setup_win.cpp)
   nsmbu_windows_resources(nsmbu-setup "NSMBU setup and launcher" "NSMBU.exe" gui)
   if(NSMBU_STRIP_RELEASE)
     target_link_options(nsmbu-setup PRIVATE ${NSMBU_STRIP_RELEASE})

@@ -28,7 +28,7 @@ No responses needed from the user; keep going until the queue is empty or blocke
 
 ## Decisions
 
-- Use `python3 tools/rpx/ppcdis.py ADDR [COUNT] [RPX]` plus `tools/recomp/headers_names.txt` as the only naming sources; `game/active` selects the dump.
+- Use `python3 tools/rpx/ppcdis.py ADDR [COUNT] [RPX]` plus `recomp/headers_names.txt` as the only naming sources; `game/active` selects the dump.
 - Unresolved helpers get `sub_<ADDRESS>` names plus an `// Address:` comment rather than invented names.
 - Treat `vendor/decomp/docs/TODO.md` as the open-claim list.
 - Three nested repos exist: parent `nsmbu-recomp`, `vendor/decomp`, and `vendor/decomp/include` (submodule `headers.git`, branch `recomp`). Each needs its own commit.
@@ -47,7 +47,7 @@ Push all three when the user expects sync (autonomous runs: push after each batc
 
 ## Naming and disassembly
 
-1. Resolve the symbol in `tools/recomp/headers_names.txt` (class + name for the USA v1.3.0 address).
+1. Resolve the symbol in `recomp/headers_names.txt` (class + name for the USA v1.3.0 address).
 2. Disassemble: `python3 tools/rpx/ppcdis.py 0xADDR [instruction_count]`.
 3. For cross-refs and rodata, sweep PowerPC address materialisation together: `addi` (14), `addic` (12), `addic.` (13), and `ori` (24). An `addi`-only sweep misses `lis` + `addic` sites and yields false "no reference".
 4. Name call targets from `headers_names.txt` or `ppcdis` annotations; everything else is `sub_029B1234` with `// Address: 0x029B1234`.
@@ -83,7 +83,7 @@ Plan for bounded parallel batches; avoid duplicate symbols across agents.
 
 ### Build the queue
 
-Named symbols in `tools/recomp/headers_names.txt` minus addresses already present as `// Address: 0x` in `vendor/decomp/src` and `vendor/decomp/include`.
+Named symbols in `recomp/headers_names.txt` minus addresses already present as `// Address: 0x` in `vendor/decomp/src` and `vendor/decomp/include`.
 
 ```bash
 python3 - <<'PY'
@@ -96,7 +96,7 @@ for p in list(root.glob("src/**/*.cpp")) + list(root.glob("include/**/*.h")):
     addrs_decomped.update(re.findall(r"// Address: 0x([0-9A-Fa-f]+)", p.read_text()))
 
 names = []
-for line in Path("tools/recomp/headers_names.txt").read_text().splitlines():
+for line in Path("recomp/headers_names.txt").read_text().splitlines():
     parts = line.split()
     if len(parts) >= 3 and parts[0].startswith("0x"):
         addr = parts[0][2:].upper()

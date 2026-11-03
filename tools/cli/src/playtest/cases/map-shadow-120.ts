@@ -7,7 +7,7 @@ export const mapShadow120: PlayCase = {
     run: async (session) => {
         await session.start({
             save: "repo",
-            env: { NSMBU_INTERP: "1", NSMBU_INTERP_FPS: "120" },
+            env: { NSMBU_INTERP: "1", NSMBU_INTERP_FPS: "120", NSMBU_UNCAPPED: "0" },
         });
         const map = await reachWorldMap(session, 180);
         const start = map.frame ?? 0;

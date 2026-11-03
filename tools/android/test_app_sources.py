@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-MAIN = ROOT / "android/app/src/main"
+MAIN = ROOT / "runtime/android/app/src/main"
 FILE_PROVIDER = """package androidx.core.content;
 public class FileProvider extends android.content.ContentProvider {
     public static android.net.Uri getUriForFile(android.content.Context c, String a, java.io.File f) { return null; }

@@ -28,6 +28,10 @@ int main() {
     overlay::FrameHistoryAverages::compute(ms, logic, avg_ms, worst, fps, logic_rate);
     assert(fps > 59.9f && fps < 60.1f);
     assert(logic_rate > 59.9 && logic_rate < 60.1);
+    assert(overlay::FrameHistoryAverages::low1_fps(ms) > 59.9f && overlay::FrameHistoryAverages::low1_fps(ms) < 60.1f);
+    ms[0] = 50.0f;
+    ms[1] = 50.0f;
+    assert(overlay::FrameHistoryAverages::low1_fps(ms) > 19.9f && overlay::FrameHistoryAverages::low1_fps(ms) < 20.1f);
     a.reset(); assert(!a.started);
     auto root = std::filesystem::temp_directory_path() / "nsmbu-telemetry-test";
     std::filesystem::create_directories(root / "class/kgsl/kgsl-3d0");

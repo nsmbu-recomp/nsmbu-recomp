@@ -677,8 +677,10 @@ std::string performance_report() {
     double avg_logic = 0;
     FrameHistoryAverages::compute(U.frame_ms, U.frame_logic, avg_ms, worst, avg_fps, avg_logic);
     char frame[180];
-    snprintf(frame, sizeof frame, "FPS %.1f (average %.1f), frame %.2f ms (worst %.2f), average logic steps/s %.1f\n",
-             U.fps, avg_fps, avg_ms, worst, avg_logic);
+    const float low1 = FrameHistoryAverages::low1_fps(U.frame_ms);
+    snprintf(frame, sizeof frame,
+             "FPS %.1f (average %.1f, 1%% low %.1f), frame %.2f ms (worst %.2f), average logic steps/s %.1f\n",
+             U.fps, avg_fps, low1, avg_ms, worst, avg_logic);
     std::string report = std::string(frame) + perf::summary();
 #ifdef __ANDROID__
     static AndroidTelemetry telemetry;
@@ -1201,10 +1203,6 @@ void package_controls() {
 
 void tab_mods() {
     heading("Mod manager");
-    if (!mods::packages::supported()) {
-        note("%s", mods::packages::unsupported_reason().c_str());
-        return;
-    }
     auto path = mods::packages::directory();
     if (hostui::can_open_folder() && !path.empty()) {
         if (ImGui::Button("Open mods folder")) {
@@ -1832,26 +1830,29 @@ static void perf_label_value(const char* label, const ImVec4& labelColor, const 
     ImGui::PopStyleVar();
 }
 
-static void perf_output_row(double fps, float frameMs, float worstMs, double avgFps, bool showAvg) {
+static void perf_output_row(double fps, float frameMs, float worstMs, double avgFps, float low1Fps, bool showAvg) {
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8.0f, 1.0f));
-    if (ImGui::BeginTable("##perf_out", 3, kPerfTableFlags)) {
+    if (ImGui::BeginTable("##perf_out", 4, kPerfTableFlags)) {
         ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, kPerfLabelW);
-        ImGui::TableSetupColumn("a", ImGuiTableColumnFlags_WidthFixed, 80.0f);
-        ImGui::TableSetupColumn("b", ImGuiTableColumnFlags_WidthFixed, 88.0f);
+        ImGui::TableSetupColumn("a", ImGuiTableColumnFlags_WidthFixed, 56.0f);
+        ImGui::TableSetupColumn("b", ImGuiTableColumnFlags_WidthFixed, 56.0f);
+        ImGui::TableSetupColumn("c", ImGuiTableColumnFlags_WidthFixed, 56.0f);
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
-        ImGui::TextColored(kPerfOutLabel, "Frame rate");
+        ImGui::TextColored(kPerfOutLabel, "FPS / AVG / 1%%");
         ImGui::TableSetColumnIndex(1);
-        ImGui::TextColored(kPerfValue, "%.0f FPS", fps);
+        ImGui::TextColored(kPerfValue, "%.1f", fps);
         ImGui::TableSetColumnIndex(2);
-        if (showAvg) ImGui::TextColored(kPerfValue, "avg %.0f", avgFps);
+        if (showAvg) ImGui::TextColored(kPerfValue, "%.1f", avgFps);
+        ImGui::TableSetColumnIndex(3);
+        if (low1Fps > 0) ImGui::TextColored(kPerfValue, "%.1f", low1Fps);
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
-        ImGui::TextColored(kPerfOutLabel, "Frame time");
+        ImGui::TextColored(kPerfOutLabel, "ms / max");
         ImGui::TableSetColumnIndex(1);
-        ImGui::TextColored(kPerfValue, "%.1f ms", frameMs);
+        ImGui::TextColored(kPerfValue, "%.1f", frameMs);
         ImGui::TableSetColumnIndex(2);
-        ImGui::TextColored(kPerfValue, "max %.1f", worstMs);
+        ImGui::TextColored(kPerfValue, "%.1f", worstMs);
         ImGui::EndTable();
     }
     ImGui::PopStyleVar();
@@ -2016,7 +2017,7 @@ void perf_window(bool menu_open) {
     if (ImGui::Begin("##perf", nullptr, fl)) {
         if (perf_shown()) {
             const double avg_out = g_average.started && g_average.fps > 0 ? g_average.fps : avg_fps;
-            perf_output_row(U.fps, avg_ms, worst, avg_out, avg_out > 0);
+            perf_output_row(U.fps, avg_ms, worst, avg_out, FrameHistoryAverages::low1_fps(U.frame_ms), avg_out > 0);
         }
 
         if (perf_timing_shown()) {
@@ -2390,7 +2391,9 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
         if (!env::HOT_RELOAD_COURSES.present() && hostui::get("hotReloadCourses", v))
             course_hot_reload::set_enabled(v == "1");
 
-        if (!env::PRO_CONTROLLER() && hostui::get("proController", v))
+        if (env::PRO_CONTROLLER.on())
+            hostui::post([] { hostui::set_pro_controller(true); });
+        else if (hostui::get("proController", v))
             hostui::post([pro = v == "1"] { hostui::set_pro_controller(pro); });
 
         if (!rumble::env_override() && hostui::get("rumble", v)) rumble::set_enabled(v != "0");

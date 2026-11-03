@@ -64,7 +64,7 @@ void peek_z(const uint32_t* cells, uint32_t n) {
 
 uint64_t frame_count();
 namespace {
-struct Request {uint64_t frame;std::string path;};
+struct Request {uint64_t frame;std::string path;bool drc=false;};
 std::mutex captureMutex;
 std::vector<Request> captures;
 void be32(std::vector<uint8_t>& output,uint32_t value){for(int shift=24;shift>=0;shift-=8)output.push_back(uint8_t(value>>shift));}
@@ -135,14 +135,20 @@ void request_tv_dump(const std::string& path,int frames_ahead) {
  std::lock_guard lock(captureMutex);captures.push_back({frame_count()+uint64_t(std::max(frames_ahead,0)),path});
 }
 
+void request_drc_dump(const std::string& path,int frames_ahead) {
+ std::lock_guard lock(captureMutex);captures.push_back({frame_count()+uint64_t(std::max(frames_ahead,0)),path,true});
+}
+
 void service_captures() {
- if(!R.tv.scan||!R.tv.scan->image)return;
- std::vector<std::string> paths;
- {std::lock_guard lock(captureMutex);for(auto it=captures.begin();it!=captures.end();)if(it->frame<=frame_count()){paths.push_back(std::move(it->path));it=captures.erase(it);}else ++it;}
- if(paths.empty())return;
- try {
-  auto& source=*R.tv.scan;auto rgba=read_rgba(source,R.tv.srgb.load());
-  for(const auto& path:paths)try {write_png(path,source.extent.width,source.extent.height,rgba);fprintf(stderr,"[gfx] wrote %s (%ux%u)\n",path.c_str(),source.extent.width,source.extent.height);}catch(const std::exception& e){fprintf(stderr,"[gfx] PNG capture failed: %s\n",e.what());}
- }catch(const std::exception& e){fprintf(stderr,"[gfx] TV capture failed: %s\n",e.what());}
+ std::vector<Request> ready;
+ {std::lock_guard lock(captureMutex);for(auto it=captures.begin();it!=captures.end();)if(it->frame<=frame_count()){ready.push_back(std::move(*it));it=captures.erase(it);}else ++it;}
+ for(const auto& req:ready) {
+  Screen& screen=req.drc?R.drc:R.tv;
+  if(!screen.scan||!screen.scan->image)continue;
+  try {
+   auto& source=*screen.scan;auto rgba=read_rgba(source,screen.srgb.load());
+   try {write_png(req.path,source.extent.width,source.extent.height,rgba);fprintf(stderr,"[gfx] wrote %s (%ux%u)\n",req.path.c_str(),source.extent.width,source.extent.height);}catch(const std::exception& e){fprintf(stderr,"[gfx] PNG capture failed: %s\n",e.what());}
+  }catch(const std::exception& e){fprintf(stderr,"[gfx] %s capture failed: %s\n",req.drc?"DRC":"TV",e.what());}
+ }
 }
 }

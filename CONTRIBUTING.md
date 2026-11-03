@@ -11,7 +11,7 @@ After that, every command is the global `nsmbu` on `PATH`.
 
 Put your dump in `game/`.
 The file layout is in [game/README.md](game/README.md).
-Initialize the LuaJIT submodule before the first build: `git submodule update --init vendor/luajit`.
+Initialize the build submodules before the first build: `git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp`.
 
 | Command | Result |
 |---------|--------|
@@ -36,7 +36,7 @@ When that file is absent, the build uses stubs so the tree can link.
 
 `nsmbu launch` sets `NSMBU_PROFILE`, `NSMBU_VK_STATS`, `NSMBU_SYNC_STATS`, and `NSMBU_CRASH_RECOVERY` when those variables are unset.
 
-Agent control and the full command list are in [docs/cli.md](docs/cli.md).
+Agent control and the full command list are in [docs/developer/cli.md](docs/developer/cli.md).
 
-Build notes and the upstream base are in [docs/nsmbu/port.md](docs/nsmbu/port.md).
+Build notes and the upstream base are in [docs/developer/nsmbu/port.md](docs/developer/nsmbu/port.md).
 Changes are in [CHANGELOG.md](CHANGELOG.md).

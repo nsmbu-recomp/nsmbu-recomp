@@ -495,8 +495,8 @@ int main(int argc, char** argv) {
     start_log_file();
 
     LOG("[boot] %s %s (%s), %s", app_title::kName, build::version(), build::commit(), reporthdr::os_description().c_str());
-    LOG("[boot] game version %s (%s, title %s, title version %d%s)", g_guest_build_label, g_guest_build_name,
-        g_guest_build_title_id, g_guest_build_title_version, g_guest_build_mods ? "" : ", mods unsupported");
+    LOG("[boot] game version %s (%s, title %s, title version %d)", g_guest_build_label, g_guest_build_name,
+        g_guest_build_title_id, g_guest_build_title_version);
 
     if (env::TEST_HOST_CRASH()) {
         LOG("[boot] NSMBU_TEST_HOST_CRASH: crashing on purpose in the C library");

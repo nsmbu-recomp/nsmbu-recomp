@@ -12,8 +12,6 @@ Usage:
   nsmbu game --create ID
   nsmbu extract
   nsmbu save <save.dat|save.json> [output] [--output PATH]
-  nsmbu record <course> [name] […]
-  nsmbu replay [--release] [--uncapped] [--no-exit-on-input] [--exit-at N] [--log PATH] <name> […]
   nsmbu profile […]
   nsmbu perf […]
   nsmbu installer [--version VERSION] [--no-open]
@@ -21,13 +19,16 @@ Usage:
   nsmbu lint
   nsmbu recomp
   nsmbu scripted <name> […]
-  nsmbu test [name…] [--list]
+  nsmbu test [--list] [--show] [name…]
+  nsmbu scenario OUT [VAR=value …]
+  nsmbu compare-runs RUN_A RUN_B [--scene NAME] [--steps N]
   nsmbu bench [name…] [--list]
   nsmbu completion fish [--install]
 
 Agent control (single game instance):
   nsmbu open [slot|course|course-file] […]
   nsmbu status
+  nsmbu leave
   nsmbu press <button|hex> [--frames N]
   nsmbu stick <x> <y> [--frames N]
   nsmbu rstick <x> <y> [--frames N]

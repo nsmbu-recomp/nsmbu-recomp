@@ -12,7 +12,7 @@ from types import SimpleNamespace
 from setup_adapter import Adapter, Paused, atomic_json, digest, inventory
 
 PACKAGE = Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location("android_fixture", PACKAGE / "tools/recomp/android_fixture.py")
+spec = importlib.util.spec_from_file_location("android_fixture", PACKAGE / "recomp/android_fixture.py")
 fixture = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fixture)
 
@@ -21,7 +21,7 @@ class InstallerImportTests(unittest.TestCase):
     def test_importlib_installer_can_import_its_siblings(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            installer = root / "tools/installer"
+            installer = root / "installer"
             installer.mkdir(parents=True)
             (installer / "setup.py").write_text("import authored_installer_sibling\nvalue = authored_installer_sibling.value\n")
             (installer / "authored_installer_sibling.py").write_text("value = 42\n")
@@ -92,7 +92,7 @@ class TranslationTests(unittest.TestCase):
     def test_matches_desktop_and_resumes_after_worker_restart(self):
         desktop = self.root / "desktop"
         subprocess.run([sys.executable, "-c", "import sys; sys.path.insert(0, sys.argv[1]); from android_fixture import translate; translate(sys.argv[2], sys.argv[3])",
-                        str(PACKAGE / "tools/recomp"), str(self.rpx), str(desktop)], check=True, stdout=subprocess.DEVNULL)
+                        str(PACKAGE / "recomp"), str(self.rpx), str(desktop)], check=True, stdout=subprocess.DEVNULL)
         generated = self.adapter().translate(self.game)
         self.assertEqual(inventory(desktop), inventory(generated))
         restarted = self.adapter()
@@ -119,15 +119,17 @@ class TranslationTests(unittest.TestCase):
     def test_changed_hooks_invalidate_and_preserve_previous_translation(self):
         import shutil
         package = self.root / "package"
-        shutil.copytree(PACKAGE / "tools", package / "tools",
-                        ignore=shutil.ignore_patterns("__pycache__", "node_modules"))
+        ignore = shutil.ignore_patterns("__pycache__", "node_modules")
+        shutil.copytree(PACKAGE / "tools", package / "tools", ignore=ignore)
+        shutil.copytree(PACKAGE / "recomp", package / "recomp", ignore=ignore)
+        shutil.copytree(PACKAGE / "installer", package / "installer", ignore=ignore)
         def adapter():
             value = Adapter(package, self.root / "jobs", "same-port", self.events.append)
             register_fixture_build(value.setup)
             return value
         previous = adapter().translate(self.game)
         expected = inventory(previous)
-        hooks = package / "tools/recomp/hooks_update_test.txt"
+        hooks = package / "recomp/hooks_update_test.txt"
         hooks.write_text("02000000\n")
         updated = adapter().translate(self.game)
         self.assertNotEqual(previous, updated)
@@ -192,7 +194,7 @@ class TranslationTests(unittest.TestCase):
         import importlib
         import threading
         import time
-        with patch.object(sys, "path", [str(PACKAGE / "tools/recomp"),
+        with patch.object(sys, "path", [str(PACKAGE / "recomp"),
                                          str(PACKAGE / "tools")] + sys.path):
             ppc2c = importlib.import_module("ppc2c")
         requested = threading.Event()
@@ -226,7 +228,7 @@ class TranslationTests(unittest.TestCase):
         generated = self.adapter().translate(self.game)
         desktop = self.root / "desktop-after-pause"
         subprocess.run([sys.executable, "-c", "import sys; sys.path.insert(0, sys.argv[1]); from android_fixture import translate; translate(sys.argv[2], sys.argv[3])",
-                        str(PACKAGE / "tools/recomp"), str(self.rpx), str(desktop)], check=True, stdout=subprocess.DEVNULL)
+                        str(PACKAGE / "recomp"), str(self.rpx), str(desktop)], check=True, stdout=subprocess.DEVNULL)
         self.assertEqual(inventory(generated), inventory(desktop))
 
     def test_pause_before_work(self):

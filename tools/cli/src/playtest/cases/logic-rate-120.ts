@@ -5,7 +5,7 @@ const caps = [120, 144, 165, 240];
 const lowCaps = [30];
 
 async function measure(session: Session, cap: number, first: boolean): Promise<void> {
-    const env = { NSMBU_INTERP: "1", NSMBU_INTERP_FPS: String(cap) };
+    const env = { NSMBU_INTERP: "1", NSMBU_INTERP_FPS: String(cap), NSMBU_UNCAPPED: "0" };
     if (first) {
         await session.start({ save: "repo", env });
     } else {
@@ -40,7 +40,7 @@ async function measure(session: Session, cap: number, first: boolean): Promise<v
 }
 
 async function measureLow(session: Session, cap: number, first: boolean): Promise<void> {
-    const env = { NSMBU_INTERP: "1", NSMBU_INTERP_FPS: String(cap) };
+    const env = { NSMBU_INTERP: "1", NSMBU_INTERP_FPS: String(cap), NSMBU_UNCAPPED: "0" };
     if (first) {
         await session.start({ save: "repo", env });
     } else {

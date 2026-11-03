@@ -62,9 +62,8 @@ Optional matching **1.3.0** update as `game/<id>/update/` (`code/`, `content/`, 
 USA 1.3.0 is title version **64**.
 Europe 1.3.0 is title version **80**.
 A base disc alone (title version 0) is playable.
-**Mods are not supported** without the update.
 
 ## More
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) and [docs/nsmbu/port.md](../docs/nsmbu/port.md).
-See [docs/builds.md](../docs/builds.md) for address maps.
+See [CONTRIBUTING.md](../CONTRIBUTING.md) and [docs/developer/nsmbu/port.md](../docs/developer/nsmbu/port.md).
+See [docs/developer/builds.md](../docs/developer/builds.md) for address maps.

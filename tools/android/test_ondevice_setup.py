@@ -15,7 +15,7 @@ from ondevice_setup import run, process_resources
 from setup_adapter import Adapter
 
 ROOT = Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location("job_fixture", ROOT / "tools/recomp/android_fixture.py")
+spec = importlib.util.spec_from_file_location("job_fixture", ROOT / "recomp/android_fixture.py")
 fixture = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fixture)
 
@@ -38,8 +38,10 @@ class SetupJobTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name).resolve()
         self.package = self.root / "package"
-        shutil.copytree(ROOT / "tools", self.package / "tools",
-                        ignore=shutil.ignore_patterns("__pycache__", "node_modules"))
+        ignore = shutil.ignore_patterns("__pycache__", "node_modules")
+        shutil.copytree(ROOT / "tools", self.package / "tools", ignore=ignore)
+        shutil.copytree(ROOT / "recomp", self.package / "recomp", ignore=ignore)
+        shutil.copytree(ROOT / "installer", self.package / "installer", ignore=ignore)
         shutil.copytree(ROOT / "runtime/include", self.package / "sdk/include")
         link = (["-shared", "-Wl,-all_load", "{gamecode}", "-o", "{out}"] if sys.platform == "darwin" else
                 ["-shared", "-Wl,--whole-archive", "{gamecode}", "-Wl,--no-whole-archive", "-o", "{out}"])

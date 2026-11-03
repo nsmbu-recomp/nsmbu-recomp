@@ -1518,6 +1518,39 @@ static void queue_tv_png(const std::string &path) {
   p.slot = R.activeSubmission;
   pendingShots.push_back(std::move(p));
 }
+namespace {
+struct ScheduledPng { uint64_t frame; std::string path; bool drc = false; };
+std::vector<ScheduledPng> scheduledPngs;
+}
+void schedule_present_png(const std::string& path, int frames_ahead, bool drc) {
+  scheduledPngs.push_back({R.frame + uint64_t(std::max(frames_ahead, 0)), path, drc});
+}
+static void queue_drc_png(const std::string& path) {
+  if (!R.drc.scan || !R.drc.scan->image) return;
+  PendingShot p;
+  p.path = path;
+  p.tv = false;
+  p.frame = R.frame + 1;
+  try {
+    if (!record_screenshot(R.drc, p.buffer, p.width, p.height, p.bgra)) return;
+  } catch (const std::exception& e) {
+    LOG("[gfx] cannot copy %s: %s", path.c_str(), e.what());
+    return;
+  }
+  p.slot = R.activeSubmission;
+  pendingShots.push_back(std::move(p));
+}
+static void service_scheduled_pngs() {
+  for (auto it = scheduledPngs.begin(); it != scheduledPngs.end();) {
+    if (R.frame + 1 >= it->frame) {
+      if (it->drc) queue_drc_png(it->path);
+      else queue_tv_png(it->path);
+      it = scheduledPngs.erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
 static void take_screenshots(const gfx::PresentPlan &plan) {
   std::string tvPath, drcPath;
   if (!R.tv.scan || !R.tv.scan->image || !screenshot::take(R.frame + 1, tvPath, drcPath))
@@ -1553,6 +1586,7 @@ static void take_screenshots(const gfx::PresentPlan &plan) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
 }
 static void service_screenshots() {
+  service_scheduled_pngs();
   {
     std::lock_guard<std::mutex> lk(shotBuffersMu);
     for (auto &b : shotBuffersDone)

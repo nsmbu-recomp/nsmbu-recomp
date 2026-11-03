@@ -1466,8 +1466,8 @@ static NSEvent* key_event(NSWindow* w, uint16_t code, NSString* chars) {
 }
 
 static void self_test() {
-    if (!env::CONTROLS()) {
-        LOG("[controls-test] needs NSMBU_CONTROLS=<scratch file>");
+    if (!host::portable() && !env::USER_DIR()) {
+        LOG("[controls-test] needs NSMBU_USER_DIR=<scratch folder>");
         return;
     }
     NsmbuControls* c = g_controls;

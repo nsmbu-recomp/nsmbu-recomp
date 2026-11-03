@@ -44,7 +44,7 @@ class DevGameIcon(unittest.TestCase):
             gv.write_active(os.path.join(tmp, "game"), "usa-1.3.0")
             root = os.path.join(tmp, "repo")
             os.makedirs(root)
-            script = os.path.join(root, "android", "make_icon.py")
+            script = os.path.join(root, "runtime", "android", "make_icon.py")
             os.makedirs(os.path.dirname(script))
             with open(script, "w") as f:
                 f.write("#!/usr/bin/env python3\nimport sys, os\n"

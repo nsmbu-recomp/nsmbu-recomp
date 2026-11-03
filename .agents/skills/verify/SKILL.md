@@ -5,6 +5,8 @@ description: "Verify an NSMBU change on Linux with the USA 1.3.0 dump, or instal
 
 # Verify
 
+Full inventory: [docs/developer/verification.md](../../../docs/developer/verification.md).
+
 The default check is Linux with the USA 1.3.0 dump (`usa-1.3.0`).
 A USB Android device is available.
 Install the debug APK on it when the change is Android-only, or when the user asked for a device check.
@@ -12,7 +14,7 @@ Install the debug APK on it when the change is Android-only, or when the user as
 ## Choose the check
 
 1. Run the check in this turn when a command can show a wrong result.
-   A unit test, `nsmbu test`, a scene boot, a screenshot, or `nsmbu apk` counts.
+   A unit test, `nsmbu test`, `nsmbu scenario` / `compare-runs`, a scene boot, a screenshot, or `nsmbu apk` counts.
    Done when that command has finished and the reply states the result.
 2. Hand the rest to the user when someone has to play through a level.
    Done when the reply ends with the verification steps and calls that part unverified.
@@ -24,7 +26,7 @@ Leave player steps only for what still needs a person in the level.
 
 Read `nsmbu game --list` and use `usa-1.3.0`.
 `nsmbu game usa-1.3.0` switches the active dump.
-The `nsmbu` skill owns `--recomp`, warm builds, playtests, and live look.
+The `nsmbu` skill owns `--recomp`, warm builds, playtests, scenario/compare-runs, and live look.
 The `scenes` skill owns a short boot to the map, a course, or the title.
 
 ## Android
@@ -34,7 +36,7 @@ The APK does not contain the game.
 Leave the dump on USA 1.3.0 unless the check needs another version.
 Pass `--device SERIAL` when more than one device is connected.
 `python3 tools/android/apk.py --list-devices` prints the serials.
-Flags are in `docs/cli.md`.
+Flags are in `docs/developer/cli.md`.
 
 ## Player steps
 

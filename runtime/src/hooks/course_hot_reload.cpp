@@ -7,7 +7,7 @@
 #include "mods/sdk/nsmbu.h"
 
 #define XXH_INLINE_ALL
-#include "../../third_party/xxhash/xxhash.h"
+#include "xxhash.h"
 
 #include <algorithm>
 #include <atomic>

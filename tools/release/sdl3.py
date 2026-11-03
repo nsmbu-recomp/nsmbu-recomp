@@ -6,7 +6,7 @@ usage: sdl3.py install --platform PLATFORM --dest DIR
 Release jobs link this prefix. They do not compile SDL. The build is the sdl3
 release in nsmbu-recomp/ci-assets (that repo's SDL3 workflow). A prefix is
 accepted only when its manifest matches this SDL source pin and the llvm-mingw
-pins in tools/installer/toolchains.json.
+pins in installer/toolchains.json.
 """
 import argparse
 import hashlib
@@ -19,7 +19,7 @@ import tarfile
 import tempfile
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-TOOLCHAINS = os.path.join(ROOT, "tools", "installer", "toolchains.json")
+TOOLCHAINS = os.path.join(ROOT, "installer", "toolchains.json")
 
 VERSION = "3.4.18"
 UPSTREAM_SHA256 = "9c75cf16330322c217dedd2e0609f1124f1b54b8633e763467b4684d0f4334a3"
@@ -57,7 +57,7 @@ def check_manifest(manifest, pins):
     if manifest.get("upstream_sha256") != UPSTREAM_SHA256:
         problems.append("SDL source pin does not match tools/release/sdl3.py")
     if manifest.get("mingw_sha256") != pins:
-        problems.append("llvm-mingw pin does not match tools/installer/toolchains.json")
+        problems.append("llvm-mingw pin does not match installer/toolchains.json")
     assets = manifest.get("assets")
     if not isinstance(assets, dict) or set(assets) != set(PLATFORMS):
         problems.append("SDL release assets are %s" % (sorted(assets) if isinstance(assets, dict) else assets))

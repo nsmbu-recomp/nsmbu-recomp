@@ -15,7 +15,7 @@
 #include "core/write_watch.h"
 #include "core/env.h"
 #define XXH_INLINE_ALL
-#include "../../../third_party/xxhash/xxhash.h"
+#include "xxhash.h"
 #include "Cafe/HW/Latte/ISA/LatteReg.h"
 #include "Cafe/HW/Latte/ISA/RegDefines.h"
 #include "Cafe/HW/Latte/LatteAddrLib/LatteAddrLib.h"

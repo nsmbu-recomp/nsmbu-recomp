@@ -35,7 +35,7 @@ If Vulkan falls back to Metal, the pack's shader and dimension changes are suppr
 
 ## Shaders
 
-Custom `16hex_16hex_vs.txt` and `_ps.txt` shaders use Cemu-compatible base and auxiliary hashes (`runtime/third_party/cemu/graphic_pack_hash.h`).
+Custom `16hex_16hex_vs.txt` and `_ps.txt` shaders use Cemu-compatible base and auxiliary hashes (`vendor/cemu/graphic_pack_hash.h`).
 Preset variables expand before GLSL→SPIR-V compilation.
 The adapter restores the legacy pixel support block only for matching shaders that expect `uf_fragCoordScale`, then validates descriptors, buffer member offsets/strides/array lengths, and location types against the original shader.
 Failed compilation or layout mismatch retains the original shader, with a log diagnostic and applied/rejected counts in Mods.

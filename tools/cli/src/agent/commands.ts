@@ -70,6 +70,18 @@ function formatStatus(r: Awaited<ReturnType<AgentClient["status"]>>): string {
     if (r.world !== undefined) {
         parts.push(`world=${r.world}`);
     }
+    if (r.area !== undefined) {
+        parts.push(`area=${r.area ? 1 : 0}`);
+    }
+    if (r.node_name) {
+        parts.push(`name=${r.node_name}`);
+    }
+    if (r.node_x !== undefined && r.node_y !== undefined) {
+        parts.push(`node_pos=(${r.node_x}, ${r.node_y})`);
+    }
+    if (r.map_x !== undefined && r.map_y !== undefined) {
+        parts.push(`map_player=(${r.map_x}, ${r.map_y})`);
+    }
     if (r.player) {
         parts.push(`player=(${r.player.x}, ${r.player.y}, ${r.player.z})`);
     } else {
@@ -86,6 +98,18 @@ export async function cmdStatus(repo: string): Promise<void> {
     const client = new AgentClient(repo);
     try {
         printStatus(await client.status());
+    } finally {
+        client.close();
+    }
+}
+
+export async function cmdLeave(repo: string): Promise<void> {
+    const client = new AgentClient(repo);
+    try {
+        const r = await client.request({ cmd: "leave" });
+        if (!r.ok) {
+            throw new Error(r.error ?? "leave failed");
+        }
     } finally {
         client.close();
     }

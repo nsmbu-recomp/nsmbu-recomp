@@ -26,6 +26,8 @@ extern "C" {
 extern "C" void nsmbu_fill_course_banner_digits(void);
 extern "C" void nsmbu_banner_entry_arm(void);
 extern "C" void nsmbu_mark_course_left(void);
+extern "C" void nsmbu_directed_open(uint8_t world, uint8_t course);
+extern "C" void nsmbu_map_pose_tick(void);
 
 namespace mods::lua_sdk {
 std::atomic<bool> g_story_leave_queued{false};
@@ -687,7 +689,10 @@ const uint32_t kFaderBusy = GC(0x02983B28);
 const uint32_t kSubjectMgr = GD(0x101D1874);
 
 const uint32_t kAreaTaskInstance = GD(0x101D1598);
+const uint32_t kCourseSelectMgr = GD(0x101CBE14);
 const uint32_t kRequestCourseOut = GC(0x024B77DC);
+constexpr uint32_t kMapPlayerProfile = 854u;
+constexpr uint32_t kPathNodeSize = 0x68u;
 const uint32_t kFlowVtbl = GD(0x10177E4C);
 const uint32_t kMenuVtbl = GD(0x10175F88);
 constexpr uint32_t kSceneNowCreatorOff = 0x58u;
@@ -2119,14 +2124,25 @@ int l_scene_open_course_select(lua_State* L) {
     return 1;
 }
 
-int l_scene_leave_course(lua_State* L) {
-    if (!t_guest_cpu) return fail(L, "no guest cpu");
-    std::string err;
+bool leave_course_impl(std::string& err) {
+    if (!t_guest_cpu) {
+        err = "no guest cpu";
+        return false;
+    }
     uint32_t area = 0;
-    if (!lua_guest::read_u32(kAreaTaskInstance, area, err)) return fail(L, err.c_str());
-    if (area == 0) return fail(L, "no course");
+    if (!lua_guest::read_u32(kAreaTaskInstance, area, err)) return false;
+    if (area == 0) {
+        err = "no course";
+        return false;
+    }
     guest_call(t_guest_cpu, kRequestCourseOut, {area});
     nsmbu_mark_course_left();
+    return true;
+}
+
+int l_scene_leave_course(lua_State* L) {
+    std::string err;
+    if (!leave_course_impl(err)) return fail(L, err.c_str());
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -2289,6 +2305,7 @@ bool scene_load_story_transition(int32_t world, int32_t course, std::string& err
     g_story_load_generation.fetch_add(1, std::memory_order_acq_rel);
     ::nsmbu_banner_entry_arm();
     ::nsmbu_fill_course_banner_digits();
+    if (world >= 0 && world <= 8 && course >= 0 && course <= 255) nsmbu_directed_open((uint8_t)world, (uint8_t)course);
     return true;
 }
 
@@ -2669,6 +2686,7 @@ uint64_t story_load_generation() {
 
 void native_intro_skip_tick(uint64_t step) {
     native_intro_skip_tick_impl(step);
+    nsmbu_map_pose_tick();
 }
 
 namespace {
@@ -2683,6 +2701,113 @@ void format_pack(uint8_t world, uint8_t course, std::string& out) {
     out = buf;
 }
 
+bool read_ident(uint32_t ea, std::string& out) {
+    out.clear();
+    for (uint32_t i = 0; i < 16; i++) {
+        uint8_t c = 0;
+        std::string err;
+        if (!lua_guest::read_u8(ea + i, c, err)) return false;
+        if (c == 0) break;
+        const bool ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
+        if (!ok) break;
+        out.push_back((char)c);
+    }
+    return !out.empty();
+}
+
+void fill_map_place(SceneReport& out) {
+    std::string err;
+    uint32_t area = 0;
+    if (lua_guest::read_u32(kAreaTaskInstance, area, err)) {
+        out.area_known = true;
+        out.area = area != 0;
+    }
+    if (!out.map || !out.world_known || !out.node_known) return;
+    uint32_t cs = 0;
+    err.clear();
+    if (lua_guest::read_u32(kCourseSelectInstance, cs, err) && cs != 0) {
+        uint8_t lock = 0;
+        err.clear();
+        if (lua_guest::read_u8(cs + 0xDC9u, lock, err)) {
+            out.map_lock_known = true;
+            out.map_lock = lock;
+        }
+    }
+    uint32_t game = 0;
+    err.clear();
+    if (!lua_guest::read_u32(kMainGame, game, err) || game == 0) return;
+    int32_t section = 0;
+    err.clear();
+    if (!lua_guest::read_s32(game + 0x1A0u, section, err)) return;
+    if (out.world < 0 || section < 0 || section > 1 || out.node < 0 || out.node > 255) return;
+    uint32_t mgr = 0;
+    err.clear();
+    if (!lua_guest::read_u32(kCourseSelectMgr, mgr, err) || mgr == 0) return;
+    uint32_t path = 0;
+    err.clear();
+    const uint32_t path_off = 0x60u + (uint32_t)(out.world * 2 + section) * 4u;
+    if (!lua_guest::read_u32(mgr + path_off, path, err) || path == 0) return;
+    const uint32_t base = path + 0x10u + (uint32_t)out.node * kPathNodeSize;
+    uint32_t name_ptr = 0;
+    err.clear();
+    if (!lua_guest::read_u32(base, name_ptr, err) || name_ptr == 0) return;
+    std::string name;
+    if (!read_ident(name_ptr, name)) return;
+    float nx = 0;
+    float ny = 0;
+    err.clear();
+    if (!lua_guest::read_f32(base + 0x44u, nx, err)) return;
+    err.clear();
+    if (!lua_guest::read_f32(base + 0x48u, ny, err)) return;
+    int32_t title = -1;
+    err.clear();
+    lua_guest::read_s32(base + 0x50u, title, err);
+    out.node_name = std::move(name);
+    out.node_pos_known = true;
+    out.node_x = nx;
+    out.node_y = ny;
+    out.map_title_known = true;
+    out.map_title = title;
+
+    uint32_t begin = 0;
+    uint32_t end = 0;
+    err.clear();
+    if (!live_actor_range(begin, end, err)) return;
+    int players = 0;
+    bool got = false;
+    float px = 0;
+    float py = 0;
+    for (uint32_t slot = begin; slot < end; slot += kActorIdxToPtr) {
+        uint32_t actor = 0;
+        err.clear();
+        if (!lua_guest::read_u32(slot, actor, err) || actor == 0) continue;
+        uint32_t id = 0;
+        if (!actor_profile_id(actor, id, err) || id != kMapPlayerProfile) continue;
+        players++;
+        if (got) continue;
+        float x = 0;
+        float y = 0;
+        err.clear();
+        if (!lua_guest::read_f32(actor + 0x50u, x, err)) continue;
+        err.clear();
+        if (!lua_guest::read_f32(actor + 0x54u, y, err)) continue;
+        px = x;
+        py = y;
+        got = true;
+    }
+    out.map_players_known = true;
+    out.map_players = players;
+    if (got) {
+        out.map_player_known = true;
+        out.map_x = px;
+        out.map_y = py;
+    }
+}
+
+}
+
+bool leave_course(std::string& err) {
+    return leave_course_impl(err);
 }
 
 void scene_report(SceneReport& out) {
@@ -2772,6 +2897,7 @@ void scene_report(SceneReport& out) {
             }
         }
     }
+    fill_map_place(out);
 }
 
 void request_load_story(int world, int course) {
