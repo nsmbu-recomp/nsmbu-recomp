@@ -1,5 +1,5 @@
 ---
-name: nsmbu
+name: cli
 description: "Playtests, benches, boots, builds, env vars, and game dumps for the nsmbu CLI. Use when running nsmbu test or nsmbu bench, nsmbu scenario or nsmbu compare-runs, a scripted or hidden boot, a warm build, an NSMBU_* variable, a usa/eu dump switch, nsmbu status, a course replay playtest, or a model pose, camera picture, or interpolation jitter."
 ---
 

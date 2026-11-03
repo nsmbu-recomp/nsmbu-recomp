@@ -1221,6 +1221,7 @@ static Surface* adopt_newer_alias(Surface* s) {
     return s;
 }
 static uint32_t g_surface_lookup_epoch = 1;
+static uint32_t g_spanStamp = 1;
 
 struct SurfaceLookupMemoSlot {
     uint32_t addr = 0, width = 0, height = 0, slices = 0, format = 0, dim = 0, mips = 0;
@@ -1642,7 +1643,10 @@ void upload_surface(Surface* s) {
         uint32_t base=mip_base(s,level);
         ranges[level]={base,uint32_t(std::min<uint64_t>(guest_info(s,level).surfSize,0x100000000ull-base))};
     }
-    s->dataSize=ranges[0].second;
+    if (s->dataSize != ranges[0].second) {
+        s->dataSize=ranges[0].second;
+        ++g_spanStamp;
+    }
     bool full = s->dirty || !s->watched;
     const uint64_t priorStamp=s->watchStamp;
     if (wwatch::active()) {
@@ -1993,49 +1997,119 @@ void copy_surface_impl(uint32_t srcAddr,uint32_t srcMip,uint32_t srcSlice,uint32
 void copy_surface(uint32_t src,uint32_t srcMip,uint32_t srcSlice,uint32_t dst,uint32_t dstMip,uint32_t dstSlice) {
     copy_surface_impl(src,srcMip,srcSlice,dst,dstMip,dstSlice);
 }
+struct InvSpan {
+    uint64_t begin = 0, end = 0;
+    Surface* surface = nullptr;
+};
+static std::vector<InvSpan> g_invSpans;
+static std::vector<uint64_t> g_invPrefix;
+static uint32_t g_invEpoch = 0, g_invStamp = 0;
+static size_t g_invCount = 0;
+
+static void rebuild_inv_spans() {
+    g_invSpans.clear();
+    g_invSpans.reserve(R.surfaces.size() * 2);
+    for (auto& [base, owned] : R.surfaces) {
+        Surface* s = owned.get();
+        uint64_t bytes = std::max<uint64_t>(s->dataSize, uint64_t(s->pitch) * s->height * s->fmt.bytesPerBlock);
+        if (bytes) g_invSpans.push_back({base, uint64_t(base) + bytes, s});
+        if (!s->mipAddr || s->mips <= 1) continue;
+        guest_level(s, 0);
+        auto& layout = *s->guestLayout;
+        if (!layout.mipRangesComplete) {
+            for (uint32_t level = 1; level < s->mips; ++level) {
+                const auto& info = guest_info(s, level);
+                uint64_t mip = mip_base(s, level);
+                auto& range = layout.levels[level];
+                if (!range.rangeValid) {
+                    range.rangeBegin = mip;
+                    range.rangeEnd = mip + info.surfSize;
+                    range.rangeValid = true;
+                    ++layout.mipRangesCached;
+                    layout.mipRangeBegin = std::min(layout.mipRangeBegin, range.rangeBegin);
+                    layout.mipRangeEnd = std::max(layout.mipRangeEnd, range.rangeEnd);
+                }
+            }
+            layout.mipRangesComplete = layout.mipRangesCached == s->mips - 1;
+        }
+        if (layout.mipRangeEnd > layout.mipRangeBegin)
+            g_invSpans.push_back({layout.mipRangeBegin, layout.mipRangeEnd, s});
+    }
+    std::sort(g_invSpans.begin(), g_invSpans.end(), [](const InvSpan& a, const InvSpan& b) {
+        return a.begin < b.begin;
+    });
+    g_invPrefix.resize(g_invSpans.size());
+    uint64_t maxEnd = 0;
+    for (size_t i = 0; i < g_invSpans.size(); ++i) {
+        maxEnd = std::max(maxEnd, g_invSpans[i].end);
+        g_invPrefix[i] = maxEnd;
+    }
+    g_invEpoch = g_surface_lookup_epoch;
+    g_invStamp = g_spanStamp;
+    g_invCount = R.surfaces.size();
+}
+
+static void invalidate_surface_range(Surface* s, uint32_t base, uint32_t addr, uint32_t size) {
+    if (s->gpuWritten || (base >= 0xF4000000 && base < 0xF6000000)) return;
+    if (s->dirty && s->lastCheckedFrame == ~0ull) return;
+    uint64_t end = uint64_t(addr) + size;
+    uint64_t bytes = std::max<uint64_t>(s->dataSize, uint64_t(s->pitch) * s->height * s->fmt.bytesPerBlock);
+    bool baseHit = uint64_t(base) < end && uint64_t(addr) < uint64_t(base) + bytes;
+    bool mipHit = false;
+    if (!baseHit && s->mipAddr && s->mips > 1) {
+        guest_level(s, 0);
+        auto& layout = *s->guestLayout;
+        if (layout.mipRangesComplete) {
+            if (layout.mipRangeBegin < end && uint64_t(addr) < layout.mipRangeEnd)
+                for (uint32_t level = 1; level < s->mips && !mipHit; ++level) {
+                    const auto& range = layout.levels[level];
+                    mipHit = range.rangeBegin < end && uint64_t(addr) < range.rangeEnd;
+                }
+        } else {
+            for (uint32_t level = 1; level < s->mips && !mipHit; ++level) {
+                const auto& info = guest_info(s, level);
+                uint64_t mip = mip_base(s, level);
+                auto& range = layout.levels[level];
+                if (!range.rangeValid) {
+                    range.rangeBegin = mip;
+                    range.rangeEnd = mip + info.surfSize;
+                    range.rangeValid = true;
+                    ++layout.mipRangesCached;
+                    layout.mipRangeBegin = std::min(layout.mipRangeBegin, range.rangeBegin);
+                    layout.mipRangeEnd = std::max(layout.mipRangeEnd, range.rangeEnd);
+                }
+                mipHit = mip < end && uint64_t(addr) < mip + info.surfSize;
+            }
+            layout.mipRangesComplete = layout.mipRangesCached == s->mips - 1;
+            ++g_spanStamp;
+        }
+    }
+    if (baseHit || mipHit) {
+        s->dirty = true;
+        s->lastCheckedFrame = ~0ull;
+        ++g_stat_invalidated_surfaces;
+    }
+}
+
 void invalidate(uint32_t flags,uint32_t addr,uint32_t size) {
     buffer_cache_guest_invalidate(flags,addr,size);
     ++g_stat_invalidates;if(!(flags&2)||size>=0x10000000)return;
-    uint64_t end=uint64_t(addr)+size;
-    for(auto& [base,s]:R.surfaces) {
-        if(s->gpuWritten||(base>=0xF4000000&&base<0xF6000000))continue;
-
-        if(s->dirty&&s->lastCheckedFrame==~0ull)continue;
-        uint64_t bytes=std::max<uint64_t>(s->dataSize,uint64_t(s->pitch)*s->height*s->fmt.bytesPerBlock);
-        bool baseHit=uint64_t(base)<end&&uint64_t(addr)<uint64_t(base)+bytes;
-        bool mipHit=false;
-        if(!baseHit&&s->mipAddr&&s->mips>1) {
-
-            guest_level(s.get(),0);
-            auto& layout=*s->guestLayout;
-            if(layout.mipRangesComplete) {
-                if(layout.mipRangeBegin<end&&uint64_t(addr)<layout.mipRangeEnd)
-                    for(uint32_t level=1;level<s->mips&&!mipHit;++level) {
-                        const auto& range=layout.levels[level];
-                        mipHit=range.rangeBegin<end&&uint64_t(addr)<range.rangeEnd;
-                    }
-            } else {
-
-                for(uint32_t level=1;level<s->mips&&!mipHit;++level) {
-                    const auto& info=guest_info(s.get(),level);
-                    uint64_t mip=mip_base(s.get(),level);
-                    auto& range=layout.levels[level];
-                    if(!range.rangeValid) {
-                        range.rangeBegin=mip;range.rangeEnd=mip+info.surfSize;
-                        range.rangeValid=true;++layout.mipRangesCached;
-                        layout.mipRangeBegin=std::min(layout.mipRangeBegin,range.rangeBegin);
-                        layout.mipRangeEnd=std::max(layout.mipRangeEnd,range.rangeEnd);
-                    }
-                    mipHit=mip<end&&uint64_t(addr)<mip+info.surfSize;
-                }
-                layout.mipRangesComplete=layout.mipRangesCached==s->mips-1;
-            }
-        }
-        if(baseHit||mipHit) {s->dirty=true;s->lastCheckedFrame=~0ull;++g_stat_invalidated_surfaces;}
+    if (g_invEpoch != g_surface_lookup_epoch || g_invStamp != g_spanStamp || g_invCount != R.surfaces.size())
+        rebuild_inv_spans();
+    uint64_t end = uint64_t(addr) + size;
+    auto past = std::lower_bound(g_invSpans.begin(), g_invSpans.end(), end,
+        [](const InvSpan& span, uint64_t value) { return span.begin < value; });
+    for (auto it = past; it != g_invSpans.begin();) {
+        --it;
+        size_t index = size_t(it - g_invSpans.begin());
+        if (g_invPrefix[index] <= addr) break;
+        if (it->end > addr && it->begin < end)
+            invalidate_surface_range(it->surface, it->surface->addr, addr, size);
     }
 }
 void ss_reset_surfaces() {
     R.mainDepthAddr = 0;
     for(auto& [addr,s]:R.surfaces){s->guestLayout.reset();s->dirty=true;s->dirtyOob=true;s->lastCheckedFrame=~0ull;}
+    ++g_spanStamp;
 }
 }

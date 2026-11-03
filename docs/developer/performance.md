@@ -578,3 +578,30 @@ The same six map windows, one debug run after dropping the class table and the a
 That single run is slower than the 7.26 ms texture-bind run above.
 Draw and register counts were also higher in the later windows.
 One run on this machine can swing about 20%.
+
+## Settled world-map render CPU (2026-11-03)
+
+The overworld bench is limited by the render thread.
+GPU wait stays at 0.
+Four skips target the time that was still left after the texture-bind reuse:
+
+- A register packet of 16 words or fewer returns when it matches `g_regs` and the shadow.
+  A packet that differs still takes the word loop.
+- A stage reuses its last descriptor set when the shader, the uniform-pack generation, the texture slots, and the color and depth targets match.
+  A surface that has not been checked this frame is still uploaded.
+  A guest uniform block also requires the write-watch sequence and the buffer-cache epoch to match.
+  A shader with remapped uniform buffers stays on the full path.
+- Viewport, scissor, and depth-bias math is skipped when the guest words, the target size, and the aspect flags match.
+  The Vulkan calls still run when the command buffer has not seen that state.
+- `GX2Invalidate` matches a sorted list of surface ranges instead of walking every surface.
+
+`build/debug/nsmbu --renderer-smoke` passed.
+Three `nsmbu bench overworld` runs scored 7.40 ms, 7.46 ms, and 7.52 ms per frame.
+The median run is 7.46 ms/frame, 134.3 swaps/s, and 4.14 ms of render-thread CPU.
+The earlier settled run on this machine was 8.05 ms/frame, 124.2 swaps/s, and 4.99 ms of render-thread CPU.
+
+Across those six windows, regs fell from 1.26 ms/frame to 0.96 ms/frame.
+Invalidate fell from 0.30 ms/frame to 0.02 ms/frame.
+Uniforms are 0.56 ms/frame, record 0.46 ms/frame, and textures 0.39 ms/frame.
+The other two runs were 7.40 ms (render 4.08 ms) and 7.52 ms (render 4.22 ms).
+Frame time still moves with how many draws the window has.

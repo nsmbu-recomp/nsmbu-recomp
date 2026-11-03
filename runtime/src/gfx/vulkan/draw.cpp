@@ -1657,7 +1657,25 @@ struct TextureBindSlot {
   VkImageView view = VK_NULL_HANDLE;
   VkSampler sampler = VK_NULL_HANDLE;
   VkDevice device = VK_NULL_HANDLE;
+  float sx = 1, sy = 1;
 };
+struct StageBindMemo {
+  bool valid = false;
+  bool guestUbo = false;
+  bool dynamicUniforms = false;
+  const vk::Shader* shader = nullptr;
+  VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+  VkDescriptorSet set = VK_NULL_HANDLE;
+  VkDevice device = VK_NULL_HANDLE;
+  uint64_t packGen = 0, submission = 0, seq = 0, epoch = 0;
+  float sx = 0, sy = 0, orthoKx = 1, orthoKy = 1;
+  std::array<Surface*, 8> colors{};
+  Surface* depth = nullptr;
+  uint32_t dynamicOffsetCount = 0;
+  std::array<uint32_t, 17> dynamicOffsets{};
+};
+static thread_local StageBindMemo g_stageMemo[2];
+static thread_local TextureBindSlot g_textureBinds[2][LATTE_NUM_MAX_TEX_UNITS];
 bool texture_words_match(const TextureBindSlot& slot, VkDevice device, bool depthCompare,
                          const uint32_t* words, const uint32_t* samplerWords) {
   return slot.have && slot.device == device && slot.depthCompare == depthCompare &&
@@ -1677,6 +1695,64 @@ StageResources bind_stage(const uint32_t *r, vk::Shader *sh,
                           Surface *depth, FeedbackStatsProbe* feedbackProbe) {
   StageResources out;
   auto &m = sh->mapping;
+  float ortho_kx = 1.0f, ortho_ky = 1.0f;
+  if (aspect::edge_hud())
+    target_aspect_factors(r[mmCB_COLOR0_TILE] & 0xFFFF, r[mmCB_COLOR0_FRAG], ortho_kx, ortho_ky);
+  const int memoSlot = sh->vertex ? 0 : 1;
+  auto& stageMemo = g_stageMemo[memoSlot];
+  auto& stageBinds = g_textureBinds[sh->vertex ? 1 : 0];
+  const bool stable = sh->dec && sh->dec->list_remappedUniformEntries_bufferGroups.empty();
+  if (stable && stageMemo.valid && stageMemo.shader == sh && stageMemo.layout == layout &&
+      stageMemo.device == R.device && stageMemo.dynamicUniforms == dynamicUniforms &&
+      stageMemo.packGen == gx2::g_uniform_pack_gen && stageMemo.submission == R.submissionGeneration &&
+      stageMemo.sx == sx && stageMemo.sy == sy && stageMemo.orthoKx == ortho_kx &&
+      stageMemo.orthoKy == ortho_ky && stageMemo.colors == colors && stageMemo.depth == depth &&
+      (!stageMemo.guestUbo || (stageMemo.seq == wwatch::write_seq() &&
+       stageMemo.epoch == (buffer_cache_enabled() ? buffer_cache_epoch() : 0)))) {
+    rprof::mark(rprof::kUniforms);
+    bool reuse = true;
+    uint32_t texbase = sh->vertex ? REGADDR::SQ_TEX_RESOURCE_WORD0_N_VS
+                                  : REGADDR::SQ_TEX_RESOURCE_WORD0_N_PS;
+    for (int i = 0; i < sh->dec->textureUnitListCount && reuse; i++) {
+      uint32_t unit = sh->dec->textureUnitList[i];
+      if (unit >= LATTE_NUM_MAX_TEX_UNITS) { reuse = false; break; }
+      if (m.textureUnitToBindingPoint[unit] < 0) continue;
+      const bool depthCompare = sh->dec->textureUsesDepthCompare[unit];
+      const uint32_t* texWords = r + texbase + unit * 7;
+      uint32_t samplerId = sh->dec->textureUnitSamplerAssignment[unit];
+      if (samplerId >= 18) { reuse = false; break; }
+      uint32_t samplerBase = sh->vertex ? 18 : 0;
+      const uint32_t* samplerWords = r + REGADDR::SQ_TEX_SAMPLER_WORD0_0 +
+                                      (samplerBase + samplerId) * 3;
+      TextureBindSlot& slot = stageBinds[unit];
+      if (!texture_words_match(slot, R.device, depthCompare, texWords, samplerWords)) {
+        reuse = false; break;
+      }
+      if (slot.nullTex) continue;
+      Surface* s = slot.surface;
+      if (!s || s->gpuWritten || !slot.image || s->image != slot.image) { reuse = false; break; }
+      if (s->lastCheckedFrame != R.frame) upload_surface(s);
+      const bool integerSampler = s->fmt.kind != FormatInfo::FLOAT;
+      const bool allowAniso = !s->gpuWritten && s->mips > 1;
+      if (s->gpuWritten || s->image != slot.image || s->sx != slot.sx || s->sy != slot.sy ||
+          s->layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ||
+          texture_aliases(s->image, colors, depth) ||
+          integerSampler != slot.integerSampler || allowAniso != slot.allowAniso)
+        reuse = false;
+    }
+    if (reuse) {
+      rprof::mark(rprof::kTextures);
+      rprof::mark(rprof::kUniforms);
+      rprof::mark(rprof::kDescriptors);
+      ++R.descriptorLookups;
+      ++R.descriptorCacheHits;
+      ++R.descriptorFastHits;
+      out.set = stageMemo.set;
+      out.dynamicOffsetCount = stageMemo.dynamicOffsetCount;
+      out.dynamicOffsets = stageMemo.dynamicOffsets;
+      return out;
+    }
+  }
 
   std::array<VkDescriptorBufferInfo, 17> bufferInfos;
   std::array<VkDescriptorImageInfo, LATTE_NUM_MAX_TEX_UNITS> imageInfos;
@@ -1780,11 +1856,7 @@ StageResources bind_stage(const uint32_t *r, vk::Shader *sh,
   auto& packMemo = uniformPackMemo[stageSlot];
   if (m.uniformVarsBufferBindingPoint >= 0) {
     const size_t capacity=preparation_stats_enabled()?supportUniforms.capacity():0;
-    float ortho_kx = 1.0f, ortho_ky = 1.0f;
-    if (aspect::edge_hud())
-      target_aspect_factors(r[mmCB_COLOR0_TILE] & 0xFFFF, r[mmCB_COLOR0_FRAG], ortho_kx, ortho_ky);
     const uint64_t gen = gx2::g_uniform_pack_gen;
-    const bool stable = sh->dec && sh->dec->list_remappedUniformEntries_bufferGroups.empty();
     const bool skipPack = packMemo.valid && stable && packMemo.shader == sh &&
         packMemo.gen == gen && packMemo.scaleX == sx && packMemo.scaleY == sy &&
         packMemo.orthoKx == ortho_kx && packMemo.orthoKy == ortho_ky;
@@ -1827,8 +1899,6 @@ StageResources bind_stage(const uint32_t *r, vk::Shader *sh,
   rprof::mark(rprof::kUniforms);
   uint32_t texbase = sh->vertex ? REGADDR::SQ_TEX_RESOURCE_WORD0_N_VS
                                 : REGADDR::SQ_TEX_RESOURCE_WORD0_N_PS;
-  static thread_local TextureBindSlot textureBinds[2][LATTE_NUM_MAX_TEX_UNITS];
-  auto& stageBinds = textureBinds[sh->vertex ? 1 : 0];
   for (int i = 0; i < sh->dec->textureUnitListCount; i++) {
     uint32_t unit = sh->dec->textureUnitList[i];
     if (unit >= LATTE_NUM_MAX_TEX_UNITS)
@@ -1870,6 +1940,8 @@ StageResources bind_stage(const uint32_t *r, vk::Shader *sh,
           integerSampler == slot.integerSampler && allowAniso == slot.allowAniso) {
         sampledView = slot.view;
         sampledSampler = slot.sampler;
+        slot.sx = s->sx;
+        slot.sy = s->sy;
         reused = true;
         if (narrow_barriers())
           transition_image(s, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -1923,6 +1995,8 @@ StageResources bind_stage(const uint32_t *r, vk::Shader *sh,
         slot.view = sampledView;
         slot.sampler = sampledSampler;
         slot.device = R.device;
+        slot.sx = s ? s->sx : 1;
+        slot.sy = s ? s->sy : 1;
       }
     }
     if (imageCount >= imageInfos.size())
@@ -1966,12 +2040,47 @@ StageResources bind_stage(const uint32_t *r, vk::Shader *sh,
     lastDescriptors[0] = {}; lastDescriptors[1] = {};
     cacheGeneration = R.submissionGeneration;
   }
+  auto keepStage = [&]() {
+    stageMemo.valid = false;
+    if (!stable) return;
+    for (int i = 0; i < sh->dec->textureUnitListCount; i++) {
+      uint32_t unit = sh->dec->textureUnitList[i];
+      if (unit >= LATTE_NUM_MAX_TEX_UNITS) return;
+      if (m.textureUnitToBindingPoint[unit] < 0) continue;
+      if (!stageBinds[unit].have) return;
+    }
+    bool guestUbo = false;
+    for (int i = 0; i < 16; i++)
+      if (m.uniformBuffersBindingPoint[i] >= 0) guestUbo = true;
+    stageMemo.valid = true;
+    stageMemo.guestUbo = guestUbo;
+    stageMemo.dynamicUniforms = dynamicUniforms;
+    stageMemo.shader = sh;
+    stageMemo.layout = layout;
+    stageMemo.set = out.set;
+    stageMemo.device = R.device;
+    stageMemo.packGen = gx2::g_uniform_pack_gen;
+    stageMemo.submission = R.submissionGeneration;
+    stageMemo.sx = sx;
+    stageMemo.sy = sy;
+    stageMemo.orthoKx = ortho_kx;
+    stageMemo.orthoKy = ortho_ky;
+    stageMemo.colors = colors;
+    stageMemo.depth = depth;
+    stageMemo.dynamicOffsetCount = out.dynamicOffsetCount;
+    stageMemo.dynamicOffsets = out.dynamicOffsets;
+    if (guestUbo) {
+      stageMemo.seq = wwatch::write_seq();
+      stageMemo.epoch = buffer_cache_enabled() ? buffer_cache_epoch() : 0;
+    }
+  };
   ++R.descriptorLookups;
   auto &last = lastDescriptors[sh->vertex ? 0 : 1];
   if (descriptor_matches(last, layout, writes.data(), writeCount)) {
     ++R.descriptorCacheHits;
     ++R.descriptorFastHits;
     out.set = last.set;
+    keepStage();
     return out;
   }
   const uint64_t hash = descriptor_hash(layout, writes.data(), writeCount);
@@ -1979,6 +2088,7 @@ StageResources bind_stage(const uint32_t *r, vk::Shader *sh,
     ++R.descriptorCacheHits;
     out.set = found;
     remember_descriptors(last, layout, out.set, writes.data(), writeCount);
+    keepStage();
     return out;
   }
   VkDescriptorSetAllocateInfo ai{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
@@ -1992,6 +2102,7 @@ StageResources bind_stage(const uint32_t *r, vk::Shader *sh,
     vkUpdateDescriptorSets(R.device, writeCount, writes.data(), 0, nullptr);
   descriptorCache.insert(hash, layout, out.set, writes.data(), writeCount);
   remember_descriptors(last, layout, out.set, writes.data(), writeCount);
+  keepStage();
   return out;
 }
 }
@@ -2281,8 +2392,9 @@ void draw(const uint32_t *r, uint32_t prim, uint32_t count, uint32_t indexType,
     VkRect2D scissor{};
     std::array<uint32_t, 4> blend{};
     uint32_t stencilFront = 0, stencilBack = 0;
+    float biasConstant = 0, biasClamp = 0, biasSlope = 0;
     bool viewportValid = false, scissorValid = false;
-    bool blendValid = false, stencilValid = false;
+    bool blendValid = false, stencilValid = false, biasValid = false;
   };
   static DrawStateCache state;
 
@@ -2379,53 +2491,150 @@ void draw(const uint32_t *r, uint32_t prim, uint32_t count, uint32_t indexType,
     vkCmdBindDescriptorSets(cmd,VK_PIPELINE_BIND_POINT_GRAPHICS,p.layout,
         bind.first,bind.count,sets+bind.first,bind.offsetCount,
         dynamicOffsets.data()+bind.offsetBegin);
-  float xs = f32(r[REGADDR::PA_CL_VPORT_XSCALE]),
-        xo = f32(r[REGADDR::PA_CL_VPORT_XOFFSET]),
-        ys = f32(r[REGADDR::PA_CL_VPORT_YSCALE]),
-        yo = f32(r[REGADDR::PA_CL_VPORT_YOFFSET]),
-        zs = f32(r[REGADDR::PA_CL_VPORT_ZSCALE]),
-        zo = f32(r[REGADDR::PA_CL_VPORT_ZOFFSET]);
-  LATTE_PA_CL_CLIP_CNTL clip;
-  std::memcpy(&clip, r + REGADDR::PA_CL_CLIP_CNTL, 4);
-  bool wide_target = target->ax != 1.0f || target->ay != 1.0f;
-  bool screen_ortho = shader_screen_ortho(r, vs->dec, float(target->width), float(target->height));
-  bool window_space = vs && vs->dec && vs->dec->uniform.loc_windowSpaceToClipSpaceTransform >= 0;
-  bool full_quad = screen_ortho && shader_fullscreen_quad(r, vs->dec, float(target->width), float(target->height));
-  bool center_ortho = aspect::view::center_framebuffer_draw(wide_target, screen_ortho || window_space,
-                                                             aspect::cover_draw() || full_quad || aspect::edge_hud());
-  auto placed = aspect::view::place_ortho(xo, xs, yo, ys, float(width), float(height), float(target->width),
-                                           float(target->height), sx, sy, target->ax, target->ay, center_ortho);
-  VkViewport vp{placed.x, placed.y, placed.w, placed.h,
-                clip.get_DX_CLIP_SPACE_DEF() ? zo : zo - zs,
-                zo + zs};
-
+  struct RecordMemo {
+    bool valid = false, empty = false, offset = false;
+    const vk::Shader* vs = nullptr;
+    Surface* target = nullptr;
+    uint32_t width = 0, height = 0, targetWidth = 0, targetHeight = 0;
+    float sx = 0, sy = 0, ax = 0, ay = 0;
+    uint32_t view[6]{};
+    uint32_t clip = 0, poly = 0, tl = 0, br = 0, tile = 0, frag = 0;
+    uint32_t bias0 = 0, bias1 = 0, bias2 = 0;
+    uint64_t packGen = 0, seq = 0;
+    bool cover = false, edge = false, content = false;
+    VkViewport vp{};
+    VkRect2D sc{};
+    float biasConstant = 0, biasClamp = 0, biasSlope = 0;
+  };
+  static RecordMemo recordMemo;
+  const uint32_t viewReg = r[REGADDR::PA_CL_VPORT_XSCALE];
+  const uint32_t clipReg = r[REGADDR::PA_CL_CLIP_CNTL];
+  const uint32_t polyReg = r[REGADDR::PA_SU_SC_MODE_CNTL];
+  const uint32_t tlReg = r[REGADDR::PA_SC_GENERIC_SCISSOR_TL];
+  const uint32_t brReg = r[REGADDR::PA_SC_GENERIC_SCISSOR_BR];
+  const uint32_t tileReg = r[mmCB_COLOR0_TILE];
+  const uint32_t fragReg = r[mmCB_COLOR0_FRAG];
+  const uint32_t biasReg0 = r[REGADDR::PA_SU_POLY_OFFSET_FRONT_OFFSET];
+  const uint32_t biasReg1 = r[REGADDR::PA_SU_POLY_OFFSET_CLAMP];
+  const uint32_t biasReg2 = r[REGADDR::PA_SU_POLY_OFFSET_FRONT_SCALE];
+  const bool cover = aspect::cover_draw();
+  const bool edge = aspect::edge_hud();
+  const bool content = aspect::content_clip();
+  const uint64_t packGen = gx2::g_uniform_pack_gen;
+  const uint64_t seq = wwatch::write_seq();
+  VkViewport vp{};
+  VkRect2D sc{};
+  bool emptyDraw = false, offsetOn = false;
+  float biasConstant = 0, biasClamp = 0, biasSlope = 0;
+  const bool recordHit = recordMemo.valid && recordMemo.vs == vs && recordMemo.target == target &&
+      recordMemo.width == width && recordMemo.height == height &&
+      recordMemo.targetWidth == target->width && recordMemo.targetHeight == target->height &&
+      recordMemo.sx == sx && recordMemo.sy == sy && recordMemo.ax == target->ax && recordMemo.ay == target->ay &&
+      recordMemo.clip == clipReg && recordMemo.poly == polyReg &&
+      recordMemo.tl == tlReg && recordMemo.br == brReg && recordMemo.tile == tileReg && recordMemo.frag == fragReg &&
+      recordMemo.bias0 == biasReg0 && recordMemo.bias1 == biasReg1 && recordMemo.bias2 == biasReg2 &&
+      recordMemo.packGen == packGen && recordMemo.seq == seq &&
+      recordMemo.cover == cover && recordMemo.edge == edge && recordMemo.content == content &&
+      std::memcmp(recordMemo.view, r + REGADDR::PA_CL_VPORT_XSCALE, sizeof recordMemo.view) == 0;
+  if (recordHit) {
+    vp = recordMemo.vp;
+    sc = recordMemo.sc;
+    emptyDraw = recordMemo.empty;
+    offsetOn = recordMemo.offset;
+    biasConstant = recordMemo.biasConstant;
+    biasClamp = recordMemo.biasClamp;
+    biasSlope = recordMemo.biasSlope;
+  } else {
+    float xs = f32(viewReg),
+          xo = f32(r[REGADDR::PA_CL_VPORT_XOFFSET]),
+          ys = f32(r[REGADDR::PA_CL_VPORT_YSCALE]),
+          yo = f32(r[REGADDR::PA_CL_VPORT_YOFFSET]),
+          zs = f32(r[REGADDR::PA_CL_VPORT_ZSCALE]),
+          zo = f32(r[REGADDR::PA_CL_VPORT_ZOFFSET]);
+    LATTE_PA_CL_CLIP_CNTL clip;
+    std::memcpy(&clip, &clipReg, 4);
+    bool wide_target = target->ax != 1.0f || target->ay != 1.0f;
+    bool screen_ortho = shader_screen_ortho(r, vs->dec, float(target->width), float(target->height));
+    bool window_space = vs && vs->dec && vs->dec->uniform.loc_windowSpaceToClipSpaceTransform >= 0;
+    bool full_quad = screen_ortho && shader_fullscreen_quad(r, vs->dec, float(target->width), float(target->height));
+    bool center_ortho = aspect::view::center_framebuffer_draw(wide_target, screen_ortho || window_space,
+                                                               cover || full_quad || edge);
+    auto placed = aspect::view::place_ortho(xo, xs, yo, ys, float(width), float(height), float(target->width),
+                                             float(target->height), sx, sy, target->ax, target->ay, center_ortho);
+    vp = {placed.x, placed.y, placed.w, placed.h,
+          clip.get_DX_CLIP_SPACE_DEF() ? zo : zo - zs,
+          zo + zs};
+    LATTE_PA_SU_SC_MODE_CNTL poly;
+    std::memcpy(&poly, &polyReg, 4);
+    offsetOn = poly.get_OFFSET_FRONT_ENABLED();
+    if (offsetOn) {
+      const float targetScale = std::max(sx, sy);
+      biasConstant = f32(biasReg0);
+      biasClamp = f32(biasReg1);
+      biasSlope = f32(biasReg2) * targetScale;
+    }
+    uint32_t x = aspect::view::cover_min(placed.pad_x + float(tlReg & 0x7fff) * placed.scale_x, width),
+             y = aspect::view::cover_min(placed.pad_y + float((tlReg >> 16) & 0x7fff) * placed.scale_y, height),
+             ex = aspect::view::cover_max(placed.pad_x + float(brReg & 0x7fff) * placed.scale_x, width),
+             ey = aspect::view::cover_max(placed.pad_y + float((brReg >> 16) & 0x7fff) * placed.scale_y, height);
+    float ax, ay;
+    if (content && target_aspect_factors(tileReg & 0xFFFF, fragReg, ax, ay))
+      aspect::panes::clip(width, height, ax, ay, x, y, ex, ey);
+    emptyDraw = ex <= x || ey <= y;
+    if (!emptyDraw)
+      sc = {{int32_t(x), int32_t(y)}, {ex - x, ey - y}};
+    recordMemo = {};
+    recordMemo.valid = true;
+    recordMemo.empty = emptyDraw;
+    recordMemo.offset = offsetOn;
+    recordMemo.vs = vs;
+    recordMemo.target = target;
+    recordMemo.width = width;
+    recordMemo.height = height;
+    recordMemo.targetWidth = target->width;
+    recordMemo.targetHeight = target->height;
+    recordMemo.sx = sx;
+    recordMemo.sy = sy;
+    recordMemo.ax = target->ax;
+    recordMemo.ay = target->ay;
+    std::memcpy(recordMemo.view, r + REGADDR::PA_CL_VPORT_XSCALE, sizeof recordMemo.view);
+    recordMemo.clip = clipReg;
+    recordMemo.poly = polyReg;
+    recordMemo.tl = tlReg;
+    recordMemo.br = brReg;
+    recordMemo.tile = tileReg;
+    recordMemo.frag = fragReg;
+    recordMemo.bias0 = biasReg0;
+    recordMemo.bias1 = biasReg1;
+    recordMemo.bias2 = biasReg2;
+    recordMemo.packGen = packGen;
+    recordMemo.seq = seq;
+    recordMemo.cover = cover;
+    recordMemo.edge = edge;
+    recordMemo.content = content;
+    recordMemo.vp = vp;
+    recordMemo.sc = sc;
+    recordMemo.biasConstant = biasConstant;
+    recordMemo.biasClamp = biasClamp;
+    recordMemo.biasSlope = biasSlope;
+  }
   if (!state.viewportValid || std::memcmp(&state.viewport, &vp, sizeof(vp))) {
     vkCmdSetViewport(cmd, 0, 1, &vp);
     state.viewport = vp;
     state.viewportValid = true;
   }
-  LATTE_PA_SU_SC_MODE_CNTL poly;
-  std::memcpy(&poly, r + REGADDR::PA_SU_SC_MODE_CNTL, 4);
-  if (poly.get_OFFSET_FRONT_ENABLED()) {
-    const float targetScale = std::max(sx, sy);
-    vkCmdSetDepthBias(cmd, f32(r[REGADDR::PA_SU_POLY_OFFSET_FRONT_OFFSET]),
-                      f32(r[REGADDR::PA_SU_POLY_OFFSET_CLAMP]),
-                      f32(r[REGADDR::PA_SU_POLY_OFFSET_FRONT_SCALE]) * targetScale);
+  if (offsetOn && (!state.biasValid || state.biasConstant != biasConstant ||
+                   state.biasClamp != biasClamp || state.biasSlope != biasSlope)) {
+    vkCmdSetDepthBias(cmd, biasConstant, biasClamp, biasSlope);
+    state.biasConstant = biasConstant;
+    state.biasClamp = biasClamp;
+    state.biasSlope = biasSlope;
+    state.biasValid = true;
   }
-  uint32_t tl = r[REGADDR::PA_SC_GENERIC_SCISSOR_TL],
-           br = r[REGADDR::PA_SC_GENERIC_SCISSOR_BR];
-  uint32_t x = aspect::view::cover_min(placed.pad_x + float(tl & 0x7fff) * placed.scale_x, width),
-           y = aspect::view::cover_min(placed.pad_y + float((tl >> 16) & 0x7fff) * placed.scale_y, height),
-           ex = aspect::view::cover_max(placed.pad_x + float(br & 0x7fff) * placed.scale_x, width),
-           ey = aspect::view::cover_max(placed.pad_y + float((br >> 16) & 0x7fff) * placed.scale_y, height);
-  float ax, ay;
-  if (aspect::content_clip() && target_aspect_factors(r[mmCB_COLOR0_TILE] & 0xFFFF, r[mmCB_COLOR0_FRAG], ax, ay))
-    aspect::panes::clip(width, height, ax, ay, x, y, ex, ey);
-  if (ex <= x || ey <= y) {
+  if (emptyDraw) {
     end_encoder();
     return;
   }
-  VkRect2D sc{{int32_t(x), int32_t(y)}, {ex - x, ey - y}};
   if (!state.scissorValid || state.scissor.offset.x != sc.offset.x ||
       state.scissor.offset.y != sc.offset.y ||
       state.scissor.extent.width != sc.extent.width ||

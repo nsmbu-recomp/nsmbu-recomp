@@ -158,6 +158,9 @@ ShaderKeyDirtyStats shader_key_dirty_stats() { return shaderKeyDirtyStats; }
 
 #ifdef NSMBU_HAS_VULKAN
 static void apply_small_regs(uint32 first, const uint32* v, uint32 n) {
+    if (memcmp(&g_regs[first], v, size_t(n) * 4) == 0 &&
+        (!g_shadow || memcmp(&g_shadow[first], v, size_t(n) * 4) == 0))
+        return;
     static const bool keyDirty = [] {
         const char* e = env::VK_SHADER_KEY_DIRTY();
         return e && !strcmp(e, "1");

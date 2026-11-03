@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `nsmbu bench overworld` measures the world map after the load has settled.
 - Uniform register writes are applied in one copy.
 - Unchanged uniform packs, pixel shaders, vertex buffers, index binds, and texture alias checks are reused.
+- The settled world map does less repeated render work.
+  On this machine the overworld bench median is 7.46 ms/frame, down from 8.05 ms/frame.
 
 ### Fixed
 
