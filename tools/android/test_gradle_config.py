@@ -14,7 +14,7 @@ spec.loader.exec_module(guard)
 class GradleConfig(unittest.TestCase):
     def test_release_python_check_matches_the_guard(self):
         block = GRADLE[GRADLE.index("tasks.register('verifyReleasePython')"):]
-        listed = set(re.findall(r"'(tools/[^']+)'", block[:block.index(".any")]))
+        listed = set(re.findall(r"'((?:tools|recomp)/[^']+)'", block[:block.index(".any")]))
         self.assertEqual(listed, guard.ANDROID_TEST_FILES)
         self.assertIn("dependsOn 'verifyReleasePython'", GRADLE)
 

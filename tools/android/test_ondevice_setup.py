@@ -38,8 +38,10 @@ class SetupJobTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name).resolve()
         self.package = self.root / "package"
-        shutil.copytree(ROOT / "tools", self.package / "tools",
-                        ignore=shutil.ignore_patterns("__pycache__", "node_modules"))
+        ignore = shutil.ignore_patterns("__pycache__", "node_modules")
+        shutil.copytree(ROOT / "tools", self.package / "tools", ignore=ignore)
+        shutil.copytree(ROOT / "recomp", self.package / "recomp", ignore=ignore)
+        shutil.copytree(ROOT / "installer", self.package / "installer", ignore=ignore)
         shutil.copytree(ROOT / "runtime/include", self.package / "sdk/include")
         link = (["-shared", "-Wl,-all_load", "{gamecode}", "-o", "{out}"] if sys.platform == "darwin" else
                 ["-shared", "-Wl,--whole-archive", "{gamecode}", "-Wl,--no-whole-archive", "-o", "{out}"])
