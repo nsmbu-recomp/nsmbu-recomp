@@ -189,11 +189,7 @@ struct Ui {
     save_preview::Info game_save;
     double slots_time = -1;
 
-    double fps_t0 = 0, fps = 0;
-    uint64_t fps_n0 = 0;
-    float frame_ms[FrameHistoryAverages::kFrames] = {};
-    uint32_t frame_logic[FrameHistoryAverages::kFrames] = {};
-    int frame_i = 0;
+    FrameHistory frames;
     double last_present = 0;
     double sample_restore = 0;
     bool sample_undo = false;
@@ -673,14 +669,15 @@ std::string performance_device() {
 }
 
 std::string performance_report() {
-    float avg_ms = 0, worst = 0, avg_fps = 0;
+    const double t = now_s();
+    float avg_ms = 0, worst = 0, avg_fps = 0, low1 = 0;
     double avg_logic = 0;
-    FrameHistoryAverages::compute(U.frame_ms, U.frame_logic, avg_ms, worst, avg_fps, avg_logic);
+    U.frames.compute(t, avg_ms, worst, avg_fps, avg_logic, low1);
+    const double mean_fps = avg_ms > 0 ? 1000.0 / avg_ms : 0;
     char frame[180];
-    const float low1 = FrameHistoryAverages::low1_fps(U.frame_ms);
     snprintf(frame, sizeof frame,
              "FPS %.1f (average %.1f, 1%% low %.1f), frame %.2f ms (worst %.2f), average logic steps/s %.1f\n",
-             U.fps, avg_fps, low1, avg_ms, worst, avg_logic);
+             avg_fps, mean_fps, low1, avg_ms, worst, avg_logic);
     std::string report = std::string(frame) + perf::summary();
 #ifdef __ANDROID__
     static AndroidTelemetry telemetry;
@@ -1692,9 +1689,7 @@ void tab_debug() {
     if (ImGui::Button("Reset performance averages")) {
         g_average.reset();
         perf::reset();
-        std::memset(U.frame_ms, 0, sizeof U.frame_ms);
-        std::memset(U.frame_logic, 0, sizeof U.frame_logic);
-        U.frame_i = 0;
+        U.frames.reset();
     }
 
     static double copiedAt = -10;
@@ -1931,22 +1926,21 @@ static ImU32 perf_graph_fill(float ms) {
     return IM_COL32(255, 110, 95, 28);
 }
 
-static void perf_frame_graph() {
+static void perf_frame_graph(double now) {
     const float w = ImGui::GetContentRegionAvail().x;
     const float h = 22.0f;
     const ImVec2 p0 = ImGui::GetCursorScreenPos();
     ImGui::Dummy(ImVec2(w, h));
 
-    constexpr int kCount = FrameHistoryAverages::kFrames;
+    constexpr int kCount = FrameHistory::kGraphPoints;
     constexpr float kMin = 0.0f;
     constexpr float kMax = 50.0f;
     const float invScale = 1.0f / (kMax - kMin);
     const int resW = std::max(1, std::min((int)w, kCount) - 1);
-    const int itemCount = kCount - 1;
     const float tStep = 1.0f / (float)resW;
     const float baseline = p0.y + h;
 
-    auto sample = [&](int idx) -> float { return U.frame_ms[(idx + U.frame_i) % kCount]; };
+    auto sample = [&](int idx) -> float { return U.frames.graph_ms(idx, now); };
 
     float v0 = sample(0);
     float t0 = 0.0f;
@@ -1957,10 +1951,11 @@ static void perf_frame_graph() {
 
     for (int n = 0; n < resW; n++) {
         const float t1 = t0 + tStep;
-        const int v1Idx = (int)(t0 * itemCount + 0.5f);
-        const float v1 = sample(v1Idx + 1);
+        const int i0 = std::clamp((int)(t0 * (kCount - 1) + 0.5f), 0, kCount - 1);
+        const int i1 = std::clamp((int)(t1 * (kCount - 1) + 0.5f), 0, kCount - 1);
+        const float v1 = sample(i1);
         const ImVec2 pos1(p0.x + t1 * w, yAt(v1));
-        const float segMs = 0.5f * (v0 + v1);
+        const float segMs = 0.5f * (sample(i0) + v1);
         dl->AddQuadFilled(
             ImVec2(pos0.x, baseline), pos0, pos1, ImVec2(pos1.x, baseline), perf_graph_fill(segMs));
         dl->AddLine(pos0, pos1, perf_graph_color(segMs), 1.5f);
@@ -1972,42 +1967,33 @@ static void perf_frame_graph() {
 
 void perf_window(bool menu_open) {
     const double t = now_s();
-    static perf::Snapshot snap;
-    static double display_logic = 60;
-    static double logic_t0 = 0;
-    static uint64_t logic_s0 = 0;
-    static double logic_rate = 60;
-    static int slowWindows = 0;
-    static bool slow = false;
-    if (logic_t0 == 0 || t - logic_t0 < 0) {
-        logic_t0 = t;
-        logic_s0 = interp::logic_steps();
-    } else if (t - logic_t0 >= 2.0) {
-        logic_rate = (double)(interp::logic_steps() - logic_s0) / (t - logic_t0);
-        logic_t0 = t;
-        logic_s0 = interp::logic_steps();
-        slowWindows = logic_rate > 1 && logic_rate < 58.0 ? slowWindows + 1 : 0;
-        slow = slow ? logic_rate > 1 && logic_rate < 59.0 : slowWindows >= 2;
+    static struct {
+        perf::Snapshot snap;
+        double fps = 0, logic = 0, logic_rate = 60;
+        float avg_ms = 0, worst = 0, low1 = 0, fps_f = 0;
+        double refresh_t0 = 0;
+        int slow_windows = 0;
+        bool slow = false;
+    } shown;
+    if (shown.refresh_t0 == 0 || t - shown.refresh_t0 >= 0.5) {
+        U.frames.compute(t, shown.avg_ms, shown.worst, shown.fps_f, shown.logic, shown.low1);
+        shown.fps = shown.fps_f;
+        shown.snap = perf::snapshot();
+        static double logic_t0 = 0;
+        static uint64_t logic_s0 = 0;
+        if (logic_t0 == 0 || t - logic_t0 < 0) {
+            logic_t0 = t;
+            logic_s0 = interp::logic_steps();
+        } else {
+            shown.logic_rate = (double)(interp::logic_steps() - logic_s0) / (t - logic_t0);
+            logic_t0 = t;
+            logic_s0 = interp::logic_steps();
+            shown.slow_windows =
+                shown.logic_rate > 1 && shown.logic_rate < 58.0 ? shown.slow_windows + 1 : 0;
+            shown.slow = shown.slow ? shown.logic_rate > 1 && shown.logic_rate < 59.0 : shown.slow_windows >= 2;
+        }
+        shown.refresh_t0 = t;
     }
-    if (U.fps_t0 == 0) { U.fps_t0 = t; U.fps_n0 = render::host_presents(); }
-    if (t - U.fps_t0 >= 0.5) {
-        uint64_t n = render::host_presents();
-        U.fps = (double)(n - U.fps_n0) / (t - U.fps_t0);
-        U.fps_t0 = t;
-        U.fps_n0 = n;
-        snap = perf::snapshot();
-        float sample_ms = 0, sample_worst = 0, sample_fps = 0;
-        double sample_logic = 0;
-        FrameHistoryAverages::compute(U.frame_ms, U.frame_logic, sample_ms, sample_worst, sample_fps, sample_logic);
-        if (g_average.started && g_average.logic > 0)
-            display_logic = g_average.logic;
-        else if (sample_logic > 0)
-            display_logic = sample_logic;
-    }
-    float avg_ms = 0, worst = 0, avg_fps = 0;
-    double logic_hist = 0;
-    FrameHistoryAverages::compute(U.frame_ms, U.frame_logic, avg_ms, worst, avg_fps, logic_hist);
-    (void)logic_hist;
 
     ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.80f);
@@ -2016,27 +2002,30 @@ void perf_window(bool menu_open) {
                           ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs;
     if (ImGui::Begin("##perf", nullptr, fl)) {
         if (perf_shown()) {
-            const double avg_out = g_average.started && g_average.fps > 0 ? g_average.fps : avg_fps;
-            perf_output_row(U.fps, avg_ms, worst, avg_out, FrameHistoryAverages::low1_fps(U.frame_ms), avg_out > 0);
+            const double avg_fps = shown.avg_ms > 0 ? 1000.0 / shown.avg_ms : 0;
+            perf_output_row(shown.fps, shown.avg_ms, shown.worst, avg_fps, shown.low1, avg_fps > 0);
         }
 
         if (perf_timing_shown()) {
             if (perf_shown()) ImGui::Spacing();
-            if (slow && interp::mode() == 1 && !interp::paced_interpolation())
+            if (shown.slow && interp::mode() == 1 && !interp::paced_interpolation())
                 ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.3f, 1.0f), "Slow motion: %.1f of 60 logic steps/s. Turn on Keep game speed",
-                                    logic_rate);
+                                    shown.logic_rate);
 
-            perf_frame_graph();
-            if (perf_shown()) perf_logic_row(display_logic);
+            perf_frame_graph(t);
+            if (perf_shown()) perf_logic_row(shown.logic);
 
-            perf_metric_row("Game CPU", kPerfGameCpuLabel, snap.game);
-            perf_metric_row("Render CPU", kPerfRenderCpuLabel, snap.render);
-            perf_metric_row("GPU interval", kPerfGpuLabel, snap.gpu);
+            perf_metric_row("Game CPU", kPerfGameCpuLabel, shown.snap.game);
+            perf_metric_row("Render CPU", kPerfRenderCpuLabel, shown.snap.render);
+            perf_metric_row("GPU interval", kPerfGpuLabel, shown.snap.gpu);
 
 #ifdef __ANDROID__
             static AndroidTelemetry telemetry;
             static double next_read = 0;
-            if (t >= next_read) { telemetry.read(); next_read = t + 2; }
+            if (t >= next_read) {
+                telemetry.read();
+                next_read = t + 0.5;
+            }
             if (telemetry.busy >= 0) {
                 char load[32];
                 snprintf(load, sizeof load, "%.0f%%", telemetry.busy);
@@ -2050,7 +2039,7 @@ void perf_window(bool menu_open) {
 #endif
         }
 
-        if (perf_shown() && !perf_timing_shown()) perf_logic_row(display_logic);
+        if (perf_shown() && !perf_timing_shown()) perf_logic_row(shown.logic);
 
         if (perf_presentation_shown()) {
             if (perf_shown() || perf_timing_shown()) ImGui::Spacing();
@@ -2360,11 +2349,7 @@ bool text(const char* utf8) {
 void set_density(float d) { g_density = d > 0.5f ? d : 1.0f; }
 
 void undo_frame_sample() {
-    if (U.sample_undo) {
-        U.frame_i = (U.frame_i + FrameHistoryAverages::kFrames - 1) % FrameHistoryAverages::kFrames;
-        U.frame_ms[U.frame_i] = 0;
-        U.frame_logic[U.frame_i] = 0;
-    }
+    if (U.sample_undo) U.frames.undo_push();
     U.last_present = U.sample_restore;
     U.sample_undo = false;
 }
@@ -2455,10 +2440,9 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
     static uint64_t prev_logic_steps = 0;
     const uint64_t logic_steps = interp::logic_steps();
     if (U.last_present > 0) {
-        U.frame_ms[U.frame_i] = (float)((t - U.last_present) * 1000.0);
         const uint64_t prev = prev_logic_steps;
-        U.frame_logic[U.frame_i] = prev ? (uint32_t)(logic_steps - prev) : 0;
-        U.frame_i = (U.frame_i + 1) % FrameHistoryAverages::kFrames;
+        const uint32_t logic = prev ? (uint32_t)(logic_steps - prev) : 0;
+        U.frames.push(t, (float)((t - U.last_present) * 1000.0), logic);
         U.sample_undo = true;
     } else {
         U.sample_undo = false;

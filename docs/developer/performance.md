@@ -592,7 +592,8 @@ Four skips target the time that was still left after the texture-bind reuse:
   A guest uniform block also requires the write-watch sequence and the buffer-cache epoch to match.
   A shader with remapped uniform buffers stays on the full path.
 - Viewport, scissor, and depth-bias math is skipped when the guest words, the target size, and the aspect flags match.
-  The Vulkan calls still run when the command buffer has not seen that state.
+  Viewport and scissor Vulkan calls still run when the command buffer has not seen that state.
+  Depth bias is sent on every draw that enables polygon offset, so a pipeline bind cannot leave that bias at zero.
 - `GX2Invalidate` matches a sorted list of surface ranges instead of walking every surface.
 
 `build/debug/nsmbu --renderer-smoke` passed.

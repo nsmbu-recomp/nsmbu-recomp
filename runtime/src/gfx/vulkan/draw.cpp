@@ -2392,9 +2392,8 @@ void draw(const uint32_t *r, uint32_t prim, uint32_t count, uint32_t indexType,
     VkRect2D scissor{};
     std::array<uint32_t, 4> blend{};
     uint32_t stencilFront = 0, stencilBack = 0;
-    float biasConstant = 0, biasClamp = 0, biasSlope = 0;
     bool viewportValid = false, scissorValid = false;
-    bool blendValid = false, stencilValid = false, biasValid = false;
+    bool blendValid = false, stencilValid = false;
   };
   static DrawStateCache state;
 
@@ -2623,14 +2622,8 @@ void draw(const uint32_t *r, uint32_t prim, uint32_t count, uint32_t indexType,
     state.viewport = vp;
     state.viewportValid = true;
   }
-  if (offsetOn && (!state.biasValid || state.biasConstant != biasConstant ||
-                   state.biasClamp != biasClamp || state.biasSlope != biasSlope)) {
+  if (offsetOn)
     vkCmdSetDepthBias(cmd, biasConstant, biasClamp, biasSlope);
-    state.biasConstant = biasConstant;
-    state.biasClamp = biasClamp;
-    state.biasSlope = biasSlope;
-    state.biasValid = true;
-  }
   if (emptyDraw) {
     end_encoder();
     return;

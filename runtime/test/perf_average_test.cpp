@@ -1,6 +1,7 @@
 #include "overlay/perf_average.h"
 #include "overlay/android_telemetry.h"
 #include <cassert>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 int main() {
@@ -16,28 +17,31 @@ int main() {
     }
     a.sample(10, 640, 320, 1, 1, 120, 2);
     assert(a.fps == 120 && a.logic == 60);
-    a.sample(11, 0, 0, 1, 1, 120, 2); assert(a.fps == 0);
-    float ms[overlay::FrameHistoryAverages::kFrames]{};
-    uint32_t logic[overlay::FrameHistoryAverages::kFrames]{};
-    for (int i = 0; i < overlay::FrameHistoryAverages::kFrames; ++i) {
-        ms[i] = 1000.0f / 60.0f;
-        logic[i] = 1;
-    }
-    float avg_ms = 0, worst = 0, fps = 0;
+    a.sample(11, 0, 0, 1, 1, 120, 2);
+    assert(a.fps == 0);
+    overlay::FrameHistory h;
+    for (int i = 0; i < 120; ++i) h.push(1.0 + i * (overlay::FrameHistory::kWindowSec / 120.0), 1000.0f / 60.0f, 1);
+    float avg_ms = 0, worst = 0, fps = 0, low1 = 0;
     double logic_rate = 0;
-    overlay::FrameHistoryAverages::compute(ms, logic, avg_ms, worst, fps, logic_rate);
+    h.compute(3.0, avg_ms, worst, fps, logic_rate, low1);
     assert(fps > 59.9f && fps < 60.1f);
     assert(logic_rate > 59.9 && logic_rate < 60.1);
-    assert(overlay::FrameHistoryAverages::low1_fps(ms) > 59.9f && overlay::FrameHistoryAverages::low1_fps(ms) < 60.1f);
-    ms[0] = 50.0f;
-    ms[1] = 50.0f;
-    assert(overlay::FrameHistoryAverages::low1_fps(ms) > 19.9f && overlay::FrameHistoryAverages::low1_fps(ms) < 20.1f);
-    a.reset(); assert(!a.started);
+    assert(low1 > 59.9f && low1 < 60.1f);
+    h.reset();
+    for (int i = 0; i < 10; ++i) h.push(1.1 + i * 0.01, 50.0f, 1);
+    h.compute(1.2, avg_ms, worst, fps, logic_rate, low1);
+    assert(low1 > 19.9f && low1 < 20.1f);
+    assert(h.graph_ms(overlay::FrameHistory::kGraphPoints - 1, 1.2) > 49.0f);
+    a.reset();
+    assert(!a.started);
     auto root = std::filesystem::temp_directory_path() / "nsmbu-telemetry-test";
     std::filesystem::create_directories(root / "class/kgsl/kgsl-3d0");
     std::ofstream(root / "class/kgsl/kgsl-3d0/gpubusy") << "25 100";
-    overlay::AndroidTelemetry telemetry; telemetry.read(root); assert(telemetry.busy == 25);
+    overlay::AndroidTelemetry telemetry;
+    telemetry.read(root);
+    assert(telemetry.busy == 25);
     std::ofstream(root / "class/kgsl/kgsl-3d0/gpubusy") << "25 0";
-    telemetry.read(root); assert(telemetry.busy == -1);
+    telemetry.read(root);
+    assert(telemetry.busy == -1);
     std::filesystem::remove_all(root);
 }
