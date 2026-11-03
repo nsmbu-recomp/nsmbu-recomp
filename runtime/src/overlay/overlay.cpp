@@ -2391,7 +2391,9 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
         if (!env::HOT_RELOAD_COURSES.present() && hostui::get("hotReloadCourses", v))
             course_hot_reload::set_enabled(v == "1");
 
-        if (!env::PRO_CONTROLLER() && hostui::get("proController", v))
+        if (env::PRO_CONTROLLER.on())
+            hostui::post([] { hostui::set_pro_controller(true); });
+        else if (hostui::get("proController", v))
             hostui::post([pro = v == "1"] { hostui::set_pro_controller(pro); });
 
         if (!rumble::env_override() && hostui::get("rumble", v)) rumble::set_enabled(v != "0");

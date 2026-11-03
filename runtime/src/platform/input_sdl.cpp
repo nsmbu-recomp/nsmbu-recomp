@@ -1378,7 +1378,7 @@ static void apply_scenario(PadState& s) {
         if (t >= p.from && t < p.to) s.buttons |= p.bits;
 }
 
-static std::atomic<bool> g_pro{env::PRO_CONTROLLER() != nullptr};
+static std::atomic<bool> g_pro{env::PRO_CONTROLLER.on()};
 bool pro_controller() { return g_pro.load(std::memory_order_relaxed); }
 void set_pro_controller(bool on) { g_pro = on; LOG("[input] keyboard/controller act as %s", on ? "Pro Controller" : "GamePad"); }
 
