@@ -28,6 +28,7 @@ void wait_idle();
 void write_back_linear_targets();
 uint64_t frame_count();
 void request_tv_dump(const std::string& path, int frames_ahead);
+void request_drc_dump(const std::string& path, int frames_ahead);
 void request_capture();
 void ss_reset_surfaces();
 void save_renderer_caches();

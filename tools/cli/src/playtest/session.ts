@@ -299,8 +299,10 @@ export class Session {
         return (r.output ?? "").trim();
     }
 
-    async screenshot(path: string): Promise<void> {
-        const r = await withTimeout(this.live().request({ cmd: "screenshot", path }), 20_000, "screenshot");
+    async screenshot(path: string, opts?: { drc?: boolean }): Promise<void> {
+        const body: Record<string, unknown> = { cmd: "screenshot", path };
+        if (opts?.drc) body.drc = true;
+        const r = await withTimeout(this.live().request(body), 20_000, "screenshot");
         if (!r.ok) throw new Error(r.error ?? "screenshot failed");
     }
 

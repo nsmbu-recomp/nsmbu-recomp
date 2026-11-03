@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Agent screenshots can capture the GamePad, and TV screenshots wait two frames before the dump.
 - `NSMBU_PRO_CONTROLLER` turns on Pro Controller mode at startup when its value is not empty or `0`.
 - `tools/lib/test_dev_game_icon.py` tracks `runtime/android` paths after the Android project move.
 - Windows CI installs Node.js before the compare-runs CLI test.

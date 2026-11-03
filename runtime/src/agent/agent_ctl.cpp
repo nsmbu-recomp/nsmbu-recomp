@@ -29,6 +29,9 @@
 
 #include "core/env.h"
 #include "gfx/renderer.h"
+#ifdef NSMBU_VULKAN
+#include "gfx/vulkan/api.h"
+#endif
 #include "hooks/interp.h"
 #include "mods/lua_eval.h"
 #include "mods/mod_json.h"
@@ -68,6 +71,7 @@ struct ShotWait {
     std::string path;
     std::chrono::steady_clock::time_point started;
     bool requested = false;
+    bool drc = false;
 };
 std::deque<ShotWait> g_shots;
 std::deque<std::string> g_out_lines;
@@ -245,11 +249,13 @@ void handle_request(const mods::json::Value& req) {
             queue_line(response_err(id, "missing path"));
             return;
         }
+        const bool drc = req.get("drc").type == mods::json::Value::Bool ? req.get("drc").boolean
+                         : req.get("drc").type == mods::json::Value::Number && req.get("drc").number != 0;
         std::error_code ec;
         std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
         {
             std::lock_guard<std::mutex> lk(g_mu);
-            g_shots.push_back(ShotWait{id, path, std::chrono::steady_clock::now(), false});
+            g_shots.push_back(ShotWait{id, path, std::chrono::steady_clock::now(), false, drc});
         }
         return;
     }
@@ -459,17 +465,28 @@ void service() {
         std::_Exit(0);
 #endif
     }
-    std::vector<std::pair<int, std::string>> to_request;
+    std::vector<std::tuple<int, std::string, bool>> to_request;
     {
         std::lock_guard<std::mutex> lk(g_mu);
         for (auto& s : g_shots)
             if (!s.requested) {
                 s.requested = true;
-                to_request.emplace_back(s.id, s.path);
+                to_request.emplace_back(s.id, s.path, s.drc);
             }
     }
-    for (const auto& shot : to_request)
-        hostui::post([path = shot.second] { render::request_tv_dump(path, 0); });
+    for (const auto& shot : to_request) {
+        const int id = std::get<0>(shot);
+        const std::string& path = std::get<1>(shot);
+        const bool drc = std::get<2>(shot);
+        hostui::post([path, drc] {
+#ifdef NSMBU_VULKAN
+            if (drc) gfxvk::request_drc_dump(path, 0);
+            else
+#endif
+                render::request_tv_dump(path, 2);
+        });
+        (void)id;
+    }
     constexpr auto kTimeout = std::chrono::seconds(30);
     {
         std::lock_guard<std::mutex> lk(g_mu);
