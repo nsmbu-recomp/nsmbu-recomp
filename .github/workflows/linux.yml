@@ -66,7 +66,7 @@ jobs:
         run: |
           python3 tools/test_shaderprep.py
           python3 -m unittest discover -s tools/bench -p "test_*.py"
-          node --test tools/cli/test/compare-runs.test.ts
+          npm test --prefix tools/cli
 
       - name: Configure synchronization validation coverage
         run: |

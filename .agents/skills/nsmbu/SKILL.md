@@ -119,7 +119,7 @@ Do not add a `PlayCase` for one-off bisect or build-vs-build checks.
 Ship regressions still belong in `nsmbu test`.
 
 Implementation lives in `tools/cli/src/gametest/` (`scenario.ts`, `compare.ts`, `compare-runs.ts`).
-Unit tests: `node --test tools/cli/test/compare-runs.test.ts` (also in Linux/Windows CI).
+Unit tests: `npm test --prefix tools/cli` (Linux/Windows CI).
 
 `nsmbu scenario OUT [VAR=value …]` copies the save into `OUT`, boots hidden with `NSMBU_TEST_STATUS_TRACE`, waits for scene `ALIGN` (default `Title`), then records `STEPS` logic steps (default 300).
 Runner env: `NSMBU_BIN`, `GAME`, `SAVE`, `ALIGN`, `STEPS`, `FIXED_SEED` (default 1), `SHADER_CACHE`, `BOOT_TRIES`, `BOOT_LIMIT`, `RUN_LIMIT`.

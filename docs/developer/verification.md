@@ -71,7 +71,7 @@ See the `nsmbu` skill for when `--recomp` is required.
 - `tools/lib/test_dev_game_icon.py`
 - `tools/test_shaderprep.py`
 - `python3 -m unittest discover -s tools/bench -p "test_*.py"`
-- `node --test tools/cli/test/compare-runs.test.ts`
+- `npm test --prefix tools/cli` (Node `node:test` unit tests under `tools/cli/test/`)
 
 ### Vulkan renderer smoke (no gameplay)
 

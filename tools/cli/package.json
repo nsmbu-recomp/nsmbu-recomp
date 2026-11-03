@@ -9,6 +9,9 @@
   "bin": {
     "nsmbu": "./bin/nsmbu.ts"
   },
+  "scripts": {
+    "test": "node --test test/compare-runs.test.ts test/playtest-args.test.ts test/replay-verdict.test.ts test/replay-bug-1.test.ts test/bench-prof.test.ts test/save-dat-roundtrip.test.ts"
+  },
   "devDependencies": {
     "@types/node": "^24.6.0",
     "typescript": "^5.9.3"
