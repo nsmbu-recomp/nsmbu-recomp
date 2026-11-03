@@ -71,7 +71,7 @@ See the `nsmbu` skill for when `--recomp` is required.
 - `tools/lib/test_dev_game_icon.py`
 - `tools/test_shaderprep.py`
 - `python3 -m unittest discover -s tools/bench -p "test_*.py"`
-- `npm test --prefix tools/cli` (Node `node:test` unit tests under `tools/cli/test/`)
+- `npm test --prefix tools/cli` (Node `node:test` unit tests under `tools/cli/test/`; game playtests are `tools/cli/test/playtests.test.ts` via `nsmbu test`)
 
 ### Vulkan renderer smoke (no gameplay)
 
@@ -133,9 +133,9 @@ Registered cases (run `--list` for summaries):
 - `map-shadow-120` — #20 at 120 fps
 - `opened-course` — 0.6.1 course-open / leave-to-map
 - `pose-direction-120`, `logic-rate-120` — interpolation / frame pacing
-- `replay-1-1`, `replay-2-1` — recorded course input and `[prof]` course measurement
+- `replay-1-1`, `replay-2-1` — recorded course input and `[prof]` course measurement (`replay-2-1` skipped in `nsmbu test` for now)
 - `replay-bug-1` — intro skip into 2-1, then quit onto `W201`
-- `widescreen-map-ui`, `widescreen-title` — 21:9 UI
+- `widescreen-map-ui`, `widescreen-title` — 21:9 UI (skipped in `nsmbu test` until screenshot/replay timing is stable)
 
 Each case uses `.tmp/playtest/<name>/` for save, control socket, log, and userdata (`NSMBU_USER_DIR` under that folder).
 

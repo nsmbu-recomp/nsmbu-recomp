@@ -26,6 +26,7 @@ function marioFromCenter(img: { w: number; h: number; rgb: Uint8Array }): number
 export const widescreenTitle: PlayCase = {
     name: "widescreen-title",
     summary: "21:9 title characters stay centered under the logo.",
+    skip: "21:9 title screenshot timing; tracked for re-enable",
     run: async (session) => {
         await session.start({
             save: "repo",

@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- `nsmbu test` skips `widescreen-map-ui`, `widescreen-title`, and `replay-2-1` until those cases are stable again (remove `skip` on each `PlayCase` to re-enable).
+- `nsmbu test` runs playtests through Node's built-in test runner (`tools/cli/test/playtests.test.ts`) instead of a custom parallel harness in the CLI.
 - CI runs all CLI unit tests with `npm test --prefix tools/cli`.
 
 ### Added

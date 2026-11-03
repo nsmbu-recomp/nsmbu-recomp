@@ -120,6 +120,7 @@ Ship regressions still belong in `nsmbu test`.
 
 Implementation lives in `tools/cli/src/gametest/` (`scenario.ts`, `compare.ts`, `compare-runs.ts`).
 Unit tests: `npm test --prefix tools/cli` (Linux/Windows CI).
+Game regressions: `nsmbu test` runs `node --test tools/cli/test/playtests.test.ts` with `NSMBU_REPO` set.
 
 `nsmbu scenario OUT [VAR=value …]` copies the save into `OUT`, boots hidden with `NSMBU_TEST_STATUS_TRACE`, waits for scene `ALIGN` (default `Title`), then records `STEPS` logic steps (default 300).
 Runner env: `NSMBU_BIN`, `GAME`, `SAVE`, `ALIGN`, `STEPS`, `FIXED_SEED` (default 1), `SHADER_CACHE`, `BOOT_TRIES`, `BOOT_LIMIT`, `RUN_LIMIT`.

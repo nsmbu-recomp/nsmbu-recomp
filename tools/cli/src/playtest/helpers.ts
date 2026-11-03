@@ -5,6 +5,7 @@ import { formatStatus, type PlayStatus, type Session } from "./session.ts";
 export type PlayCase = {
     name: string;
     summary: string;
+    skip?: string;
     run: (session: Session) => Promise<void>;
 };
 
