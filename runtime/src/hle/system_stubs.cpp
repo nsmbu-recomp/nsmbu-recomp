@@ -2,6 +2,7 @@
 
 #include "crash/crashrec.h"
 #include "core/runtime.h"
+#include "guest_addr.h"
 #include "input/input.h"
 #include "input/rumble.h"
 #include "../input/motion/motion.h"
@@ -73,15 +74,44 @@ HLE(nn_olv, Finalize__Q2_2nn3olvFv) { ret(c, kResultOk); }
 HLE(nn_olv, __ct__Q3_2nn3olv18DownloadedPostDataFv) { ret(c, arg(c, 0)); }
 HLE(nn_olv, SetReportTypes__Q3_2nn3olv6ReportFUi) {}
 
-// Stubs, not implementations. They report "no DLC installed", which is correct offline.
-// Return values match Cemu's nn_aoc (0x80 + min(count, 256) * 0x61 work buffer, 0 titles).
+bool aoc_content_ready();
+
+static uint64_t aoc_title_id() {
+    uint64_t id = 0;
+    const char* s = g_guest_build_title_id;
+    for (int i = 0; s[i] && i < 16; i++) {
+        char ch = s[i];
+        int v = -1;
+        if (ch >= '0' && ch <= '9') v = ch - '0';
+        else if (ch >= 'a' && ch <= 'f') v = ch - 'a' + 10;
+        else if (ch >= 'A' && ch <= 'F') v = ch - 'A' + 10;
+        else break;
+        id = (id << 4) | (uint64_t)v;
+    }
+    return (id & ~0xF00000000ull) | 0xC00000000ull;
+}
+
 HLE(nn_aoc, AOC_Initialize) { ret(c, kResultOk); }
 HLE(nn_aoc, AOC_CalculateWorkBufferSize) { ret(c, 0x80 + std::min<uint32_t>(arg(c, 0), 256) * 0x61); }
 HLE(nn_aoc, AOC_ListTitle) {
-    if (arg(c, 0)) st32(arg(c, 0), 0);
+    uint32_t count_ptr = arg(c, 0);
+    uint32_t titles = arg(c, 1);
+    uint32_t max_count = arg(c, 2);
+    uint32_t n = 0;
+    if (max_count > 0 && titles && aoc_content_ready()) {
+        memset(mem::ptr(titles), 0, 0x61);
+        st64(titles, aoc_title_id());
+        n = 1;
+        LOG("[aoc] New Super Luigi U content mounted");
+    }
+    if (count_ptr) st32(count_ptr, n);
     ret(c, kResultOk);
 }
-HLE(nn_aoc, AOC_OpenTitle) { ret(c, kResultOk); }
+HLE(nn_aoc, AOC_OpenTitle) {
+    uint32_t path = arg(c, 0);
+    if (path) mem::write_cstr(path, aoc_content_ready() ? "/vol/aoc" : "", 0x40);
+    ret(c, kResultOk);
+}
 
 extern "C" void f_0203DEEC_orig(Cpu* c);
 extern "C" void hook_0203DEEC(Cpu* c) {

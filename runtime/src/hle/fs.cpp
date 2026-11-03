@@ -80,6 +80,8 @@ std::string host_path_exact(const std::string& guest) {
         }
         return false;
     };
+    if (p == "/vol/aoc/0010" || p.starts_with("/vol/aoc/0010/"))
+        return config::game_dir + "/content/RDashRes" + p.substr(strlen("/vol/aoc/0010"));
     if (map("/vol/content", config::game_dir + "/content")) return p;
     if (map("/vol/code", config::game_dir + "/code")) return p;
     if (map("/vol/meta", config::game_dir + "/meta")) return p;
@@ -170,6 +172,8 @@ int32_t open_file(const std::string& gpath, const std::string& mode, uint32_t ou
             LOG("[save] fs open %s (%s) -> %s host %s", gpath.c_str(), mode.c_str(), f ? "ok" : "not found", hp.c_str());
     } else {
         TRACE("[fs] open %s (%s) -> %s", gpath.c_str(), mode.c_str(), f ? "ok" : "not found");
+        if (!f && gpath.starts_with("/vol/aoc"))
+            LOG("[aoc] missing %s host %s", gpath.c_str(), hp.c_str());
     }
     if (!f) return FS_NOT_FOUND;
     if (mode.find_first_of("wa+") == std::string::npos) {
@@ -229,6 +233,12 @@ int32_t open_dir(const std::string& gpath, uint32_t out_handle) {
     return FS_OK;
 }
 
+}
+
+bool aoc_content_ready() {
+    struct stat st;
+    std::string path = config::game_dir + "/content/RDashRes/course_res_pack/1-1.szs";
+    return stat(path.c_str(), &st) == 0 && !S_ISDIR(st.st_mode);
 }
 
 HLE(coreinit, FSInit) {}
