@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Quitting a direct-opened course puts the map player on that course node.
+  The world-map view still shows the world entrance.
 - Playtests wait for portable saves and use visible windows for 21:9 screenshot cases so TV captures are not blank.
 - Updated `2-1.replay` witness positions after small course physics drift.
 - Agent screenshots can capture the GamePad, and TV screenshots wait two frames before the dump.

@@ -119,10 +119,11 @@ The card names the opened course.
    Live `CourseSelectPlayer+0x110` is an object pointer (used after `NMSndObject::calc`), not world position.
    Only write node floats into `+0x110/+0x114/+0x118` during createLater packing.
    After spawn write `+0x50/+0x54/+0x58` only.
-   The map camera copies its focus node at `0x0227CCF4` and `0x0227E2A8`.
-   Those sites replace the node with the opened course so the camera and title follow that node.
-   Applying a save (`f_029D7648`) calls `f_029CF2D0`, which stores exit type `1`, so that value is also a fresh file load.
-   The pose seed and the camera replace run only after course-out (`0x024B8324`).
-   Opening the first save and the opening cinematic never take that path, so the map keeps the save's checkpoint and its own camera.
-   If the replacement node's `+0x50` is negative, the site leaves the game's node in place.
+   The title follows the opened course.
+   The drawn world-map view does not.
+   `CourseSelectCamera` at profile 857 stays at the origin, and that position is not the shot.
+   `f_021E0288` selects a path with `MainGame+0x1AC` world, `+0x1B0` section, and `+0x1B4` node index (`getPath` at `CourseSelectMgr+0x18`).
+   Save apply leaves those three at `-1`.
+   The runtime writes the opened node there.
+   The quit shot still frames the world entrance (`W2M0` for world 2) while the player stands on the course node.
    The runtime also writes the save slot `worldMapLocation` (world byte is 1-based) and checkpoint byte `+0x43` to that node index.
