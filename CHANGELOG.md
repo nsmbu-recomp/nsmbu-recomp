@@ -9,7 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Android on-device setup tests copy `installer/` and `recomp/` into the package, and the Gradle release check counts `recomp/android_fixture.py`.
-- Windows CI runs `npm test` through `cmd` so MSYS can see `npm.cmd`.
+- Windows CI runs `npm test` in PowerShell.
+  MSYS can see `node.exe` but not `npm.cmd`.
 - Quitting a direct-opened course puts the map player on that course node.
   The world-map view still shows the world entrance.
 - Playtests wait for portable saves and use visible windows for 21:9 screenshot cases so TV captures are not blank.
