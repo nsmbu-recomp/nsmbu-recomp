@@ -16,6 +16,7 @@
 #include "hooks/interp_pacing.h"
 #include "hooks/interp_picture.h"
 #include "guest_addr.h"
+#include "gfx/display_modes.h"
 #include "gfx/render_prof.h"
 #include "perf_metrics.h"
 #include "core/runtime.h"
@@ -28,6 +29,7 @@
 extern "C" {
 void f_029C52CC_orig(Cpu* c);
 void f_029C4FE4_orig(Cpu* c);
+void f_029FD94C_orig(Cpu* c);
 void f_024FBF6C_orig(Cpu* c);
 void f_024F30DC_orig(Cpu* c);
 void f_029C5104(Cpu* c);
@@ -1154,6 +1156,21 @@ extern "C" void hook_029C52CC(Cpu* c) {
         t0 = t;
         f0 = g_passes;
     }
+}
+
+extern "C" void hook_029FD94C(Cpu* c) {
+    const int mode = gfx::g_mode.load(std::memory_order_relaxed);
+    bool use = false;
+    if (mode == gfx::kDrcGamePad || mode == gfx::kDrcAuto)
+        use = true;
+    else if (mode == gfx::kDrcWindow)
+        use = gfx::g_has_drc_window.load(std::memory_order_relaxed) &&
+              gfx::g_shown.load(std::memory_order_relaxed);
+    else if (mode == gfx::kDrcPip)
+        use = gfx::pip_shown_now();
+    if (!use)
+        return;
+    f_029FD94C_orig(c);
 }
 
 extern "C" void hook_029C4FE4(Cpu* c) {

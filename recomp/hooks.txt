@@ -30,6 +30,7 @@
 029C52CC  # ApplicationFramework::procCalc_: start a frame; an in-between pass skips the task-tree logic
 024FBF6C  # RenderObjRenderMgr::calcView: bake the in-between camera projection for the draw
 029C4FE4  # ApplicationFramework::procDraw_: a 30 fps step draws no frame
+029FD94C  # DualScreenMethodTreeMgr::drawBtm: skip the GamePad picture when that screen is hidden
 
 024F30DC  # ModelG3d::calcGPU: capture the model world pose and draw the in-between pass blended
 

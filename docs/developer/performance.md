@@ -606,3 +606,20 @@ Invalidate fell from 0.30 ms/frame to 0.02 ms/frame.
 Uniforms are 0.56 ms/frame, record 0.46 ms/frame, and textures 0.39 ms/frame.
 The other two runs were 7.40 ms (render 4.08 ms) and 7.52 ms (render 4.22 ms).
 Frame time still moves with how many draws the window has.
+
+## Hidden GamePad picture (2026-11-03)
+
+`DualScreenMethodTreeMgr::drawBtm` (`0x029FD94C`) is the GamePad method tree.
+The TV tree (`drawTop`) finishes first and does not sample that frame's GamePad targets.
+When the GamePad screen is off, or a window/pip is hidden, the port returns before `drawBtm`.
+Auto mode and the full GamePad view still draw it.
+
+The same 165 fps settings boot (`nsmbu/settings.ini`, 2x, FXAA, GamePad mode off), one run each, `[prof]` windows from frame 3600 through 5160 except the frame-dump window at 4560:
+
+- before: 134–146 swaps/s, about 6.9–7.5 ms/frame, about 350–415 draws/frame
+- after: 164–165 swaps/s, 6.06–6.10 ms/frame, about 145–160 draws/frame
+
+The panel mode in that boot is 164.99 Hz.
+`build/debug/nsmbu --renderer-smoke` passed.
+TV frame 4500 on Acorn Plains matches the earlier capture on the path, pipes, castle, and HUD.
+Pixels that differ are the moving leaves, flowers, water, and characters.

@@ -20,6 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Unchanged uniform packs, pixel shaders, vertex buffers, index binds, and texture alias checks are reused.
 - The settled world map does less repeated render work.
   On this machine the overworld bench median is 7.46 ms/frame, down from 8.05 ms/frame.
+- The hidden GamePad picture is not drawn.
+  On this machine the settled world map then holds 164–165 swaps/s at a 165 fps cap.
+  The same boot was about 135–146 swaps/s before.
 
 ### Fixed
 
