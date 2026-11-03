@@ -237,7 +237,9 @@ export class Session {
             NSMBU_UNCAPPED: "1",
             ...this.env,
         };
-        extraEnv.NSMBU_HIDDEN_WINDOWS = this.show ? "0" : "1";
+        if (this.env.NSMBU_HIDDEN_WINDOWS === undefined) {
+            extraEnv.NSMBU_HIDDEN_WINDOWS = this.show ? "0" : "1";
+        }
         if (this.env.NSMBU_NO_AUDIO === "0") delete extraEnv.NSMBU_NO_AUDIO;
         const child = spawnPython(this.repo, "tools/run/launch.py", args, {
             detached: true,

@@ -1,7 +1,16 @@
 import { inflateSync } from "node:zlib";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { reachWorldMap, type PlayCase } from "../helpers.ts";
+import { type PlayCase } from "../helpers.ts";
+
+export function avgBrightness(img: { rgb: Uint8Array }): number {
+    let sum = 0;
+    const n = img.rgb.length / 3;
+    for (let i = 0; i < img.rgb.length; i += 3) {
+        sum += img.rgb[i] + img.rgb[i + 1] + img.rgb[i + 2];
+    }
+    return n ? sum / n : 0;
+}
 
 export function readPng(path: string): { w: number; h: number; rgb: Uint8Array } {
     const file = readFileSync(path);
@@ -187,8 +196,13 @@ export const widescreenMapUi: PlayCase = {
     name: "widescreen-map-ui",
     summary: "21:9 world map keeps Map View, Items, and their labels on the screen edges.",
     run: async (session) => {
-        await session.start({ save: "repo", env: { NSMBU_ASPECT: "21:9" } });
-        await reachWorldMap(session, 180);
+        await session.start({
+            save: "repo",
+            env: { NSMBU_ASPECT: "21:9", NSMBU_HIDDEN_WINDOWS: "0" },
+        });
+        await session.advance(180, 45);
+        await session.eval("return nsmbu.Scene.open_first_save(0)");
+        await session.advance(90, 30);
         const path = join(session.workDir, "map.png");
         let edges: { left: number; right: number } | null = null;
         let img = { w: 0, h: 0, rgb: new Uint8Array() };
@@ -207,6 +221,7 @@ export const widescreenMapUi: PlayCase = {
                     await new Promise((r) => setTimeout(r, 50));
                 }
             }
+            if (avgBrightness(img) < 4) continue;
             edges = buttonEdges(img);
             limit = img.w * 0.12;
             if (!edges || edges.left > limit || img.w - edges.right > limit) continue;

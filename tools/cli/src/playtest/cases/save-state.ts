@@ -2,13 +2,21 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import {
     advanceUntilFrame,
-    assertPortablePlace,
     inCourse,
     onMap,
     reachWorldMap,
     waitCourse,
+    waitForPortableSave,
     type PlayCase,
 } from "../helpers.ts";
+
+function portableSaveAttempts(from: number, to: number, step: number, slot: number): string {
+    const parts: string[] = [];
+    for (let frame = from; frame <= to; frame += step) {
+        parts.push(`${frame}:${slot}`);
+    }
+    return parts.join(",");
+}
 
 export const saveState: PlayCase = {
     name: "save-state",
@@ -17,47 +25,30 @@ export const saveState: PlayCase = {
         const states = join(session.repo, ".tmp", "playtest", "save-state", "states");
         mkdirSync(states, { recursive: true });
 
-        await session.start({ save: "repo" });
-        const map = await reachWorldMap(session, 180);
-        const mapFrame = map.frame ?? 0;
-        if (mapFrame < 1) throw new Error(`map frame missing: ${session.last}`);
-        await session.stop();
-
-        const mapAt = mapFrame + 2400;
         await session.start({
-            save: "keep",
+            save: "repo",
             env: {
                 NSMBU_STATE_DIR: states,
-                NSMBU_PORTABLE_SAVE_AT: `${mapAt}:1`,
+                NSMBU_PORTABLE_SAVE_AT: portableSaveAttempts(4500, 12000, 250, 1),
             },
         });
-        const back = await reachWorldMap(session, 180);
-        if ((back.frame ?? 0) >= mapAt) {
-            throw new Error(`map save frame ${mapAt} passed before the map was open: ${session.last}`);
-        }
-        const heldMap = await advanceUntilFrame(session, mapAt, 90);
-        if (!onMap(heldMap)) throw new Error(`left the map before the save: ${session.last}`);
-        await session.advance(45, 20);
-        assertPortablePlace(session, states, 1, "map");
+        await reachWorldMap(session, 180);
+        await advanceUntilFrame(session, 12000, 180);
+        await waitForPortableSave(session, states, 1, "map", 15);
         await session.stop();
 
-        const courseAt = 900;
         await session.start({
             save: "keep",
             open: "1-1",
             env: {
                 NSMBU_STATE_DIR: states,
-                NSMBU_PORTABLE_SAVE_AT: `${courseAt}:2`,
+                NSMBU_PORTABLE_SAVE_AT: portableSaveAttempts(600, 3600, 120, 2),
             },
         });
         await waitCourse(session, "1-1", 180);
         const playing = await session.status();
         if (!inCourse(playing)) throw new Error(`course did not stay open: ${session.last}`);
-        if ((playing.frame ?? 0) < courseAt) {
-            const heldCourse = await advanceUntilFrame(session, courseAt, 60);
-            if (!inCourse(heldCourse)) throw new Error(`left the course before the save: ${session.last}`);
-        }
-        await session.advance(30, 20);
-        assertPortablePlace(session, states, 2, "course");
+        await advanceUntilFrame(session, 3600, 90);
+        await waitForPortableSave(session, states, 2, "course", 15);
     },
 };

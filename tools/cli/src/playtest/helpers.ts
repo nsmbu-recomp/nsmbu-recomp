@@ -213,6 +213,27 @@ export function assertPortablePlace(session: Session, states: string, slot: numb
     }
 }
 
+export async function waitForPortableSave(
+    session: Session,
+    states: string,
+    slot: number,
+    place: "map" | "course",
+    timeoutSec: number,
+): Promise<void> {
+    const deadline = Date.now() + timeoutSec * 1000;
+    let last = "";
+    while (Date.now() < deadline) {
+        try {
+            assertPortablePlace(session, states, slot, place);
+            return;
+        } catch (e) {
+            last = e instanceof Error ? e.message : String(e);
+            await session.advance(30, 15);
+        }
+    }
+    throw new Error(last || `slot ${slot} never became a ${place} state`);
+}
+
 export async function enterCourse(session: Session): Promise<string> {
     let view: MapView | null = null;
     try {

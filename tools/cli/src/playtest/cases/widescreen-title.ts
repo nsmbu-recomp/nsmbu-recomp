@@ -27,8 +27,13 @@ export const widescreenTitle: PlayCase = {
     name: "widescreen-title",
     summary: "21:9 title characters stay centered under the logo.",
     run: async (session) => {
-        await session.start({ save: "repo", env: { NSMBU_ASPECT: "21:9" } });
-        await advanceUntilFrame(session, 800, 40);
+        await session.start({
+            save: "repo",
+            env: { NSMBU_ASPECT: "21:9", NSMBU_HIDDEN_WINDOWS: "0" },
+        });
+        await session.eval("return nsmbu.Scene.open_title()");
+        await session.wait((s) => s.scene === "Title", 360);
+        await advanceUntilFrame(session, 850, 120);
         const path = join(session.workDir, "title.png");
         await session.screenshot(path);
         const ready = Date.now() + 5000;
