@@ -14,7 +14,9 @@ bufcache::Cache& buffer_cache();
 
 UploadSlice buffer_cache_slice(const bufcache::Entry& entry, uint64_t size);
 
-bool cached_guest_range(uint32_t addr, uint32_t size, int uploadKind, UploadSlice& out);
+bool cached_guest_range(uint32_t addr, uint32_t size, int uploadKind, UploadSlice& out,
+                        bufcache::Entry** keep = nullptr);
+uint64_t buffer_cache_epoch();
 
 bool cached_native_indices(uint32_t addr, uint32_t size, UploadSlice& out, bufcache::Entry*& entry);
 

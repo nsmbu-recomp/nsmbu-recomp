@@ -152,7 +152,13 @@ void buffer_cache_mismatch(const char* what, const bufcache::Entry& e, uint32_t 
         what, e.addr, size, e.size, (unsigned long long)e.uploadFrame, (unsigned long long)s.cache.frame(), firstDiff);
 }
 
-bool cached_guest_range(uint32_t addr, uint32_t size, int uploadKind, UploadSlice& out) {
+uint64_t buffer_cache_epoch() {
+  State* s = g_state.load(std::memory_order_acquire);
+  return s ? s->cache.slice_epoch() : 0;
+}
+
+bool cached_guest_range(uint32_t addr, uint32_t size, int uploadKind, UploadSlice& out,
+                        bufcache::Entry** keep) {
   if (!addr || size < 16 || size > kMaxCachedRange || uint64_t(addr) + size > 0x100000000ull) return false;
   auto& cache = state().cache;
   bufcache::Entry* e;
@@ -170,6 +176,7 @@ bool cached_guest_range(uint32_t addr, uint32_t size, int uploadKind, UploadSlic
   case bufcache::kBypass: return false;
   }
   out = buffer_cache_slice(*e, size);
+  if (keep) *keep = e;
   return true;
 }
 

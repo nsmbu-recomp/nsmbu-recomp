@@ -13,6 +13,8 @@
 #include "gfx/render_prof.h"
 #include "platform/host.h"
 #include "core/runtime.h"
+#include "core/write_watch.h"
+#include "gx2/uniform_pack_gen.h"
 #include "shaders.h"
 #include "settings.h"
 #include "vertex_formats.h"
@@ -1642,6 +1644,33 @@ VkImageView feedback_view(Surface *source, const uint32_t *textureWords,
   destroy_surface_image(&temporary);
   return view;
 }
+struct TextureBindSlot {
+  bool have = false;
+  bool nullTex = false;
+  bool depthCompare = false;
+  bool integerSampler = false;
+  bool allowAniso = false;
+  uint32_t words[7]{};
+  uint32_t samplerWords[3]{};
+  Surface* surface = nullptr;
+  VkImage image = VK_NULL_HANDLE;
+  VkImageView view = VK_NULL_HANDLE;
+  VkSampler sampler = VK_NULL_HANDLE;
+  VkDevice device = VK_NULL_HANDLE;
+};
+bool texture_words_match(const TextureBindSlot& slot, VkDevice device, bool depthCompare,
+                         const uint32_t* words, const uint32_t* samplerWords) {
+  return slot.have && slot.device == device && slot.depthCompare == depthCompare &&
+      std::memcmp(slot.words, words, sizeof slot.words) == 0 &&
+      std::memcmp(slot.samplerWords, samplerWords, sizeof slot.samplerWords) == 0;
+}
+bool texture_aliases(VkImage image, const std::array<Surface*, 8>& colors, Surface* depth) {
+  if (!image) return false;
+  if (depth && image == depth->image) return true;
+  for (auto* color : colors)
+    if (color && image == color->image) return true;
+  return false;
+}
 StageResources bind_stage(const uint32_t *r, vk::Shader *sh,
                           VkDescriptorSetLayout layout, bool dynamicUniforms, float sx, float sy,
                           const std::array<Surface *, 8> &colors,
@@ -1739,24 +1768,51 @@ StageResources bind_stage(const uint32_t *r, vk::Shader *sh,
   };
 
   static thread_local std::array<std::vector<uint8_t>, 2> supportScratch;
-  auto& supportUniforms = supportScratch[sh->vertex ? 0 : 1];
+  struct UniformPackMemo {
+    const vk::Shader* shader = nullptr;
+    uint64_t gen = 0;
+    float scaleX = 0, scaleY = 0, orthoKx = 0, orthoKy = 0;
+    bool valid = false;
+  };
+  static thread_local UniformPackMemo uniformPackMemo[2];
+  const int stageSlot = sh->vertex ? 0 : 1;
+  auto& supportUniforms = supportScratch[stageSlot];
+  auto& packMemo = uniformPackMemo[stageSlot];
   if (m.uniformVarsBufferBindingPoint >= 0) {
     const size_t capacity=preparation_stats_enabled()?supportUniforms.capacity():0;
     float ortho_kx = 1.0f, ortho_ky = 1.0f;
     if (aspect::edge_hud())
       target_aspect_factors(r[mmCB_COLOR0_TILE] & 0xFFFF, r[mmCB_COLOR0_FRAG], ortho_kx, ortho_ky);
-    vk::pack_uniforms_into(r, *sh, supportUniforms, sx, sy, ortho_kx, ortho_ky);
-    if(preparation_stats_enabled()) {
-      ++R.cpuPreparation.packCalls;
-      R.cpuPreparation.packBytes+=supportUniforms.size();
-      if(supportUniforms.capacity()>capacity) {
-        ++R.cpuPreparation.packCapacityGrowths;
-        R.cpuPreparation.packCapacityGrowthBytes+=supportUniforms.capacity()-capacity;
+    const uint64_t gen = gx2::g_uniform_pack_gen;
+    const bool stable = sh->dec && sh->dec->list_remappedUniformEntries_bufferGroups.empty();
+    const bool skipPack = packMemo.valid && stable && packMemo.shader == sh &&
+        packMemo.gen == gen && packMemo.scaleX == sx && packMemo.scaleY == sy &&
+        packMemo.orthoKx == ortho_kx && packMemo.orthoKy == ortho_ky;
+    if (!skipPack) {
+      vk::pack_uniforms_into(r, *sh, supportUniforms, sx, sy, ortho_kx, ortho_ky);
+      if (gx2::g_uniform_pack_gen == gen) {
+        packMemo.shader = sh;
+        packMemo.gen = gen;
+        packMemo.scaleX = sx;
+        packMemo.scaleY = sy;
+        packMemo.orthoKx = ortho_kx;
+        packMemo.orthoKy = ortho_ky;
+        packMemo.valid = true;
+      } else packMemo.valid = false;
+      if(preparation_stats_enabled()) {
+        ++R.cpuPreparation.packCalls;
+        R.cpuPreparation.packBytes+=supportUniforms.size();
+        if(supportUniforms.capacity()>capacity) {
+          ++R.cpuPreparation.packCapacityGrowths;
+          R.cpuPreparation.packCapacityGrowthBytes+=supportUniforms.capacity()-capacity;
+        }
       }
     }
   }
-  else
+  else {
     supportUniforms.clear();
+    packMemo.valid = false;
+  }
 
   uint32_t block =
       sh->vertex ? mmSQ_VTX_UNIFORM_BLOCK_START : mmSQ_PS_UNIFORM_BLOCK_START;
@@ -1771,6 +1827,8 @@ StageResources bind_stage(const uint32_t *r, vk::Shader *sh,
   rprof::mark(rprof::kUniforms);
   uint32_t texbase = sh->vertex ? REGADDR::SQ_TEX_RESOURCE_WORD0_N_VS
                                 : REGADDR::SQ_TEX_RESOURCE_WORD0_N_PS;
+  static thread_local TextureBindSlot textureBinds[2][LATTE_NUM_MAX_TEX_UNITS];
+  auto& stageBinds = textureBinds[sh->vertex ? 1 : 0];
   for (int i = 0; i < sh->dec->textureUnitListCount; i++) {
     uint32_t unit = sh->dec->textureUnitList[i];
     if (unit >= LATTE_NUM_MAX_TEX_UNITS)
@@ -1778,51 +1836,99 @@ StageResources bind_stage(const uint32_t *r, vk::Shader *sh,
     int binding = m.textureUnitToBindingPoint[unit];
     if (binding < 0)
       continue;
-    auto *s = sampled_texture(r + texbase + unit * 7,
-                              sh->dec->textureUsesDepthCompare[unit]);
-    VkImageView sampledView = VK_NULL_HANDLE;
-    bool integerSampler = true;
-    bool allowAniso = false;
-    if (!s) {
-      sampledView = null_texture_view(sh->dec->textureUnitDim[unit], sh->dec->textureUsesDepthCompare[unit]);
-    } else {
-      upload_surface(s);
-      int scaleOffset = sh->uniforms.offset_texScale[unit];
-      if (scaleOffset >= 0 && size_t(scaleOffset) + 8 <= supportUniforms.size()) {
-        const float scale[] = {s->sx, s->sy};
-        memcpy(supportUniforms.data() + scaleOffset, scale, sizeof scale);
-      }
-      bool aliases = depth && s->image == depth->image;
-      for (auto *color : colors)
-        if (color && s->image == color->image)
-          aliases = true;
-      sampledView = aliases ? feedback_view(s, r + texbase + unit * 7, sh->vertex, unit, feedbackProbe)
-                            : sampled_texture_view(s, r + texbase + unit * 7);
-      if (!aliases)
-        transition_image(s, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                         narrow_barriers()
-                             ? (sh->vertex ? VK_PIPELINE_STAGE_VERTEX_SHADER_BIT
-                                           : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
-                             : (VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
-                                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
-                         VK_ACCESS_SHADER_READ_BIT);
-      integerSampler = s->fmt.kind != FormatInfo::FLOAT;
-      allowAniso = !s->gpuWritten && s->mips > 1;
-    }
+    const bool depthCompare = sh->dec->textureUsesDepthCompare[unit];
+    const uint32_t* texWords = r + texbase + unit * 7;
     uint32_t samplerId = sh->dec->textureUnitSamplerAssignment[unit];
     if (samplerId >= 18)
       throw std::runtime_error("missing texture sampler");
     uint32_t samplerBase = sh->vertex ? 18 : 0;
+    const uint32_t* samplerWords = r + REGADDR::SQ_TEX_SAMPLER_WORD0_0 +
+                                    (samplerBase + samplerId) * 3;
+    TextureBindSlot& slot = stageBinds[unit];
+    VkImageView sampledView = VK_NULL_HANDLE;
+    VkSampler sampledSampler = VK_NULL_HANDLE;
+    const bool wordsMatch = texture_words_match(slot, R.device, depthCompare, texWords, samplerWords);
+    bool reused = false;
+    if (wordsMatch && slot.nullTex) {
+      sampledView = slot.view;
+      sampledSampler = slot.sampler;
+      reused = true;
+    } else if (wordsMatch && slot.surface && !slot.surface->gpuWritten && slot.image &&
+               slot.surface->image == slot.image) {
+      Surface* s = slot.surface;
+      if (s->lastCheckedFrame != R.frame) upload_surface(s);
+      int scaleOffset = sh->uniforms.offset_texScale[unit];
+      if (scaleOffset >= 0 && size_t(scaleOffset) + 8 <= supportUniforms.size()) {
+        const float scale[] = {s->sx, s->sy};
+        std::memcpy(supportUniforms.data() + scaleOffset, scale, sizeof scale);
+      }
+      const bool integerSampler = s->fmt.kind != FormatInfo::FLOAT;
+      const bool allowAniso = !s->gpuWritten && s->mips > 1;
+      const bool aliases = texture_aliases(s->image, colors, depth);
+      if (!s->gpuWritten && s->image == slot.image &&
+          s->layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && !aliases &&
+          integerSampler == slot.integerSampler && allowAniso == slot.allowAniso) {
+        sampledView = slot.view;
+        sampledSampler = slot.sampler;
+        reused = true;
+        if (narrow_barriers())
+          transition_image(s, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                           sh->vertex ? VK_PIPELINE_STAGE_VERTEX_SHADER_BIT
+                                      : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                           VK_ACCESS_SHADER_READ_BIT);
+      }
+    }
+    if (!reused) {
+      const bool keepSurface = wordsMatch && slot.surface && slot.surface->image == slot.image;
+      auto *s = keepSurface ? slot.surface : sampled_texture(texWords, depthCompare);
+      bool integerSampler = true;
+      bool allowAniso = false;
+      bool aliases = false;
+      if (!s) {
+        sampledView = null_texture_view(sh->dec->textureUnitDim[unit], depthCompare);
+      } else {
+        upload_surface(s);
+        int scaleOffset = sh->uniforms.offset_texScale[unit];
+        if (scaleOffset >= 0 && size_t(scaleOffset) + 8 <= supportUniforms.size()) {
+          const float scale[] = {s->sx, s->sy};
+          std::memcpy(supportUniforms.data() + scaleOffset, scale, sizeof scale);
+        }
+        aliases = texture_aliases(s->image, colors, depth);
+        sampledView = aliases ? feedback_view(s, texWords, sh->vertex, unit, feedbackProbe)
+                              : sampled_texture_view(s, texWords);
+        if (!aliases)
+          transition_image(s, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                           narrow_barriers()
+                               ? (sh->vertex ? VK_PIPELINE_STAGE_VERTEX_SHADER_BIT
+                                             : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
+                               : (VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
+                                  VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+                           VK_ACCESS_SHADER_READ_BIT);
+        integerSampler = s->fmt.kind != FormatInfo::FLOAT;
+        allowAniso = !s->gpuWritten && s->mips > 1;
+      }
+      sampledSampler = sampler(samplerWords, depthCompare, integerSampler, allowAniso);
+      if (aliases || (s && s->gpuWritten)) {
+        slot.have = false;
+      } else {
+        slot.have = true;
+        slot.nullTex = s == nullptr;
+        slot.depthCompare = depthCompare;
+        slot.integerSampler = integerSampler;
+        slot.allowAniso = allowAniso;
+        std::memcpy(slot.words, texWords, sizeof slot.words);
+        std::memcpy(slot.samplerWords, samplerWords, sizeof slot.samplerWords);
+        slot.surface = s;
+        slot.image = s ? s->image : VK_NULL_HANDLE;
+        slot.view = sampledView;
+        slot.sampler = sampledSampler;
+        slot.device = R.device;
+      }
+    }
     if (imageCount >= imageInfos.size())
       throw std::runtime_error("stage image descriptor capacity exceeded");
     auto &info = imageInfos[imageCount++];
-    const uint32_t* samplerWords = r + REGADDR::SQ_TEX_SAMPLER_WORD0_0 +
-                                    (samplerBase + samplerId) * 3;
-    info = {sampler(samplerWords, sh->dec->textureUsesDepthCompare[unit],
-                   integerSampler,
-                   allowAniso),
-                             sampledView,
-                             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    info = {sampledSampler, sampledView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     auto &write = appendWrite(rankPlan.textures[unit]);
     write.dstBinding = binding;
     write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -2140,17 +2246,35 @@ void draw(const uint32_t *r, uint32_t prim, uint32_t count, uint32_t indexType,
     DescriptorBindProbe descriptorProbe;
     struct VertexBind { VkBuffer buffer=VK_NULL_HANDLE; VkDeviceSize offset=0; bool valid=false; };
     std::array<VertexBind,16> vertexBinds{};
+    struct IndexBind {
+      VkBuffer buffer=VK_NULL_HANDLE;
+      VkDeviceSize offset=0;
+      VkIndexType type=VK_INDEX_TYPE_UINT16;
+      bool valid=false;
+    };
+    IndexBind indexBind{};
     VkCommandBuffer vertexCommand=VK_NULL_HANDLE;
     uint64_t vertexGeneration=0;
+    void reset_input_binds(VkCommandBuffer command,uint64_t generation) {
+      if(vertexCommand!=command || vertexGeneration!=generation) {
+        vertexBinds={};indexBind={};vertexCommand=command;vertexGeneration=generation;
+      }
+    }
     bool vertex_bind_matches(VkCommandBuffer command,uint64_t generation,
                              uint32_t binding,VkBuffer buffer,VkDeviceSize offset) {
-      if(vertexCommand!=command || vertexGeneration!=generation) {
-        vertexBinds={};vertexCommand=command;vertexGeneration=generation;
-      }
+      reset_input_binds(command,generation);
       if(binding>=vertexBinds.size()) return false;
       auto& old=vertexBinds[binding];
       const bool match=old.valid && old.buffer==buffer && old.offset==offset;
       old={buffer,offset,true};
+      return match;
+    }
+    bool index_bind_matches(VkCommandBuffer command,uint64_t generation,
+                            VkBuffer buffer,VkDeviceSize offset,VkIndexType type) {
+      reset_input_binds(command,generation);
+      const bool match=indexBind.valid && indexBind.buffer==buffer &&
+          indexBind.offset==offset && indexBind.type==type;
+      indexBind={buffer,offset,type,true};
       return match;
     }
     VkViewport viewport{};
@@ -2429,12 +2553,46 @@ void draw(const uint32_t *r, uint32_t prim, uint32_t count, uint32_t indexType,
         attributeEnd && stride && extent.valid && vertexExtent.valid &&
         windowEnd<=copied && windowBegin<windowEnd && windowBegin!=0;
     UploadSlice b;
-    if (!buffer_cache_enabled() || !cached_guest_range(addr, copied, rprof::kUpVertex, b))
-      b = copyWindow
-        ? vertex_window_snapshot(g.attributeBufferIndex,addr,copied,
-                                 uint32_t(windowBegin),uint32_t(windowEnd-windowBegin))
-        : vertex_snapshot(g.attributeBufferIndex, addr, copied,
-                          supported && attributeEnd && extent.valid && vertexExtent.valid);
+    struct VertexRangeMemo {
+      uint32_t addr = 0, copied = 0;
+      uint64_t epoch = 0, seq = 0;
+      UploadSlice slice{};
+      bufcache::Entry* entry = nullptr;
+      bool valid = false;
+    };
+    static thread_local VertexRangeMemo vertexRangeMemo[16];
+    const bool cacheOn = buffer_cache_enabled();
+    VertexRangeMemo* rangeMemo = cacheOn && g.attributeBufferIndex < 16
+        ? &vertexRangeMemo[g.attributeBufferIndex] : nullptr;
+    const uint64_t rangeEpoch = cacheOn ? buffer_cache_epoch() : 0;
+    const uint64_t rangeSeq = cacheOn ? wwatch::write_seq() : 0;
+    const bool rangeHit = rangeMemo && !buffer_cache_verify() && rangeMemo->valid &&
+        rangeMemo->addr == addr && rangeMemo->copied == copied &&
+        rangeMemo->epoch == rangeEpoch && rangeMemo->seq == rangeSeq &&
+        rangeMemo->slice.buffer && rangeMemo->slice.size && rangeMemo->entry;
+    if (rangeHit) {
+      b = rangeMemo->slice;
+      rangeMemo->entry->lastUse = R.frame;
+    } else {
+      bufcache::Entry* kept = nullptr;
+      if (!cacheOn || !cached_guest_range(addr, copied, rprof::kUpVertex, b,
+                                          rangeMemo ? &kept : nullptr)) {
+        b = copyWindow
+          ? vertex_window_snapshot(g.attributeBufferIndex,addr,copied,
+                                   uint32_t(windowBegin),uint32_t(windowEnd-windowBegin))
+          : vertex_snapshot(g.attributeBufferIndex, addr, copied,
+                            supported && attributeEnd && extent.valid && vertexExtent.valid);
+        if (rangeMemo) rangeMemo->valid = false;
+      } else if (rangeMemo && kept && wwatch::write_seq() == rangeSeq) {
+        rangeMemo->addr = addr;
+        rangeMemo->copied = copied;
+        rangeMemo->epoch = buffer_cache_epoch();
+        rangeMemo->seq = rangeSeq;
+        rangeMemo->slice = b;
+        rangeMemo->entry = kept;
+        rangeMemo->valid = true;
+      } else if (rangeMemo) rangeMemo->valid = false;
+    }
     VkDeviceSize offset = b.offset;
     static const bool skipVertexBinds = [] {
       const char* e=env::VK_SKIP_VERTEX_BINDS();
@@ -2453,21 +2611,27 @@ void draw(const uint32_t *r, uint32_t prim, uint32_t count, uint32_t indexType,
   rprof::g_upload_kind = rprof::kUpIndex;
   rprof::mark(rprof::kVertex);
   if (nativeIndices) {
-    vkCmdBindIndexBuffer(cmd, nativeIndexSlice.buffer, nativeIndexSlice.offset,
-                         indexType == 0 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
+    const VkIndexType nativeType = indexType == 0 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
+    if (!state.index_bind_matches(cmd, R.submissionGeneration, nativeIndexSlice.buffer,
+                                  nativeIndexSlice.offset, nativeType))
+      vkCmdBindIndexBuffer(cmd, nativeIndexSlice.buffer, nativeIndexSlice.offset, nativeType);
     vkCmdDrawIndexed(cmd, count, instances, 0, int32_t(baseVertex), 0);
   } else if (convertedEntry) {
     const uint32_t converted = convertedEntry->outSize / 4;
     auto b = buffer_cache_slice(*convertedEntry, convertedEntry->outSize);
     rprof::guest_read(rprof::kUpIndex, indexAddr, guestBytes);
-    vkCmdBindIndexBuffer(cmd, b.buffer, b.offset, VK_INDEX_TYPE_UINT32);
+    if (!state.index_bind_matches(cmd, R.submissionGeneration, b.buffer, b.offset,
+                                  VK_INDEX_TYPE_UINT32))
+      vkCmdBindIndexBuffer(cmd, b.buffer, b.offset, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexed(cmd, converted, instances, 0, int32_t(baseVertex), 0);
   } else if (indices.empty())
     vkCmdDraw(cmd, count, instances, baseVertex, 0);
   else {
     auto b = snapshot(indices.data(), indices.size() * 4, 4);
     if (indexAddr) rprof::guest_read(rprof::kUpIndex, indexAddr, guestBytes);
-    vkCmdBindIndexBuffer(cmd, b.buffer, b.offset, VK_INDEX_TYPE_UINT32);
+    if (!state.index_bind_matches(cmd, R.submissionGeneration, b.buffer, b.offset,
+                                  VK_INDEX_TYPE_UINT32))
+      vkCmdBindIndexBuffer(cmd, b.buffer, b.offset, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexed(cmd, indices.size(), instances, 0, int32_t(baseVertex), 0);
   }
   if(R.gpuPassTimestampsEnabled) gpu_count_render_draw();

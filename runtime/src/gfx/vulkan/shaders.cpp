@@ -724,12 +724,12 @@ Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, ui
                   uint64_t frame, uint64_t stateGeneration, const Shader* linkedVs) {
     ++stats.lookups;
     auto& last = lastShaders[vertex ? 0 : 1];
-    uint32_t primitive = regs[REGADDR::VGT_PRIMITIVE_TYPE] & 0x3F;
+    uint32_t primitive = vertex ? regs[REGADDR::VGT_PRIMITIVE_TYPE] & 0x3F : 0;
     bool cacheLast = frame != ~uint64_t{0} && stateGeneration != ~uint64_t{0};
     if (!cacheLast) { last = {}; stateMemo.reset(); }
     if (cacheLast && last.shader && last.regs == regs && last.frame == frame &&
         last.generation == stateGeneration && last.fsKey == fsKey &&
-        last.fetch == fetch && last.primitive == primitive) {
+        last.fetch == fetch && (!vertex || last.primitive == primitive)) {
         ++stats.lastHits;
         return last.shader;
     }

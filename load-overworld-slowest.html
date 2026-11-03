@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slowest parts of the world-map bench</title>
+<style>
+/* Generic dark theme. */
+:root {
+  color-scheme: dark;
+  --bg-editor: #181818;
+  --bg-chrome: #141414;
+  --bg-elevated: #1f1f1f;
+  --bg-input: #1c1c1c;
+  --bg-code: #1a1a1a;
+  --bg-peek: #121212;
+  --bg-dropdown: #262626;
+  --bg-selection: #2b3a55;
+  --text-primary: #d6d6d6;
+  --text-bright: #f0f0f0;
+  --text-secondary: #a3a3a3;
+  --text-tertiary: #7a7a7a;
+  --text-quaternary: #5e5e5e;
+  --text-inactive: #8c8c8c;
+  --text-link: #4ca0f5;
+  --text-on-accent: #ffffff;
+  --fill-primary: #2a2a2a;
+  --fill-secondary: #242424;
+  --fill-tertiary: #1f1f1f;
+  --fill-quaternary: #1a1a1a;
+  --stroke-primary: #2e2e2e;
+  --stroke-secondary: #2e2e2e;
+  --stroke-tertiary: #2e2e2e;
+  --stroke-focused: #4ca0f5;
+  --accent: #3b8eea;
+  --accent-control: #3b8eea;
+  --accent-hover: #2f7fd8;
+  --diff-inserted: #3fb95022;
+  --diff-removed: #f8514922;
+  --diff-strip-added: #3fb950;
+  --diff-strip-removed: #f85149;
+  --diff-green: #3fb950;
+  --diff-red: #f85149;
+  --cat-gray: #6e7681;
+  --cat-purple: #a371f7;
+  --cat-green: #3fb950;
+  --cat-yellow: #d29922;
+  --cat-cyan: #39c5cf;
+  --cat-pink: #db61a2;
+  --cat-blue: #4ca0f5;
+  --cat-orange: #e3814b;
+  --cat-red: #f85149;
+  --chart-green: #3fb950;
+  --chart-light-green: #56d364;
+  --chart-light-blue: #4ca0f5;
+  --chart-indigo: #7c8cf8;
+  --chart-bright-orange: #e3814b;
+  --chart-deep-orange: #c4622d;
+  --chart-golden-yellow: #d29922;
+  --chart-dark-amber: #f85149;
+  --chart-warm-pink: #db61a2;
+  --chart-warm-peach: #e8a87c;
+  --chart-purple: #a371f7;
+  --chart-mint: #56d4bc;
+  --chart-muted: #6e7681;
+  --chart-teal: #39c5cf;
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 9999px;
+}
+/* Page shell. Component rules live in the sibling files. */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html,
+body {
+  margin: 0;
+  background: var(--bg-editor);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+::selection {
+  background: var(--bg-selection);
+  color: var(--text-bright);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb { background: #ffffff1f; }
+::-webkit-scrollbar-thumb:hover { background: #ffffff33; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+p, h1, h2, h3, figure { margin: 0; }
+
+:focus-visible {
+  outline: 1px solid var(--stroke-focused);
+  outline-offset: 2px;
+}
+
+.page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 24px 40px;
+}
+/* Stack. Default gap 12. <div class="stack"> */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.stack.tight { gap: 8px; }
+
+.stack[hidden] { display: none !important; }
+/* Row. Default gap 8, nowrap. <div class="row"> <span class="spacer"> */
+.row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.row.wrap { flex-wrap: wrap; }
+.row.spread { justify-content: space-between; }
+.row.top { align-items: flex-start; }
+/* Spacer. <span class="spacer"> */
+.spacer { flex: 1; }
+/* Grid. <div class="grid" style="--cols: 3"> */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .grid { grid-template-columns: 1fr; }
+}
+/* Divider. <hr> */
+hr,
+.divider {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--stroke-tertiary);
+  margin: 0;
+}
+/* H1 24/30, H2 18/24, H3 16/22, weight 590. */
+h1 {
+  color: var(--text-bright);
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 590;
+}
+
+h2 {
+  color: var(--text-bright);
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 590;
+}
+
+h3,
+.diagram-title {
+  color: var(--text-bright);
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 590;
+}
+/* Text. Body 14/20, small 12/16. */
+.text {
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+}
+
+.small,
+.caption {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+.muted { color: var(--text-tertiary); }
+.faint { color: var(--text-quaternary); }
+.bright { color: var(--text-bright); font-weight: 590; }
+/* Code. <code> */
+code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  padding: 2px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-code);
+  color: var(--text-bright);
+}
+/* Link. <a href=""> */
+a {
+  color: var(--text-link);
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: #4ca0f580;
+}
+
+a:hover { color: var(--text-bright); }
+/* Card, CardHeader (28px, 12px label), CardBody (12px padding).
+   <section class="card">
+     <div class="card-header">config.yaml <span class="card-trailing">…</span></div>
+     <div class="card-body">…</div>
+   </section>
+   <section class="card borderless">…</section>
+   <details class="card"><summary>…</summary><div class="card-body">…</div></details>
+*/
+.card {
+  box-sizing: border-box;
+  background: var(--bg-chrome);
+  overflow: clip;
+  border: 1px solid var(--stroke-tertiary);
+  border-radius: var(--radius-lg);
+  width: 100%;
+}
+
+.card.borderless {
+  border: none;
+  border-radius: 0;
+}
+
+.card-header,
+details.card > summary {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 8px;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-bright);
+  border-bottom: 1px solid var(--stroke-tertiary);
+  min-width: 0;
+}
+
+.card.lg .card-header,
+details.card.lg > summary {
+  height: 32px;
+  padding: 0 10px;
+  gap: 8px;
+}
+
+details.card > summary {
+  cursor: pointer;
+  list-style: none;
+  width: 100%;
+}
+
+details.card > summary::-webkit-details-marker { display: none; }
+
+details.card > summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.2px solid currentColor;
+  border-bottom: 1.2px solid currentColor;
+  transform: rotate(-45deg);
+  flex: 0 0 auto;
+}
+
+details.card[open] > summary::before { transform: rotate(45deg); }
+
+details.card:not([open]) > summary { border-bottom: none; }
+
+.card-trailing {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 0;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.card-body {
+  box-sizing: border-box;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-secondary);
+}
+/* Button. 24px, radius 6, body type, weight 500.
+   <button class="btn primary" type="button">Save</button>
+   <button class="btn" type="button">Export</button>
+   <button class="btn ghost" type="button">Cancel</button>
+*/
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 24px;
+  width: auto;
+  padding: 0 6px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--stroke-primary);
+  background: var(--bg-dropdown);
+  color: var(--text-on-accent);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+}
+
+.btn.primary {
+  background: var(--accent-control);
+  color: var(--text-on-accent);
+  border-color: var(--accent-control);
+  transition: background 120ms ease;
+}
+
+.btn:hover { background: var(--bg-selection); }
+.btn.primary:hover { background: var(--accent-hover); }
+
+.btn.ghost {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: transparent;
+  transition: background 120ms ease;
+}
+
+.btn.ghost:hover { background: var(--fill-tertiary); }
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Pill. Active fills secondary and drops the border. sm is 10px on fill quaternary.
+   <label class="pill" for="view-overview">Overview</label>
+   <span class="pill sm">Plan <kbd>⇧Tab</kbd></span>
+*/
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--stroke-secondary);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  line-height: 14px;
+  font-weight: 400;
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+}
+
+.pill.active {
+  background: var(--fill-secondary);
+  color: var(--text-primary);
+  border-color: transparent;
+  font-weight: 500;
+}
+
+.pill.sm {
+  gap: 4px;
+  padding: 2px 6px;
+  border: none;
+  background: var(--fill-quaternary);
+  font-size: 10px;
+  line-height: 12px;
+}
+
+.pill.sm.active {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.pill kbd {
+  font: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--text-tertiary);
+}
+
+.pill:disabled { opacity: 0.3; }
+/* Radio tabs. CSS only, so the tabs work when scripts are blocked. Up to 8 tabs.
+   Inputs, labels, and section panels pair by order.
+   <div class="stack radio-tabs">
+     <input type="radio" name="view" id="view-overview" checked>
+     <input type="radio" name="view" id="view-services">
+     <div class="row"><label class="pill" for="view-overview">Overview</label><label class="pill" for="view-services">Services</label></div>
+     <section>…</section>
+     <section>…</section>
+   </div>
+*/
+.radio-tabs > input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.radio-tabs > section {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.radio-tabs label.pill:hover { color: var(--text-primary); }
+
+.radio-tabs > input:nth-of-type(1):checked ~ section:nth-of-type(1),
+.radio-tabs > input:nth-of-type(2):checked ~ section:nth-of-type(2),
+.radio-tabs > input:nth-of-type(3):checked ~ section:nth-of-type(3),
+.radio-tabs > input:nth-of-type(4):checked ~ section:nth-of-type(4),
+.radio-tabs > input:nth-of-type(5):checked ~ section:nth-of-type(5),
+.radio-tabs > input:nth-of-type(6):checked ~ section:nth-of-type(6),
+.radio-tabs > input:nth-of-type(7):checked ~ section:nth-of-type(7),
+.radio-tabs > input:nth-of-type(8):checked ~ section:nth-of-type(8) {
+  display: flex;
+}
+
+.radio-tabs > input:nth-of-type(1):checked ~ .row > label:nth-of-type(1),
+.radio-tabs > input:nth-of-type(2):checked ~ .row > label:nth-of-type(2),
+.radio-tabs > input:nth-of-type(3):checked ~ .row > label:nth-of-type(3),
+.radio-tabs > input:nth-of-type(4):checked ~ .row > label:nth-of-type(4),
+.radio-tabs > input:nth-of-type(5):checked ~ .row > label:nth-of-type(5),
+.radio-tabs > input:nth-of-type(6):checked ~ .row > label:nth-of-type(6),
+.radio-tabs > input:nth-of-type(7):checked ~ .row > label:nth-of-type(7),
+.radio-tabs > input:nth-of-type(8):checked ~ .row > label:nth-of-type(8) {
+  background: var(--fill-secondary);
+  color: var(--text-primary);
+  border-color: transparent;
+  font-weight: 500;
+}
+/* Stat. Value 24/28 weight 600, centered. Tones use the chart palette.
+   <div class="stat danger"><div class="stat-value">12</div><div class="stat-label">Failing checks</div></div>
+*/
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 8px;
+}
+
+.stat-value {
+  font-size: 24px;
+  line-height: 28px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-bright);
+}
+
+.stat-label {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-secondary);
+}
+
+.stat.success .stat-value { color: var(--chart-light-green); }
+.stat.danger .stat-value { color: var(--chart-dark-amber); }
+.stat.warning .stat-value { color: var(--chart-bright-orange); }
+.stat.info .stat-value { color: var(--chart-light-blue); }
+/* Callout. Icon plus title and body, no surface.
+   <aside class="callout warning"><div class="callout-title">Heads up</div><p class="text">…</p></aside>
+*/
+.callout {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px 10px;
+  width: 100%;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+}
+
+.callout::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: var(--chart-light-blue);
+  flex: 0 0 auto;
+}
+
+.callout.info::before { background: var(--chart-light-blue); }
+.callout.success::before { background: var(--chart-light-green); }
+.callout.warning::before { background: var(--chart-bright-orange); }
+.callout.danger::before { background: var(--chart-dark-amber); }
+.callout.neutral::before { background: var(--chart-muted); }
+
+.callout-title,
+.callout .text {
+  flex: 1 1 calc(100% - 22px);
+  min-width: 0;
+}
+
+.callout-title {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.callout .text {
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 20px;
+}
+/* Table. Framed, header fill quaternary, 8px 12px cells. A fold hides a long table until opened.
+   Click a header to sort. A .num column starts with the largest value. A day such as Tue 27 Oct starts newest first. Any other column starts A to Z. The next click reverses it.
+   <details class="fold"><summary>Table</summary><div class="table-frame">…</div></details>
+   <div class="table-frame"><table class="data"><thead>…</thead><tbody><tr class="tone-danger">…</tr></tbody></table></div>
+*/
+.table-frame {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--stroke-tertiary);
+  border-radius: var(--radius-lg);
+  background: var(--bg-editor);
+  overflow-x: auto;
+  overflow-y: clip;
+}
+
+.table-frame.sticky { overflow-y: auto; }
+
+details.fold {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid var(--stroke-tertiary);
+  border-radius: var(--radius-lg);
+  background: var(--bg-editor);
+  overflow: hidden;
+}
+
+details.fold > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+details.fold > summary::-webkit-details-marker { display: none; }
+
+details.fold > summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.2px solid var(--text-quaternary);
+  border-bottom: 1.2px solid var(--text-quaternary);
+  transform: rotate(-45deg);
+  flex: 0 0 auto;
+}
+
+details.fold[open] > summary {
+  border-bottom: 1px solid var(--stroke-tertiary);
+}
+
+details.fold[open] > summary::before { transform: rotate(45deg); }
+
+details.fold > summary:focus-visible {
+  outline: none;
+  background: var(--bg-chrome);
+}
+
+details.fold > .table-frame {
+  margin-top: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+table.data {
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-primary);
+}
+
+table.data th,
+table.data td {
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+table.data th {
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-chrome);
+  border-bottom: 1px solid var(--stroke-secondary);
+}
+
+
+
+.table-frame.sticky th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-chrome);
+}
+
+table.data td { border-bottom: 1px solid var(--stroke-tertiary); }
+table.data tr:last-child td { border-bottom: 0; }
+
+table.data.striped tbody tr:nth-child(even) { background: #ffffff08; }
+
+table.data .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+table.data tr[class*="tone-"] td:first-child::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--chart-muted);
+  transform: translateY(-1px);
+}
+
+table.data tr.tone-success td:first-child::before { background: var(--chart-light-green); }
+table.data tr.tone-danger td:first-child::before { background: var(--chart-dark-amber); }
+table.data tr.tone-warning td:first-child::before { background: var(--chart-bright-orange); }
+table.data tr.tone-info td:first-child::before { background: var(--chart-light-blue); }
+table.data tr.tone-neutral td:first-child::before { background: var(--chart-muted); }
+
+table.data th .sort {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+table.data th.num .sort { justify-content: flex-end; }
+
+table.data th .sort:hover { color: var(--text-primary); }
+
+table.data th .sort::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 0;
+  height: 0;
+  border-left: 3.5px solid transparent;
+  border-right: 3.5px solid transparent;
+  border-bottom: 4px solid var(--text-quaternary);
+  opacity: 0.45;
+}
+
+table.data th[aria-sort="ascending"] .sort::after {
+  border-bottom-color: var(--text-primary);
+  opacity: 1;
+}
+
+table.data th[aria-sort="descending"] .sort::after {
+  border-bottom: 0;
+  border-top: 4px solid var(--text-primary);
+  opacity: 1;
+}
+/* DiffStats and DiffView. 12px mono, 20px line, 3px strip.
+   <span class="diff-stats"><span class="add">+2</span><span class="del">-1</span></span>
+   <div class="diff"><div class="diff-line added"><span class="ln">2</span><span class="mark">+</span><span>…</span></div></div>
+*/
+.diff-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.diff-stats .add { color: var(--diff-green); }
+.diff-stats .del { color: var(--diff-red); }
+
+.diff {
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 20px;
+  background: var(--bg-peek);
+  overflow: auto;
+  tab-size: 4;
+  padding-block: 2px;
+}
+
+.diff-line {
+  display: flex;
+  min-width: 100%;
+  min-height: 20px;
+  border-left: 3px solid transparent;
+  color: var(--text-primary);
+}
+
+.diff-line.added {
+  background: var(--diff-inserted);
+  border-left-color: var(--diff-strip-added);
+}
+
+.diff-line.removed {
+  background: var(--diff-removed);
+  border-left-color: var(--diff-strip-removed);
+}
+
+.diff-line .ln {
+  box-sizing: content-box;
+  min-width: 4ch;
+  text-align: right;
+  padding: 0 4px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  user-select: none;
+  flex: 0 0 auto;
+}
+
+.diff-line.added .ln,
+.diff-line.added .mark { color: var(--diff-green); }
+
+.diff-line.removed .ln,
+.diff-line.removed .mark { color: var(--diff-red); }
+
+.diff-line .mark {
+  width: 1ch;
+  user-select: none;
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+}
+
+.diff-line > span:last-child {
+  flex: 1;
+  padding-left: 8px;
+  white-space: pre;
+}
+/* UsageBar. 5px track, 1px gaps, category colors, remainder fill tertiary.
+   <div class="usage"><div class="usage-labels"><span>64% Full</span><span>76.8K / 120K</span></div>
+   <div class="usage-track"><span class="seg c-purple" style="width: 20%"></span><span class="rest"></span></div></div>
+*/
+.usage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.usage-labels {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-track {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  gap: 1px;
+  overflow: hidden;
+  border-radius: 1px;
+}
+
+.usage-track .seg,
+.usage-track .rest {
+  height: 5px;
+  min-width: 4px;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.usage-track .rest {
+  flex: 1 1 auto;
+  background: var(--fill-tertiary);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 2px;
+}
+/* Swatch. 24px, radius 4. <span class="swatch c-purple"> */
+.swatch {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+}
+
+.c-gray { background: var(--cat-gray); }
+.c-purple { background: var(--cat-purple); }
+.c-green { background: var(--cat-green); }
+.c-yellow { background: var(--cat-yellow); }
+.c-cyan { background: var(--cat-cyan); }
+.c-pink { background: var(--cat-pink); }
+.c-blue { background: var(--cat-blue); }
+.c-orange { background: var(--cat-orange); }
+.c-red { background: var(--cat-red); }
+.c-accent { background: var(--accent); }
+/* CollapsibleSection. Borderless row, closed until open.
+   <details class="section"><summary><span class="swatch c-purple"></span>Tools <span class="section-count">4</span><span class="card-trailing">12.3k</span></summary><div class="section-body">…</div></details>
+*/
+details.section {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+}
+
+details.section > summary {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  list-style: none;
+}
+
+details.section > summary::-webkit-details-marker { display: none; }
+
+details.section > summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.2px solid var(--text-quaternary);
+  border-bottom: 1.2px solid var(--text-quaternary);
+  transform: rotate(-45deg);
+  flex: 0 0 auto;
+}
+
+details.section[open] > summary::before { transform: rotate(45deg); }
+
+.section-count {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+details.section .card-trailing {
+  color: var(--text-tertiary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.section-body {
+  padding: 0 0 8px 20px;
+  min-width: 0;
+}
+/* TodoList and TodoListCard. Header is 28px, "2 of 4 Done".
+   <ul class="todo"><li class="todo-item completed"><span class="todo-mark"></span>Ship the flag</li></ul>
+   <details class="todo-card" open><summary>2 of 4 Done</summary><div class="card-body"><ul class="todo">…</ul></div></details>
+*/
+ul.todo {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+li.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.todo-mark {
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  border: 1.5px solid var(--text-quaternary);
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+}
+
+.todo-item.in-progress { color: var(--text-primary); }
+.todo-item.in-progress .todo-mark { border-color: var(--text-secondary); background: var(--text-secondary); }
+
+.todo-item.completed,
+.todo-item.cancelled {
+  color: var(--text-quaternary);
+  text-decoration: line-through;
+}
+
+.todo-item.completed .todo-mark,
+.todo-item.cancelled .todo-mark { border-color: var(--text-tertiary); }
+
+.todo-card {
+  background: var(--fill-quaternary);
+  border: 1px solid var(--stroke-tertiary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  width: 100%;
+}
+
+.todo-card > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.todo-card > summary::-webkit-details-marker { display: none; }
+
+.todo-card > summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.2px solid currentColor;
+  border-bottom: 1.2px solid currentColor;
+  transform: rotate(-45deg);
+  flex: 0 0 auto;
+}
+
+.todo-card[open] > summary::before { transform: rotate(45deg); }
+
+.todo-card > .card-body { padding: 8px 16px; }
+/* TextInput 28px, TextArea, Checkbox 14px, Toggle sm 26×16, Select, IconButton 20px.
+   <label class="field">Task title <input class="input" type="text" placeholder="Task title…"></label>
+   <label class="check"><input type="checkbox"> I agree to the terms</label>
+   <label class="toggle"><input type="checkbox"><span class="toggle-track"></span></label>
+   <button class="icon-btn" type="button" title="Delete">…</button>
+   <button class="icon-btn circle sm" type="button" title="Edit">…</button>
+*/
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--stroke-secondary);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: 0.13px;
+  outline: none;
+}
+
+textarea.input {
+  height: auto;
+  min-height: 28px;
+  resize: vertical;
+}
+
+select.input {
+  appearance: none;
+  border-color: var(--stroke-tertiary);
+  background-color: transparent;
+  color-scheme: dark;
+  padding: 4px 20px 4px 4px;
+  cursor: pointer;
+}
+
+.input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.input:focus {
+  outline: 1px solid var(--stroke-focused);
+  outline-offset: -1px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.check input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent-control);
+}
+
+.toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-track {
+  position: relative;
+  width: 26px;
+  height: 16px;
+  background: var(--fill-secondary);
+  border: none;
+  border-radius: var(--radius-full);
+  flex: 0 0 auto;
+}
+
+.toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 150ms ease;
+}
+
+.toggle input:checked + .toggle-track { background: var(--accent-control); }
+.toggle input:checked + .toggle-track::after { transform: translateX(10px); }
+
+.toggle input:disabled + .toggle-track { opacity: 0.5; }
+
+.toggle.md .toggle-track { width: 32px; height: 20px; }
+.toggle.md .toggle-track::after { width: 14px; height: 14px; top: 3px; left: 3px; }
+.toggle.md input:checked + .toggle-track::after { transform: translateX(12px); }
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.icon-btn.circle {
+  background: var(--fill-quaternary);
+  border-radius: var(--radius-full);
+}
+
+.icon-btn.sm { width: 16px; height: 16px; }
+.icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.icon-btn:hover { background: var(--fill-tertiary); }
+/* Editor tabs. Active tab matches the editor, inactive tabs sit on chrome.
+   <div class="editor">
+     <div class="tab-bar">
+       <span class="tab active">charge.ts</span>
+       <span class="tab">retry.ts</span>
+     </div>
+     <pre class="code"><code>const timeout = 1500</code></pre>
+   </div>
+*/
+.editor {
+  background: var(--bg-editor);
+  border: 1px solid var(--stroke-primary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  width: 100%;
+}
+
+.tab-bar {
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-chrome);
+  border-bottom: 1px solid var(--stroke-primary);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  height: 35px;
+  padding: 0 12px;
+  background: var(--bg-chrome);
+  color: var(--text-inactive);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.tab.active {
+  background: var(--bg-editor);
+  color: var(--text-bright);
+  border-bottom: 1px solid var(--bg-editor);
+  margin-bottom: -1px;
+}
+
+pre.code {
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  background: var(--bg-editor);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+pre.code code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-size: 12px;
+}
+
+.syn-comment { color: var(--text-quaternary); font-style: italic; }
+.syn-keyword { color: var(--cat-purple); }
+.syn-string { color: var(--cat-green); }
+.syn-number { color: var(--cat-orange); }
+.syn-function { color: var(--cat-blue); }
+.syn-type { color: var(--cat-yellow); }
+.syn-param { color: var(--cat-red); }
+.syn-punct { color: var(--text-primary); }
+/* Chart frame. Bar and line charts are 240px tall. A pie is 200px.
+   <figure class="diagram"><figcaption class="diagram-title">Requests</figcaption><div class="chart-frame"><canvas id="bar-requests"></canvas></div><p class="caption">…</p></figure>
+   <pre class="mermaid">flowchart LR
+  a --> b</pre>
+*/
+figure.diagram {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.chart-frame {
+  position: relative;
+  height: 240px;
+  background: var(--bg-editor);
+  border: 1px solid var(--stroke-tertiary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.chart-frame.pie { height: 200px; }
+
+.chart-frame canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.mermaid {
+  overflow-x: auto;
+  background: transparent;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+<main class="page stack">
+<h1>Slowest parts of the world-map bench</h1>
+  <p class="text">The six map windows average <span class="bright">8.09 ms/frame</span>. Swap is the present wait. Draw and regs are the slow compute.</p>
+  <div class="grid" style="--cols: 4">
+    <div class="stat"><div class="stat-value">8.85</div><div class="stat-label">slowest window, ms</div></div>
+    <div class="stat"><div class="stat-value">3.31</div><div class="stat-label">mean swap, ms</div></div>
+    <div class="stat warning"><div class="stat-value">1.26</div><div class="stat-label">mean regs, ms</div></div>
+    <div class="stat"><div class="stat-value">0.00</div><div class="stat-label">GPU wait, ms</div></div>
+  </div>
+  <aside class="callout info">
+    <div class="callout-title">What is slow</div>
+    <p class="text">Swap averages 3.31 ms and is the present wait. The GPU wait is 0.00 ms. Regs takes 1.26 ms. Inside the 3.31 ms draw, uniforms take 0.62 ms and record takes 0.53 ms.</p>
+  </aside>
+  <h2>Render ops</h2>
+  <figure class="diagram">
+    <figcaption class="diagram-title">Mean time of each render op</figcaption>
+    <div class="chart-frame"><canvas id="ops-bars"></canvas></div>
+    <p class="caption">Mean ms/frame. Source: nsmbu bench load-overworld, map windows at frames 3240–3840, 3 Nov 2026.</p>
+  </figure>
+  <details class="fold">
+    <summary>Table</summary>
+    <div class="table-frame">
+      <table class="data striped">
+        <thead><tr><th>Op</th><th class="num">ms/frame</th></tr></thead>
+        <tbody>
+          <tr><td>swap</td><td class="num">3.31</td></tr>
+          <tr><td>draw</td><td class="num">3.31</td></tr>
+          <tr><td>regs</td><td class="num">1.26</td></tr>
+          <tr><td>invalidate</td><td class="num">0.30</td></tr>
+          <tr><td>flush</td><td class="num">0.04</td></tr>
+          <tr><td>clear</td><td class="num">0.01</td></tr>
+          <tr><td>other</td><td class="num">0.01</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+  <h2>Draw phases</h2>
+  <p class="text">Uniforms are the largest share of the draw. The draw mean is 3.31 ms/frame.</p>
+  <div class="usage">
+    <div class="usage-labels"><span>Share of the draw</span><span>3.31 ms/frame</span></div>
+    <div class="usage-track">
+      <span class="seg c-yellow" style="width: 18.7%"></span>
+      <span class="seg c-blue" style="width: 16.0%"></span>
+      <span class="seg c-cyan" style="width: 14.8%"></span>
+      <span class="seg c-orange" style="width: 13.3%"></span>
+      <span class="seg c-purple" style="width: 9.7%"></span>
+      <span class="seg c-green" style="width: 6.9%"></span>
+      <span class="seg c-pink" style="width: 6.6%"></span>
+      <span class="seg c-gray" style="width: 14.0%"></span>
+    </div>
+  </div>
+  <div class="legend">
+    <span><i class="c-yellow"></i>uniforms 18.7%</span>
+    <span><i class="c-blue"></i>record 16.0%</span>
+    <span><i class="c-cyan"></i>shader 14.8%</span>
+    <span><i class="c-orange"></i>textures 13.3%</span>
+    <span><i class="c-purple"></i>submit 9.7%</span>
+    <span><i class="c-green"></i>vertex 6.9%</span>
+    <span><i class="c-pink"></i>descriptors 6.6%</span>
+    <span><i class="c-gray"></i>other draw 14.0%</span>
+  </div>
+  <figure class="diagram">
+    <figcaption class="diagram-title">Mean time of each draw phase</figcaption>
+    <div class="chart-frame"><canvas id="phase-bars"></canvas></div>
+    <p class="caption">Mean ms/frame inside the draw. Source: same six map windows, 3 Nov 2026.</p>
+  </figure>
+  <div class="table-frame sticky">
+    <table class="data striped">
+      <thead>
+        <tr>
+          <th class="num">Frame</th>
+          <th class="num">ms/frame</th>
+          <th class="num">Draw</th>
+          <th class="num">Textures</th>
+          <th class="num">Uniforms</th>
+          <th class="num">Record</th>
+          <th class="num">Shader</th>
+          <th class="num">Regs</th>
+          <th class="num">Swap</th>
+          <th class="num">DrawDone</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="num">3240</td><td class="num">7.65</td><td class="num">2.91</td><td class="num">0.40</td><td class="num">0.55</td><td class="num">0.47</td><td class="num">0.43</td><td class="num">1.13</td><td class="num">2.22</td><td class="num">4.46</td></tr>
+        <tr><td class="num">3360</td><td class="num">7.78</td><td class="num">3.04</td><td class="num">0.41</td><td class="num">0.58</td><td class="num">0.49</td><td class="num">0.45</td><td class="num">1.17</td><td class="num">3.94</td><td class="num">4.46</td></tr>
+        <tr><td class="num">3480</td><td class="num">8.11</td><td class="num">3.36</td><td class="num">0.44</td><td class="num">0.64</td><td class="num">0.54</td><td class="num">0.49</td><td class="num">1.30</td><td class="num">0.28</td><td class="num">4.92</td></tr>
+        <tr><td class="num">3600</td><td class="num">8.21</td><td class="num">3.48</td><td class="num">0.45</td><td class="num">0.66</td><td class="num">0.56</td><td class="num">0.51</td><td class="num">1.32</td><td class="num">2.07</td><td class="num">5.11</td></tr>
+        <tr class="tone-warning"><td class="num">3720</td><td class="num">8.85</td><td class="num">3.82</td><td class="num">0.51</td><td class="num">0.71</td><td class="num">0.61</td><td class="num">0.56</td><td class="num">1.42</td><td class="num">5.17</td><td class="num">5.26</td></tr>
+        <tr><td class="num">3840</td><td class="num">7.96</td><td class="num">3.22</td><td class="num">0.44</td><td class="num">0.60</td><td class="num">0.52</td><td class="num">0.48</td><td class="num">1.22</td><td class="num">6.15</td><td class="num">4.83</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">Each row is one 120-frame window. DrawDone is the game-thread wait. The highlighted row is the slowest window. Source: run/log, 3 Nov 2026.</p>
+  <section class="card">
+    <div class="card-header">Draw phase rank</div>
+    <div class="card-body">
+      <p class="text">Uniforms 0.62 ms, record 0.53 ms, shader 0.49 ms, then textures 0.44 ms. Submit is 0.32 ms. Regs, outside the draw, is 1.26 ms.</p>
+    </div>
+  </section>
+  <details class="section">
+    <summary>Load spike <span class="section-count">1</span></summary>
+    <div class="section-body">
+      <p class="text">Frame 840, during the load, was 9.95 ms/frame. The bench score uses only the map windows at frame 3200 and later.</p>
+    </div>
+  </details>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.6.0/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+function canvasToken(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+var chartPalette = [
+  canvasToken("--cat-green"),
+  canvasToken("--cat-blue"),
+  canvasToken("--cat-yellow"),
+  canvasToken("--cat-purple"),
+  canvasToken("--cat-orange"),
+  canvasToken("--cat-cyan"),
+  canvasToken("--cat-red"),
+];
+
+
+function tableSortValue(text) {
+  var raw = text.replace(/\s+/g, " ").trim();
+  if (!raw) return { empty: true, n: false, v: "" };
+  var time = /^(\d{1,2}):(\d{2})$/.exec(raw);
+  if (time) return { empty: false, n: true, v: Number(time[1]) * 60 + Number(time[2]) };
+  var months = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+  var dated = /^(?:(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*\s+)?(\d{1,2})\s+([a-z]{3,9})(?:\s+(\d{4}))?$/i.exec(raw);
+  if (dated && months[dated[2].slice(0, 3).toLowerCase()]) {
+    var month = months[dated[2].slice(0, 3).toLowerCase()];
+    var year = dated[3] ? Number(dated[3]) : 0;
+    return { empty: false, n: true, v: year * 10000 + month * 100 + Number(dated[1]) };
+  }
+  var match = /^(-?)([\d,]+(?:\.\d+)?)([kKmM])?%?$/.exec(raw.replace(/\$/g, ""));
+  if (match) {
+    var n = Number(match[2].replace(/,/g, ""));
+    if (match[1] === "-") n = -n;
+    var suffix = (match[3] || "").toLowerCase();
+    if (suffix === "k") n *= 1000;
+    if (suffix === "m") n *= 1000000;
+    return { empty: false, n: true, v: n };
+  }
+  return { empty: false, n: false, v: raw.toLowerCase() };
+}
+
+function tableColumnNumeric(table, index) {
+  var th = table.tHead.rows[0].cells[index];
+  if (th.classList.contains("num")) return true;
+  var rows = table.tBodies[0] ? table.tBodies[0].rows : [];
+  var saw = false;
+  for (var i = 0; i < rows.length; i++) {
+    var cell = rows[i].cells[index];
+    if (!cell) continue;
+    var key = tableSortValue(cell.textContent);
+    if (key.empty) continue;
+    saw = true;
+    if (!key.n) return false;
+  }
+  return saw;
+}
+
+function sortTableColumn(table, index) {
+  var ths = table.tHead.rows[0].cells;
+  var th = ths[index];
+  var numeric = tableColumnNumeric(table, index);
+  var next = th.getAttribute("aria-sort") === "ascending" ? "descending" : th.getAttribute("aria-sort") === "descending" ? "ascending" : numeric ? "descending" : "ascending";
+  for (var h = 0; h < ths.length; h++) {
+    if (ths[h] !== th) ths[h].removeAttribute("aria-sort");
+  }
+  th.setAttribute("aria-sort", next);
+  var body = table.tBodies[0];
+  if (!body) return;
+  var dir = next === "ascending" ? 1 : -1;
+  var rows = Array.prototype.slice.call(body.rows);
+  rows.sort(function (a, b) {
+    var ak = tableSortValue(a.cells[index] ? a.cells[index].textContent : "");
+    var bk = tableSortValue(b.cells[index] ? b.cells[index].textContent : "");
+    if (ak.empty !== bk.empty) return ak.empty ? 1 : -1;
+    if (ak.n !== bk.n) return ak.n ? -1 : 1;
+    if (ak.v === bk.v) return 0;
+    return (ak.v < bk.v ? -1 : 1) * dir;
+  });
+  rows.forEach(function (row) { body.appendChild(row); });
+}
+
+function bindTableSort() {
+  document.querySelectorAll("table.data").forEach(function (table) {
+    if (!table.tHead || !table.tHead.rows.length) return;
+    var ths = table.tHead.rows[0].cells;
+    for (var index = 0; index < ths.length; index++) {
+      (function (index) {
+        var th = ths[index];
+        if (!th.hasAttribute("scope")) th.setAttribute("scope", "col");
+        if (th.querySelector("button.sort")) return;
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = "sort";
+        while (th.firstChild) button.appendChild(th.firstChild);
+        th.appendChild(button);
+        button.addEventListener("click", function () { sortTableColumn(table, index); });
+      })(index);
+    }
+  });
+}
+
+function initHtmlCanvas() {
+  var font = canvasToken("--font-ui");
+  if (window.mermaid) {
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: "strict",
+      theme: "base",
+      fontFamily: font,
+      flowchart: { htmlLabels: false, curve: "linear", padding: 12 },
+      themeVariables: {
+        darkMode: true,
+        background: canvasToken("--bg-editor"),
+        fontFamily: font,
+        primaryColor: canvasToken("--bg-elevated"),
+        primaryTextColor: canvasToken("--text-bright"),
+        primaryBorderColor: canvasToken("--accent"),
+        secondaryColor: canvasToken("--bg-chrome"),
+        secondaryTextColor: canvasToken("--text-primary"),
+        secondaryBorderColor: canvasToken("--stroke-primary"),
+        tertiaryColor: canvasToken("--bg-input"),
+        tertiaryTextColor: canvasToken("--text-primary"),
+        tertiaryBorderColor: canvasToken("--stroke-primary"),
+        lineColor: canvasToken("--text-tertiary"),
+        textColor: canvasToken("--text-primary"),
+        mainBkg: canvasToken("--bg-elevated"),
+        nodeBkg: canvasToken("--bg-elevated"),
+        nodeTextColor: canvasToken("--text-bright"),
+        nodeBorder: canvasToken("--stroke-primary"),
+        clusterBkg: canvasToken("--bg-chrome"),
+        clusterBorder: canvasToken("--stroke-primary"),
+        titleColor: canvasToken("--text-bright"),
+        edgeLabelBackground: canvasToken("--bg-input"),
+        actorBkg: canvasToken("--bg-elevated"),
+        actorBorder: canvasToken("--accent"),
+        actorTextColor: canvasToken("--text-bright"),
+        actorLineColor: canvasToken("--text-tertiary"),
+        signalColor: canvasToken("--text-primary"),
+        signalTextColor: canvasToken("--text-primary"),
+        labelBoxBkgColor: canvasToken("--bg-input"),
+        labelTextColor: canvasToken("--text-primary"),
+        labelBoxBorderColor: canvasToken("--stroke-primary"),
+        loopTextColor: canvasToken("--text-primary"),
+        noteBkgColor: canvasToken("--bg-dropdown"),
+        noteTextColor: canvasToken("--text-bright"),
+        noteBorderColor: canvasToken("--stroke-primary"),
+        activationBkgColor: canvasToken("--bg-selection"),
+        activationBorderColor: canvasToken("--accent"),
+        sequenceNumberColor: canvasToken("--text-on-accent"),
+        sectionBkgColor: canvasToken("--bg-elevated"),
+        altSectionBkgColor: canvasToken("--bg-chrome"),
+        gridColor: canvasToken("--stroke-primary"),
+        taskBkgColor: canvasToken("--accent"),
+        taskTextColor: canvasToken("--text-on-accent"),
+        taskBorderColor: canvasToken("--accent-hover"),
+        doneTaskBkgColor: canvasToken("--cat-green"),
+        doneTaskBorderColor: canvasToken("--cat-green"),
+        activeTaskBkgColor: canvasToken("--cat-blue"),
+        activeTaskBorderColor: canvasToken("--cat-blue"),
+        critBkgColor: canvasToken("--cat-red"),
+        critBorderColor: canvasToken("--cat-red"),
+        todayLineColor: canvasToken("--cat-yellow"),
+        git0: canvasToken("--cat-green"),
+        git1: canvasToken("--cat-blue"),
+        git2: canvasToken("--cat-purple"),
+        git3: canvasToken("--cat-yellow"),
+        git4: canvasToken("--cat-orange"),
+        git5: canvasToken("--cat-cyan"),
+        git6: canvasToken("--cat-red"),
+        git7: canvasToken("--accent"),
+        commitLabelColor: canvasToken("--text-bright"),
+        commitLabelBackground: canvasToken("--bg-chrome"),
+        pie1: canvasToken("--cat-green"),
+        pie2: canvasToken("--cat-blue"),
+        pie3: canvasToken("--cat-yellow"),
+        pie4: canvasToken("--cat-purple"),
+        pie5: canvasToken("--cat-orange"),
+        pie6: canvasToken("--cat-cyan"),
+        pie7: canvasToken("--cat-red"),
+        pieTitleTextColor: canvasToken("--text-bright"),
+        pieSectionTextColor: canvasToken("--bg-editor"),
+        pieLegendTextColor: canvasToken("--text-primary"),
+        pieStrokeColor: canvasToken("--bg-editor"),
+      },
+    });
+  }
+
+  if (window.Chart) {
+    Chart.defaults.color = canvasToken("--text-secondary");
+    Chart.defaults.borderColor = canvasToken("--stroke-primary");
+    Chart.defaults.font.family = font;
+    Chart.defaults.font.size = 12;
+    Chart.defaults.plugins.legend.labels.boxWidth = 10;
+    Chart.defaults.plugins.legend.labels.boxHeight = 10;
+    Chart.defaults.plugins.legend.labels.color = canvasToken("--text-secondary");
+  }
+  bindTableSort();
+}
+
+function renderChart(canvas, spec) {
+  var colors = chartPalette;
+  var pie = spec.type === "pie" || spec.type === "doughnut";
+  var datasets;
+
+  if (pie) {
+    datasets = [
+      {
+        label: spec.series[0].label,
+        data: spec.series[0].data,
+        backgroundColor: Array.isArray(spec.series[0].color)
+          ? spec.series[0].color
+          : colors.slice(0, spec.series[0].data.length),
+        borderColor: canvasToken("--bg-editor"),
+        borderWidth: 2,
+      },
+    ];
+  } else {
+    datasets = spec.series.map(function (series, index) {
+      var color = series.color || colors[index % colors.length];
+      var bars = spec.type === "bar" && spec.series.length === 1;
+      return {
+        label: series.label,
+        data: series.data,
+        borderColor: color,
+        backgroundColor: bars ? colors.slice(0, series.data.length) : color,
+        pointBackgroundColor: color,
+        pointBorderColor: color,
+        borderWidth: spec.type === "line" ? 2 : 0,
+        tension: 0.25,
+        fill: spec.fill ? "origin" : false,
+      };
+    });
+  }
+
+  var scales = {};
+  if (!pie) {
+    scales = {
+      x: {
+        title: {
+          display: Boolean(spec.xTitle),
+          text: spec.xTitle || "",
+          color: canvasToken("--text-secondary"),
+        },
+        ticks: { color: canvasToken("--text-secondary") },
+        stacked: Boolean(spec.stacked),
+        grid: { color: canvasToken("--stroke-primary") },
+      },
+      y: {
+        beginAtZero: spec.beginAtZero !== false,
+        stacked: Boolean(spec.stacked),
+        title: {
+          display: Boolean(spec.yTitle),
+          text: spec.yTitle || "",
+          color: canvasToken("--text-secondary"),
+        },
+        ticks: { color: canvasToken("--text-secondary") },
+        grid: { color: canvasToken("--stroke-primary") },
+      },
+    };
+  }
+
+  return new Chart(canvas, {
+    type: spec.type,
+    data: { labels: spec.labels, datasets: datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: {
+          display: pie || spec.series.length > 1,
+          position: "bottom",
+        },
+      },
+      scales: scales,
+    },
+  });
+}
+
+initHtmlCanvas();
+</script>
+<script>
+renderChart(document.getElementById("ops-bars"), {
+  type: "bar",
+  labels: ["swap", "draw", "regs", "invalidate", "flush", "clear"],
+  series: [{ label: "ms/frame", data: [3.31, 3.31, 1.26, 0.30, 0.04, 0.01] }],
+  xTitle: "Render op",
+  yTitle: "ms/frame"
+})
+renderChart(document.getElementById("phase-bars"), {
+  type: "bar",
+  labels: ["uniforms", "record", "shader", "textures", "submit", "vertex", "descriptors", "targets", "indices", "pipeline", "pass"],
+  series: [{ label: "ms/frame", data: [0.62, 0.53, 0.49, 0.44, 0.32, 0.23, 0.22, 0.12, 0.11, 0.11, 0.11] }],
+  xTitle: "Draw phase",
+  yTitle: "ms/frame"
+})
+</script>
+</body>
+</html>

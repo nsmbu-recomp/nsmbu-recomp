@@ -287,6 +287,17 @@ wait timers disabled. CPU time excludes sleeping and GPU waits.
 | `NSMBU_VK_SHADER_KEY_DIRTY` | Avoids shader-generation bumps only for explicitly classified register bits absent from the current Vulkan shader key. Program headers, fetch strides, unknown registers, and context/save-state invalidation remain conservative. |
 | `NSMBU_VK_VERTEX_HISTORY_REUSE` | Adds a second distinct vertex snapshot key per binding, requiring `NSMBU_VK_REUSE_VERTEX_SNAPSHOTS=1`. Every candidate receives a fresh full payload comparison within the same device/submission generation; changed bytes allocate a fresh slice. |
 
+An unchanged CPU texture unit reuses the last sampled view and sampler.
+The key is the seven resource words, the three sampler words, and the depth-compare flag.
+A GPU-written surface, a replaced image, or a current color or depth target still resolves the texture.
+When the resource words still name the same image, the bind uses the stored surface instead of looking the surface up again.
+
+A packed uniform block is rebuilt only when `gx2::g_uniform_pack_gen` or the scale factors change, and only for a shader with no guest remapped uniform buffers.
+Pixel shader reuse does not depend on primitive type.
+Vertex shader reuse still does.
+A vertex attribute reuses its last cached upload while the guest range and the buffer-cache epoch stay the same.
+`vkCmdBindIndexBuffer` is skipped when the same buffer, offset, and index type are already bound on that command buffer.
+
 The four additional paths together with the previous ten and vertex snapshot
 reuse passed a 2,400-frame Khronos game run with a guarded wide-view save-state
 restore, resolution transitions, FXAA, and anisotropy.

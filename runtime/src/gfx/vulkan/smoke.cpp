@@ -121,13 +121,17 @@ void buffer_cache_check() {
  gpu_equals_guest(a,addr,size,"buffer cache upload differs on the GPU");
  require(cached_guest_range(addr,size,rprof::kUpVertex,b)&&b.buffer==a.buffer&&b.offset==a.offset,"unchanged range was not a hit");
  require(cached_guest_range(addr,size/2,rprof::kUpUbo,b)&&b.offset==a.offset,"sub-range with the same start was not a hit");
+ const uint64_t epochBeforeWrite=buffer_cache_epoch();
  mem::ptr(addr)[size-3]^=0xA5;
  require(cached_guest_range(addr,size,rprof::kUpVertex,b)&&b.offset!=a.offset,"written range was not uploaded again");
+ require(buffer_cache_epoch()!=epochBeforeWrite,"written range did not retire the cached slice");
  gpu_equals_guest(b,addr,size,"re-uploaded range differs on the GPU");
  gpu_equals_guest(b,addr,size,"re-uploaded range changed after a submission");
  a=b;buffer_cache_guest_invalidate(1,addr+16,4);
  require(cached_guest_range(addr,size,rprof::kUpVertex,b)&&b.offset!=a.offset,"GX2Invalidate did not refresh the range");
+ const uint64_t epochBeforeReset=buffer_cache_epoch();
  a=b;buffer_cache_invalidate_all();
+ require(buffer_cache_epoch()!=epochBeforeReset,"save-state reset did not bump the buffer cache epoch");
  require(cached_guest_range(addr,size,rprof::kUpVertex,b)&&b.offset!=a.offset,"save-state reset did not refresh the range");
  gpu_equals_guest(b,addr,size,"range after reset differs on the GPU");
  UploadSlice ix;bufcache::Entry* entry=nullptr;

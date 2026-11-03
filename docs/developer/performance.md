@@ -528,3 +528,53 @@ Three things mislead while measuring this.
 The `[prof]` windows for one setting swing up to 20% between runs here, so compare three runs per side and use the medians; a single pair can show a gain that is not there.
 `perf` is unavailable (`perf_event_paranoid=4`), which is why the guest CPU number comes from a `SIGPROF` sampler on the thread CPU clock.
 `NSMBU_RECOMP_LEAF_POISON=1` fills the locals that a reload would have overwritten with garbage, and it also writes garbage into the `Cpu` struct at every return, so it is good for a short boot and not for a full replay (SIGSEGV at guest address `00000034` with r5-r12 all `DEADBEEF`).
+
+## Unchanged texture binds on the world map (2026-11-03)
+
+`bind_stage` in `runtime/src/gfx/vulkan/draw.cpp` keeps the last sampled view and sampler for each stage and texture unit.
+A later draw reuses that view when the seven resource words, the three sampler words, and the depth-compare flag match.
+The surface must still be the same image, already in shader-read layout, and not the current color or depth target.
+A GPU-written surface and a feedback copy still take the full path.
+`upload_surface` still runs once in a frame when that surface has not been checked yet.
+
+Debug `nsmbu bench load-overworld` on this machine (Arc B580), one run each, mean of the six map windows at frame 3240 and later:
+
+- textures: 0.62 ms/frame before, 0.38 ms/frame after
+- frame time: 7.52 ms before, 7.26 ms after
+- swaps: 133.1/s before, 137.7/s after
+
+The scene reached `CourseSelect from save`.
+`build/debug/nsmbu --renderer-smoke` passed.
+One pair can still move with the run.
+On this machine a single setting can swing about 20% between runs.
+
+## Five world-map CPU skips (2026-11-03)
+
+After the texture-bind reuse above, the next costs on the same map windows were register ingest, uniform packing, vertex recording, shader lookup, and the remaining texture-bind work.
+
+- A whole ALU-constant register write is copied in one step.
+  `gx2::g_uniform_pack_gen` advances only when a word that feeds the packed uniform block changes.
+  The per-word register loop stays on the existing one-byte irrelevant table.
+  A second class table made that loop slower on the world map, so it is not used there.
+- A stage skips `pack_uniforms_into` when that generation, the shader, and the scale factors match, and the shader has no guest remapped uniform buffers.
+  Texture scales are still written after the skip.
+- A pixel shader last-hit ignores primitive type.
+  A vertex shader last-hit still requires it, because vertex linkage uses point sprites and one Cemu primitive bit.
+- Each vertex attribute reuses the last cached upload when the address, the copied size, the buffer-cache epoch, and the write-watch sequence match.
+  The cache entry stays marked in use so an idle sweep does not drop it.
+- An index bind is recorded only when the buffer, offset, or index type changes.
+- A texture whose resource words still name the stored image skips the surface lookup.
+  Alias tests stay a direct compare against the current color and depth images.
+  A hash map of those answers was slower than the compare.
+
+`register_class_test` checks the irrelevant-register predicate.
+`build/debug/nsmbu --renderer-smoke` passed after the final edit.
+
+The same six map windows, one debug run after dropping the class table and the alias map:
+
+- regs 1.26 ms/frame, uniforms 0.62, record 0.53, shader 0.49, textures 0.44
+- frame time 8.09 ms, 123.8 swaps/s
+
+That single run is slower than the 7.26 ms texture-bind run above.
+Draw and register counts were also higher in the later windows.
+One run on this machine can swing about 20%.

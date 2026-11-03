@@ -149,7 +149,11 @@ class Cache {
   void set_frame(uint64_t frame) { frame_ = frame; }
   uint64_t frame() const { return frame_; }
 
-  void invalidate_all() { epoch_.fetch_add(1, std::memory_order_acq_rel); }
+  void invalidate_all() {
+    epoch_.fetch_add(1, std::memory_order_acq_rel);
+    bump_slice_epoch();
+  }
+  uint64_t slice_epoch() const { return sliceEpoch_.load(std::memory_order_acquire); }
 
   Status lookup(const Key& key, uint32_t size, Entry*& e) {
     ++stats.lookups;
@@ -276,6 +280,7 @@ class Cache {
     for (auto& [k, x] : map_) drop_region(x);
     forget_memo();
     map_.clear();
+    bump_slice_epoch();
   }
 
   uint64_t resident_bytes() const { return resident_; }
@@ -308,6 +313,7 @@ class Cache {
     ++stats.becameDynamic;
     return true;
   }
+  void bump_slice_epoch() { sliceEpoch_.fetch_add(1, std::memory_order_acq_rel); }
   void drop_region(Entry& e) {
     if (!e.region.valid()) return;
     backing_.retire(e.region);
@@ -315,11 +321,13 @@ class Cache {
     e.region = {};
     std::vector<uint8_t>().swap(e.shadow);
     e.memoKey = ~uint64_t{0};
+    bump_slice_epoch();
   }
 
   Backing& backing_;
   std::unordered_map<Key, Entry, KeyHash> map_;
   std::atomic<uint32_t> epoch_{0};
+  std::atomic<uint64_t> sliceEpoch_{0};
   uint64_t frame_ = 0, lastSweep_ = 0, resident_ = 0;
   bool pressure_ = false;
 };

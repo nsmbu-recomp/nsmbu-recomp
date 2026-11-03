@@ -18,6 +18,10 @@
 #include "gfx/frame_dump.h"
 #include "gx2_cmd.h"
 #include "gx2_regs.h"
+#define GX2_KNUMREGS_READY 1
+#include "register_class.h"
+#undef GX2_KNUMREGS_READY
+#include "uniform_pack_gen.h"
 #include "register_blocks.h"
 #include "gx2_texture_regs.h"
 #ifdef NSMBU_HAS_VULKAN
@@ -92,41 +96,62 @@ static RegisterBlocks<kNumRegs> g_register_blocks;
 uint32* regs() { return g_regs; }
 
 extern "C" { uint64_t g_shader_state_gen = 1; }
+uint64_t g_uniform_pack_gen = 1;
 
-static bool raw_shader_irrelevant(uint32 reg) {
+static_assert(mmSQ_ALU_CONSTANT0_0 == 0xC000);
+static_assert(mmSQ_VTX_ATTRIBUTE_BLOCK_START == 0xE8C0);
+static_assert(mmSQ_VTX_UNIFORM_BLOCK_START == 0xE7E0);
+static_assert(mmSQ_PS_UNIFORM_BLOCK_START == 0xE250);
+static_assert(mmSQ_GS_UNIFORM_BLOCK_START == 0xECB0);
+static_assert(uint32(REGADDR::SQ_TEX_RESOURCE_WORD0_N_PS) == 0xE000);
+static_assert(uint32(REGADDR::SQ_TEX_RESOURCE_WORD0_N_VS) == 0xE460);
+static_assert(uint32(REGADDR::SQ_TEX_RESOURCE_WORD0_N_GS) == 0xE930);
+static_assert(uint32(REGADDR::SX_ALPHA_REF) == 0xA10E);
+static_assert(uint32(REGADDR::PA_SU_POINT_SIZE) == 0xA280);
+static_assert(uint32(REGADDR::PA_CL_VPORT_XSCALE) == 0xA10F);
+static_assert(uint32(REGADDR::PA_CL_VPORT_YSCALE) == 0xA111);
+static_assert(LATTE_NUM_MAX_TEX_UNITS == 18);
+
+static bool shader_address_memo() {
 #ifdef NSMBU_HAS_VULKAN
-
     static const bool addressMemo = [] {
         const char* e = env::VK_SHADER_ADDRESS_MEMO();
         return render::vulkan() && e && !strcmp(e, "1");
     }();
-    if (addressMemo)
-        for (uint32 base : {uint32(REGADDR::SQ_TEX_RESOURCE_WORD0_N_PS),
-                            uint32(REGADDR::SQ_TEX_RESOURCE_WORD0_N_VS),
-                            uint32(REGADDR::SQ_TEX_RESOURCE_WORD0_N_GS)})
-            if (reg >= base && reg < base + 7 * 18) {
-                uint32 word = (reg - base) % 7;
-                if (word == 2 || word == 3) return true;
-            }
-#endif
-    if (reg >= mmSQ_ALU_CONSTANT0_0 && reg < mmSQ_ALU_CONSTANT0_0 + 0x1000) return true;
-    for (uint32 base : {(uint32)mmSQ_VTX_UNIFORM_BLOCK_START, (uint32)mmSQ_PS_UNIFORM_BLOCK_START, (uint32)mmSQ_GS_UNIFORM_BLOCK_START})
-        if (reg >= base && reg < base + 7 * 16) return true;
-    if (reg >= mmSQ_VTX_ATTRIBUTE_BLOCK_START && reg < mmSQ_VTX_ATTRIBUTE_BLOCK_START + 7 * 16) {
-        uint32 w = (reg - mmSQ_VTX_ATTRIBUTE_BLOCK_START) % 7;
-        return w != 2;
-    }
+    return addressMemo;
+#else
     return false;
+#endif
 }
 static bool shader_irrelevant(uint32 reg) {
     static bool memo[kNumRegs];
     static const bool filled = [] {
-        for (uint32 r = 0; r < kNumRegs; r++) memo[r] = raw_shader_irrelevant(r);
+        const bool addressMemo = shader_address_memo();
+        for (uint32 r = 0; r < kNumRegs; r++) memo[r] = shader_irrelevant_reg(r, addressMemo);
         return true;
     }();
     (void)filled;
     if (reg >= kNumRegs) return false;
     return memo[reg];
+}
+static bool uniform_pack_changed(uint32 first, const uint32* v, uint32 n) {
+    auto span = [&](uint32 base, uint32 count) {
+        uint32 end = first + n, bend = base + count;
+        if (first >= bend || base >= end) return false;
+        uint32 lo = first > base ? first : base;
+        uint32 hi = end < bend ? end : bend;
+        return memcmp(&g_regs[lo], v + (lo - first), (hi - lo) * 4) != 0;
+    };
+    if (span(mmSQ_ALU_CONSTANT0_0, 0x1000)) return true;
+    if (span(uint32(mmSQ_VTX_UNIFORM_BLOCK_START), 7 * 16)) return true;
+    if (span(uint32(mmSQ_PS_UNIFORM_BLOCK_START), 7 * 16)) return true;
+    if (span(uint32(mmSQ_GS_UNIFORM_BLOCK_START), 7 * 16)) return true;
+    const uint32 one[] = {
+        uint32(REGADDR::SX_ALPHA_REF), uint32(REGADDR::PA_SU_POINT_SIZE),
+        uint32(REGADDR::PA_CL_VPORT_XSCALE), uint32(REGADDR::PA_CL_VPORT_YSCALE)};
+    for (uint32 r : one)
+        if (r >= first && r < first + n && g_regs[r] != v[r - first]) return true;
+    return false;
 }
 static ShaderKeyDirtyStats shaderKeyDirtyStats;
 ShaderKeyDirtyStats shader_key_dirty_stats() { return shaderKeyDirtyStats; }
@@ -138,6 +163,7 @@ static void apply_small_regs(uint32 first, const uint32* v, uint32 n) {
         return e && !strcmp(e, "1");
     }();
     static const bool collectStats = env::VK_STATS() != nullptr;
+    const bool packChanged = uniform_pack_changed(first, v, n);
     bool changed = false, shadowDiff = false;
     const bool classify = rprof::enabled();
     bool baselineBump = false, actualBump = false;
@@ -164,6 +190,7 @@ static void apply_small_regs(uint32 first, const uint32* v, uint32 n) {
         for (uint32 i = 0; i < n; ++i) g_shadow[first + i] = v[i];
     }
     if (!changed) return;
+    if (packChanged) ++g_uniform_pack_gen;
     if (actualBump) ++g_shader_state_gen;
     if (collectStats) {
         ++shaderKeyDirtyStats.changedBatches;
@@ -179,6 +206,33 @@ static void apply_regs(uint32 first, const uint32* v, uint32 n) {
     if (first >= kNumRegs || n > kNumRegs - first) return;
     g_register_blocks.touch(first, n);
 #ifdef NSMBU_HAS_VULKAN
+    static const bool collectVkStats = env::VK_STATS() != nullptr;
+#else
+    constexpr bool collectVkStats = false;
+#endif
+    if (first >= mmSQ_ALU_CONSTANT0_0 && first + n <= mmSQ_ALU_CONSTANT0_0 + 0x1000 && !collectVkStats) {
+        if (memcmp(&g_regs[first], v, n * 4) != 0) {
+            if (rprof::enabled()) {
+                static const bool aluFast = [] {
+                    for (uint32 r = mmSQ_ALU_CONSTANT0_0; r < mmSQ_ALU_CONSTANT0_0 + 0x1000; ++r)
+                        if (!rprof::fast_class_reg(r)) return false;
+                    return true;
+                }();
+                if (aluFast) rprof::g_reg_dirty |= 1;
+                else
+                    for (uint32 i = 0; i < n; ++i)
+                        if (g_regs[first + i] != v[i]) {
+                            if (rprof::fast_class_reg(first + i)) rprof::g_reg_dirty |= 1;
+                            else rprof::note_other_reg(first + i);
+                        }
+            }
+            memcpy(&g_regs[first], v, n * 4);
+            ++g_uniform_pack_gen;
+        }
+        if (g_shadow && memcmp(&g_shadow[first], v, n * 4) != 0) memcpy(&g_shadow[first], v, n * 4);
+        return;
+    }
+#ifdef NSMBU_HAS_VULKAN
 
     static const bool fusedSmall = [] {
         const char* e = env::VK_FUSE_SMALL_REGS();
@@ -191,6 +245,7 @@ static void apply_regs(uint32 first, const uint32* v, uint32 n) {
     }
 #endif
     if (memcmp(&g_regs[first], v, n * 4) != 0) {
+        const bool packChanged = uniform_pack_changed(first, v, n);
         if (rprof::enabled())
             for (uint32 i = 0; i < n; i++)
                 if (g_regs[first + i] != v[i]) {
@@ -229,6 +284,7 @@ static void apply_regs(uint32 first, const uint32* v, uint32 n) {
         for (uint32 i = 0; i < n; i++)
             if (g_regs[first + i] != v[i] && !shader_irrelevant(first + i)) { g_shader_state_gen++; break; }
         memcpy(&g_regs[first], v, n * 4);
+        if (packChanged) ++g_uniform_pack_gen;
     }
     if (g_shadow && memcmp(&g_shadow[first], v, n * 4) != 0) memcpy(&g_shadow[first], v, n * 4);
 }
@@ -530,6 +586,7 @@ static void set_context(uint32 ctx) {
     }
     g_shadow = it->second.data();
 
+    ++g_uniform_pack_gen;
     g_register_blocks.touch(uint32(REGADDR::VGT_PRIMITIVE_TYPE), 1);
     if (g_register_blocks.restore(g_regs, g_shadow, [](uint32 reg, uint32 old, uint32 value) {
         if (shader_irrelevant(reg)) return false;
@@ -1379,6 +1436,7 @@ void gx2_reset_for_reboot() {
     g_contexts.clear();
     g_shadow = nullptr;
     g_shader_state_gen++;
+    g_uniform_pack_gen++;
     {
         std::lock_guard<std::mutex> fl(g_flip_mutex);
         g_pending_flips.clear();
@@ -1424,6 +1482,7 @@ void gx2_ss_load(ss::Reader& r) {
     std::lock_guard<std::recursive_mutex> lk(g_exec_mutex);
     r.u32();
     r.bytes(g_regs, sizeof g_regs);
+    g_uniform_pack_gen++;
     g_register_blocks = {};
     g_register_blocks.include(g_regs);
     g_contexts.clear();

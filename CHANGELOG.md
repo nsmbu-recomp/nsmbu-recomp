@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `.vscode/launch.json` to debug `build/debug/nsmbu` with **lldb-dap** (uses `game/active` via `tools/run/vscode_lldb_init.py`, same env defaults as `nsmbu launch`).
+
+### Changed
+
+- The world map reuses an unchanged texture bind instead of setting that texture up again.
+- Uniform register writes are applied in one copy.
+- Unchanged uniform packs, pixel shaders, vertex buffers, index binds, and texture alias checks are reused.
+
 ### Fixed
 
 - Phones and PCs whose Vulkan driver is 1.1 or 1.2 and has no dynamic rendering can start the game (#63).
