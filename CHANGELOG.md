@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - `.vscode/launch.json` to debug `build/debug/nsmbu` with **lldb-dap** (uses `game/active` via `tools/run/vscode_lldb_init.py`, same env defaults as `nsmbu launch`).
+- The installer can add a New Super Luigi U folder on the Keys screen, next to a disc image, or with an extracted game folder.
+  A Cemu archive that already contains the matching add-on installs it with the game.
 
 ### Changed
 

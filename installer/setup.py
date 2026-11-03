@@ -956,6 +956,9 @@ def archive_choice(info):
             continue
         if t["id"] in update_ids:
             notes.append("Also present: %s (%s)." % (title_desc(t["id"], t["version"]), t["folder"]))
+        elif t["id"].lower() == aoc_title_for(base_tid):
+            notes.append("New Super Luigi U add-on will be installed: %s (%s)."
+                         % (title_desc(t["id"], t["version"]), t["folder"]))
         else:
             notes.append("Not used: %s (%s), not needed for this game." % (title_desc(t["id"], t["version"]), t["folder"]))
     return info["selected"], notes
@@ -1094,6 +1097,71 @@ def apply_update_to(dst, update_dir):
         os.makedirs(os.path.join(dst, name), exist_ok=True)
         shutil.copytree(src, os.path.join(dst, name), dirs_exist_ok=True)
 
+DLC_DIRNAME = "dlc"
+
+def aoc_title_for(game_title_id):
+    """Add-on title id for a base game title, or None."""
+    tid = (game_title_id or "").lower()
+    if len(tid) == 16 and tid.startswith("00050000"):
+        return "0005000c" + tid[8:]
+    return None
+
+def dlc_content_root(path):
+    """Directory whose course_res_pack/1-1.szs is the Luigi U content, or None."""
+    if not path or not os.path.isdir(path):
+        return None
+    for rel in (("content", "0010"), ("0010",), ("content", "RDashRes"), ()):
+        root = path_ci(path, *rel) if rel else path
+        if not root:
+            continue
+        course = path_ci(root, "course_res_pack", "1-1.szs")
+        if course and os.path.isfile(course):
+            return root
+    return None
+
+def check_dlc_folder(path, game_title_id):
+    """Luigi U add-on for this game title, or SetupError. Returns the content root."""
+    root = dlc_content_root(path)
+    if not root:
+        raise SetupError("%s is not a New Super Luigi U folder (needs course_res_pack/1-1.szs, "
+                         "usually under content/0010)" % path)
+    tid, _ver = code_title_version(path)
+    if not tid:
+        tid = game_folder_title(path)
+    want = aoc_title_for(game_title_id)
+    if tid and not tid.startswith("0005000c"):
+        raise SetupError("%s is %s, not the New Super Luigi U add-on" % (path, title_desc(tid)))
+    if tid and want and tid != want:
+        raise SetupError("this add-on is %s; this game needs %s"
+                         % (title_desc(tid), title_desc(want)))
+    return root
+
+def apply_dlc_to(dst, dlc_dir):
+    """Copy the add-on content root onto dst/content/RDashRes."""
+    root = dlc_content_root(dlc_dir)
+    if not root:
+        raise SetupError("%s is not a New Super Luigi U folder" % dlc_dir)
+    dest = os.path.join(dst, "content", "RDashRes")
+    if os.path.realpath(root) == os.path.realpath(dest):
+        return
+    os.makedirs(dest, exist_ok=True)
+    shutil.copytree(root, dest, dirs_exist_ok=True)
+
+def find_sidecar_dlc(image_or_folder):
+    parent = image_or_folder if os.path.isdir(image_or_folder) else os.path.dirname(os.path.abspath(image_or_folder))
+    cand = os.path.join(parent, DLC_DIRNAME)
+    return cand if dlc_content_root(cand) else None
+
+def matching_aoc_title(info):
+    """Archive title entry for this game's Luigi U add-on, or None."""
+    want = aoc_title_for(info.get("title_id"))
+    if not want:
+        return None
+    hits = [t for t in info.get("titles", []) if (t.get("id") or "").lower() == want]
+    if not hits:
+        return None
+    return max(hits, key=lambda t: t.get("version", 0))
+
 def get_update_dir(image, ui, args):
     """Optional matching 1.3.0 update next to the disc image, --update-dir, chosen interactively,
     or None to install the base disc alone."""
@@ -1117,6 +1185,32 @@ def get_update_dir(image, ui, args):
             return None
         try:
             check_update_folder(p)
+            return os.path.abspath(p)
+        except SetupError as e:
+            say("  %s" % e)
+
+def get_dlc_dir(image, game_title_id, ui, args):
+    """Optional New Super Luigi U folder: --dlc-dir, a dlc/ folder next to the source, or a prompt.
+    None leaves the game without that add-on."""
+    if getattr(args, "dlc_skipped", False):
+        return None
+    path = getattr(args, "dlc_dir", None) or find_sidecar_dlc(image)
+    if path:
+        path = os.path.abspath(path)
+        check_dlc_folder(path, game_title_id)
+        say("  OK: New Super Luigi U in %s" % path)
+        return path
+    if not ui.interactive:
+        return None
+    if not ui.yesno("Add the optional New Super Luigi U folder?", default=False):
+        return None
+    while True:
+        p = ui.pick_path("Choose the optional New Super Luigi U folder (content/0010, or a decrypted title folder)",
+                         folder=True)
+        if not p:
+            return None
+        try:
+            check_dlc_folder(p, game_title_id)
             return os.path.abspath(p)
         except SetupError as e:
             say("  %s" % e)
@@ -1177,13 +1271,15 @@ def get_disc_keys(image, ui, args):
         else:
             raise SetupError("cannot read the disc image: %s" % err)
 
-def extract_game(image, keys, info, data_dir, title=None, update_dir=None):
+def extract_game(image, keys, info, data_dir, title=None, update_dir=None, dlc_dir=None):
     """Extracts a disc image (keys) or one title folder of a Cemu archive (title, no keys) into data_dir/game.
-    For a disc image, update_dir is the matching 1.3.0 update folder applied after the base extract."""
+    For a disc image, update_dir is the matching 1.3.0 update folder applied after the base extract.
+    dlc_dir is an optional New Super Luigi U folder. A Cemu archive uses its matching add-on title instead."""
     dst = os.path.join(data_dir, "game")
     tmp = os.path.join(data_dir, "game.partial")
     shutil.rmtree(tmp, ignore_errors=True)
-    total = int(info.get("bytes", 0))
+    aoc = matching_aoc_title(info) if title and not dlc_dir else None
+    total = int(info.get("bytes", 0)) + (int(aoc.get("bytes", 0)) if aoc else 0)
     need = total + (1 << 30)
     if free_space(data_dir) < need:
         raise SetupError("not enough free disk space in %s: %s needed" % (data_dir, human(need)))
@@ -1194,6 +1290,18 @@ def extract_game(image, keys, info, data_dir, title=None, update_dir=None):
         if update_dir:
             say("  Applying 1.3.0 update from %s" % update_dir)
             apply_update_to(tmp, update_dir)
+        if dlc_dir:
+            say("  Adding New Super Luigi U from %s" % dlc_dir)
+            apply_dlc_to(tmp, dlc_dir)
+        elif aoc:
+            say("  Extracting New Super Luigi U (%s)" % aoc["folder"])
+            aoc_out = tmp + ".aoc"
+            shutil.rmtree(aoc_out, ignore_errors=True)
+            try:
+                run_extract(image, None, aoc_out, aoc["folder"])
+                apply_dlc_to(tmp, aoc_out)
+            finally:
+                shutil.rmtree(aoc_out, ignore_errors=True)
         build = check_game_version(tmp)
         require_playable_game_folder(tmp)
     except SetupError:
@@ -1878,6 +1986,7 @@ def install(ctx, source, keys=None, info=None, ui=None, check_keys=None):
 
     archive_title = None
     update_dir = None
+    dlc_dir = None
 
     if kind == "image":
         begin("keys")
@@ -1889,6 +1998,7 @@ def install(ctx, source, keys=None, info=None, ui=None, check_keys=None):
         say("  OK: %s, %s files, %s" % (title_desc(info.get("title_id", "")), info.get("files"),
                                         human(int(info.get("bytes", 0)))))
         update_dir = get_update_dir(source[1], ui, args)
+        dlc_dir = get_dlc_dir(source[1], info.get("title_id", ""), ui, args)
     elif kind == "archive":
         begin("archive")
         if not os.path.isfile(source[1]):
@@ -1910,6 +2020,7 @@ def install(ctx, source, keys=None, info=None, ui=None, check_keys=None):
             check_title(tid)
         build = check_game_version(source[1])
         say("  OK: %s (%s, title version %d)" % (source[1], build.name, build.title_version))
+        dlc_dir = get_dlc_dir(source[1], tid or "", ui, args)
     elif kind == "installed":
         if not valid_game_folder(ctx.game_dir):
             raise SetupError("no installed game files in %s; run setup with your disc image" % ctx.game_dir)
@@ -1929,7 +2040,8 @@ def install(ctx, source, keys=None, info=None, ui=None, check_keys=None):
         t0 = time.time()
         extract_game(source[1], keys, info, data_dir,
                      archive_title if kind == "archive" else None,
-                     update_dir if kind == "image" else None)
+                     update_dir if kind == "image" else None,
+                     dlc_dir if kind == "image" else None)
         game_dir = os.path.join(data_dir, "game")
         say("  Game files are in %s (%d s)" % (game_dir, time.time() - t0))
     elif kind == "folder":
@@ -1942,6 +2054,9 @@ def install(ctx, source, keys=None, info=None, ui=None, check_keys=None):
             copy_game_folder(source[1], data_dir)
             game_dir = os.path.join(data_dir, "game")
             say("  Game files are in %s (%d s)" % (game_dir, time.time() - t0))
+        if dlc_dir:
+            say("  Adding New Super Luigi U from %s" % dlc_dir)
+            apply_dlc_to(game_dir, dlc_dir)
     ctx.game_dir = game_dir
     keys = None
 
@@ -2028,6 +2143,8 @@ def main():
     ap.add_argument("--common-key", help="Wii U common key file (or WIIU_COMMON_KEY)")
     ap.add_argument("--update-dir", help="optional 1.3.0 update folder for that disc (code/, content/, meta/); "
                     "default: update/ next to the disc image if present")
+    ap.add_argument("--dlc-dir", help="optional New Super Luigi U folder (content/0010, or a decrypted title folder); "
+                    "default: dlc/ next to the disc image or game folder if present")
     ap.add_argument("--game-dir", help="an already extracted game folder (code/, content/, meta/) instead of an image")
     ap.add_argument("--gen-dir", help="use this generated code instead of recompiling (build checks)")
     ap.add_argument("--data-dir", help="where the game is installed (default: %s)" % default_data_dir())
@@ -2352,7 +2469,8 @@ def gui_main(args):
     except SetupError as e:
         GUI.emit({"event": "fatal", "message": str(e)})
         return 1
-    session = {"keys": None, "info": None, "image": None, "update_dir": None}
+    session = {"keys": None, "info": None, "image": None, "update_dir": None,
+               "dlc_dir": None, "dlc_skipped": False}
 
     def hello():
         st = ctx.state()
@@ -2399,7 +2517,8 @@ def gui_main(args):
                          update_title=title, in_place=PORTABLE, bytes=folder_size(folder),
                          message=("Extracted game folder: %s (title %s, RPX SHA-256 %s…).%s"
                                   % (title, format_title_id(tid or build.title_id), build.sha256[:16],
-                                     " It is used where it is; nothing is copied." if PORTABLE else "")))
+                                     " It is used where it is; nothing is copied." if PORTABLE else "")),
+                         dlc_dir=find_sidecar_dlc(folder) or "")
         if not os.path.isfile(p):
             return fail(req, "invalid", "File not found.")
         if p.lower().endswith(".wua"):
@@ -2442,7 +2561,7 @@ def gui_main(args):
             message = ("Wii U disc image. Setup extracts it. A 1.3.0 update folder is optional "
                        "(recommended for mods; the USA or Europe base disc alone also works).")
         reply(req, kind="image", path=p, disc_key=disc_key, common_key=src, update_dir=upd or "",
-              message=message, **ident)
+              dlc_dir=find_sidecar_dlc(p) or "", message=message, **ident)
 
     def request_keys(req, image):
         """(keys, None) or (None, (problem, message)) from a request's key fields (check_keys)."""
@@ -2495,7 +2614,19 @@ def gui_main(args):
             except SetupError as e:
                 return fail(req, "wrong_update", str(e)[0].upper() + str(e)[1:])
             update_dir = os.path.abspath(update_dir)
-        session.update(keys=keys, info=info, image=image, update_dir=update_dir)
+        if "dlc_dir" in req and not req.get("dlc_dir"):
+            dlc_dir, dlc_skipped = None, True
+        else:
+            dlc_dir = req.get("dlc_dir") if "dlc_dir" in req else find_sidecar_dlc(image)
+            dlc_skipped = False
+        if dlc_dir:
+            try:
+                check_dlc_folder(dlc_dir, info.get("title_id", ""))
+            except SetupError as e:
+                return fail(req, "wrong_dlc", str(e)[0].upper() + str(e)[1:])
+            dlc_dir = os.path.abspath(dlc_dir)
+        session.update(keys=keys, info=info, image=image, update_dir=update_dir,
+                       dlc_dir=dlc_dir, dlc_skipped=dlc_skipped)
         ident = image_identity(image, None, None, session["update_dir"])
         tid = info.get("title_id", "")
         ident.setdefault("title_id", tid)
@@ -2512,7 +2643,7 @@ def gui_main(args):
         if not update_dir:
             ident["message"] = (ident.get("message") or "") + (
                 " No update folder (optional): the base disc will be used if its RPX is known.")
-        reply(req, update_dir=session["update_dir"] or "", **ident)
+        reply(req, update_dir=session["update_dir"] or "", dlc_dir=session["dlc_dir"] or "", **ident)
 
     def do_install(req):
         kind = req.get("source")
@@ -2522,10 +2653,20 @@ def gui_main(args):
             if not session["keys"] or session["image"] != req.get("path"):
                 return fail(req, "keys", "Check the keys first.")
             ctx.args.update_dir = session.get("update_dir") or None
+            ctx.args.dlc_dir = session.get("dlc_dir") or None
+            ctx.args.dlc_skipped = bool(session.get("dlc_skipped"))
             source = ("image", req["path"])
         elif kind == "archive":
             source = ("archive", req.get("path") or "")
         elif kind == "folder":
+            if "dlc_dir" in req and not req.get("dlc_dir"):
+                ctx.args.dlc_dir, ctx.args.dlc_skipped = None, True
+            elif req.get("dlc_dir"):
+                try:
+                    check_dlc_folder(req["dlc_dir"], game_folder_title(req.get("path") or "") or "")
+                except SetupError as e:
+                    return fail(req, "wrong_dlc", str(e)[0].upper() + str(e)[1:])
+                ctx.args.dlc_dir, ctx.args.dlc_skipped = os.path.abspath(req["dlc_dir"]), False
             source = ("folder", req.get("path") or "")
         elif kind == "installed":
             source = ("installed", ctx.game_dir)
@@ -2538,8 +2679,10 @@ def gui_main(args):
             LOG.write("setup stopped: %s" % e)
             return fail(req, "install", str(e))
         finally:
-            session.update(keys=None, info=None, update_dir=None)
+            session.update(keys=None, info=None, update_dir=None, dlc_dir=None, dlc_skipped=False)
             ctx.args.update_dir = None
+            ctx.args.dlc_dir = None
+            ctx.args.dlc_skipped = False
         tdir = toolchain_dir(ctx.data_dir)
         reply(req, app=state.get("app", ""), exe=state.get("exe", ""), data_dir=ctx.data_dir,
               game_dir=state.get("game_dir", ""), save_exists=have_save(ctx.data_dir),

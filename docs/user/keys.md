@@ -14,6 +14,11 @@ The setup log never stores keys.
 Put a matching 1.3.0 update in an `update/` folder next to the disc image (`code/`, `content/`, `meta/`).
 You can also choose that folder in the installer.
 
+New Super Luigi U is optional on the same screen.
+Put that add-on in a `dlc/` folder next to the disc image, or choose the folder there.
+The folder can be the decrypted title (`code/`, `content/0010/`, `meta/`), a Cemu title folder, or `content/0010` by itself.
+A Cemu archive that already contains the matching add-on installs it with the game.
+
 Key files are optional.
 If a `.key` file with the same name as the image sits next to the image, the installer uses it.
 If `common.key` sits next to the image, the installer uses that too.

@@ -265,6 +265,7 @@ class ArchiveTitles(unittest.TestCase):
         self.assertEqual(len(notes), 2)
         self.assertIn("Also present: the update for New Super Mario Bros. U (USA), version 64", notes[0])
         self.assertIn("downloadable content", notes[1])
+        self.assertIn("will be installed", notes[1])
 
     def test_update_without_game(self):
         with self.assertRaisesRegex(setup.SetupError, "1.3.0 update but not the base game"):
@@ -470,6 +471,103 @@ class UpdateFolder(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             with self.assertRaisesRegex(setup.SetupError, "not an update folder"):
                 setup.check_update_folder(d)
+
+class DlcFolder(unittest.TestCase):
+    """Optional New Super Luigi U folder, and the matching add-on title inside a Cemu archive."""
+
+    def make_dlc(self, d, tid="0005000c10101d00", layout="0010"):
+        if layout == "0010":
+            pack = os.path.join(d, "content", "0010", "course_res_pack")
+        elif layout == "root":
+            pack = os.path.join(d, "course_res_pack")
+        else:
+            pack = os.path.join(d, "content", "RDashRes", "course_res_pack")
+        os.makedirs(pack, exist_ok=True)
+        with open(os.path.join(pack, "1-1.szs"), "wb") as f:
+            f.write(b"course")
+        if tid:
+            os.makedirs(os.path.join(d, "code"), exist_ok=True)
+            os.makedirs(os.path.join(d, "meta"), exist_ok=True)
+            with open(os.path.join(d, "code", "app.xml"), "w") as f:
+                f.write('<app><title_id type="hexBinary" length="8">%s</title_id></app>' % tid)
+            with open(os.path.join(d, "meta", "meta.xml"), "w") as f:
+                f.write('<menu><title_id type="hexBinary" length="8">%s</title_id></menu>' % tid)
+
+    def test_check_and_apply(self):
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(d, "dlc")
+            game = os.path.join(d, "game", "content")
+            os.makedirs(game)
+            self.make_dlc(src)
+            self.assertTrue(setup.check_dlc_folder(src, "0005000010101d00").endswith(os.path.join("content", "0010")))
+            setup.apply_dlc_to(os.path.join(d, "game"), src)
+            with open(os.path.join(d, "game", "content", "RDashRes", "course_res_pack", "1-1.szs"), "rb") as f:
+                self.assertEqual(f.read(), b"course")
+
+    def test_content_root_and_rdash(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.make_dlc(d, tid=None, layout="root")
+            self.assertEqual(setup.check_dlc_folder(d, "0005000010101d00"), d)
+            rd = os.path.join(d, "rdash")
+            self.make_dlc(rd, tid=None, layout="rdash")
+            self.assertTrue(setup.dlc_content_root(rd).endswith("RDashRes"))
+
+    def test_wrong_region(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.make_dlc(d, tid="0005000c10101e00")
+            with self.assertRaisesRegex(setup.SetupError, "this game needs"):
+                setup.check_dlc_folder(d, "0005000010101d00")
+
+    def test_not_an_addon(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.make_dlc(d, tid="0005000010101d00")
+            with self.assertRaisesRegex(setup.SetupError, "not the New Super Luigi U add-on"):
+                setup.check_dlc_folder(d, "0005000010101d00")
+
+    def test_sidecar(self):
+        with tempfile.TemporaryDirectory() as d:
+            image = os.path.join(d, "game.wux")
+            open(image, "wb").close()
+            self.assertIsNone(setup.find_sidecar_dlc(image))
+            self.make_dlc(os.path.join(d, "dlc"))
+            self.assertEqual(setup.find_sidecar_dlc(image), os.path.join(d, "dlc"))
+
+    def test_matching_archive_title(self):
+        info = {"title_id": "0005000010101d00", "titles": [
+            {"id": "0005000c10101d00", "version": 16, "folder": "0005000c10101d00_v16", "bytes": 4},
+            {"id": "0005000c10101e00", "version": 16, "folder": "eu", "bytes": 4},
+        ]}
+        hit = setup.matching_aoc_title(info)
+        self.assertEqual(hit["folder"], "0005000c10101d00_v16")
+        self.assertIsNone(setup.matching_aoc_title({"title_id": "0005000010101d00", "titles": []}))
+
+    def test_extract_archive_applies_aoc(self):
+        with tempfile.TemporaryDirectory() as d:
+            saved = (setup.run_extract, setup.check_game_version, setup.require_playable_game_folder, setup.free_space)
+            def fake(image, keys, out, title=None, only=None):
+                os.makedirs(out, exist_ok=True)
+                if title and title.startswith("0005000c"):
+                    self.make_dlc(out, tid=None)
+                else:
+                    os.makedirs(os.path.join(out, "code"), exist_ok=True)
+                    open(os.path.join(out, "code", "red-pro2.rpx"), "wb").close()
+                    os.makedirs(os.path.join(out, "content"), exist_ok=True)
+                    os.makedirs(os.path.join(out, "meta"), exist_ok=True)
+                    open(os.path.join(out, "meta", "meta.xml"), "wb").close()
+            setup.run_extract = fake
+            setup.check_game_version = lambda p: None
+            setup.require_playable_game_folder = lambda p: None
+            setup.free_space = lambda p: 1 << 40
+            info = {"title_id": "0005000010101d00", "bytes": 0, "titles": [
+                {"id": "0005000010101d00", "version": 64, "folder": "0005000010101d00_v64", "files": 1, "bytes": 0},
+                {"id": "0005000c10101d00", "version": 16, "folder": "0005000c10101d00_v16", "files": 1, "bytes": 10},
+            ]}
+            try:
+                setup.extract_game(os.path.join(d, "game.wua"), None, info, d, title="0005000010101d00_v64")
+            finally:
+                setup.run_extract, setup.check_game_version, setup.require_playable_game_folder, setup.free_space = saved
+            with open(os.path.join(d, "game", "content", "RDashRes", "course_res_pack", "1-1.szs"), "rb") as f:
+                self.assertEqual(f.read(), b"course")
 
 class PlayableGameFolder(unittest.TestCase):
     """The run/install game root must be the full game, not an update-only dump."""

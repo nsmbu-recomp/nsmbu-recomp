@@ -227,7 +227,9 @@ setup then decides (`archive_choice` in `setup.py`) and logs which title it uses
   (a Cemu archive that already merged the update into the game folder), or a base disc at version 0
   (`0005000010101d00_v0` or `0005000010101e00_v0`);
 - a lone update title (`0005000e…`) without the base game stops with an explanation.
-  DLC or other titles are listed as not used.
+  A matching New Super Luigi U title (`0005000c10101d00` for USA, `0005000c10101e00` for Europe) is extracted with the game.
+  Its content is copied onto `content/RDashRes`.
+  Other titles are listed as not used.
 - an extracted folder that is only the update (update title id, or no base
   `content/Common/course_res_pack/1-1.szs`) is rejected the same way;
 - an unsupported region, an archive with only the update, another game, or the wrong title version
@@ -263,3 +265,14 @@ Without it, the USA or Europe base disc (title version 0) still works.
 `check_update_folder` checks the update RPX and that build's title version before extract.
 After the base extract, `apply_update_to` merges that folder when present, then `check_game_version` runs on the result.
 Tests: `UpdateFolder` and `GameVersion` in `test_setup.py`.
+
+## New Super Luigi U folder
+
+The same Keys screen takes an optional New Super Luigi U folder.
+Setup looks for `dlc/` next to the disc image, accepts `--dlc-dir`, or asks.
+An extracted game folder can take the same folder on the Source screen, or a `dlc/` directory inside that folder.
+`check_dlc_folder` requires `course_res_pack/1-1.szs` under `content/0010`, `0010`, `content/RDashRes`, or the folder itself.
+When `code/app.xml` or `meta/meta.xml` has a title id, it must be `0005000c` plus the game's last eight digits.
+`apply_dlc_to` copies that content root onto `content/RDashRes`.
+A Cemu archive uses `matching_aoc_title` instead of a folder.
+Tests: `DlcFolder` in `test_setup.py`.

@@ -403,6 +403,8 @@ struct App {
     std::string disc_key_found, disc_key_file, common_key_found, common_key_file;
     std::string update_dir_found, update_dir;
     bool update_skipped = false;
+    std::string dlc_dir_found, dlc_dir;
+    bool dlc_skipped = false;
     int disc_mode = 0, common_mode = 0;
     char disc_paste[128] = {}, paste[128] = {};
     std::string keys_msg;
@@ -949,6 +951,9 @@ static void set_source(const std::string& path) {
     A.update_dir_found.clear();
     A.update_dir.clear();
     A.update_skipped = false;
+    A.dlc_dir_found.clear();
+    A.dlc_dir.clear();
+    A.dlc_skipped = false;
     A.keys_msg.clear();
     SDL_memset(A.disc_paste, 0, sizeof A.disc_paste);
     SDL_memset(A.paste, 0, sizeof A.paste);
@@ -975,6 +980,21 @@ static std::string chosen_update_dir() {
     if (A.update_skipped) return {};
     return !A.update_dir.empty() ? A.update_dir : A.update_dir_found;
 }
+
+static void set_dlc_dir(const std::string& p) {
+    A.dlc_dir = p;
+    A.dlc_skipped = false;
+}
+
+static void skip_dlc_dir() {
+    A.dlc_dir.clear();
+    A.dlc_skipped = true;
+}
+
+static std::string chosen_dlc_dir() {
+    if (A.dlc_skipped) return {};
+    return !A.dlc_dir.empty() ? A.dlc_dir : A.dlc_dir_found;
+}
 static void set_disc_mode(int m) {
     if (A.disc_mode != m) A.disc_mode = m, keys_changed();
 }
@@ -992,6 +1012,7 @@ static void apply_dialog(const std::string& target, const std::string& path) {
     else if (target == "disc_key") set_disc_key_file(path);
     else if (target == "common_key") set_common_key_file(path);
     else if (target == "update") set_update_dir(path);
+    else if (target == "dlc") set_dlc_dir(path);
     else if (target == "save") set_save_path(path);
 }
 
@@ -1001,6 +1022,7 @@ static void start_install(const std::string& source) {
     A.current = -1;
     std::string f = "\"source\":" + jstr(source);
     if (source != "installed") f += ",\"path\":" + jstr(A.source_path);
+    if (source == "folder") f += ",\"dlc_dir\":" + jstr(chosen_dlc_dir());
     request("install", f);
     SDL_memset(A.disc_paste, 0, sizeof A.disc_paste);
     SDL_memset(A.paste, 0, sizeof A.paste);
@@ -1014,7 +1036,10 @@ static void check_keys() {
     if (A.common_mode == 1 && A.paste[0]) f += ",\"common_key_hex\":" + jstr(A.paste);
     else if (A.common_mode == 0 && !A.common_key_file.empty()) f += ",\"common_key_file\":" + jstr(A.common_key_file);
     f += ",\"update_dir\":" + jstr(chosen_update_dir());
-    A.keys_msg = chosen_update_dir().empty() ? "Checking the keys..." : "Checking the keys and update...";
+    f += ",\"dlc_dir\":" + jstr(chosen_dlc_dir());
+    A.keys_msg = (chosen_update_dir().empty() && chosen_dlc_dir().empty())
+                     ? "Checking the keys..."
+                     : "Checking the keys and optional folders...";
     request("check_keys", f);
     f.assign(f.size(), '\0');
 }
@@ -1040,6 +1065,7 @@ static void handle_reply(const J& ev) {
         A.disc_key_found = ev.str("disc_key");
         A.common_key_found = ev.str("common_key");
         A.update_dir_found = ev.str("update_dir");
+        A.dlc_dir_found = ev.str("dlc_dir");
         if (A.source_kind == "image") {
             set_disc_mode(A.disc_key_found.empty() && A.disc_key_file.empty() ? 1 : 0);
             set_common_mode(A.common_key_found.empty() && A.common_key_file.empty() ? 1 : 0);
@@ -1393,6 +1419,8 @@ static void screen_menu() {
     if (button("Quit", ImVec2(quit_w, h))) A.exit_code = 0;
 }
 
+static std::string base_name(const std::string& p);
+
 static void screen_source() {
     page_header("Choose your game",
                 "A Wii U disc image (.wux or .wud), optionally with the 1.3.0 update, a Cemu archive (.wua) at USA "
@@ -1450,12 +1478,41 @@ static void screen_source() {
             if (A.source_kind == "image")
                 muted("Setup extracts it. The 1.3.0 update folder on the next screen is optional (needed for mods).");
             else if (A.source_kind == "archive")
-                muted("No keys needed. Game files are extracted from the archive.");
+                muted("No keys needed. Game files are extracted from the archive. A New Super Luigi U title in the "
+                      "archive is installed with the game.");
+            else if (A.source_kind == "folder")
+                muted("A New Super Luigi U folder below is copied onto this game.");
         } else {
             mark(2);
             ImGui::TextWrapped("%s", A.probe_msg.c_str());
         }
         muted(A.source_path);
+        ImGui::EndChild();
+    }
+    if (A.probe_ok && A.source_kind == "folder") {
+        ImGui::Spacing();
+        ImGui::BeginChild("dlc_src", ImVec2(0, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
+        heading("New Super Luigi U (optional)", 20);
+        muted("Decrypted title folder, Cemu title folder, or content/0010. Leave this empty to install the game alone.");
+        std::string dlc = chosen_dlc_dir();
+        if (!dlc.empty()) {
+            mark(2);
+            if (!A.dlc_dir.empty()) ImGui::TextWrapped("Add-on folder: %s", A.dlc_dir.c_str());
+            else ImGui::TextWrapped("Found next to the game: %s", base_name(A.dlc_dir_found).c_str());
+        } else if (A.dlc_skipped) {
+            muted("Skipped.");
+        } else {
+            muted("Not selected.");
+        }
+        float dlc_half = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+        if (button(dlc.empty() ? "Choose New Super Luigi U folder...##dlcsrc"
+                               : "Choose a different New Super Luigi U folder...##dlcsrc",
+                   ImVec2(dlc.empty() ? -1.0f : dlc_half, 0)))
+            choose_folder("dlc");
+        if (!dlc.empty()) {
+            ImGui::SameLine();
+            if (button("Don't add it##dlcskip_src", ImVec2(dlc_half, 0))) skip_dlc_dir();
+        }
         ImGui::EndChild();
     }
     int b = footer({"Back", "Next"}, 1, (A.probe_ok && !busy()) ? 0 : 2);
@@ -1595,6 +1652,32 @@ static void screen_keys() {
     if (!upd.empty()) {
         ImGui::SameLine();
         if (button("Don't use an update##updskip", ImVec2(upd_half, 0))) skip_update_dir();
+    }
+    ImGui::EndChild();
+    ImGui::Spacing();
+
+    ImGui::BeginChild("dlc", ImVec2(0, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
+    heading("New Super Luigi U (optional)", 20);
+    muted("Decrypted title folder, Cemu title folder, or content/0010. A dlc/ folder next to the disc image is used "
+          "when you leave this empty.");
+    std::string dlc = chosen_dlc_dir();
+    if (!dlc.empty()) {
+        mark(2);
+        if (!A.dlc_dir.empty()) ImGui::TextWrapped("Add-on folder: %s", A.dlc_dir.c_str());
+        else ImGui::TextWrapped("Found next to the image: %s", base_name(A.dlc_dir_found).c_str());
+    } else if (A.dlc_skipped) {
+        muted("Skipped. The game is installed without New Super Luigi U.");
+    } else {
+        muted("Not selected. Put a dlc/ folder next to the disc image, or choose one here.");
+    }
+    float dlc_half = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+    if (button(dlc.empty() ? "Choose New Super Luigi U folder...##dlc"
+                           : "Choose a different New Super Luigi U folder...##dlc",
+               ImVec2(dlc.empty() ? -1.0f : dlc_half, 0)))
+        choose_folder("dlc");
+    if (!dlc.empty()) {
+        ImGui::SameLine();
+        if (button("Don't add it##dlcskip", ImVec2(dlc_half, 0))) skip_dlc_dir();
     }
     ImGui::EndChild();
     ImGui::PopStyleVar();
