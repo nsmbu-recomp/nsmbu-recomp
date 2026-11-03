@@ -19,6 +19,16 @@ int main() {
     assert(choose_rendering_path(caps, 0x10DE, hd520, true, nullptr).path == RenderingPath::Core);
     assert(choose_rendering_path(caps, 0x10DE, hd520, true, "1").path == RenderingPath::RenderPass);
     assert(choose_rendering_path(caps, 0x8086, hd520, true, "0").path == RenderingPath::Core);
+    caps.api = VK_API_VERSION_1_1;
+    caps.core = false;
+    caps.khr = false;
+    assert(choose_rendering_path(caps, 0, 0, false, nullptr).path == RenderingPath::RenderPass);
+    caps.api = VK_API_VERSION_1_2;
+    assert(choose_rendering_path(caps, 0, 0, false, nullptr).path == RenderingPath::RenderPass);
+    assert(choose_rendering_path(caps, 0, 0, false, "0").path == RenderingPath::None);
+    caps.khr = true;
+    assert(choose_rendering_path(caps, 0, 0, false, nullptr).path == RenderingPath::KHR);
     caps.api = VK_API_VERSION_1_0;
+    caps.khr = false;
     assert(choose_rendering_path(caps, 0x8086, hd520, true, nullptr).path == RenderingPath::None);
 }

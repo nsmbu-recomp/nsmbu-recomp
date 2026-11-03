@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Phones and PCs whose Vulkan driver is 1.1 or 1.2 and has no dynamic rendering can start the game (#63).
+
 ## [0.8.4] - 2026-11-03
 
 ### Added

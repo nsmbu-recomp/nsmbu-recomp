@@ -2005,32 +2005,30 @@ std::string device_description() {
                                R.properties.apiVersion, kWindows);
 }
 
-enum class DynamicRendering { None, Core, KHR };
-static DynamicRendering dynamic_rendering(VkPhysicalDevice device, const VkPhysicalDeviceProperties &properties,
-                                          const std::vector<VkExtensionProperties> &des) {
-  const uint32_t api = device_api_version(properties);
-  if (api < VK_API_VERSION_1_1)
-    return DynamicRendering::None;
-  if (api >= VK_API_VERSION_1_3) {
-    VkPhysicalDeviceVulkan13Features f13{
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
-    VkPhysicalDeviceFeatures2 f2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-    f2.pNext = &f13;
-    vkGetPhysicalDeviceFeatures2(device, &f2);
-    if (f13.dynamicRendering)
-      return DynamicRendering::Core;
+static RenderingChoice rendering_path(VkPhysicalDevice device, const VkPhysicalDeviceProperties &properties,
+                                     const std::vector<VkExtensionProperties> &extensions) {
+  RenderingCapabilities caps{device_api_version(properties)};
+  if (caps.api >= VK_API_VERSION_1_3) {
+    VkPhysicalDeviceVulkan13Features f13{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+    VkPhysicalDeviceFeatures2 features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+    features.pNext = &f13;
+    vkGetPhysicalDeviceFeatures2(device, &features);
+    caps.core = f13.dynamicRendering;
   }
-
-  if (!has_extension(des, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME) ||
-      (api < VK_API_VERSION_1_2 && (!has_extension(des, VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME) ||
-                                    !has_extension(des, VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME))))
-    return DynamicRendering::None;
-  VkPhysicalDeviceDynamicRenderingFeaturesKHR fdr{
-      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR};
-  VkPhysicalDeviceFeatures2 f2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-  f2.pNext = &fdr;
-  vkGetPhysicalDeviceFeatures2(device, &f2);
-  return fdr.dynamicRendering ? DynamicRendering::KHR : DynamicRendering::None;
+  if (!caps.core && caps.api >= VK_API_VERSION_1_1 &&
+      has_extension(extensions, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME) &&
+      (caps.api >= VK_API_VERSION_1_2 ||
+       (has_extension(extensions, VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME) &&
+        has_extension(extensions, VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME)))) {
+    VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamic{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR};
+    VkPhysicalDeviceFeatures2 features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+    features.pNext = &dynamic;
+    vkGetPhysicalDeviceFeatures2(device, &features);
+    caps.khr = dynamic.dynamicRendering;
+  }
+  return choose_rendering_path(caps, properties.vendorID, properties.driverVersion, kWindows,
+                               env::VK_FORCE_RENDERPASS());
 }
 static const char kUpdateDriver[] =
 #ifdef _WIN32
@@ -2160,26 +2158,24 @@ static void init_device(std::vector<const char *> extensions,
     VkPhysicalDevice device = VK_NULL_HANDLE;
     uint32_t queue = UINT32_MAX;
     VkQueueFamilyProperties family{};
-    DynamicRendering rendering = DynamicRendering::None;
+    RenderingChoice rendering{};
   };
   std::vector<Found> found(devices.size());
   device_inventory.clear();
   for (size_t i = 0; i < devices.size(); i++) {
     VkPhysicalDeviceProperties properties;
     vkGetPhysicalDeviceProperties(devices[i], &properties);
-    const DynamicRendering have = dynamic_rendering(devices[i], properties, device_extensions(devices[i]));
+    const RenderingChoice have = rendering_path(devices[i], properties, device_extensions(devices[i]));
     GpuCandidate info;
     info.name = properties.deviceName;
     info.kind = int(properties.deviceType);
-    info.rank = have == DynamicRendering::Core ? 0 : 1;
+    info.rank = have.path == RenderingPath::Core ? 0 : 1;
     char id[32];
     snprintf(id, sizeof id, "%04x:%04x", properties.vendorID, properties.deviceID);
     info.identity = id;
-    if (have == DynamicRendering::None) {
+    if (have.path == RenderingPath::None) {
       info.unavailable = "Vulkan " + version_text(device_api_version(properties)) + ", driver " +
-                         driver_version_text(properties) +
-                         (device_api_version(properties) < VK_API_VERSION_1_1 ? "; older than Vulkan 1.1"
-                                                                              : "; VK_KHR_dynamic_rendering missing");
+                         driver_version_text(properties) + "; " + have.reason;
     } else {
       uint32_t qn;
       vkGetPhysicalDeviceQueueFamilyProperties(devices[i], &qn, nullptr);
@@ -2224,7 +2220,9 @@ static void init_device(std::vector<const char *> extensions,
     R.queueFamily = slot.queue;
     R.computeQueue = (slot.family.queueFlags & VK_QUEUE_COMPUTE_BIT) != 0;
     R.gpuTimestampValidBits = slot.family.timestampValidBits;
-    R.dynamicRenderingKHR = slot.rendering == DynamicRendering::KHR;
+    R.dynamicRenderingKHR = slot.rendering.path == RenderingPath::KHR;
+    R.renderPasses = slot.rendering.path == RenderingPath::RenderPass;
+    LOG("[vulkan] rendering path: %s (%s)", rendering_path_name(slot.rendering.path), slot.rendering.reason);
     active_gpu_name = info.name;
     active_gpu_identity = info.identity;
     active_gpu_kind = info.kind;
@@ -2236,8 +2234,8 @@ static void init_device(std::vector<const char *> extensions,
     throw std::runtime_error(
         devices.empty()
             ? std::string("No graphics card with a Vulkan driver was found.\n\n") + kUpdateDriver
-            : "The graphics driver does not support the Vulkan features the game needs: Vulkan 1.3, or "
-              "Vulkan 1.1 / 1.2 with the VK_KHR_dynamic_rendering extension.\n" + unsuitable +
+            : "The graphics driver does not support the Vulkan features the game needs: Vulkan 1.1 or newer.\n" +
+                  unsuitable +
                   "\n\n" + kUpdateDriver);
   vkGetPhysicalDeviceProperties(R.physicalDevice, &R.properties);
   const uint32_t deviceApi = device_api_version(R.properties);
@@ -2248,14 +2246,6 @@ static void init_device(std::vector<const char *> extensions,
       attachment_view_usage_wanted(R.properties.vendorID, env::VK_ATTACHMENT_VIEW_USAGE());
   if (R.attachmentViewUsage)
     LOG("[vulkan] attachment views name their usage (NSMBU_VK_ATTACHMENT_VIEW_USAGE=0 turns it off)");
-  RenderingCapabilities renderingCaps;
-  renderingCaps.api = deviceApi;
-  renderingCaps.core = !R.dynamicRenderingKHR;
-  renderingCaps.khr = R.dynamicRenderingKHR;
-  const RenderingChoice renderingChoice = choose_rendering_path(
-      renderingCaps, R.properties.vendorID, R.properties.driverVersion, kWindows, env::VK_FORCE_RENDERPASS());
-  R.renderPasses = renderingChoice.path == RenderingPath::RenderPass;
-  LOG("[vulkan] rendering path: %s (%s)", rendering_path_name(renderingChoice.path), renderingChoice.reason);
   if (perf_enabled()) {
     const auto& limits=R.properties.limits;
     LOG("[vulkan uniforms] dynamic/set %u; uniform/stage %u; uniform/set %u; resources/stage %u; alignment %llu; range %u",

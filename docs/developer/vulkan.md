@@ -69,8 +69,11 @@ An absolute startup mode switch can change random-seed evolution when a load com
 ## Build
 
 Use Clang/clang++ with CMake, Vulkan 1.3 headers and loader, glslang and zlib (and SDL3 and, on
-Windows/Linux, LZ4 for the SDL host). A GPU/driver with dynamic rendering is required: Vulkan 1.3,
-or Vulkan 1.1 / 1.2 with `VK_KHR_dynamic_rendering`. Dependencies must match the target architecture.
+Windows/Linux, LZ4 for the SDL host).
+The GPU and driver must support Vulkan 1.1 or newer.
+The renderer uses Vulkan 1.3 dynamic rendering, or `VK_KHR_dynamic_rendering` on Vulkan 1.1 / 1.2.
+A device without that feature uses classic render passes.
+Dependencies must match the target architecture.
 
 The executable imports no Vulkan functions (`VK_NO_PROTOTYPES`): `gfx/vulkan/loader.h` loads them
 at run time through the loader's `vkGetInstanceProcAddr` / `vkGetDeviceProcAddr` (SDL host:
@@ -126,7 +129,8 @@ To enable Khronos validation, install the Vulkan validation layers and set
 Test aids for older drivers: `NSMBU_VK_FORCE_API=1.2` (or `1.1`) makes the renderer treat every GPU as
 if it reported that Vulkan version, so a Vulkan 1.3 GPU takes the `VK_KHR_dynamic_rendering` path;
 `NSMBU_VK_HIDE_EXTENSIONS=VK_KHR_dynamic_rendering` (comma-separated names) hides device extensions,
-which together with `NSMBU_VK_FORCE_API=1.2` shows the "missing features" error.
+which together with `NSMBU_VK_FORCE_API=1.2` selects classic render passes.
+Add `NSMBU_VK_FORCE_RENDERPASS=0` to require dynamic rendering and show the startup error.
 If the loader does not discover MoltenVK, set `VK_DRIVER_FILES` to its installed
 `MoltenVK_icd.json` (Homebrew places it below `$(brew --prefix molten-vk)/etc/vulkan/icd.d`).
 
@@ -244,8 +248,9 @@ Attachment layer views pass `VkImageViewUsageCreateInfo` on Intel GPUs so the dr
 `NSMBU_VK_ATTACHMENT_VIEW_USAGE=1` forces that on any vendor, and `=0` turns it off.
 The same drivers also crash in dynamic rendering (`vkCmdBeginRendering`) even after the view usage is set.
 Intel Windows drivers older than 101.5000 therefore use classic render passes.
+Vulkan 1.1 / 1.2 drivers that lack `VK_KHR_dynamic_rendering` use the same path (issue #63).
 `NSMBU_VK_FORCE_RENDERPASS=1` forces render passes on any GPU.
-`NSMBU_VK_FORCE_RENDERPASS=0` keeps dynamic rendering on those Intel drivers.
+`NSMBU_VK_FORCE_RENDERPASS=0` keeps dynamic rendering where the driver has it, and refuses a GPU that does not.
 The startup log names the path, for example `render passes (driver rule: Intel Windows < 101.5000)`.
 Render-pass mode stores its pipeline cache in a separate file with a `-rp` suffix.
 
