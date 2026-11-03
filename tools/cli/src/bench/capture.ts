@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { cpSync, createWriteStream, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { MAP_FRAME, MAP_WINDOWS, parseProf } from "./prof.ts";
+import { MAP_FRAME, MAP_WINDOWS, parseProf, scoreOverworldTrace } from "./prof.ts";
 
 function gameBinary(repo: string): string {
     for (const base of ["build/debug", "build/release", "build/rel", "build"]) {
@@ -94,7 +94,12 @@ function loadReady(dir: string): string {
     return "ready";
 }
 
-async function boot(repo: string, runDir: string, env: NodeJS.ProcessEnv): Promise<void> {
+async function boot(
+    repo: string,
+    runDir: string,
+    env: NodeJS.ProcessEnv,
+    ready: (dir: string) => string,
+): Promise<void> {
     rmSync(runDir, { recursive: true, force: true });
     const save = join(runDir, "save");
     mkdirSync(save, { recursive: true });
@@ -135,7 +140,7 @@ async function boot(repo: string, runDir: string, env: NodeJS.ProcessEnv): Promi
             }, 5000).unref();
         };
         const poll = setInterval(() => {
-            const key = loadReady(runDir);
+            const key = ready(runDir);
             if (key !== "" && key === lastKey) stop();
             lastKey = key;
         }, 250);
@@ -145,7 +150,7 @@ async function boot(repo: string, runDir: string, env: NodeJS.ProcessEnv): Promi
         }, 240_000);
         child.on("error", (e) => finish(e));
         child.on("exit", (code, signal) => {
-            if (loadReady(runDir) !== "") finish();
+            if (ready(runDir) !== "") finish();
             else finish(new Error(`game exited ${signal ?? code} before the map trace\n${logTail(logPath)}`));
         });
     });
@@ -159,6 +164,22 @@ export async function captureLoadOverworld(repo: string, work: string): Promise<
     env.NSMBU_PRESS =
         "600-620:8000,800-820:8000,1000-1020:8000,1200-1220:8000,1400-1420:8000,1600-1620:8000,1800-1820:8000,2000-2020:8000,2200-2220:8000,2400-2420:8000";
     process.stdout.write("bench capture load-overworld\n");
-    await boot(repo, runDir, env);
+    await boot(repo, runDir, env, loadReady);
+    return readLog(runDir);
+}
+
+function overworldReady(dir: string): string {
+    return scoreOverworldTrace(readLog(dir)).ok ? "ready" : "";
+}
+
+export async function captureOverworld(repo: string, work: string): Promise<string> {
+    const user = join(repo, ".tmp", "bench", "user");
+    seedUser(repo, user);
+    const runDir = join(work, "run");
+    const env = baseEnv(user, runDir);
+    env.NSMBU_PRESS =
+        "600-620:8000,800-820:8000,1000-1020:8000,1200-1220:8000,1400-1420:8000,1600-1620:8000,1800-1820:8000,2000-2020:8000,2200-2220:8000,2400-2420:8000";
+    process.stdout.write("bench capture overworld\n");
+    await boot(repo, runDir, env, overworldReady);
     return readLog(runDir);
 }

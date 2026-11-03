@@ -154,6 +154,9 @@ One game runs at a time.
 `nsmbu bench load-overworld` presses A through the title and the save file, then loads the world map.
 The trace is `.tmp/bench/load-overworld/trace.json`.
 It passes when the log reaches `CourseSelect from save` and six `[prof]` windows are on the map.
+`nsmbu bench overworld` is that same boot scored only after the map has settled.
+It drops the title, the save load, and the first eight map windows, then keeps the next six.
+The trace is `.tmp/bench/overworld/trace.json`.
 
 ## Status
 

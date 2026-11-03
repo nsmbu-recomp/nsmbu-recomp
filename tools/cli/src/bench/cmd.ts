@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { isPidAlive } from "../agent/process.ts";
 import { ensureLiveAgentIdle } from "../playtest/session.ts";
 import { loadOverworld } from "./cases/load-overworld.ts";
+import { overworld } from "./cases/overworld.ts";
 
 export type BenchCase = {
     name: string;
@@ -11,7 +12,7 @@ export type BenchCase = {
     run: (repo: string) => Promise<void>;
 };
 
-const CASES: BenchCase[] = [loadOverworld];
+const CASES: BenchCase[] = [loadOverworld, overworld];
 
 export function parseBenchArgs(rest: string[]): { list: boolean; names: string[] } {
     const list = rest.includes("--list");

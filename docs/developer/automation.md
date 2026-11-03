@@ -55,6 +55,9 @@ A second bench waits until that game is gone.
 `nsmbu bench load-overworld` presses A through the title and the save file, then loads the world map.
 The window stays up until six `[prof]` windows have been recorded on the map.
 The trace is `.tmp/bench/load-overworld/trace.json`.
+`nsmbu bench overworld` uses the same presses, then ignores the title, the save file, and the first eight map windows while the map fills in.
+The score is the next six windows.
+The trace is `.tmp/bench/overworld/trace.json`.
 The run copies `nsmbu/save` and the display settings, and reuses a shader cache under `.tmp/bench/user`.
 It refuses to start while `nsmbu open` or any other `nsmbu` process is up.
 

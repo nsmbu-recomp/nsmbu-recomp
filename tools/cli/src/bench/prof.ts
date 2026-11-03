@@ -17,6 +17,9 @@ const WAITS = /^\[prof\] render thread waits ms\/frame: GPU ([\d.]+) \([\d.]+\/f
 
 export const MAP_FRAME = 3200;
 export const MAP_WINDOWS = 6;
+export const OVERWORLD_SETTLE = 8;
+export const OVERWORLD_WINDOWS = 6;
+const OVERWORLD_SCENE = "[scene] CourseSelect from save";
 
 export function parseProf(log: string): ProfWindow[] {
     const windows: ProfWindow[] = [];
@@ -56,6 +59,66 @@ export type TraceScore = {
     map: ProfWindow[];
 };
 
+export function windowsAfter(log: string, marker: string): ProfWindow[] {
+    const found: ProfWindow[] = [];
+    let armed = false;
+    let current: ProfWindow | null = null;
+    for (const line of log.split("\n")) {
+        if (!armed && line.includes(marker)) armed = true;
+        const header = HEADER.exec(line);
+        if (header) {
+            current = {
+                frame: Number(header[1]),
+                frame_ms: Number(header[2]),
+                swaps_per_s: Number(header[3]),
+                logic_steps_per_s: Number(header[4]),
+                render_cpu_ms: Number(header[5]),
+                render_idle_ms: Number(header[6]),
+            };
+            if (armed) found.push(current);
+            continue;
+        }
+        if (!current || !armed || found[found.length - 1] !== current) continue;
+        const waits = WAITS.exec(line);
+        if (!waits) continue;
+        current.wait_gpu_ms = Number(waits[1]);
+        current.wait_acquire_ms = Number(waits[2]);
+        current.wait_present_ms = Number(waits[3]);
+    }
+    return found;
+}
+
+function scoreWindows(name: string, map: ProfWindow[]): TraceScore {
+    const frameMs = mean(map.map((w) => w.frame_ms));
+    const swaps = mean(map.map((w) => w.swaps_per_s));
+    const cpu = mean(map.map((w) => w.render_cpu_ms));
+    const gpu = map.filter((w) => w.wait_gpu_ms !== undefined).map((w) => w.wait_gpu_ms as number);
+    const gpuText = gpu.length > 0 ? `, gpu wait ${mean(gpu).toFixed(2)} ms` : "";
+    return {
+        ok: true,
+        detail: `${name} ${frameMs.toFixed(2)} ms/frame, ${swaps.toFixed(1)} swaps/s, render ${cpu.toFixed(2)} ms${gpuText} (${map.length} windows)`,
+        windows: map,
+        map,
+    };
+}
+
+export function scoreOverworldTrace(log: string): TraceScore {
+    if (!log.includes(OVERWORLD_SCENE)) {
+        return { ok: false, detail: "overworld never loaded the world map", windows: parseProf(log), map: [] };
+    }
+    const after = windowsAfter(log, OVERWORLD_SCENE);
+    const map = after.slice(OVERWORLD_SETTLE, OVERWORLD_SETTLE + OVERWORLD_WINDOWS);
+    if (map.length < OVERWORLD_WINDOWS) {
+        return {
+            ok: false,
+            detail: `overworld recorded ${after.length} map windows, need ${OVERWORLD_SETTLE + OVERWORLD_WINDOWS}`,
+            windows: parseProf(log),
+            map,
+        };
+    }
+    return scoreWindows("overworld", map);
+}
+
 export function scoreLoadTrace(log: string): TraceScore {
     const windows = parseProf(log);
     const map = windows.filter((w) => w.frame >= MAP_FRAME);
@@ -73,15 +136,6 @@ export function scoreLoadTrace(log: string): TraceScore {
             map,
         };
     }
-    const frameMs = mean(map.map((w) => w.frame_ms));
-    const swaps = mean(map.map((w) => w.swaps_per_s));
-    const cpu = mean(map.map((w) => w.render_cpu_ms));
-    const gpu = map.filter((w) => w.wait_gpu_ms !== undefined).map((w) => w.wait_gpu_ms as number);
-    const gpuText = gpu.length > 0 ? `, gpu wait ${mean(gpu).toFixed(2)} ms` : "";
-    return {
-        ok: true,
-        detail: `load-overworld map ${frameMs.toFixed(2)} ms/frame, ${swaps.toFixed(1)} swaps/s, render ${cpu.toFixed(2)} ms${gpuText} (${map.length} windows)`,
-        windows,
-        map,
-    };
+    const scored = scoreWindows("load-overworld map", map);
+    return { ...scored, windows, map };
 }

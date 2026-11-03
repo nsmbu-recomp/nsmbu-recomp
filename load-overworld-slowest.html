@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Slowest parts of the world-map bench</title>
+<title>Slowest parts of the overworld bench</title>
 <style>
 /* Generic dark theme. */
 :root {
@@ -1255,23 +1255,23 @@ figure.diagram {
 </head>
 <body>
 <main class="page stack">
-<h1>Slowest parts of the world-map bench</h1>
-  <p class="text">The six map windows average <span class="bright">8.09 ms/frame</span>. Swap is the present wait. Draw and regs are the slow compute.</p>
+<h1>Slowest parts of the overworld</h1>
+  <p class="text">The six settled map windows average <span class="bright">8.05 ms/frame</span>, about <span class="bright">124 swaps/s</span>. The title and the save load are not in this score.</p>
   <div class="grid" style="--cols: 4">
-    <div class="stat"><div class="stat-value">8.85</div><div class="stat-label">slowest window, ms</div></div>
-    <div class="stat"><div class="stat-value">3.31</div><div class="stat-label">mean swap, ms</div></div>
+    <div class="stat"><div class="stat-value">8.33</div><div class="stat-label">slowest window, ms</div></div>
+    <div class="stat"><div class="stat-value">2.54</div><div class="stat-label">mean swap, ms</div></div>
     <div class="stat warning"><div class="stat-value">1.26</div><div class="stat-label">mean regs, ms</div></div>
     <div class="stat"><div class="stat-value">0.00</div><div class="stat-label">GPU wait, ms</div></div>
   </div>
   <aside class="callout info">
     <div class="callout-title">What is slow</div>
-    <p class="text">Swap averages 3.31 ms and is the present wait. The GPU wait is 0.00 ms. Regs takes 1.26 ms. Inside the 3.31 ms draw, uniforms take 0.62 ms and record takes 0.53 ms.</p>
+    <p class="text">Swap averages 2.54 ms and is the present wait. The GPU wait is 0.00 ms. Regs takes 1.26 ms. Inside the 3.30 ms draw, uniforms take 0.62 ms and record takes 0.53 ms.</p>
   </aside>
   <h2>Render ops</h2>
   <figure class="diagram">
     <figcaption class="diagram-title">Mean time of each render op</figcaption>
     <div class="chart-frame"><canvas id="ops-bars"></canvas></div>
-    <p class="caption">Mean ms/frame. Source: nsmbu bench load-overworld, map windows at frames 3240–3840, 3 Nov 2026.</p>
+    <p class="caption">Mean ms/frame. Source: nsmbu bench overworld, settled map windows at frames 2880–3480, 3 Nov 2026.</p>
   </figure>
   <details class="fold">
     <summary>Table</summary>
@@ -1279,11 +1279,11 @@ figure.diagram {
       <table class="data striped">
         <thead><tr><th>Op</th><th class="num">ms/frame</th></tr></thead>
         <tbody>
-          <tr><td>swap</td><td class="num">3.31</td></tr>
-          <tr><td>draw</td><td class="num">3.31</td></tr>
+          <tr><td>swap</td><td class="num">2.54</td></tr>
+          <tr><td>draw</td><td class="num">3.30</td></tr>
           <tr><td>regs</td><td class="num">1.26</td></tr>
           <tr><td>invalidate</td><td class="num">0.30</td></tr>
-          <tr><td>flush</td><td class="num">0.04</td></tr>
+          <tr><td>flush</td><td class="num">0.02</td></tr>
           <tr><td>clear</td><td class="num">0.01</td></tr>
           <tr><td>other</td><td class="num">0.01</td></tr>
         </tbody>
@@ -1291,34 +1291,34 @@ figure.diagram {
     </div>
   </details>
   <h2>Draw phases</h2>
-  <p class="text">Uniforms are the largest share of the draw. The draw mean is 3.31 ms/frame.</p>
+  <p class="text">Uniforms are the largest share of the draw. The draw mean is 3.30 ms/frame.</p>
   <div class="usage">
-    <div class="usage-labels"><span>Share of the draw</span><span>3.31 ms/frame</span></div>
+    <div class="usage-labels"><span>Share of the draw</span><span>3.30 ms/frame</span></div>
     <div class="usage-track">
-      <span class="seg c-yellow" style="width: 18.7%"></span>
-      <span class="seg c-blue" style="width: 16.0%"></span>
-      <span class="seg c-cyan" style="width: 14.8%"></span>
+      <span class="seg c-yellow" style="width: 18.8%"></span>
+      <span class="seg c-blue" style="width: 16.1%"></span>
+      <span class="seg c-cyan" style="width: 14.5%"></span>
       <span class="seg c-orange" style="width: 13.3%"></span>
       <span class="seg c-purple" style="width: 9.7%"></span>
-      <span class="seg c-green" style="width: 6.9%"></span>
-      <span class="seg c-pink" style="width: 6.6%"></span>
-      <span class="seg c-gray" style="width: 14.0%"></span>
+      <span class="seg c-green" style="width: 7.3%"></span>
+      <span class="seg c-pink" style="width: 6.7%"></span>
+      <span class="seg c-gray" style="width: 13.6%"></span>
     </div>
   </div>
   <div class="legend">
-    <span><i class="c-yellow"></i>uniforms 18.7%</span>
-    <span><i class="c-blue"></i>record 16.0%</span>
-    <span><i class="c-cyan"></i>shader 14.8%</span>
+    <span><i class="c-yellow"></i>uniforms 18.8%</span>
+    <span><i class="c-blue"></i>record 16.1%</span>
+    <span><i class="c-cyan"></i>shader 14.5%</span>
     <span><i class="c-orange"></i>textures 13.3%</span>
     <span><i class="c-purple"></i>submit 9.7%</span>
-    <span><i class="c-green"></i>vertex 6.9%</span>
-    <span><i class="c-pink"></i>descriptors 6.6%</span>
-    <span><i class="c-gray"></i>other draw 14.0%</span>
+    <span><i class="c-green"></i>vertex 7.3%</span>
+    <span><i class="c-pink"></i>descriptors 6.7%</span>
+    <span><i class="c-gray"></i>other draw 13.6%</span>
   </div>
   <figure class="diagram">
     <figcaption class="diagram-title">Mean time of each draw phase</figcaption>
     <div class="chart-frame"><canvas id="phase-bars"></canvas></div>
-    <p class="caption">Mean ms/frame inside the draw. Source: same six map windows, 3 Nov 2026.</p>
+    <p class="caption">Mean ms/frame inside the draw. Source: same six settled map windows, 3 Nov 2026.</p>
   </figure>
   <div class="table-frame sticky">
     <table class="data striped">
@@ -1337,26 +1337,26 @@ figure.diagram {
         </tr>
       </thead>
       <tbody>
-        <tr><td class="num">3240</td><td class="num">7.65</td><td class="num">2.91</td><td class="num">0.40</td><td class="num">0.55</td><td class="num">0.47</td><td class="num">0.43</td><td class="num">1.13</td><td class="num">2.22</td><td class="num">4.46</td></tr>
-        <tr><td class="num">3360</td><td class="num">7.78</td><td class="num">3.04</td><td class="num">0.41</td><td class="num">0.58</td><td class="num">0.49</td><td class="num">0.45</td><td class="num">1.17</td><td class="num">3.94</td><td class="num">4.46</td></tr>
-        <tr><td class="num">3480</td><td class="num">8.11</td><td class="num">3.36</td><td class="num">0.44</td><td class="num">0.64</td><td class="num">0.54</td><td class="num">0.49</td><td class="num">1.30</td><td class="num">0.28</td><td class="num">4.92</td></tr>
-        <tr><td class="num">3600</td><td class="num">8.21</td><td class="num">3.48</td><td class="num">0.45</td><td class="num">0.66</td><td class="num">0.56</td><td class="num">0.51</td><td class="num">1.32</td><td class="num">2.07</td><td class="num">5.11</td></tr>
-        <tr class="tone-warning"><td class="num">3720</td><td class="num">8.85</td><td class="num">3.82</td><td class="num">0.51</td><td class="num">0.71</td><td class="num">0.61</td><td class="num">0.56</td><td class="num">1.42</td><td class="num">5.17</td><td class="num">5.26</td></tr>
-        <tr><td class="num">3840</td><td class="num">7.96</td><td class="num">3.22</td><td class="num">0.44</td><td class="num">0.60</td><td class="num">0.52</td><td class="num">0.48</td><td class="num">1.22</td><td class="num">6.15</td><td class="num">4.83</td></tr>
+        <tr><td class="num">2880</td><td class="num">8.01</td><td class="num">3.28</td><td class="num">0.43</td><td class="num">0.62</td><td class="num">0.53</td><td class="num">0.48</td><td class="num">1.25</td><td class="num">2.52</td><td class="num">4.88</td></tr>
+        <tr><td class="num">3000</td><td class="num">7.67</td><td class="num">2.92</td><td class="num">0.40</td><td class="num">0.55</td><td class="num">0.47</td><td class="num">0.43</td><td class="num">1.11</td><td class="num">0.30</td><td class="num">4.57</td></tr>
+        <tr><td class="num">3120</td><td class="num">7.90</td><td class="num">3.15</td><td class="num">0.43</td><td class="num">0.59</td><td class="num">0.51</td><td class="num">0.46</td><td class="num">1.20</td><td class="num">3.84</td><td class="num">4.81</td></tr>
+        <tr class="tone-warning"><td class="num">3240</td><td class="num">8.33</td><td class="num">3.56</td><td class="num">0.47</td><td class="num">0.67</td><td class="num">0.58</td><td class="num">0.52</td><td class="num">1.38</td><td class="num">2.13</td><td class="num">5.11</td></tr>
+        <tr><td class="num">3360</td><td class="num">8.17</td><td class="num">3.42</td><td class="num">0.45</td><td class="num">0.65</td><td class="num">0.55</td><td class="num">0.50</td><td class="num">1.30</td><td class="num">4.11</td><td class="num">4.82</td></tr>
+        <tr><td class="num">3480</td><td class="num">8.25</td><td class="num">3.49</td><td class="num">0.46</td><td class="num">0.65</td><td class="num">0.56</td><td class="num">0.51</td><td class="num">1.30</td><td class="num">2.32</td><td class="num">5.08</td></tr>
       </tbody>
     </table>
   </div>
-  <p class="caption">Each row is one 120-frame window. DrawDone is the game-thread wait. The highlighted row is the slowest window. Source: run/log, 3 Nov 2026.</p>
+  <p class="caption">Each row is one 120-frame window after the map has filled in. DrawDone is the game-thread wait. The highlighted row is the slowest window. Source: nsmbu bench overworld, 3 Nov 2026.</p>
   <section class="card">
     <div class="card-header">Draw phase rank</div>
     <div class="card-body">
-      <p class="text">Uniforms 0.62 ms, record 0.53 ms, shader 0.49 ms, then textures 0.44 ms. Submit is 0.32 ms. Regs, outside the draw, is 1.26 ms.</p>
+      <p class="text">Uniforms 0.62 ms, record 0.53 ms, shader 0.48 ms, then textures 0.44 ms. Submit is 0.32 ms. Regs, outside the draw, is 1.26 ms.</p>
     </div>
   </section>
   <details class="section">
     <summary>Load spike <span class="section-count">1</span></summary>
     <div class="section-body">
-      <p class="text">Frame 840, during the load, was 9.95 ms/frame. The bench score uses only the map windows at frame 3200 and later.</p>
+      <p class="text">Frame 720, during the load, was 10.05 ms/frame. The title sits near 6.06 ms/frame. Those windows are not in the score.</p>
     </div>
   </details>
 </main>
@@ -1646,14 +1646,14 @@ initHtmlCanvas();
 renderChart(document.getElementById("ops-bars"), {
   type: "bar",
   labels: ["swap", "draw", "regs", "invalidate", "flush", "clear"],
-  series: [{ label: "ms/frame", data: [3.31, 3.31, 1.26, 0.30, 0.04, 0.01] }],
+  series: [{ label: "ms/frame", data: [2.54, 3.30, 1.26, 0.30, 0.02, 0.01] }],
   xTitle: "Render op",
   yTitle: "ms/frame"
 })
 renderChart(document.getElementById("phase-bars"), {
   type: "bar",
   labels: ["uniforms", "record", "shader", "textures", "submit", "vertex", "descriptors", "targets", "indices", "pipeline", "pass"],
-  series: [{ label: "ms/frame", data: [0.62, 0.53, 0.49, 0.44, 0.32, 0.23, 0.22, 0.12, 0.11, 0.11, 0.11] }],
+  series: [{ label: "ms/frame", data: [0.62, 0.53, 0.48, 0.44, 0.32, 0.24, 0.22, 0.12, 0.11, 0.10, 0.11] }],
   xTitle: "Draw phase",
   yTitle: "ms/frame"
 })

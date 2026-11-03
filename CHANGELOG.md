@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - The world map reuses an unchanged texture bind instead of setting that texture up again.
+- `nsmbu bench overworld` measures the world map after the load has settled.
 - Uniform register writes are applied in one copy.
 - Unchanged uniform packs, pixel shaders, vertex buffers, index binds, and texture alias checks are reused.
 
