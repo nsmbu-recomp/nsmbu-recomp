@@ -8,63 +8,26 @@ The release includes the runtime, build tools, and installer.
 > You need your own legally dumped copy of the game.
 > Nothing in this repo, in any release, or in the build process contains or downloads Nintendo IP.
 
-## Controls
+## Features
 
-These shortcuts belong to this port.
-The game's own buttons are unchanged.
+- [Windows](docs/user/windows/README.md), [macOS](docs/user/macos/README.md), [Linux](docs/user/linux/README.md), [Android](docs/user/android/README.md), and [iOS](docs/user/ios/README.md).
+- **[Save states](docs/user/portable-save-states.md)** for a course or the world map.
+- **[Mods](docs/modding/README.md)** for Lua scripts, Cemu level packs, and graphics packs.
+- **[Gyro aiming](docs/user/gyro.md)** from a controller, a motion server, or the mouse.
+- **Up to four players**, each with a controller.
+- **New Super Luigi U** as an optional add-on.
+  See [Disc image keys](docs/user/keys.md).
 
-### Settings
+Experimental:
 
-| | Keyboard | Controller |
-| --- | --- | --- |
-| Open or close | `` ` `` or `F12`, or **Enter** and **Tab** together | **Home**, right-stick click (**R3**), or **Start** and **Select** together |
-| Open when closed | | Hold **Select** (−) for half a second, then press **Select** again to close |
+- **Higher frame rates.**
+  Frame rate is under Settings → Graphics.
+  On Android, a high rate pauses when the device gets hot.
+  See [Higher frame rates and heat](docs/user/android/README.md#higher-frame-rates-and-heat).
+- **A wider picture.**
+  Aspect ratio is under Settings → Display.
 
-On Android, the system **Back** gesture opens Settings.
-The same gesture closes it.
-See [New Super Mario Bros. U on Android](docs/user/android/README.md).
-
-While Settings is open:
-
-| | |
-| --- | --- |
-| Move | D-pad, left stick, or touch |
-| Activate | **A** |
-| Back | **B** |
-| Change tab | **LB** / **RB** |
-| Close | **Start** and **Select** together |
-
-Open **Audio** for mute, volume, and TV / GamePad output.
-Open **Controls** to change keys and controller buttons.
-Gyro aiming is in [docs/user/gyro.md](docs/user/gyro.md).
-
-### Save states
-
-| | Keyboard |
-| --- | --- |
-| Load slot 1–5 | **F1**–**F5** |
-| Save slot 1–5 | **Shift**+**F1**–**F5** |
-
-Portable and full states are described in [docs/user/portable-save-states.md](docs/user/portable-save-states.md).
-
-### Controllers
-
-Up to four controllers work as separate players.
-Player 1 uses the keyboard and the first controller.
-Each extra controller joins as the next player.
-In **Controls**, **Same controls for every player** uses one layout for every controller.
-Turn it off to bind one player at a time.
-In GamePad mode, Player 1 is the Wii U GamePad and extra controllers act as Wii U Pro Controllers.
-In Pro Controller mode, every controller acts as a Wii U Pro Controller.
-
-Host gamepads follow the Wii U GamePad by position.
-The bottom face button (Xbox **A**) is Wii U **B**.
-The right face button (Xbox **B**) is Wii U **A**.
-
-| | |
-| --- | --- |
-| Mapping file, release | `data/nsmbu/controls.json` |
-| Mapping file, source build | `~/.config/nsmbu` on Linux, `%APPDATA%\NSMBU` on Windows, `~/Library/Application Support/NSMBU` on macOS |
+Press `` ` `` or **F12**, or click the right stick (**R3**), to open Settings and save states.
 
 ## Supported versions
 
@@ -130,24 +93,12 @@ When it finishes, start the app again to play.
 
 ## More
 
-- [macOS](docs/user/macos/README.md)
-- [Windows](docs/user/windows/README.md)
-- [Linux](docs/user/linux/README.md)
-- [Android](docs/user/android/README.md)
-- [Keys](docs/user/keys.md)
 - [Repair or change the game](docs/user/repair.md)
 - [Where files live](docs/user/files.md)
 - [If the system blocks the app](docs/user/blocked-app.md)
 - [Terminal installer](docs/user/terminal-installer.md)
-- [Other guides](docs/user/) for iOS, save states, gyro aiming, and logs
-
-## More
-
-- [Repair or change the game](docs/user/repair.md)
-- [Where files live](docs/user/files.md)
-- [If the system blocks the app](docs/user/blocked-app.md)
-- [Terminal installer](docs/user/terminal-installer.md)
-- [Other guides](docs/user/) for each system, save states, gyro aiming, and logs
+- [Logs for bug reports](docs/user/logs.md)
+- [Other guides](docs/user/)
 
 ## Contributing
 
