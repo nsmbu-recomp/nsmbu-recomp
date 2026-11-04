@@ -3,8 +3,12 @@
 ## Rules
 
 - Assume that the Typescript to Lua watcher is already running.
-- Add each commit message/change to the changelog it will be reformated later for release. 
-  (Reference issue number if a fix for one was done eg #123)
+
+## Changelog
+
+Record every user-facing change in the changelog, including developer tooling and other work that ships in release notes.
+Unreleased entries are cleaned up when cutting a release; you do not need to match final release formatting now.
+When a change fixes a tracked issue, include its number in the entry (for example `#123`).
 
 ## Code style
 

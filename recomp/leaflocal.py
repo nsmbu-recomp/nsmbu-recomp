@@ -461,20 +461,27 @@ def transform_nonleaf(stmts, addrs):
         pieces.append(s[pos:])
         s = "".join(pieces)
         # forward jumps into a loop head write back first (see heads above)
-        sync = wb(exit_dirty)
-        if sync:
-            s = _GOTO.sub(lambda m: "{ %s %s }" % (sync, m.group(0))
-                          if int(m.group(1), 16) in index and index[int(m.group(1), 16)] in heads and index[int(m.group(1), 16)] > i
-                          else m.group(0), s)
-        ret_wb, all_wb = wb(for_return(exit_dirty)), wb(exit_dirty)
-        if POISON:
-            # checking build: the volatile registers this function sets get garbage at its returns
-            g_set = {r for r in exit_dirty if r < 32 and r not in RET_GPR}
-            f_set = {(h - 32) // 2 for h in exit_dirty if h >= 32 and (h - 32) // 2 not in RET_FPR}
-            ret_wb = (ret_wb + " " + " ".join(["c->r[%d] = 0xDEADBEEFu;" % r for r in sorted(g_set)] +
-                      ["c->f[%d].ps0 = c->f[%d].ps1 = __builtin_nan(\"\");" % (r, r) for r in sorted(f_set)])).strip()
-        s = _TAIL.sub(lambda m: "{ %s %s }" % (all_wb, m.group(0)) if all_wb else m.group(0),
-                      _RET.sub(lambda m: "{ %s return; }" % ret_wb if ret_wb else "return;", s))
+        if "goto L_" in s:
+            sync = wb(exit_dirty)
+            if sync:
+                s = _GOTO.sub(lambda m: "{ %s %s }" % (sync, m.group(0))
+                              if int(m.group(1), 16) in index and index[int(m.group(1), 16)] in heads and index[int(m.group(1), 16)] > i
+                              else m.group(0), s)
+        has_ret = "return;" in s
+        has_tail = "MUSTTAIL return " in s
+        if has_ret or has_tail:
+            ret_wb = wb(for_return(exit_dirty)) if has_ret else ""
+            all_wb = wb(exit_dirty) if has_tail else ""
+            if POISON and has_ret:
+                # checking build: the volatile registers this function sets get garbage at its returns
+                g_set = {r for r in exit_dirty if r < 32 and r not in RET_GPR}
+                f_set = {(h - 32) // 2 for h in exit_dirty if h >= 32 and (h - 32) // 2 not in RET_FPR}
+                ret_wb = (ret_wb + " " + " ".join(["c->r[%d] = 0xDEADBEEFu;" % r for r in sorted(g_set)] +
+                          ["c->f[%d].ps0 = c->f[%d].ps1 = __builtin_nan(\"\");" % (r, r) for r in sorted(f_set)])).strip()
+            if has_ret:
+                s = _RET.sub(lambda m: "{ %s return; }" % ret_wb if ret_wb else "return;", s)
+            if has_tail:
+                s = _TAIL.sub(lambda m: "{ %s %s }" % (all_wb, m.group(0)) if all_wb else m.group(0), s)
         if i + 1 < n and i + 1 in heads and end_at[i]:
             s += " " + wb(end_at[i])
         final.append(s)
