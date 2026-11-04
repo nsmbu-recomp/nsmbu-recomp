@@ -495,6 +495,8 @@ void sync_submitted() {
     render_sync(kSyncInterp);
 }
 
+uint32_t recording_pos() { return t_rec.start ? t_rec.pos : 0; }
+
 void emit(Op op, const uint32* payload, uint32 n) {
     if (t_rec.start) {
         uint32 bytes = 4 * (n + 1);

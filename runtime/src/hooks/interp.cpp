@@ -6,6 +6,7 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -255,6 +256,15 @@ struct ViewSlot {
 CamBox g_cam;
 float g_cam_cur[4] = {0, 0, 0, 0};
 bool g_cam_cur_valid = false;
+bool g_publish_tiles = false;
+bool g_box_open = false;
+bool g_sampling = false;
+float g_live_box[4] = {0, 0, 0, 0};
+uint32_t g_capture_proj = 0;
+uint32_t g_tile_proj[256];
+bool g_tile_proj_neg[256];
+bool g_tile_neg_next = false;
+int g_tile_proj_n = 0;
 ViewSlot g_views[8];
 int g_view_n = 0;
 uint32_t g_view_area = 0;
@@ -332,6 +342,7 @@ void remember_area() {
     g_view_n = 0;
     g_cam_cur_valid = false;
     g_cam.valid = false;
+    g_tile_proj_n = 0;
     g_view_area = area;
     clear_model_poses();
 }
@@ -385,8 +396,37 @@ void shift_camera(const float* cur) {
     g_cam.step = g_logic_steps;
 }
 
-void present_camera(Cpu* c, uint32_t r, const float* live, uint32_t mgr, uint32_t view, uint32_t proj) {
+void publish_tile_matrix(Cpu* c, uint32_t r) {
+    if (!g_publish_tiles || !r || !g_tile_proj_n) return;
+    const uint32_t r3 = c->r[3];
+    c->r[3] = r + kProjection;
+    f_02A05A9C(c);
+    const uint32_t m = c->r[3];
+    c->r[3] = r3;
+    if (!m || !wwatch::readable(m, 64)) return;
+    for (int i = 0; i < g_tile_proj_n; i++) {
+        const uint32_t a = g_tile_proj[i];
+        if (!wwatch::readable(a, 64)) continue;
+        for (int k = 0; k < 16; k++) {
+            uint32_t w = ld32(m + 4 * k);
+            if (k == 5 && g_tile_proj_neg[i]) w ^= 0x80000000u;
+            std::memcpy(mem::ptr(a + 4 * k), &w, 4);
+        }
+    }
+    static bool logged = false;
+    if (!logged) {
+        logged = true;
+        LOG("[interp] course tile camera slots %d", g_tile_proj_n);
+    }
+}
+
+void present_camera(Cpu* c, uint32_t r, const float* live, uint32_t mgr, uint32_t view, uint32_t proj, bool restore) {
+    if (g_sampling) return;
+    g_sampling = true;
     if (!g_interp_present || !g_cam.valid || !g_cam_cur_valid || cam_cut(g_cam.v, g_cam_cur)) {
+        publish_tile_matrix(c, r);
+        g_box_open = false;
+        g_sampling = false;
         cam_trace("snap", g_cam.v, live, live);
         return;
     }
@@ -394,6 +434,7 @@ void present_camera(Cpu* c, uint32_t r, const float* live, uint32_t mgr, uint32_
     float box[4];
     for (int i = 0; i < 4; i++) box[i] = pacing::lerp_f(g_cam.v[i], g_cam_cur[i], t);
     apply_box(c, r, box);
+    publish_tile_matrix(c, r);
     if (proj) {
         write_view_proj(c, mgr, view, proj);
         refresh_model_env(c, mgr, view);
@@ -403,11 +444,17 @@ void present_camera(Cpu* c, uint32_t r, const float* live, uint32_t mgr, uint32_
             refresh_model_env(c, g_views[i].mgr, g_views[i].view);
         }
     }
-    apply_box(c, r, live);
+    if (restore) {
+        apply_box(c, r, live);
+        g_box_open = false;
+    } else {
+        g_box_open = true;
+    }
+    g_sampling = false;
     cam_trace(g_hold ? "hold" : "older", g_cam.v, g_cam_cur, box);
 }
 
-void apply_hold_camera(Cpu* c) {
+void apply_hold_camera(Cpu* c, bool publish_tiles = false, bool restore = true) {
     remember_area();
     if (!course_play_active() || !g_cam_cur_valid) return;
     const uint32_t r = renderer_instance();
@@ -416,8 +463,62 @@ void apply_hold_camera(Cpu* c) {
     if (!read_box(r, cur)) {
         for (int i = 0; i < 4; i++) cur[i] = g_cam_cur[i];
     }
+    if (g_box_open) {
+        for (int i = 0; i < 4; i++) cur[i] = g_live_box[i];
+    } else {
+        for (int i = 0; i < 4; i++) g_live_box[i] = cur[i];
+    }
     shift_camera(cur);
-    present_camera(c, r, cur, 0, 0, 0);
+    g_publish_tiles = publish_tiles;
+    present_camera(c, r, cur, 0, 0, 0, restore);
+    g_publish_tiles = false;
+}
+
+// #region agent log
+void agent_cam_log(const char* message, const char* hypothesisId) {
+    static int left = 80;
+    if (left <= 0 || !g_cam.valid || !g_cam_cur_valid) return;
+    const float span = std::fabs(g_cam_cur[0] - g_cam.v[0]) + std::fabs(g_cam_cur[1] - g_cam.v[1]);
+    if (span < 0.2f) return;
+    const float t = pacing::present_sample_t(!g_hold, pass_t());
+    const float drawn0 = pacing::lerp_f(g_cam.v[0], g_cam_cur[0], t);
+    float tile0 = 0, tile12 = 0, model0 = 0, model12 = 0;
+    int tile_ok = 0;
+    if (g_tile_proj_n > 0 && wwatch::readable(g_tile_proj[0], 64)) {
+        tile_ok = 1;
+        std::memcpy(&tile0, mem::ptr(g_tile_proj[0]), 4);
+        std::memcpy(&tile12, mem::ptr(g_tile_proj[0] + 48), 4);
+    }
+    if (g_view_n > 0) {
+        const uint32_t vi = view_info(g_views[0].mgr, g_views[0].view);
+        if (vi && wwatch::readable(vi + kViewProj, 64)) {
+            std::memcpy(&model0, mem::ptr(vi + kViewProj), 4);
+            std::memcpy(&model12, mem::ptr(vi + kViewProj + 48), 4);
+        }
+    }
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    FILE* f = std::fopen("/home/econn/git/nsmbu-recomp/.cursor/debug-147cbb.log", "a");
+    if (!f) return;
+    std::fprintf(f,
+                 "{\"sessionId\":\"147cbb\",\"runId\":\"pre\",\"hypothesisId\":\"%s\",\"location\":\"interp.cpp\",\"message\":\"%s\",\"timestamp\":%lld,\"data\":{\"hold\":%d,\"t\":%.4f,\"step\":%llu,\"tiles\":%d,\"views\":%d,\"open\":%d,\"tileOk\":%d,\"tile0\":%.4f,\"tile12\":%.4f,\"model0\":%.4f,\"model12\":%.4f,\"prev0\":%.4f,\"cur0\":%.4f,\"drawn0\":%.4f,\"match\":%d}}\n",
+                 hypothesisId, message, (long long)ms, g_hold ? 1 : 0, t, (unsigned long long)g_logic_steps, g_tile_proj_n, g_view_n, g_box_open ? 1 : 0, tile_ok, tile0, tile12, model0, model12, g_cam.v[0], g_cam_cur[0], drawn0, std::fabs(tile0 - model0) < 0.01f && std::fabs(tile12 - model12) < 0.05f ? 1 : 0);
+    std::fclose(f);
+    left--;
+}
+// #endregion
+
+void finish_open_camera(Cpu* c) {
+    const uint32_t r = renderer_instance();
+    if (r) {
+        g_publish_tiles = true;
+        publish_tile_matrix(c, r);
+        g_publish_tiles = false;
+        // #region agent log
+        agent_cam_log("before-restore", "ABE");
+        // #endregion
+        if (g_box_open) apply_box(c, r, g_live_box);
+    }
+    g_box_open = false;
 }
 
 
@@ -428,13 +529,116 @@ void apply_pose_reset() {
     if (!g_pose_reset.exchange(false, std::memory_order_relaxed)) return;
     g_cam = CamBox{};
     g_cam_cur_valid = false;
+    g_tile_proj_n = 0;
     g_view_n = 0;
+    g_box_open = false;
+    g_sampling = false;
     clear_model_poses();
 }
 
 }
 
 namespace interp {
+bool same_proj_matrix(uint32_t values) {
+    if (!g_capture_proj || !values) return false;
+    const uint32_t m = g_capture_proj + 0x44;
+    if (!wwatch::readable(values, 64) || !wwatch::readable(m, 64)) return false;
+    static const int kZero[] = {1, 2, 4, 6, 8, 9, 12, 13, 14};
+    for (int i : kZero)
+        if (ld32(values + 4 * i) != 0) return false;
+    if (ld32(values + 60) != 0x3f800000u) return false;
+    static const int kSame[] = {0, 3, 7, 10, 11};
+    for (int i : kSame)
+        if (ld32(values + 4 * i) != ld32(m + 4 * i)) return false;
+    const uint32_t ys = ld32(values + 20);
+    const uint32_t yl = ld32(m + 20);
+    if (ys != yl && ys != (yl ^ 0x80000000u)) return false;
+    g_tile_neg_next = ys != yl;
+    return true;
+}
+void keep_tile_proj(uint32_t addr) {
+    if (!addr) return;
+    for (int i = 0; i < g_tile_proj_n; i++)
+        if (g_tile_proj[i] == addr) return;
+    if (g_tile_proj_n < 256) {
+        g_tile_proj_neg[g_tile_proj_n] = g_tile_neg_next;
+        g_tile_proj[g_tile_proj_n++] = addr;
+    }
+}
+int g_dbg_bg = 0, g_dbg_bg_proj = 0, g_dbg_u16 = 0, g_dbg_rec = 0, g_dbg_same = 0, g_dbg_tag = 0;
+void note_bg_draw(bool have_proj) {
+    g_dbg_bg++;
+    if (have_proj) g_dbg_bg_proj++;
+}
+void note_tile_uniform(bool recording, bool tagged, bool same) {
+    g_dbg_u16++;
+    if (recording) g_dbg_rec++;
+    if (tagged) g_dbg_tag++;
+    if (same) g_dbg_same++;
+}
+int g_dbg_in = 0, g_dbg_ortho = 0, g_dbg_have_sample = 0;
+uint32_t g_dbg_sample[16], g_dbg_live[16];
+static bool ortho_words(const uint32_t* w) {
+    static const int z[] = {1, 2, 3, 4, 6, 7, 8, 9, 11};
+    if (w[15] != 0x3f800000) return false;
+    for (int i : z) if (w[i] != 0) return false;
+    return true;
+}
+void sample_tile_uniform(uint32_t values) {
+    if (!g_capture_proj || !values || !wwatch::readable(values, 64) || !wwatch::readable(g_capture_proj + 0x44, 64)) return;
+    uint32_t w[16], live[16];
+    for (int i = 0; i < 16; i++) {
+        w[i] = ld32(values + 4 * i);
+        live[i] = ld32(g_capture_proj + 0x44 + 4 * i);
+    }
+    g_dbg_in++;
+    if (ortho_words(w)) g_dbg_ortho++;
+    if (g_dbg_have_sample == 2) return;
+    if (g_dbg_have_sample == 0 || ortho_words(w)) {
+        for (int i = 0; i < 16; i++) {
+            g_dbg_sample[i] = w[i];
+            g_dbg_live[i] = live[i];
+        }
+        g_dbg_have_sample = ortho_words(w) ? 2 : 1;
+    }
+}
+// #region agent log
+void agent_win_log() {
+    static int left = 12;
+    if (left <= 0 || !course_play_active() || g_dbg_in == 0) {
+        g_dbg_in = g_dbg_ortho = g_dbg_have_sample = 0;
+        return;
+    }
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    FILE* f = std::fopen("/home/econn/git/nsmbu-recomp/.cursor/debug-147cbb.log", "a");
+    if (!f) return;
+    std::fprintf(f,
+                 "{\"sessionId\":\"147cbb\",\"runId\":\"pre3\",\"hypothesisId\":\"KLM\",\"location\":\"interp.cpp\",\"message\":\"capture-window\",\"timestamp\":%lld,\"data\":{\"step\":%llu,\"in\":%d,\"ortho\":%d,\"kind\":%d,\"u\":[",
+                 (long long)ms, (unsigned long long)g_logic_steps, g_dbg_in, g_dbg_ortho, g_dbg_have_sample);
+    for (int i = 0; i < 16; i++) std::fprintf(f, "%s%u", i ? "," : "", g_dbg_sample[i]);
+    std::fprintf(f, "],\"live\":[");
+    for (int i = 0; i < 16; i++) std::fprintf(f, "%s%u", i ? "," : "", g_dbg_live[i]);
+    std::fprintf(f, "]}}\n");
+    std::fclose(f);
+    left--;
+    g_dbg_in = g_dbg_ortho = g_dbg_have_sample = 0;
+}
+// #endregion
+// #region agent log
+void agent_cap_log() {
+    static int left = 40;
+    if (left <= 0 || !course_play_active()) return;
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    FILE* f = std::fopen("/home/econn/git/nsmbu-recomp/.cursor/debug-147cbb.log", "a");
+    if (!f) return;
+    std::fprintf(f,
+                 "{\"sessionId\":\"147cbb\",\"runId\":\"pre\",\"hypothesisId\":\"FGHIJ\",\"location\":\"interp.cpp\",\"message\":\"after-calc\",\"timestamp\":%lld,\"data\":{\"step\":%llu,\"tiles\":%d,\"bg\":%d,\"bgProj\":%d,\"u16\":%d,\"rec\":%d,\"same\":%d,\"tag\":%d,\"capture\":%u}}\n",
+                 (long long)ms, (unsigned long long)g_logic_steps, g_tile_proj_n, g_dbg_bg, g_dbg_bg_proj, g_dbg_u16, g_dbg_rec, g_dbg_same, g_dbg_tag, g_capture_proj);
+    std::fclose(f);
+    left--;
+    g_dbg_bg = g_dbg_bg_proj = g_dbg_u16 = g_dbg_rec = g_dbg_same = g_dbg_tag = 0;
+}
+// #endregion
 namespace {
 void record_model(Cpu* c);
 void reblend_held(Cpu* c);
@@ -884,6 +1088,10 @@ void ss_reset() {
     g_cam = CamBox{};
     g_view_n = 0;
     g_cam_cur_valid = false;
+    g_tile_proj_n = 0;
+    g_box_open = false;
+    g_sampling = false;
+    g_capture_proj = 0;
     g_view_area = 0;
     g_blend_t = 1.f;
     g_interp_present = false;
@@ -1111,6 +1319,7 @@ extern "C" void hook_029C52CC(Cpu* c) {
             c->r[3] = self;
             PassTimer timer(1);
             f_029C5104(c);
+            c->r[3] = self;
         }
         discard_pass_clock();
         finish_wake();
@@ -1125,10 +1334,15 @@ extern "C" void hook_029C52CC(Cpu* c) {
     for (int i = 0; i < steps; i++) {
         g_logic_steps++;
         g_record_passes++;
+        g_tile_proj_n = 0;
         c->r[3] = self;
         PassTimer timer(0);
         f_029C52CC_orig(c);
     }
+    // #region agent log
+    agent_cap_log();
+    agent_win_log();
+    // #endregion
     nsmbu_align_map_camera();
     if (course_play_active()) {
         const uint32_t r3 = c->r[3], r4 = c->r[4], r5 = c->r[5];
@@ -1180,19 +1394,19 @@ extern "C" void hook_029C4FE4(Cpu* c) {
         prepare_wake();
         if (g_wake_skip || g_skip_map_draw) return;
         const uint32_t self = c->r[3];
-        const bool course = present_models(c);
+        const bool course = course_play_active() && blend_enabled();
+        if (course) apply_hold_camera(c, false, false);
         c->r[3] = self;
-        if (course) apply_hold_camera(c);
+        const bool drew = present_models(c);
+        c->r[3] = self;
+        if (course) finish_open_camera(c);
         c->r[3] = self;
         f_029C4FE4_orig(c);
         c->r[3] = self;
-        if (course) {
-            present_models(c);
-            c->r[3] = self;
-            apply_hold_camera(c);
-            c->r[3] = self;
-            gx2::sync_submitted();
-        }
+        // #region agent log
+        if (course) agent_cam_log("after-draw", "C");
+        // #endregion
+        if (drew) gx2::sync_submitted();
         return;
     }
     f_029C4FE4_orig(c);
@@ -1206,12 +1420,59 @@ extern "C" void hook_024FBF6C(Cpu* c) {
     if (!enabled() || !course_play_active()) return;
     const uint32_t r = renderer_instance();
     if (!r || proj != r + kProjection) return;
+    remember_view(mgr, view, proj);
+    if (g_sampling || g_box_open) return;
     float cur[4];
     if (!read_box(r, cur)) return;
     shift_camera(cur);
-    remember_view(mgr, view, proj);
-    present_camera(c, r, cur, mgr, view, proj);
+    present_camera(c, r, cur, mgr, view, proj, true);
 }
+
+static void course_bg_draw(Cpu* c, uint32_t info, void (*orig)(Cpu*)) {
+    using namespace interp;
+    uint32_t proj = 0;
+    if (info && wwatch::readable(info + 0x18, 4)) {
+        proj = ld32(info + 0x18);
+        if (!proj || !wwatch::readable(proj + 0x44, 64)) proj = 0;
+    }
+    const uint32_t prev = g_capture_proj;
+    if (proj) g_capture_proj = proj;
+    note_bg_draw(proj != 0);
+    orig(c);
+    g_capture_proj = prev;
+}
+
+#define COURSE_BG(addr, reg) \
+    extern "C" void f_##addr##_orig(Cpu* c); \
+    extern "C" void hook_##addr(Cpu* c) { course_bg_draw(c, c->reg, f_##addr##_orig); }
+
+COURSE_BG(024B47A8, r[6])
+COURSE_BG(024B47C8, r[6])
+COURSE_BG(026904D4, r[4])
+COURSE_BG(026905C0, r[4])
+COURSE_BG(02690680, r[4])
+COURSE_BG(0269083C, r[4])
+COURSE_BG(02691690, r[4])
+COURSE_BG(0269179C, r[4])
+COURSE_BG(026917E4, r[4])
+COURSE_BG(02691868, r[4])
+COURSE_BG(0269196C, r[4])
+COURSE_BG(02691970, r[4])
+COURSE_BG(026919A4, r[4])
+COURSE_BG(02691A8C, r[4])
+COURSE_BG(02691B74, r[4])
+COURSE_BG(02691DF0, r[4])
+COURSE_BG(02691EAC, r[4])
+COURSE_BG(0269206C, r[4])
+COURSE_BG(026920B0, r[4])
+COURSE_BG(02692194, r[4])
+COURSE_BG(0269222C, r[4])
+COURSE_BG(02692748, r[4])
+COURSE_BG(0269282C, r[4])
+COURSE_BG(026928C4, r[4])
+COURSE_BG(0269325C, r[5])
+
+#undef COURSE_BG
 
 namespace gx2 { uint64_t swap_count(); }
 

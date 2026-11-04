@@ -45,6 +45,7 @@ Each `[interp] pose` line has the hold flag, the blend weight, and the previous,
 `nsmbu test pose-direction-120` walks in `1-1` at 120 fps and checks that drawn point stays on the segment between the two logic poses.
 Each player's head is a one-bone model with no skeleton uniform, and that test also checks the uploaded shape matrix.
 The model view-projection is rebuilt from that same halfway camera.
+Course tiles read the live ortho instead, so that split and the tile-only sample are in [framerate.md](framerate.md).
 A hold does not run `calcGPU`, so the uniform would otherwise keep the full camera step.
 The dump steps are in `docs/developer/automation.md`.
 `NSMBU_INTERP_FPS` is a present cap.

@@ -3,6 +3,7 @@
 ## Rules
 
 - Assume that the Typescript to Lua watcher is already running.
+- Never commit any game files to the repo they must always be gitignored.
 
 ## Changelog
 

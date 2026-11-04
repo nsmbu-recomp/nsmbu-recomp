@@ -44,6 +44,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- The ground and bricks follow the in-between camera at high frame rates.
+  Their projection was stored in the display list at the 60 Hz step, so the ground stepped while pipes and enemies stayed smooth.
+  The stored matrix is the course camera with the vertical scale negated, and the port keeps that sign.
+  The rewrite uses the display list byte order, so the course picture stays on screen.
+- The ground and the characters use the same camera sample on an in-between picture.
+  The picture no longer jitters when the camera moves.
 - The performance overlay averages FPS, frame time, logic, and CPU/GPU lines over the same two-second window as the frame graph, refreshes those numbers every 0.5 s, and keeps the graph scrolling at a steady wall-clock rate when frame rate drops.
 - Phones and PCs whose Vulkan driver is 1.1 or 1.2 and has no dynamic rendering can start the game (#63).
 - Polygon offset sends the depth-bias command on every draw that enables it.

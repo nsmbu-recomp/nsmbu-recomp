@@ -24,6 +24,7 @@ int gpu_frames_queued();
 void set_display_vsync_ns(int64_t ns);
 void pace_host_present();
 void sync_submitted();
+uint32_t recording_pos();
 }
 
 namespace gx2 {
