@@ -16,10 +16,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Vulkan presentation defaults to **Vsync (smooth)** instead of low-latency mailbox when you have not chosen a mode in settings.
 - A full recompile builds register write-back text only for statements that branch or return.
   On this machine, translation of USA 1.3.0 takes 7.1 s, down from 9.1 s (16 workers).
   The full recompile takes 15.7 s, down from 17.6 s.
   The generated C is the same.
+- Build coverage lists expect the drawBtm hook.
 - The world map reuses an unchanged texture bind instead of setting that texture up again.
 - `nsmbu bench overworld` measures the world map after the load has settled.
 - Uniform register writes are applied in one copy.

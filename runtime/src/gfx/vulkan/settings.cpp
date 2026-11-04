@@ -27,9 +27,6 @@ std::atomic<int> g_present{env_present_mode()};
 std::atomic<bool> g_present_user{env_present_mode() >= 0};
 std::atomic<unsigned> g_offered{1u << kPresentFifo};
 int automatic_present_mode() {
-    const unsigned offered = g_offered.load(std::memory_order_relaxed);
-    if (offered & (1u << kPresentMailbox)) return kPresentMailbox;
-    if (offered & (1u << kPresentImmediate)) return kPresentImmediate;
     return kPresentFifo;
 }
 }
