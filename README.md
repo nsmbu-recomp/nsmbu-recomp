@@ -12,11 +12,8 @@ The release includes the runtime, build tools, and installer.
 
 - [Windows](docs/user/windows/README.md), [macOS](docs/user/macos/README.md), [Linux](docs/user/linux/README.md), [Android](docs/user/android/README.md), and [iOS](docs/user/ios/README.md).
 - **[Save states](docs/user/portable-save-states.md)** for a course or the world map.
-- **[Mods](docs/modding/README.md)** for Lua scripts, Cemu level packs, and graphics packs.
-- **[Gyro aiming](docs/user/gyro.md)** from a controller, a motion server, or the mouse.
+- **[Mods](docs/modding/README.md)** Cemu level packs, and graphics packs.
 - **Up to four players**, each with a controller.
-- **New Super Luigi U** as an optional add-on.
-  See [Disc image keys](docs/user/keys.md).
 
 Experimental:
 
@@ -27,7 +24,16 @@ Experimental:
 - **A wider picture.**
   Aspect ratio is under Settings → Display.
 
-Press `` ` `` or **F12**, or click the right stick (**R3**), to open Settings and save states.
+### Controls
+
+- **Settings.**
+  Press `F12`, or click the right stick (`R3`).
+- **Full screen.**
+  `F11` or Alt+Enter.
+  On macOS, Cmd+F.
+- **Save states.**
+  **Shift**+**F1**–**F5** saves slots 1–5.
+  **F1**–**F5** loads those slots.
 
 ## Supported versions
 
