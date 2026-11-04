@@ -27,19 +27,19 @@ Experimental:
 ### Controls
 
 - **Settings.**
-  Press `F12`, or click the right stick (`R3`).
-  On macOS, Cmd+Comma.
+  Press <kbd>F12</kbd>, or click the right stick (<kbd>R3</kbd>).
+  On macOS, <kbd>Cmd</kbd>+<kbd>,</kbd>.
 - **Full screen.**
-  `F11` or Alt+Enter.
-  On macOS, Cmd+F.
+  <kbd>F11</kbd> or <kbd>Alt</kbd>+<kbd>Enter</kbd>.
+  On macOS, <kbd>Cmd</kbd>+<kbd>F</kbd>.
 - **Save states.**
-  **Shift**+**F1**–**F5** saves slots 1–5.
-  **F1**–**F5** loads those slots.
+  <kbd>Shift</kbd>+<kbd>F1</kbd>–<kbd>F5</kbd> saves slots 1–5.
+  <kbd>F1</kbd>–<kbd>F5</kbd> loads those slots.
 - **Screenshot.**
-  `F10` saves the TV picture.
+  <kbd>F10</kbd> saves the TV picture.
 - **GamePad screen.**
-  Ctrl+G shows or hides it.
-  On macOS, Cmd+G.
+  <kbd>Ctrl</kbd>+<kbd>G</kbd> shows or hides it.
+  On macOS, <kbd>Cmd</kbd>+<kbd>G</kbd>.
 
 ## Supported versions
 

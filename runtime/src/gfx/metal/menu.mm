@@ -36,7 +36,6 @@ void set_host_setting(const char* key, const std::string& value);
 static float g_res_shown = 0;
 static float current_res_scale() { return g_res_shown ? g_res_shown : render::res_scale(); }
 static void set_res(float f) { g_res_shown = f; render::set_res_scale(f); }
-static void cycle_res() { set_res(gfx::next_res_preset(current_res_scale())); }
 
 namespace gx2 { bool uncapped(); }
 #include "../../mods/mods.h"
@@ -340,12 +339,12 @@ void install_menu(NSWindow* tv) {
             [@"Vulkan through MoltenVK (needs: brew install vulkan-loader molten-vk glslang). Falls back to Metal if it cannot start." stringByAppendingString:why];
         [g addItem:[NSMenuItem separatorItem]];
     }
-    [g addItemWithTitle:@"Internal resolution (R cycles)" action:nil keyEquivalent:@""].enabled = NO;
+    [g addItemWithTitle:@"Internal resolution" action:nil keyEquivalent:@""].enabled = NO;
     for (size_t i = 0; i < gfx::res_preset_count(); i++) {
         NSString* title = [NSString stringWithFormat:@"    %s", gfx::kResPresets[i].label];
-        NSMenuItem* item = add(g, title, @selector(setRes:), @"R", (NSInteger)i);
+        NSMenuItem* item = add(g, title, @selector(setRes:), @"", (NSInteger)i);
         if (gfx::kResPresets[i].scale == 1.0f)
-            item.toolTip = @"The Wii U picture. Shortcut in game: R";
+            item.toolTip = @"The Wii U picture";
     }
     [g addItem:[NSMenuItem separatorItem]];
     add(g, @"16x anisotropic filtering (N)", @selector(toggleAniso:), @"N");
@@ -424,9 +423,7 @@ bool menu_hotkey(uint16_t code) {
     switch (code) {
     case kVK_ANSI_N: if (render::feature_available(render::kFeatureAniso)) render::set_aniso(!render::aniso()); break;
     case kVK_ANSI_6: interp::toggle_fps(60); break;
-    case kVK_ANSI_T: interp::toggle_fps(120); break;
     case kVK_ANSI_8: if (render::feature_available(render::kFeatureFXAA)) render::set_fxaa(!render::fxaa()); break;
-    case kVK_ANSI_R: cycle_res(); break;
     case kVK_ANSI_P: render::request_capture(); return true;
     case kVK_F1: case kVK_F2: case kVK_F3: case kVK_F4: case kVK_F5: {
         int slot = code == kVK_F1 ? 1 : code == kVK_F2 ? 2 : code == kVK_F3 ? 3 : code == kVK_F4 ? 4 : 5;

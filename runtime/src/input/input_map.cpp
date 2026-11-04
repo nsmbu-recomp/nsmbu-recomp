@@ -142,7 +142,6 @@ const char* reserved_key(int code) {
 
     switch (code) {
     case kVK_ANSI_N: return "Graphics › Anisotropic filtering";
-    case kVK_ANSI_R: return "Graphics › Internal resolution";
     case kVK_ANSI_6: return "Graphics › 60 fps: frame interpolation";
     case kVK_ANSI_8: return "Graphics › FXAA";
     case kVK_ANSI_9: return "Graphics › Record sound activity";

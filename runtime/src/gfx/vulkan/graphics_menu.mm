@@ -92,7 +92,7 @@ void install_graphics_menu(SDL_Window* window) {
     NSMenu* menu=[[NSMenu alloc]initWithTitle:@"Graphics"];root.submenu=menu;[bar addItem:root];
     auto add=[&](NSString* title,SEL action,NSInteger tag){NSMenuItem* i=[[NSMenuItem alloc]initWithTitle:title action:action keyEquivalent:@""];i.target=target;i.tag=tag;[menu addItem:i];};
     for(size_t i=0;i<gfx::res_preset_count();++i){
-        NSString* title=i?@(gfx::kResPresets[i].label):[NSString stringWithFormat:@"%s — R cycles",gfx::kResPresets[i].label];
+        NSString* title=@(gfx::kResPresets[i].label);
         add(title,@selector(resolution:),(NSInteger)i);
     }
     [menu addItem:NSMenuItem.separatorItem];

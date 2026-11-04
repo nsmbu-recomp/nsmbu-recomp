@@ -1,5 +1,4 @@
 #include "settings.h"
-#include "gfx/res_presets.h"
 #include "core/runtime.h"
 #include <atomic>
 #include <cstdlib>
@@ -59,9 +58,7 @@ void set_graphics_feature_available(GraphicsFeature f,bool v) { int i=static_cas
 bool graphics_hotkey(char k,bool activate) {
     GraphicsFeature f;
     switch(k) {
-    case 'R': if(activate) set_res_scale(gfx::next_res_preset(requested_res_scale())); return true;
     case '6': if(activate) { interp::set_fast_forward(false); interp::set_fps(60); interp::set_mode(0); } return true;
-    case 'T': if(activate) { interp::set_fast_forward(false); interp::toggle_fps(120); } return true;
     case '7': if(activate) {
         interp::set_fast_forward(false);
         int n = 0;

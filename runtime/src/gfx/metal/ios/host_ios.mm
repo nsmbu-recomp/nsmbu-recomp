@@ -40,17 +40,10 @@ void ios_present_alert(UIAlertController* a);
 
 // ---------------------------------------------------------------- graphics preferences (menu.mm on the Mac)
 namespace {
-const float kResScales[] = {1.0f, 1.5f, 2.0f, 3.0f};
 float g_res_shown = 0;
 bool g_prefs_loaded = false;
 float current_res_scale() { return g_res_shown ? g_res_shown : render::res_scale(); }
 void set_res(float f) { g_res_shown = f; render::set_res_scale(f); }
-void cycle_res() {
-    float cur = current_res_scale();
-    size_t n = sizeof kResScales / sizeof *kResScales, i = 0;
-    while (i < n && kResScales[i] <= cur + 0.01f) i++;
-    set_res(kResScales[i % n]);
-}
 
 bool env_set(std::initializer_list<env::Var> vars) {
     for (env::Var v : vars)
@@ -112,7 +105,6 @@ bool menu_hotkey(uint16_t code) {
     case kVK_ANSI_N: if (render::feature_available(render::kFeatureAniso)) render::set_aniso(!render::aniso()); break;
     case kVK_ANSI_6: interp::toggle_fps(60); break;
     case kVK_ANSI_8: if (render::feature_available(render::kFeatureFXAA)) render::set_fxaa(!render::fxaa()); break;
-    case kVK_ANSI_R: cycle_res(); break;
     case kVK_F1: case kVK_F2: case kVK_F3: case kVK_F4: case kVK_F5: {
         int slot = code == kVK_F1 ? 1 : code == kVK_F2 ? 2 : code == kVK_F3 ? 3 : code == kVK_F4 ? 4 : 5;
         GCKeyboardInput* kb = GCKeyboard.coalescedKeyboard.keyboardInput;

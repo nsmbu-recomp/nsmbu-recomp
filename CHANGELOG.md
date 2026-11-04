@@ -19,7 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Count-register loops keep the PowerPC CTR in a C local instead of the `Cpu` struct.
   A 4096-byte copy loop, compiled with the game code's `-O3` flags, takes 4 ms with the local and 7–8 ms when CTR stays in memory.
   The same loop with the cache-line clear takes 6 ms with the local and 8–9 ms without it.
-- The README lists the port's extra features, puts experimental options in their own list, and keeps a short Controls subsection for Settings, full screen, save states, screenshots, the GamePad screen, frame rate, and resolution.
+- The README lists the port's extra features, puts experimental options in their own list, and keeps a short Controls subsection for Settings, full screen, save states, screenshots, and the GamePad screen.
 - Vulkan presentation defaults to **Vsync (smooth)** instead of low-latency mailbox when you have not chosen a mode in settings.
 - A full recompile builds register write-back text only for statements that branch or return.
   On this machine, translation of USA 1.3.0 takes 7.1 s, down from 9.1 s (16 workers).
@@ -35,6 +35,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The hidden GamePad picture is not drawn.
   On this machine the settled world map then holds 164–165 swaps/s at a 165 fps cap.
   The same boot was about 135–146 swaps/s before.
+
+### Removed
+
+- `T` no longer toggles 120 fps.
+- `R` no longer cycles the internal resolution.
 
 ### Fixed
 

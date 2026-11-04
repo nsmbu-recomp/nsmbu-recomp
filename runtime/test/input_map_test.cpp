@@ -126,8 +126,10 @@ static void test_names() {
 
 static void test_reserved() {
     for (int k : std::initializer_list<int>{kVK_ANSI_N, kVK_ANSI_6, kVK_ANSI_8, kVK_ANSI_9, kVK_ANSI_P,
-                  kVK_ANSI_R, kVK_F12, kVK_Escape})
+                  kVK_F12, kVK_Escape})
         CHECK(reserved_key(k) != nullptr);
+    CHECK(reserved_key(kVK_ANSI_R) == nullptr);
+    CHECK(reserved_key(kVK_ANSI_T) == nullptr);
     CHECK(reserved_key(kVK_ANSI_K) == nullptr);
     CHECK(reserved_key(kVK_ANSI_5) == nullptr);
 }
@@ -184,7 +186,7 @@ static void test_json_partial_and_bad() {
     CHECK(r.pad[kHome] == kPadNone && r.pad[kA] == kPadB);
     CHECK(r.deadzone == 0 && !r.invert_camera_y);
     // unknown names and app shortcuts are dropped with a warning, the rest still loads
-    CHECK(from_json(R"({"keyboard": {"A": ["R", "K"], "Jump": ["J"], "B": ["Bogus"]}, "options": {"stick_deadzone": 5}})", r, &err));
+    CHECK(from_json(R"({"keyboard": {"A": ["F12", "K"], "Jump": ["J"], "B": ["Bogus"]}, "options": {"stick_deadzone": 5}})", r, &err));
     CHECK(!err.empty());
     CHECK(r.keys[kA][0] == kVK_ANSI_K && r.keys[kA][1] == kNoKey);
     CHECK(r.keys[kB][0] == kNoKey);
