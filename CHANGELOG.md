@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- The New Super Luigi U story-map notice does not appear at startup.
 - Count-register loops keep the PowerPC CTR in a C local instead of the `Cpu` struct.
   A 4096-byte copy loop, compiled with the game code's `-O3` flags, takes 4 ms with the local and 7–8 ms when CTR stays in memory.
   The same loop with the cache-line clear takes 6 ms with the local and 8–9 ms without it.

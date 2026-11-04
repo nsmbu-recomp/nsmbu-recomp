@@ -1,0 +1,4 @@
+# builds: USA EU NSMBU_NSLU_USA NSMBU_NSLU_EU
+# SaveData_Rdash_info_00: the story-map notice when New Super Luigi U is installed.
+# Base discs compile a different function at the mapped address, so this file skips them.
+02632418

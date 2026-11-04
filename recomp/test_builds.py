@@ -92,7 +92,8 @@ class Hooks(unittest.TestCase):
              (False, 0x029D8304), (False, 0x029D82D4), (False, 0x029D8394), (False, 0x029872BC),
              (False, 0x029D8478), (False, 0x029D7648), (False, 0x029D8C10), (True, 0x029D8C48),
              (True, 0x029D71A4), (True, 0x02631BE4), (True, 0x0263ADD8), (True, 0x02641A4C),
-             (False, 0x02ABC054), (False, 0x02ABCAE8), (True, 0x02ABCB34), (True, 0x02ABCB38)],
+             (False, 0x02ABC054), (False, 0x02ABCAE8), (True, 0x02ABCB34), (True, 0x02ABCB38),
+             (False, 0x02632418)],
         )
         same_addrs = {0x024D752C, 0x029CBBB4, 0x024BD86C, 0x029872BC}
         for site, canon, addr, where, same in entries:
@@ -185,7 +186,10 @@ class Hooks(unittest.TestCase):
             self.assertNotEqual(missing_at, draw_at)
             self.assertTrue(draw_at <= missing_at < draw_at + draw_size)
             entries, skipped = builds.read_hooks(builds.hook_files(), build)
-            self.assertEqual(skipped, [])
+            self.assertEqual(
+                skipped,
+                [("hooks_nslu_notice.txt", "USA EU NSMBU_NSLU_USA NSMBU_NSLU_EU")],
+            )
             by_canon = {canon: addr for _, canon, addr, *_ in entries}
             self.assertEqual(by_canon[0x0252D9C0], draw_at)
             self.assertEqual(by_canon[0x0252F900], missing_at)
