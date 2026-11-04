@@ -72,6 +72,10 @@ void load_prefs() {
     if (saved(@"fps60Paced", {env::INTERP_PACED})) interp::set_paced_interpolation_at(60, [pref(@"fps60Paced") boolValue]);
     if (saved(@"fpsHighPaced", {env::INTERP_PACED})) interp::set_paced_interpolation_at(120, [pref(@"fpsHighPaced") boolValue]);
     if (saved(@"aspect", {env::ASPECT})) aspect::apply_choice([pref(@"aspect") UTF8String]);
+    if (saved(@"aspectStretch", {env::ASPECT_STRETCH}))
+        aspect::set_stretch_image([pref(@"aspectStretch") boolValue]);
+    else if (!env_set({env::ASPECT_STRETCH}))
+        aspect::set_stretch_image(YES);
 }
 void save_prefs() {
     if (env::NO_HOST_INPUT() || !g_prefs_loaded) return;
@@ -85,6 +89,7 @@ void save_prefs() {
         aspect::choice_text(aspect, sizeof aspect);
         set_pref(@"aspect", @(aspect));
     }
+    if (!env_set({env::ASPECT_STRETCH})) set_pref(@"aspectStretch", @(aspect::stretch_image()));
     if (!env_set({env::INTERP_PACED})) {
         set_pref(@"fps60Paced", @(interp::paced_interpolation_at(60)));
         set_pref(@"fpsHighPaced", @(interp::paced_interpolation_at(120)));

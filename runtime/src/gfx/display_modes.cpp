@@ -214,6 +214,11 @@ static Box fit(float dw, float dh, float tw, float th, float* scale) {
     return {floorf((dw - w) / 2), floorf((dh - h) / 2), w, h};
 }
 
+static Box stretch(float dw, float dh, float* scale) {
+    *scale = 1.0f;
+    return {0, 0, dw, dh};
+}
+
 Layout layout(float dw, float dh, float tw, float th, float pw, float ph, bool pip_on, bool drc_only) {
     Layout L;
     if (dw <= 0 || dh <= 0) return L;
@@ -224,7 +229,7 @@ Layout layout(float dw, float dh, float tw, float th, float pw, float ph, bool p
         return L;
     }
     if (tw <= 0 || th <= 0) return L;
-    L.tv = fit(dw, dh, tw, th, &L.scale);
+    L.tv = aspect::stretch_image() ? stretch(dw, dh, &L.scale) : fit(dw, dh, tw, th, &L.scale);
     if (pip_on && pw > 0 && ph > 0) {
 
         float ow = roundf(L.tv.w * g_pip_size), oh = roundf(ow * ph / pw);

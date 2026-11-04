@@ -36,6 +36,8 @@ inline void text_from_mode(int m, float custom, char* out, size_t n) {
 }
 void apply_choice(const char* text);
 void choice_text(char* out, size_t n);
+bool stretch_image();
+void set_stretch_image(bool stretch);
 void set_window_aspect(float a);
 float requested();
 

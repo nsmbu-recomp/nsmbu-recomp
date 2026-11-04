@@ -1,3 +1,4 @@
+#include "gfx/aspect.h"
 #include "gfx/aspect_view.h"
 #include "gfx/res_presets.h"
 #include "gfx/render_mips.h"
@@ -119,6 +120,12 @@ static std::atomic<float> g_aspect_requested{16.0f / 9.0f};
 static float g_aspect_kx = 1.0f, g_aspect_ky = 1.0f;
 void set_frame_aspect(float a) { g_aspect_requested.store(a, std::memory_order_relaxed); }
 static void latch_aspect() {
+    if (aspect::stretch_image()) {
+        if (g_aspect_kx != 1.0f || g_aspect_ky != 1.0f)
+            LOG("[gfx] aspect stretch: screen targets stay 16:9");
+        g_aspect_kx = g_aspect_ky = 1.0f;
+        return;
+    }
     float a = g_aspect_requested.load(std::memory_order_relaxed), base = 16.0f / 9.0f;
     float kx = a >= base ? a / base : 1.0f, ky = a >= base ? 1.0f : base / a;
     if (kx != g_aspect_kx || ky != g_aspect_ky) LOG("[gfx] aspect %.4f: screen targets x%.4f wide, x%.4f tall", a, kx, ky);

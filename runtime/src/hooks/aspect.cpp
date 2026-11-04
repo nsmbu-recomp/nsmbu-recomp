@@ -24,8 +24,13 @@ namespace {
 constexpr float kBase = 16.0f / 9.0f;
 
 int parse_env_mode(float& custom) { return mode_from_text(env::ASPECT(), custom); }
+bool parse_env_stretch() {
+    if (const char* e = env::ASPECT_STRETCH()) return atoi(e) != 0;
+    return true;
+}
 float g_custom = kBase;
 std::atomic<int> g_mode{parse_env_mode(g_custom)};
+std::atomic<bool> g_stretch{parse_env_stretch()};
 std::atomic<float> g_window{kBase};
 
 std::atomic<float> g_game{kBase};
@@ -99,6 +104,11 @@ void apply_choice(const char* text) {
     set_mode(m);
 }
 void choice_text(char* out, size_t n) { text_from_mode(mode(), g_custom, out, n); }
+bool stretch_image() { return g_stretch.load(std::memory_order_relaxed); }
+void set_stretch_image(bool stretch) {
+    g_stretch.store(stretch, std::memory_order_relaxed);
+    LOG("[aspect] stretch %s", stretch ? "on" : "off");
+}
 void set_window_aspect(float a) {
     if (!(a > 0.1f && a < 20.0f)) return;
 
@@ -138,13 +148,14 @@ float on_swap() {
             else { g_custom = v; set_mode(kCustom); }
         }
     float a = requested();
-    bool changed = !same(a, g_game);
+    float game = stretch_image() ? kBase : a;
+    bool changed = !same(game, g_game);
 
     float render = g_game.load();
-    g_draw.store(render, std::memory_order_relaxed);
-    g_game = a;
+    g_draw.store(stretch_image() ? kBase : render, std::memory_order_relaxed);
+    g_game = game;
     if (changed) {
-        LOG("[aspect] game aspect %.4f from swap %llu", a, (unsigned long long)swaps);
+        LOG("[aspect] game aspect %.4f from swap %llu", game, (unsigned long long)swaps);
         g_changed_swap = swaps;
     }
     return render;

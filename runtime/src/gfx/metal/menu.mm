@@ -88,6 +88,10 @@ static void load_prefs() {
     if (saved(@"fpsUnlocked", {env::INTERP_FPS}) && [pref(@"fpsUnlocked") boolValue]) interp::set_unlocked(true);
     if (saved(@"fpsHighPaced", {env::INTERP_PACED})) interp::set_paced_interpolation_at(120, [pref(@"fpsHighPaced") boolValue]);
     if (saved(@"aspect", {env::ASPECT})) aspect::apply_choice([pref(@"aspect") UTF8String]);
+    if (saved(@"aspectStretch", {env::ASPECT_STRETCH}))
+        aspect::set_stretch_image([pref(@"aspectStretch") boolValue]);
+    else if (!env_set({env::ASPECT_STRETCH}))
+        aspect::set_stretch_image(YES);
 #ifdef NSMBU_HAS_VULKAN
     if (saved(@"vkPresentMode", {env::VK_PRESENT_MODE})) gfxvk::set_present_mode([pref(@"vkPresentMode") intValue]);
 #endif
@@ -107,6 +111,7 @@ static void save_prefs() {
         aspect::choice_text(aspect, sizeof aspect);
         set_pref(@"aspect", @(aspect));
     }
+    if (!env_set({env::ASPECT_STRETCH})) set_pref(@"aspectStretch", @(aspect::stretch_image()));
     if (!env_set({env::INTERP_PACED})) {
         set_pref(@"fps60Paced", @(interp::paced_interpolation_at(60)));
         set_pref(@"fpsHighPaced", @(interp::paced_interpolation_at(120)));

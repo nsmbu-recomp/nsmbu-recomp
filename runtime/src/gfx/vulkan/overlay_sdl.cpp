@@ -215,6 +215,7 @@ void graphics_changed() {
     char aspect[32];
     aspect::choice_text(aspect, sizeof aspect);
     put("aspect", {env::ASPECT}, aspect);
+    put("aspectStretch", {env::ASPECT_STRETCH}, aspect::stretch_image() ? "1" : "0");
     if (!env_set({env::VK_PRESENT_MODE}) && gfxvk::present_mode_user_set()) {
         g_values["vkPresentMode"] = std::to_string(gfxvk::present_mode());
         g_values["vkPresentChosen"] = "1";
@@ -249,6 +250,10 @@ void load_saved_options() {
 #endif
     if (saved("scaleFilter", {env::SCALE_FILTER})) gfxvk::set_scale_filter((int)num("scaleFilter"));
     if (saved("aspect", {env::ASPECT})) aspect::apply_choice(v["aspect"].c_str());
+    if (saved("aspectStretch", {env::ASPECT_STRETCH}))
+        aspect::set_stretch_image(num("aspectStretch") != 0);
+    else if (!env_set({env::ASPECT_STRETCH}))
+        aspect::set_stretch_image(true);
     if (saved("vkPresentMode", {env::VK_PRESENT_MODE})) {
         const int mode = (int)num("vkPresentMode");
         const bool chosen = v.count("vkPresentChosen") && v["vkPresentChosen"] == "1";
