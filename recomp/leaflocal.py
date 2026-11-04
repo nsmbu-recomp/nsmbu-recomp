@@ -109,11 +109,17 @@ def transform(stmts):
         prologue.append("uint32_t %s;" % ", ".join("r%d = c->r[%d]" % (n, n) for n in sorted(gprs)))
     if fprs:
         prologue.append("double %s;" % ", ".join("f%d_0 = c->f[%d].ps0, f%d_1 = c->f[%d].ps1" % (n, n, n, n) for n in sorted(fprs)))
+    uses_ctr = any("c->ctr" in s for s in out)
+    if uses_ctr:
+        prologue.append("uint32_t ctr = c->ctr;")
+        out = [s.replace("c->ctr", "ctr") for s in out]
 
     def wb(gset, fset, cset):
         parts = ["c->r[%d] = r%d;" % (n, n) for n in sorted(gset)]
         parts += ["c->f[%d].ps0 = f%d_0; c->f[%d].ps1 = f%d_1;" % (n, n, n, n) for n in sorted(fset)]
         parts += ["c->cr[%d] = cr%d;" % (n, n) for n in sorted(cset)]
+        if uses_ctr:
+            parts.append("c->ctr = ctr;")
         return " ".join(parts)
 
     ret_wb = wb(gw & RET_GPR, fw & RET_FPR, crs & RET_CR)
@@ -322,6 +328,9 @@ def transform_nonleaf(stmts, addrs):
         s = _R.sub(lambda m: (gprs.add(int(m.group(1))), "r%s" % m.group(1))[1], s)
         s = _F.sub(lambda m: (fprs.add(int(m.group(1))), "f%s_%s" % (m.group(1), m.group(2)))[1], s)
         out.append(s)
+    uses_ctr = any("c->ctr" in s for s in out)
+    if uses_ctr:
+        out = [s.replace("c->ctr", "ctr") for s in out]
     for s in out:
         for m in _C_USE.finditer(s):
             name = m.group(1)
@@ -452,7 +461,8 @@ def transform_nonleaf(stmts, addrs):
                 keep = set(reload_regs)
                 poison_txt = _poison(fn_used - keep)
             inner = " ".join(p for p in (
-                wb(wb_regs), m.group(0),
+                wb(wb_regs), "c->ctr = ctr;" if uses_ctr else "", m.group(0),
+                "ctr = c->ctr;" if uses_ctr else "",
                 rl({r for r in reload_regs if r < 32}, {r - 32 for r in reload_regs if r >= 32}),
                 poison_txt) if p)
             pieces.append("{ %s }" % inner)
@@ -472,6 +482,10 @@ def transform_nonleaf(stmts, addrs):
         if has_ret or has_tail:
             ret_wb = wb(for_return(exit_dirty)) if has_ret else ""
             all_wb = wb(exit_dirty) if has_tail else ""
+            if uses_ctr and has_ret:
+                ret_wb = (ret_wb + " c->ctr = ctr;").strip()
+            if uses_ctr and has_tail:
+                all_wb = (all_wb + " c->ctr = ctr;").strip()
             if POISON and has_ret:
                 # checking build: the volatile registers this function sets get garbage at its returns
                 g_set = {r for r in exit_dirty if r < 32 and r not in RET_GPR}
@@ -490,4 +504,9 @@ def transform_nonleaf(stmts, addrs):
         prologue.append("uint32_t %s;" % ", ".join("r%d = c->r[%d]" % (r, r) for r in sorted(gprs)))
     if fprs:
         prologue.append("double %s;" % ", ".join("f%d_0 = c->f[%d].ps0, f%d_1 = c->f[%d].ps1" % (r, r, r, r) for r in sorted(fprs)))
-    return prologue, final, wb(end_at[-1])
+    if uses_ctr:
+        prologue.append("uint32_t ctr = c->ctr;")
+    end_wb = wb(end_at[-1])
+    if uses_ctr:
+        end_wb = (end_wb + " c->ctr = ctr;").strip()
+    return prologue, final, end_wb

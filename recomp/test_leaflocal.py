@@ -170,3 +170,29 @@ class Nonleaf(unittest.TestCase):
         self.assertIn("c->f[1].ps0 = f1_0;", out[2])
         self.assertIn("f1_0 = c->f[1].ps0; f1_1 = c->f[1].ps1;", out[2])
 
+    def test_count_register_stays_in_a_local_across_a_call(self):
+        prologue, out, end = self.nonleaf([
+            "c->ctr = c->r[3];",
+            "c->ctr--; if (c->ctr != 0) { goto L_02000000; }",
+            "f_02000000(c);",
+            "return;",
+        ])
+        text = "\n".join(prologue + out + [end])
+        self.assertIn("uint32_t ctr = c->ctr;", text)
+        self.assertIn("ctr = r3;", text)
+        self.assertIn("ctr--; if (ctr != 0)", text)
+        self.assertIn("c->ctr = ctr; f_02000000(c); ctr = c->ctr;", text)
+        self.assertIn("c->ctr = ctr; return;", text)
+
+    def test_leaf_count_register_is_a_local(self):
+        prologue, out, end = leaflocal.transform([
+            "c->ctr = c->r[3];",
+            "c->ctr--; if (c->ctr != 0) { goto L_02000000; }",
+            "return;",
+        ])
+        text = "\n".join(prologue + out + [end])
+        self.assertIn("uint32_t ctr = c->ctr;", text)
+        self.assertIn("ctr--; if (ctr != 0)", text)
+        self.assertNotIn("c->ctr--;", text)
+        self.assertIn("c->ctr = ctr;", text)
+

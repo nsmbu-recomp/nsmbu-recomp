@@ -16,6 +16,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Count-register loops keep the PowerPC CTR in a C local instead of the `Cpu` struct.
+  A 4096-byte copy loop, compiled with the game code's `-O3` flags, takes 4 ms with the local and 7–8 ms when CTR stays in memory.
+  The same loop with the cache-line clear takes 6 ms with the local and 8–9 ms without it.
 - Vulkan presentation defaults to **Vsync (smooth)** instead of low-latency mailbox when you have not chosen a mode in settings.
 - A full recompile builds register write-back text only for statements that branch or return.
   On this machine, translation of USA 1.3.0 takes 7.1 s, down from 9.1 s (16 workers).
