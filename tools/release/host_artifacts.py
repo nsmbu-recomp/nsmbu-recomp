@@ -4,12 +4,12 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
 import tarfile
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-WORKFLOW_ENV = os.path.join(ROOT, ".github", "workflows", "release.yml")
 TOOLCHAINS_JSON = os.path.join(ROOT, "installer", "toolchains.json")
 BUILD_DIR = os.path.join(ROOT, "build", "release-upload")
 INSTALLER_DIR = os.path.join(ROOT, "build", "installer")
@@ -22,7 +22,34 @@ ZBIN = os.path.join(CACHE, "zbin")
 ZIG_CACHE = os.path.join(CACHE, "zig-cache")
 LUAJIT = os.path.join(ROOT, "vendor", "luajit")
 
-WORKFLOW_KEYS = ("SDL3_URL", "SDL3_SHA256", "VULKAN_HEADERS_URL", "VULKAN_HEADERS_SHA256")
+def strip_linker_depfiles(build_dir):
+    for dirpath, _, names in os.walk(build_dir):
+        for name in names:
+            if name != "build.ninja" and name != "link.txt":
+                continue
+            path = os.path.join(dirpath, name)
+            with open(path, encoding="utf-8", errors="replace") as f:
+                text = f.read()
+            new = re.sub(r"(?:-Xlinker\s+)?--dependency-file=\S+", "", text)
+            if new != text:
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(new)
+
+
+def remove_tree(path):
+    if not os.path.isdir(path):
+        return
+    last = None
+    for _ in range(8):
+        try:
+            shutil.rmtree(path)
+            return
+        except OSError as e:
+            last = e
+            subprocess.run(["rm", "-rf", path], check=False)
+            if not os.path.exists(path):
+                return
+    die("could not remove %s: %s" % (path, last))
 
 
 def die(msg):
@@ -43,21 +70,22 @@ def toolchain_for_arch(arch):
     return "zig-0.16.0-aarch64" if arch == "aarch64" else "zig-0.16.0"
 
 
-def read_workflow_env():
-    if not os.path.isfile(WORKFLOW_ENV):
-        die("missing " + WORKFLOW_ENV)
-    want = set(WORKFLOW_KEYS)
-    found = {}
-    with open(WORKFLOW_ENV, encoding="utf-8") as f:
-        for line in f:
-            for key in want:
-                prefix = "  %s:" % key
-                if line.startswith(prefix):
-                    found[key] = line[len(prefix) :].strip()
-    missing = [k for k in WORKFLOW_KEYS if k not in found or not found[k]]
-    if missing:
-        die("release workflow env missing: " + ", ".join(missing))
-    return found
+def dependency_pins():
+    here = os.path.dirname(os.path.abspath(__file__))
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    import sdl3
+    build_tools = os.path.join(ROOT, "tools", "build")
+    if build_tools not in sys.path:
+        sys.path.insert(0, build_tools)
+    import build_windows
+    version = sdl3.VERSION
+    return {
+        "SDL3_URL": "https://github.com/libsdl-org/SDL/releases/download/release-%s/SDL3-%s.tar.gz" % (version, version),
+        "SDL3_SHA256": sdl3.UPSTREAM_SHA256,
+        "VULKAN_HEADERS_URL": build_windows.VULKAN_HEADERS["url"],
+        "VULKAN_HEADERS_SHA256": build_windows.VULKAN_HEADERS["sha256"],
+    }
 
 
 def default_version():
@@ -225,10 +253,8 @@ def ensure_sdl3(env, target):
         log("extracting SDL3 sources")
         subprocess.run(["tar", "-xzf", archive, "-C", SRC_CACHE], cwd=ROOT, check=True)
     build = os.path.join(CACHE, "sdl3-build")
-    if os.path.isdir(build):
-        shutil.rmtree(build)
-    if os.path.isdir(prefix):
-        shutil.rmtree(prefix)
+    remove_tree(build)
+    remove_tree(prefix)
     sdl_env = os.environ.copy()
     sdl_env["ZIG_GLOBAL_CACHE_DIR"] = ZIG_CACHE
     os.makedirs(ZIG_CACHE, exist_ok=True)
@@ -247,18 +273,18 @@ def ensure_sdl3(env, target):
             "-DCMAKE_CXX_COMPILER=" + os.path.join(ZBIN, "zcxx"),
             "-DCMAKE_AR=" + os.path.join(ZBIN, "zar"),
             "-DCMAKE_RANLIB=" + os.path.join(ZBIN, "zranlib"),
-            "-DCMAKE_C_LINKER_DEPFILE_SUPPORTED=FALSE",
-            "-DCMAKE_CXX_LINKER_DEPFILE_SUPPORTED=FALSE",
             "-DSDL_SHARED=ON",
             "-DSDL_STATIC=OFF",
             "-DSDL_TESTS=OFF",
             "-DSDL_EXAMPLES=OFF",
+            "-DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON",
             "-DCMAKE_INSTALL_PREFIX=" + prefix,
         ],
         cwd=ROOT,
         env=sdl_env,
         check=True,
     )
+    strip_linker_depfiles(build)
     log("compiling SDL3")
     subprocess.run(["cmake", "--build", build], cwd=ROOT, env=sdl_env, check=True)
     subprocess.run(["cmake", "--install", build], cwd=ROOT, env=sdl_env, check=True)
@@ -417,14 +443,14 @@ def main():
 
     require_tools()
     check_luajit()
-    wf = read_workflow_env()
+    pins = dependency_pins()
     vulkan_lib = vulkan_library(arch)
     toolchain_id = toolchain_for_arch(arch)
 
     zig_dir, target = ensure_zig(toolchain_id)
     write_zbin(zig_dir, target)
-    sdl_prefix, sdl_src, sdl_runtime_lib = ensure_sdl3(wf, target)
-    vulkan_root = ensure_vulkan_headers(wf)
+    sdl_prefix, sdl_src, sdl_runtime_lib = ensure_sdl3(pins, target)
+    vulkan_root = ensure_vulkan_headers(pins)
 
     run_build(version, sdl_prefix, vulkan_root, vulkan_lib)
 

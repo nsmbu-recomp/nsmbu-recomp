@@ -83,7 +83,7 @@ The CLI exports `NSMBU_CLI=1` and `NSMBU_USER_DIR=<repo>/nsmbu` on every dev com
 | `nsmbu extract` | `tools/disc/extract.py` |
 | `nsmbu save <save.dat\|save.json> [output] [--output PATH]` | convert `rp_savedata.dat` to JSON and back |
 | `nsmbu profile` / `perf` | profiling helpers |
-| `nsmbu installer [--version VERSION] [--no-open]` | builds this Linux host's GitHub Release folder (the zip contents) at `build/installer` with the release workflow's pinned zig toolchain, then opens that folder's setup window; `--no-open` returns after the package is ready; does not publish |
+| `nsmbu installer [--version VERSION] [--no-open]` | builds this Linux host's GitHub Release folder (the zip contents) at `build/installer` with the pinned zig toolchain, SDL3, and Vulkan-Headers from the tree, then opens that folder's setup window; `--no-open` returns after the package is ready; does not publish |
 | `nsmbu apk` | builds the same setup APK as a release: Python, the compiler and the extractor are inside, and the game code is not. Installs it on a USB device (`adb`). `--build-only` skips adb. `--install-only` installs the last APK. |
 | `nsmbu lint` / `recomp` | TypeScript mod build, recomp only |
 | `nsmbu scripted <name>` | wraps `tools/run/scripted-run.sh` |
