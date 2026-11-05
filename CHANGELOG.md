@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Agent skill `crash` points at log paths and what crash, run, and setup logs contain.
 - Settings → Display has a **Stretch picture instead of widening the view** checkbox under aspect ratio (on by default).
   Turn it off to keep the wider-field-of-view behavior for non-16:9 aspects.
 - `.vscode/launch.json` to debug `build/debug/nsmbu` with **lldb-dap** (uses `game/active` via `tools/run/vscode_lldb_init.py`, same env defaults as `nsmbu launch`).

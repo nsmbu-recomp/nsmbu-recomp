@@ -20,6 +20,7 @@ When someone must play through a level, end the turn with explicit player steps.
 - **`scenes`** — Short boots to map, course, or title (`references/` recipes).
 - **`pre-release`** / **`release`** — Full `nsmbu test`, installer, tag workflow.
 - **`decompile`** — Decomp workflow only (no compile-time proof in NSMBU).
+- **`crash`** — Where run, crash, and setup logs are, and what each file contains.
 
 **Docs** — `docs/developer/automation.md`, `docs/developer/cli.md`, `docs/developer/env.md`, boot recipes, issue ↔ test mapping in automation.
 
