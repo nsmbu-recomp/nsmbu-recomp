@@ -21,13 +21,17 @@ struct FrameHistory {
     int count = 0;
     bool undo_ready = false;
     Sample undo{};
+    float line[kGraphPoints]{};
+    int line_i = 0;
 
     static double bucket_sec() { return kWindowSec / kGraphPoints; }
 
     void reset() {
         start = count = 0;
+        line_i = 0;
         undo_ready = false;
         std::memset(ring, 0, sizeof ring);
+        std::memset(line, 0, sizeof line);
     }
 
     void prune(double now) {
@@ -49,6 +53,8 @@ struct FrameHistory {
         ++count;
         undo = ring[i];
         undo_ready = true;
+        line[line_i] = ms;
+        line_i = (line_i + 1) % kGraphPoints;
     }
 
     void undo_push() {
@@ -56,7 +62,13 @@ struct FrameHistory {
         const int last = (start + count - 1) % kCap;
         if (ring[last].t != undo.t || ring[last].ms != undo.ms) return;
         --count;
+        line_i = (line_i - 1 + kGraphPoints) % kGraphPoints;
         undo_ready = false;
+    }
+
+    float line_ms(int point) const {
+        if (point < 0 || point >= kGraphPoints) return 0;
+        return line[(line_i + point) % kGraphPoints];
     }
 
     float graph_ms(int point, double now) const {

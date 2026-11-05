@@ -32,6 +32,12 @@ int main() {
     h.compute(1.2, avg_ms, worst, fps, logic_rate, low1);
     assert(low1 > 19.9f && low1 < 20.1f);
     assert(h.graph_ms(overlay::FrameHistory::kGraphPoints - 1, 1.2) > 49.0f);
+    h.reset();
+    for (int i = 0; i < 119; ++i) h.push(1.0 + i * 0.001, 16.0f, 1);
+    h.push(2.0, 50.0f, 1);
+    assert(h.line_ms(118) > 49.0f);
+    h.push(2.001, 16.0f, 1);
+    assert(h.line_ms(117) > 49.0f && h.line_ms(118) < 20.0f);
     a.reset();
     assert(!a.started);
     auto root = std::filesystem::temp_directory_path() / "nsmbu-telemetry-test";

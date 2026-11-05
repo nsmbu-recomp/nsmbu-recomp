@@ -1931,7 +1931,7 @@ static ImU32 perf_graph_color(float ms) {
     return IM_COL32(255, 110, 95, 255);
 }
 
-static void perf_frame_graph(double now) {
+static void perf_frame_graph() {
     const float w = ImGui::GetContentRegionAvail().x;
     const float h = 22.0f;
     const ImVec2 p0 = ImGui::GetCursorScreenPos();
@@ -1941,30 +1941,33 @@ static void perf_frame_graph(double now) {
     constexpr float kMin = 0.0f;
     constexpr float kMax = 50.0f;
     const float invScale = 1.0f / (kMax - kMin);
-    const int resW = std::max(1, std::min((int)w, kCount) - 1);
-    const float tStep = 1.0f / (float)resW;
 
-    auto sample = [&](int idx) -> float { return U.frames.graph_ms(idx, now); };
-
-    float v0 = sample(0);
-    float t0 = 0.0f;
+    auto sample = [&](int idx) -> float { return U.frames.line_ms(idx); };
     auto yAt = [&](float v) { return p0.y + h * (1.0f - std::clamp((v - kMin) * invScale, 0.0f, 1.0f)); };
 
-    ImDrawList* dl = ImGui::GetWindowDrawList();
-    ImVec2 pos0(p0.x, yAt(v0));
-
-    for (int n = 0; n < resW; n++) {
-        const float t1 = t0 + tStep;
-        const int i0 = std::clamp((int)(t0 * (kCount - 1) + 0.5f), 0, kCount - 1);
-        const int i1 = std::clamp((int)(t1 * (kCount - 1) + 0.5f), 0, kCount - 1);
-        const float v1 = sample(i1);
-        const ImVec2 pos1(p0.x + t1 * w, yAt(v1));
-        const float segMs = 0.5f * (sample(i0) + v1);
-        dl->AddLine(pos0, pos1, perf_graph_color(segMs), 1.5f);
-        t0 = t1;
-        pos0 = pos1;
-        v0 = v1;
+    ImVec2 pts[kCount];
+    ImU32 segCol[kCount];
+    for (int i = 0; i < kCount; i++) {
+        const float t = (float)i / (float)(kCount - 1);
+        const float ms = sample(i);
+        pts[i] = ImVec2(p0.x + t * w, yAt(ms));
+        if (i == 0) continue;
+        segCol[i - 1] = perf_graph_color(0.5f * (sample(i - 1) + ms));
     }
+
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    dl->PushClipRect(p0, ImVec2(p0.x + w, p0.y + h), true);
+    constexpr float kTh = 1.5f;
+    int run = 0;
+    ImU32 col = segCol[0];
+    for (int s = 1; s < kCount - 1; s++) {
+        if (segCol[s] == col) continue;
+        dl->AddPolyline(pts + run, s - run + 1, col, kTh);
+        run = s;
+        col = segCol[s];
+    }
+    dl->AddPolyline(pts + run, kCount - run, col, kTh);
+    dl->PopClipRect();
 }
 
 void perf_window(bool menu_open) {
@@ -2014,7 +2017,7 @@ void perf_window(bool menu_open) {
                 ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.3f, 1.0f), "Slow motion: %.1f of 60 logic steps/s. Turn on Keep game speed",
                                     shown.logic_rate);
 
-            perf_frame_graph(t);
+            perf_frame_graph();
             if (perf_shown()) perf_logic_row(shown.logic);
 
             perf_metric_row("Game CPU", kPerfGameCpuLabel, shown.snap.game);
