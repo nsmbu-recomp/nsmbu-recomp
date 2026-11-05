@@ -30,6 +30,7 @@
 #include <string>
 
 #include "core/env.h"
+#include "gfx/aspect.h"
 namespace gfxvk {
 extern uint64_t g_stat_full_checks, g_stat_uploads, g_stat_upload_bytes;
 void request_tv_dump(const std::string&,int);
@@ -282,6 +283,9 @@ void depth_copy_check() {
  g_depthCopyOverride=DepthCopyOverride::Draw;
  fprintf(stderr,"[renderer smoke] unscalable depth copies clear (whole) or keep (partial) the destination\n");
 
+ const bool stretch = aspect::stretch_image();
+ aspect::set_stretch_image(false);
+ latch_res_scale();
  SurfaceDesc d;d.addr=mem::host_alloc(64*36*8,256);d.width=64;d.height=36;d.pitch=64;d.format=0x11;d.isDepth=true;d.dim=1;d.slices=1;
  Surface* target=find_or_create_surface(d,true);
  require(target&&target->extent.width==64&&target->extent.height==36,"depth target extent differs");
@@ -295,6 +299,8 @@ void depth_copy_check() {
  check(*target,84,36,168,72,1,"depth target after a resolution change differs");
  set_frame_aspect(16.0f/9.0f);set_res_scale(1);latch_res_scale();
  require(find_or_create_surface(d,true)==target&&target->extent.width==64,"depth target did not return to its guest size");
+ aspect::set_stretch_image(stretch);
+ latch_res_scale();
  g_depthCopyOverride=override;
  fprintf(stderr,"[renderer smoke] depth/stencil target resized by aspect ratio and resolution without blits passed\n");
 }
