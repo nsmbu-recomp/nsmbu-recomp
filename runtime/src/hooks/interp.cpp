@@ -369,22 +369,29 @@ constexpr uint32_t kDecoSwayOff = 0x570;
 GrassSpan g_grass[kGrassDecoN];
 bool g_grass_logged = false;
 
-constexpr uint32_t kGrassVertBytes = 4u * 0x88u;
-
 struct GrassBake {
     uint32_t obj = 0;
     uint32_t base = 0;
-    uint32_t pos = 0;
     uint32_t begin = 0;
     uint32_t count = 0;
-    float cam = 0.f;
+    uint32_t per = 0;
+    uint32_t span_verts = 0;
+    float cam_x = 0.f;
+    float cam_y = 0.f;
     bool cam_ok = false;
-    std::vector<float> xs;
 };
 
 GrassBake g_bake;
+constexpr uint32_t kGrassSaveMax = 4096;
+uint32_t g_grass_save[kGrassSaveMax * 2];
+uint32_t g_grass_save_addr = 0;
+uint32_t g_grass_save_n = 0;
+bool g_grass_shifted = false;
+
+static void restore_baked_grass();
 
 void clear_grass_wave() {
+    restore_baked_grass();
     for (GrassSpan& s : g_grass) s = {};
     g_bake = {};
 }
@@ -559,39 +566,6 @@ static uint32_t grass_draw_obj() {
     return obj;
 }
 
-static void grass_collect_xs(std::vector<float>& xs) {
-    xs.clear();
-    for (const GrassSpan& s : g_grass) {
-        if (!s.pos_addr || s.pos_n <= 0) continue;
-        if (!wwatch::readable(s.pos_addr, (uint32_t)s.pos_n * kGrassPosStride * 4)) continue;
-        for (int i = 0; i < s.pos_n; i++) {
-            float x = (float)ldf32(s.pos_addr + 4u * (uint32_t)(i * kGrassPosStride));
-            if (s.off_addr && i < s.off_n && wwatch::readable(s.off_addr + 4u * (uint32_t)(i * kGrassPosStride), 4))
-                x += (float)ldf32(s.off_addr + 4u * (uint32_t)(i * kGrassPosStride));
-            xs.push_back(x);
-        }
-    }
-    std::sort(xs.begin(), xs.end());
-    xs.erase(std::unique(xs.begin(), xs.end()), xs.end());
-}
-
-static bool near_grass_x(float v, const std::vector<float>& xs) {
-    if (xs.empty() || v < 50.f) return false;
-    const auto it = std::lower_bound(xs.begin(), xs.end(), v);
-    if (it != xs.end() && std::fabs(*it - v) <= 48.f) return true;
-    if (it != xs.begin() && std::fabs(*std::prev(it) - v) <= 48.f) return true;
-    return false;
-}
-
-static void shift_baked_words(uint32_t addr, uint32_t bytes, float dx, const std::vector<float>& xs) {
-    if (!addr || bytes < 4 || !wwatch::readable(addr, bytes)) return;
-    for (uint32_t o = 0; o + 4 <= bytes; o += 4) {
-        const float v = (float)ldf32(addr + o);
-        if (!near_grass_x(v, xs)) continue;
-        stf32(addr + o, v + dx);
-    }
-}
-
 static void remember_grass_bake(uint32_t n0) {
     if (g_hold) return;
     const uint32_t obj = grass_draw_obj();
@@ -611,7 +585,10 @@ static void remember_grass_bake(uint32_t n0) {
         fields = true;
         LOG("[interp] grass bake fields n0=%u n1=%u span=%u slot=%u base=%08x pos=%08x", n0, n1, span, slot, base_raw, pos);
     }
-    if (!base_raw || n1 < n0) return;
+    const uint32_t per = ld32(obj + 0x3A4);
+    const uint32_t limit = ld32(obj + 0x3A0);
+    if (!base_raw || n1 < n0 || span > 1 || per == 0 || per > 8 || limit == 0 || limit > 4096 || slot == 0) return;
+    if (n0 > limit || n1 > limit) return;
     const uint64_t off = (uint64_t)span * slot * 0x88u;
     if (off > 0x10000000u) return;
     const uint32_t base = base_raw + (uint32_t)off;
@@ -620,45 +597,73 @@ static void remember_grass_bake(uint32_t n0) {
         g_bake = {};
         g_bake.obj = obj;
         g_bake.base = base;
-        g_bake.pos = pos;
+        g_bake.per = per;
+        g_bake.span_verts = slot;
         g_bake.begin = n0;
         step = g_logic_steps;
     }
     if (n0 < g_bake.begin) g_bake.begin = n0;
     g_bake.count = n1 - g_bake.begin;
-    if (g_bake.count > 8192) g_bake.count = 0;
+    if ((uint64_t)(g_bake.begin + g_bake.count) * g_bake.per > g_bake.span_verts) g_bake.count = 0;
     const uint32_t r = renderer_instance();
     float box[4];
     if (r && read_box(r, box)) {
-        g_bake.cam = box[0];
+        g_bake.cam_x = box[0];
+        g_bake.cam_y = box[1];
         g_bake.cam_ok = true;
     }
-    grass_collect_xs(g_bake.xs);
     static bool logged = false;
     if (!logged) {
         logged = true;
-        const uint32_t a = base + g_bake.begin * kGrassVertBytes;
+        const uint32_t a = base + g_bake.begin * g_bake.per * 0x88u;
         const bool have = g_bake.count > 0 && wwatch::readable(a, 12);
         LOG("[interp] grass bake count=%u n0=%u n1=%u x=%.1f y=%.1f z=%.1f cam=%.1f", g_bake.count, n0, n1,
-            have ? (double)ldf32(a) : 0.0, have ? (double)ldf32(a + 4) : 0.0, have ? (double)ldf32(a + 8) : 0.0, g_bake.cam);
+            have ? (double)ldf32(a) : 0.0, have ? (double)ldf32(a + 4) : 0.0, have ? (double)ldf32(a + 8) : 0.0, g_bake.cam_x);
     }
 }
 
-static float baked_grass_shift() {
-    if (!g_bake.cam_ok || g_bake.count == 0 || g_bake.xs.empty()) return 0.f;
+static void baked_grass_delta(float& dx, float& dy) {
+    dx = dy = 0.f;
+    if (!g_bake.cam_ok || g_bake.count == 0) return;
     const uint32_t r = renderer_instance();
     float box[4];
-    if (!r || !read_box(r, box)) return 0.f;
-    return g_bake.cam - box[0];
+    if (!r || !read_box(r, box)) return;
+    dx = g_bake.cam_x - box[0];
+    dy = g_bake.cam_y - box[1];
 }
 
-static void apply_baked_grass_shift(float dx) {
-    if (dx == 0.f || g_bake.count == 0) return;
-    const uint32_t bytes = g_bake.count * kGrassVertBytes;
-    const uint32_t addr = g_bake.base + g_bake.begin * kGrassVertBytes;
-    shift_baked_words(addr, bytes, dx, g_bake.xs);
-    if (g_bake.pos && wwatch::readable(g_bake.pos + g_bake.begin * 12, g_bake.count * 12))
-        shift_baked_words(g_bake.pos + g_bake.begin * 12, g_bake.count * 12, dx, g_bake.xs);
+static void restore_baked_grass() {
+    if (!g_grass_shifted) return;
+    const uint32_t verts = g_grass_save_n / 2u;
+    for (uint32_t i = 0; i < verts; i++) {
+        const uint32_t v = g_grass_save_addr + i * 0x88u;
+        st32(v, g_grass_save[i * 2]);
+        st32(v + 4, g_grass_save[i * 2 + 1]);
+    }
+    g_grass_shifted = false;
+    g_grass_save_n = 0;
+}
+
+static void shift_baked_grass(float dx, float dy) {
+    if (g_grass_shifted) restore_baked_grass();
+    if ((dx == 0.f && dy == 0.f) || g_bake.count == 0 || g_bake.per == 0 || g_bake.span_verts == 0) return;
+    const uint64_t begin_verts = (uint64_t)g_bake.begin * g_bake.per;
+    const uint64_t verts = (uint64_t)g_bake.count * g_bake.per;
+    if (begin_verts + verts > g_bake.span_verts || verts > kGrassSaveMax) return;
+    const uint32_t addr = g_bake.base + (uint32_t)begin_verts * 0x88u;
+    const uint32_t bytes = (uint32_t)verts * 0x88u;
+    if (addr < 0x10000000u || bytes < 12 || addr + bytes < addr) return;
+    if (!wwatch::readable(addr, bytes)) return;
+    for (uint32_t i = 0; i < (uint32_t)verts; i++) {
+        const uint32_t v = addr + i * 0x88u;
+        g_grass_save[i * 2] = ld32(v);
+        g_grass_save[i * 2 + 1] = ld32(v + 4);
+        stf32(v, (float)ldf32(v) + dx);
+        stf32(v + 4, (float)ldf32(v + 4) + dy);
+    }
+    g_grass_save_addr = addr;
+    g_grass_save_n = (uint32_t)verts * 2u;
+    g_grass_shifted = true;
 }
 
 static float grass_screen_px(float x, const float* box) {
@@ -1757,16 +1762,17 @@ extern "C" void hook_029C4FE4(Cpu* c) {
         const bool course = course_play_active() && blend_enabled();
         if (course) apply_hold_camera(c, false, false);
         c->r[3] = self;
-        const float grass_dx = course && g_hold ? baked_grass_shift() : 0.f;
-        if (grass_dx != 0.f) apply_baked_grass_shift(grass_dx);
+        float grass_dx = 0.f, grass_dy = 0.f;
+        if (course && g_hold) baked_grass_delta(grass_dx, grass_dy);
+        if (grass_dx != 0.f || grass_dy != 0.f) shift_baked_grass(grass_dx, grass_dy);
         const bool drew = present_models(c);
         c->r[3] = self;
         f_029C4FE4_orig(c);
         c->r[3] = self;
         if (course) finish_open_camera(c);
         c->r[3] = self;
-        if (drew || grass_dx != 0.f) gx2::sync_submitted();
-        if (grass_dx != 0.f) apply_baked_grass_shift(-grass_dx);
+        if (drew || grass_dx != 0.f || grass_dy != 0.f) gx2::sync_submitted();
+        if (g_grass_shifted) restore_baked_grass();
         return;
     }
     f_029C4FE4_orig(c);

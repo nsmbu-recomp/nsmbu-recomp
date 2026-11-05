@@ -8,8 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-- Foreground grass and flowers follow the in-between camera.
+- Foreground grass and flowers follow the in-between camera, including the quad corners and vertical pan.
   The grass draw is recorded on the 60 Hz step, so a hold picture was repeating that step.
+  The hold only moves those recorded quads, so panning the camera does not crash the course.
 
 ### Added
 

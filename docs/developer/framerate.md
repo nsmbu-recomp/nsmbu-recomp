@@ -69,8 +69,12 @@ The `Bg+0x38D4` / `+0x38D8` / `+0x38DC` tables only supply instance pointers and
 `0x0268B70C` runs while the logic step records the picture.
 A hold step does not call it.
 That step's `procDraw_` repeats the recorded vertices.
-The port adds the gap between the record camera and the in-between camera onto vertex floats that match a grass world X.
-It restores those floats after the render thread copies the picture.
+The port adds the gap between the record camera and the in-between camera to every baked vertex X and Y in the recorded half of the vertex buffer.
+Each vertex is 0x88 bytes, and the position is the first three floats.
+The half is selected by the word at `+0x394` on the draw object (`*(parent+0x24)` of `*0x101D2DB0`).
+It puts the original bits back after the render thread copies the picture.
+The side list at `+0x30` is left alone.
+When `+0xD28` is zero that list is one vec3, and writing the quad count past it clears the next object's header.
 `NSMBU_INTERP_GRASS_TRACE` counts `[interp] grass px` lines after the course camera moves 4 units.
 `scr` is that quad in TV pixels under the view box at record time.
 `slip` is how many pixels the quad moved relative to that camera since the previous line.
