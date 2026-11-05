@@ -1799,7 +1799,6 @@ void tab_about() {
 }
 
 static const ImVec4 kPerfOutLabel(1.0f, 1.0f, 1.0f, 1.0f);
-static const ImVec4 kPerfLogicLabel(0.45f, 0.85f, 0.95f, 1.0f);
 static const ImVec4 kPerfGameCpuLabel(0.45f, 0.65f, 1.0f, 1.0f);
 static const ImVec4 kPerfRenderCpuLabel(0.55f, 0.75f, 1.0f, 1.0f);
 static const ImVec4 kPerfGpuLabel(0.45f, 0.95f, 0.55f, 1.0f);
@@ -1866,7 +1865,7 @@ static void perf_logic_row(double rate) {
         ImGui::TableSetupColumn("unit", ImGuiTableColumnFlags_WidthFixed, 56.0f);
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
-        ImGui::TextColored(kPerfLogicLabel, "Logic");
+        ImGui::TextColored(kPerfOutLabel, "Logic");
         ImGui::TableSetColumnIndex(1);
         ImGui::TextColored(kPerfValue, "%.1f/60", rate);
         ImGui::TableSetColumnIndex(2);
@@ -2017,12 +2016,13 @@ void perf_window(bool menu_open) {
                 ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.3f, 1.0f), "Slow motion: %.1f of 60 logic steps/s. Turn on Keep game speed",
                                     shown.logic_rate);
 
-            perf_frame_graph();
             if (perf_shown()) perf_logic_row(shown.logic);
+            perf_frame_graph();
 
             perf_metric_row("Game CPU", kPerfGameCpuLabel, shown.snap.game);
             perf_metric_row("Render CPU", kPerfRenderCpuLabel, shown.snap.render);
             perf_metric_row("GPU interval", kPerfGpuLabel, shown.snap.gpu);
+            perf_metric_row("Shader recomp", kPerfRenderCpuLabel, shown.snap.shader_recomp);
 
 #ifdef __ANDROID__
             static AndroidTelemetry telemetry;

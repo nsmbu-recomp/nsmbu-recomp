@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- The performance overlay shows logic steps per second above the frame graph, with a white Logic label like the FPS row, and shader recompile time with the CPU and GPU lines.
 - The performance overlay frame graph is green when frame time meets your chosen frame rate, shows only the line without a fill beneath it, and keeps each hitch visible until it scrolls off instead of flattening early.
 - The New Super Luigi U story-map notice does not appear at startup.
 - Count-register loops keep the PowerPC CTR in a C local instead of the `Cpu` struct.

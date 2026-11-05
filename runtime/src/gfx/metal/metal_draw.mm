@@ -16,6 +16,7 @@ extern "C" uint64_t g_shader_state_gen;
 #include "Cafe/HW/Latte/Renderer/Metal/LatteToMtl.h"
 #include "gx2/gx2.h"
 #include "gfx/render_prof.h"
+#include "perf_metrics.h"
 #include "gx2/gx2_cmd.h"
 #include "core/write_watch.h"
 #include "metal.h"
@@ -486,6 +487,7 @@ static Shader* get_shader_uncached(const uint32_t* regs, bool vertex, LatteFetch
     cache_record_shader(regs, vertex);
     double t1 = now_ms();
     g_t_decompile += t1 - t0;
+    perf::shader_recomp(t1 - t0);
     if (env::DUMP_SHADERS()) {
         mkdir("shaders", 0755);
         char name[96];

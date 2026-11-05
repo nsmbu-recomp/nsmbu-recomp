@@ -13,6 +13,7 @@ int main() {
     for (int i = 1; i <= 121; ++i) m.add(i);
     assert(m.count == 120 && m.current == 121 && m.average() == 61.5);
     assert(perf::format({}).find("GPU interval: n/a") != std::string::npos);
+    assert(perf::format({}).find("Shader recomp: n/a") != std::string::npos);
     perf::set_demand(false, false);
     auto before = perf::counters();
     for (int i = 0; i < 10000; ++i) {
@@ -38,10 +39,13 @@ int main() {
     assert(perf::snapshot().gpu.current == 3);
     perf::gpu_advance(12);
     assert(perf::snapshot().gpu.current == 7 && perf::snapshot().gpu.average() == 5);
+    perf::shader_recomp(2.5);
+    assert(perf::snapshot().shader_recomp.current == 2.5);
     std::string report = perf::summary();
     assert(report.find("Game CPU: 3.00 ms (avg 3.00)") != std::string::npos);
     assert(report.find("Render CPU: 5.00 ms (avg 5.00)") != std::string::npos);
     assert(report.find("GPU interval: 7.00 ms (avg 5.00)") != std::string::npos);
+    assert(report.find("Shader recomp: 2.50 ms (avg 2.50)") != std::string::npos);
     auto old = perf::gpu_begin(12);
     perf::set_demand(false, false);
     cpu += 1000000000;

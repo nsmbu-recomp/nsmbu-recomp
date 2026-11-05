@@ -88,10 +88,16 @@ void gpu_advance(uint64_t frame) {
     advanced = frame;
     publish();
 }
+void shader_recomp(double ms) {
+    if (!enabled()) return;
+    std::lock_guard<std::mutex> lock(mutex);
+    if (!active) return;
+    data.shader_recomp.add(ms);
+}
 Snapshot snapshot() { std::lock_guard<std::mutex> lock(mutex); return data; }
 std::string format(const Snapshot& s) {
     return "Game CPU: " + time(s.game) + "\nRender CPU: " + time(s.render) +
-        "\nGPU interval: " + time(s.gpu) + "\n";
+        "\nGPU interval: " + time(s.gpu) + "\nShader recomp: " + time(s.shader_recomp) + "\n";
 }
 std::string summary() { return format(snapshot()); }
 void timestamp_read(uint64_t age) {

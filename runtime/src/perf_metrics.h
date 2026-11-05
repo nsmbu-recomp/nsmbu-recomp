@@ -19,7 +19,7 @@ struct Metric {
     }
     double average() const { return count ? total / count : -1; }
 };
-struct Snapshot { Metric game, render, gpu; };
+struct Snapshot { Metric game, render, gpu, shader_recomp; };
 void set_demand(bool overlay, bool report);
 bool enabled();
 void reset();
@@ -29,6 +29,7 @@ void render_frame();
 uint64_t gpu_begin(uint64_t frame);
 void gpu_complete(uint64_t frame, uint64_t token, double ns);
 void gpu_advance(uint64_t frame);
+void shader_recomp(double ms);
 Snapshot snapshot();
 std::string format(const Snapshot&);
 std::string summary();

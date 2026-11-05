@@ -7,6 +7,7 @@
 #include "gfx/area_sample.h"
 #include "exact_state_memo.h"
 #include "gfx/render_prof.h"
+#include "perf_metrics.h"
 #include "Cafe/HW/Latte/Core/FetchShader.h"
 #include "Cafe/HW/Latte/Core/LatteShader.h"
 #include "Cafe/HW/Latte/ISA/RegDefines.h"
@@ -809,8 +810,9 @@ Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, ui
                       address, __builtin_popcount(link.unfed));
         }
     }
-    stats.decompileNs += std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::steady_clock::now()-started).count();
+    const auto decompileEnd = std::chrono::steady_clock::now();
+    stats.decompileNs += std::chrono::duration_cast<std::chrono::nanoseconds>(decompileEnd - started).count();
+    perf::shader_recomp(std::chrono::duration<double, std::milli>(decompileEnd - started).count());
     if (key_verify_rate()) {
         uint64_t legacy = legacy_state_hash(regs, base, vertex) ^ (vertex ? fsKey * 31 : 0);
         if (vertex && mods::cemu::has_shaders())
@@ -844,8 +846,9 @@ Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, ui
         auto compileStart=std::chrono::steady_clock::now();
         shader->spirv = compile_glsl(shader->glsl, vertex, &shader->error);
         ++stats.spirvCompiles;
-        stats.spirvCompileNs+=std::chrono::duration_cast<std::chrono::nanoseconds>(
-            std::chrono::steady_clock::now()-compileStart).count();
+        const auto compileEnd = std::chrono::steady_clock::now();
+        stats.spirvCompileNs+=std::chrono::duration_cast<std::chrono::nanoseconds>(compileEnd - compileStart).count();
+        perf::shader_recomp(std::chrono::duration<double, std::milli>(compileEnd - compileStart).count());
         if(shader->glsl.size()<=maxSourceBytes &&
            cache_spirv_valid(shader->spirv) && diskShaders.size()<maxCacheEntries) {
             size_t oldBytes=cached==diskShaders.end() ? 0 :
