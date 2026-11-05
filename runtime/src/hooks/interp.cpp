@@ -22,7 +22,6 @@
 #include "perf_metrics.h"
 #include "core/runtime.h"
 #include "core/write_watch.h"
-#include "agent/agent_ctl.h"
 #include "save/savestate.h"
 #include "test/status_trace.h"
 
@@ -34,6 +33,7 @@ void f_029FD94C_orig(Cpu* c);
 void f_024FBF6C_orig(Cpu* c);
 void f_024F30DC_orig(Cpu* c);
 void f_029C5104(Cpu* c);
+void f_0268B70C_orig(Cpu* c);
 void f_024FA76C(Cpu* c);
 void f_02A05A9C(Cpu* c);
 void nsmbu_align_map_camera(void);
@@ -336,6 +336,476 @@ void remember_view(uint32_t mgr, uint32_t view, uint32_t proj) {
 
 void clear_model_poses();
 
+constexpr float kGrassDebugWaveScale = 1.f;
+constexpr float kGrassDebugLiftY = 0.f;
+
+struct GrassSpan {
+    uint32_t wave_addr = 0;
+    int wave_n = 0;
+    std::vector<float> wave_prev;
+    std::vector<float> wave_cur;
+    uint32_t pos_addr = 0;
+    int pos_n = 0;
+    std::vector<float> pos_prev;
+    std::vector<float> pos_cur;
+    uint32_t off_addr = 0;
+    int off_n = 0;
+    std::vector<float> off_prev;
+    std::vector<float> off_cur;
+    uint32_t sway_addr = 0;
+    int sway_n = 0;
+    std::vector<float> sway_prev;
+    std::vector<float> sway_cur;
+};
+
+constexpr uint32_t kGrassBase = 0x3F90;
+constexpr uint32_t kGrassDeco[] = {0, 0xC78, 0x18F0, 0x2568};
+constexpr int kGrassDecoN = 4;
+constexpr int kGrassMax = 0x12C;
+constexpr int kGrassWaveStride = 2;
+constexpr int kGrassPosStride = 3;
+constexpr uint32_t kDecoSwayOff = 0x570;
+
+GrassSpan g_grass[kGrassDecoN];
+bool g_grass_logged = false;
+
+constexpr uint32_t kGrassVertBytes = 4u * 0x88u;
+
+struct GrassBake {
+    uint32_t obj = 0;
+    uint32_t base = 0;
+    uint32_t pos = 0;
+    uint32_t begin = 0;
+    uint32_t count = 0;
+    float cam = 0.f;
+    bool cam_ok = false;
+    std::vector<float> xs;
+};
+
+GrassBake g_bake;
+
+void clear_grass_wave() {
+    for (GrassSpan& s : g_grass) s = {};
+    g_bake = {};
+}
+
+static void read_float_ring(uint32_t addr, int n, int stride, uint32_t& slot_addr, int& slot_n,
+                          std::vector<float>& prev, std::vector<float>& cur) {
+    if (n <= 0 || n > kGrassMax || !addr || !wwatch::readable(addr, (uint32_t)n * stride * 4)) {
+        slot_addr = 0;
+        slot_n = 0;
+        prev.clear();
+        cur.clear();
+        return;
+    }
+    const int floats = n * stride;
+    const bool same = slot_addr == addr && slot_n == n && (int)cur.size() == floats;
+    if (!same) {
+        slot_addr = addr;
+        slot_n = n;
+        prev.assign((size_t)floats, 0.f);
+        cur.resize((size_t)floats);
+        for (int i = 0; i < floats; i++) prev[(size_t)i] = cur[(size_t)i] = (float)ldf32(addr + 4u * i);
+        return;
+    }
+    prev.swap(cur);
+    for (int i = 0; i < floats; i++) cur[(size_t)i] = (float)ldf32(addr + 4u * i);
+}
+
+static void read_grass_deco(uint32_t deco, GrassSpan& s) {
+    s = {};
+    if (!wwatch::readable(deco + 0xBC, 1)) return;
+    if (wwatch::readable(deco + 0x50, 8)) {
+        const int n = (int)ld32(deco + 0x50);
+        const uint32_t addr = ld32(deco + 0x54);
+        read_float_ring(addr, n, kGrassWaveStride, s.wave_addr, s.wave_n, s.wave_prev, s.wave_cur);
+    }
+    if (wwatch::readable(deco + 0x40, 8)) {
+        const int n = (int)ld32(deco + 0x40);
+        const uint32_t addr = ld32(deco + 0x44);
+        read_float_ring(addr, n, kGrassPosStride, s.pos_addr, s.pos_n, s.pos_prev, s.pos_cur);
+    }
+    if (wwatch::readable(deco + 0x48, 8)) {
+        const int n = (int)ld32(deco + 0x48);
+        const uint32_t addr = ld32(deco + 0x4C);
+        read_float_ring(addr, n, kGrassPosStride, s.off_addr, s.off_n, s.off_prev, s.off_cur);
+    }
+    if (wwatch::readable(deco + kDecoSwayOff, (uint32_t)kGrassMax * 4))
+        read_float_ring(deco + kDecoSwayOff, kGrassMax, 1, s.sway_addr, s.sway_n, s.sway_prev, s.sway_cur);
+}
+
+void capture_grass_wave() {
+    const uint32_t bg = ld32(GD(0x101DAB94));
+    if (!bg || !wwatch::readable(bg + kGrassBase + 0x40, 8)) {
+        clear_grass_wave();
+        return;
+    }
+    const uint32_t root = bg + kGrassBase;
+    const bool fourth = wwatch::readable(root + 0x3E4B, 1) && ld8(root + 0x3E4B) != 0;
+    int decos = 0;
+    int positions = 0;
+    for (int i = 0; i < kGrassDecoN; i++) {
+        if (i == 3 && !fourth) {
+            g_grass[i] = {};
+            continue;
+        }
+        read_grass_deco(root + kGrassDeco[i], g_grass[i]);
+        if (!g_grass[i].pos_n && !g_grass[i].wave_n) {
+            g_grass[i] = {};
+            continue;
+        }
+        decos++;
+        positions += g_grass[i].pos_n;
+    }
+    if (!g_grass_logged && decos > 0) {
+        g_grass_logged = true;
+        LOG("[interp] grass deco blend on (%d layers, %d positions)", decos, positions);
+    }
+}
+
+enum class GrassWriteKind { Wave, Vec3, Sway };
+
+static void write_float_ring(uint32_t addr, int n, int stride, const std::vector<float>& prev, const std::vector<float>& cur,
+                             float t, bool restore, GrassWriteKind kind) {
+    if (!addr || n <= 0) return;
+    const int floats = n * stride;
+    if ((int)cur.size() != floats || (int)prev.size() != floats) return;
+    if (!wwatch::readable(addr, (uint32_t)floats * 4)) return;
+    const bool debug = !restore && (kGrassDebugWaveScale != 1.f || kGrassDebugLiftY != 0.f);
+    for (int i = 0; i < floats; i++) {
+        float v = restore ? cur[(size_t)i] : pacing::lerp_f(prev[(size_t)i], cur[(size_t)i], t);
+        if (debug) {
+            if (kind == GrassWriteKind::Wave)
+                v *= kGrassDebugWaveScale;
+            else if (kind == GrassWriteKind::Vec3 && i % stride == 1)
+                v += kGrassDebugLiftY;
+        }
+        stf32(addr + 4u * i, v);
+    }
+}
+
+static void write_grass_span(const GrassSpan& s, float t, bool restore) {
+    write_float_ring(s.wave_addr, s.wave_n, kGrassWaveStride, s.wave_prev, s.wave_cur, t, restore, GrassWriteKind::Wave);
+    write_float_ring(s.pos_addr, s.pos_n, kGrassPosStride, s.pos_prev, s.pos_cur, t, restore, GrassWriteKind::Vec3);
+    write_float_ring(s.off_addr, s.off_n, kGrassPosStride, s.off_prev, s.off_cur, t, restore, GrassWriteKind::Vec3);
+    const int sway_n = s.sway_n > 0 && s.pos_n > 0 ? std::min(s.sway_n, s.pos_n) : s.sway_n;
+    write_float_ring(s.sway_addr, sway_n, 1, s.sway_prev, s.sway_cur, t, restore, GrassWriteKind::Sway);
+}
+
+void blend_grass_wave(float t) {
+    for (const GrassSpan& s : g_grass) write_grass_span(s, t, false);
+}
+
+void restore_grass_wave() {
+    for (const GrassSpan& s : g_grass) write_grass_span(s, 1.f, true);
+}
+
+static bool grass_ring_same(const std::vector<float>& prev, const std::vector<float>& cur) {
+    return !prev.empty() && prev.size() == cur.size() &&
+           std::memcmp(prev.data(), cur.data(), prev.size() * sizeof(float)) == 0;
+}
+
+static bool grass_span_same(const GrassSpan& s) {
+    if (s.wave_n && !grass_ring_same(s.wave_prev, s.wave_cur)) return false;
+    if (s.pos_n && !grass_ring_same(s.pos_prev, s.pos_cur)) return false;
+    if (s.off_n && !grass_ring_same(s.off_prev, s.off_cur)) return false;
+    if (s.sway_n && !grass_ring_same(s.sway_prev, s.sway_cur)) return false;
+    return true;
+}
+
+static bool grass_want_hold_patch(float t) {
+    if (t >= 1.f) return false;
+    for (const GrassSpan& s : g_grass) {
+        if (s.wave_n || s.pos_n) return !grass_span_same(s);
+    }
+    return false;
+}
+
+static void grass_shift_x(float dx, bool undo) {
+    if (dx == 0.f) return;
+    const float step = undo ? -dx : dx;
+    for (const GrassSpan& s : g_grass) {
+        if (s.pos_addr && s.pos_n > 0 && wwatch::readable(s.pos_addr, (uint32_t)s.pos_n * kGrassPosStride * 4)) {
+            for (int i = 0; i < s.pos_n; i++) {
+                const uint32_t a = s.pos_addr + 4u * (uint32_t)(i * kGrassPosStride);
+                stf32(a, (float)ldf32(a) + step);
+            }
+        }
+        if (s.off_addr && s.off_n > 0 && wwatch::readable(s.off_addr, (uint32_t)s.off_n * kGrassPosStride * 4)) {
+            for (int i = 0; i < s.off_n; i++) {
+                const uint32_t a = s.off_addr + 4u * (uint32_t)(i * kGrassPosStride);
+                stf32(a, (float)ldf32(a) + step);
+            }
+        }
+    }
+}
+
+static float grass_cam_dx() {
+    if (!g_box_open) return 0.f;
+    const uint32_t r = renderer_instance();
+    if (!r) return 0.f;
+    float open[4];
+    if (!read_box(r, open)) return 0.f;
+    return open[0] - g_live_box[0];
+}
+
+static uint32_t grass_draw_obj() {
+    const uint32_t slot = GD(0x101D2DB0);
+    if (!wwatch::readable(slot, 4)) return 0;
+    const uint32_t parent = ld32(slot);
+    if (!parent || !wwatch::readable(parent + 0x24, 4)) return 0;
+    const uint32_t obj = ld32(parent + 0x24);
+    if (!obj || !wwatch::readable(obj + 0x3B4, 8)) return 0;
+    return obj;
+}
+
+static void grass_collect_xs(std::vector<float>& xs) {
+    xs.clear();
+    for (const GrassSpan& s : g_grass) {
+        if (!s.pos_addr || s.pos_n <= 0) continue;
+        if (!wwatch::readable(s.pos_addr, (uint32_t)s.pos_n * kGrassPosStride * 4)) continue;
+        for (int i = 0; i < s.pos_n; i++) {
+            float x = (float)ldf32(s.pos_addr + 4u * (uint32_t)(i * kGrassPosStride));
+            if (s.off_addr && i < s.off_n && wwatch::readable(s.off_addr + 4u * (uint32_t)(i * kGrassPosStride), 4))
+                x += (float)ldf32(s.off_addr + 4u * (uint32_t)(i * kGrassPosStride));
+            xs.push_back(x);
+        }
+    }
+    std::sort(xs.begin(), xs.end());
+    xs.erase(std::unique(xs.begin(), xs.end()), xs.end());
+}
+
+static bool near_grass_x(float v, const std::vector<float>& xs) {
+    if (xs.empty() || v < 50.f) return false;
+    const auto it = std::lower_bound(xs.begin(), xs.end(), v);
+    if (it != xs.end() && std::fabs(*it - v) <= 48.f) return true;
+    if (it != xs.begin() && std::fabs(*std::prev(it) - v) <= 48.f) return true;
+    return false;
+}
+
+static void shift_baked_words(uint32_t addr, uint32_t bytes, float dx, const std::vector<float>& xs) {
+    if (!addr || bytes < 4 || !wwatch::readable(addr, bytes)) return;
+    for (uint32_t o = 0; o + 4 <= bytes; o += 4) {
+        const float v = (float)ldf32(addr + o);
+        if (!near_grass_x(v, xs)) continue;
+        stf32(addr + o, v + dx);
+    }
+}
+
+static void remember_grass_bake(uint32_t n0) {
+    if (g_hold) return;
+    const uint32_t obj = grass_draw_obj();
+    static bool saw = false;
+    if (!saw) {
+        saw = true;
+        LOG("[interp] grass bake obj=%08x n0=%u", obj, n0);
+    }
+    if (!obj || !wwatch::readable(obj + 0x394, 0x24)) return;
+    const uint32_t n1 = ld32(obj + 0x398);
+    const uint32_t base_raw = ld32(obj + 0x3B4);
+    const uint32_t span = ld32(obj + 0x394);
+    const uint32_t slot = ld32(obj + 0x3A8);
+    const uint32_t pos = ld32(obj + 0x30);
+    static bool fields = false;
+    if (!fields) {
+        fields = true;
+        LOG("[interp] grass bake fields n0=%u n1=%u span=%u slot=%u base=%08x pos=%08x", n0, n1, span, slot, base_raw, pos);
+    }
+    if (!base_raw || n1 < n0) return;
+    const uint64_t off = (uint64_t)span * slot * 0x88u;
+    if (off > 0x10000000u) return;
+    const uint32_t base = base_raw + (uint32_t)off;
+    static uint64_t step = ~0ull;
+    if (g_bake.obj != obj || g_bake.base != base || step != g_logic_steps) {
+        g_bake = {};
+        g_bake.obj = obj;
+        g_bake.base = base;
+        g_bake.pos = pos;
+        g_bake.begin = n0;
+        step = g_logic_steps;
+    }
+    if (n0 < g_bake.begin) g_bake.begin = n0;
+    g_bake.count = n1 - g_bake.begin;
+    if (g_bake.count > 8192) g_bake.count = 0;
+    const uint32_t r = renderer_instance();
+    float box[4];
+    if (r && read_box(r, box)) {
+        g_bake.cam = box[0];
+        g_bake.cam_ok = true;
+    }
+    grass_collect_xs(g_bake.xs);
+    static bool logged = false;
+    if (!logged) {
+        logged = true;
+        const uint32_t a = base + g_bake.begin * kGrassVertBytes;
+        const bool have = g_bake.count > 0 && wwatch::readable(a, 12);
+        LOG("[interp] grass bake count=%u n0=%u n1=%u x=%.1f y=%.1f z=%.1f cam=%.1f", g_bake.count, n0, n1,
+            have ? (double)ldf32(a) : 0.0, have ? (double)ldf32(a + 4) : 0.0, have ? (double)ldf32(a + 8) : 0.0, g_bake.cam);
+    }
+}
+
+static float baked_grass_shift() {
+    if (!g_bake.cam_ok || g_bake.count == 0 || g_bake.xs.empty()) return 0.f;
+    const uint32_t r = renderer_instance();
+    float box[4];
+    if (!r || !read_box(r, box)) return 0.f;
+    return g_bake.cam - box[0];
+}
+
+static void apply_baked_grass_shift(float dx) {
+    if (dx == 0.f || g_bake.count == 0) return;
+    const uint32_t bytes = g_bake.count * kGrassVertBytes;
+    const uint32_t addr = g_bake.base + g_bake.begin * kGrassVertBytes;
+    shift_baked_words(addr, bytes, dx, g_bake.xs);
+    if (g_bake.pos && wwatch::readable(g_bake.pos + g_bake.begin * 12, g_bake.count * 12))
+        shift_baked_words(g_bake.pos + g_bake.begin * 12, g_bake.count * 12, dx, g_bake.xs);
+}
+
+static float grass_screen_px(float x, const float* box) {
+    const float w = box[2] - box[0];
+    if (std::fabs(w) < 0.01f) return 0.f;
+    return (x - box[0]) / w * 1280.f;
+}
+
+static float grass_player_x() {
+    const uint32_t mgr = ld32(GD(0x101E6994));
+    if (!mgr || !wwatch::readable(mgr + 0x20, 4)) return 0.f;
+    const uint32_t actor = ld32(mgr + 0x20);
+    if (!actor || !wwatch::readable(actor + 0x6C, 4)) return 0.f;
+    return (float)ldf32(actor + 0x6C);
+}
+
+static void trace_grass_screen() {
+    static int left = -1;
+    static bool have_origin = false;
+    static float origin_x = 0.f;
+    static int lock_l = -1;
+    static int lock_i = -1;
+    static float prev_scr = 0.f;
+    static float prev_fix = 0.f;
+    static float prev_ply = 0.f;
+    static float prev_cam = 0.f;
+    static bool prev_ok = false;
+    if (left < 0) left = env::INTERP_GRASS_TRACE.integer_or(0);
+    if (left <= 0) return;
+    const uint32_t r = renderer_instance();
+    float now[4];
+    if (!r || !read_box(r, now)) return;
+    if (!have_origin) {
+        origin_x = now[0];
+        have_origin = true;
+        return;
+    }
+    if (std::fabs(now[0] - origin_x) < 4.f) return;
+    const float t = pacing::present_sample_t(!g_hold, pass_t());
+    float lerp_box[4];
+    if (g_cam.valid && g_cam_cur_valid)
+        for (int i = 0; i < 4; i++) lerp_box[i] = pacing::lerp_f(g_cam.v[i], g_cam_cur[i], t);
+    else
+        for (int i = 0; i < 4; i++) lerp_box[i] = now[i];
+    const float d_live = std::fabs(now[0] - g_live_box[0]);
+    const float d_lerp = std::fabs(now[0] - lerp_box[0]);
+    const char* match = d_lerp < 0.05f ? "lerp" : d_live < 0.05f ? "live" : "other";
+    const bool patch = g_hold && grass_want_hold_patch(t);
+    const float dx = patch ? grass_cam_dx() : 0.f;
+
+    auto on_screen = [&](int layer, int index, float& x, float& off, float& y) -> bool {
+        const GrassSpan& s = g_grass[layer];
+        if (!s.pos_addr || index < 0 || index >= s.pos_n) return false;
+        if (!wwatch::readable(s.pos_addr + 4u * (uint32_t)(index * kGrassPosStride), 12)) return false;
+        x = (float)ldf32(s.pos_addr + 4u * (uint32_t)(index * kGrassPosStride));
+        y = (float)ldf32(s.pos_addr + 4u * (uint32_t)(index * kGrassPosStride + 1));
+        off = 0.f;
+        if (s.off_addr && index < s.off_n && wwatch::readable(s.off_addr + 4u * (uint32_t)(index * kGrassPosStride), 4))
+            off = (float)ldf32(s.off_addr + 4u * (uint32_t)(index * kGrassPosStride));
+        const float scr = grass_screen_px(x + off, now);
+        return scr >= -80.f && scr <= 1360.f;
+    };
+
+    int layer = lock_l;
+    int index = lock_i;
+    float x = 0.f, off = 0.f, y = 0.f;
+    if (layer < 0 || !on_screen(layer, index, x, off, y)) {
+        float best = 1.0e9f;
+        layer = -1;
+        index = -1;
+        for (int L = 0; L < kGrassDecoN; L++) {
+            const GrassSpan& s = g_grass[L];
+            for (int i = 0; i < s.pos_n; i++) {
+                float px, po, py;
+                if (!on_screen(L, i, px, po, py)) continue;
+                const float d = std::fabs(grass_screen_px(px + po, now) - 640.f);
+                if (d < best) {
+                    best = d;
+                    layer = L;
+                    index = i;
+                    x = px;
+                    off = po;
+                    y = py;
+                }
+            }
+        }
+        lock_l = layer;
+        lock_i = index;
+        prev_ok = false;
+    }
+    if (layer < 0) {
+        for (int L = 0; L < kGrassDecoN && layer < 0; L++) {
+            if (g_grass[L].pos_n <= 0 || !g_grass[L].pos_addr) continue;
+            layer = L;
+            index = 0;
+            on_screen(L, 0, x, off, y);
+        }
+        lock_l = layer;
+        lock_i = index;
+        prev_ok = false;
+    }
+    if (layer < 0) return;
+    const GrassSpan& s = g_grass[layer];
+    float wave0 = 0.f, wave1 = 0.f, sway = 0.f;
+    if (s.wave_addr && index < s.wave_n && wwatch::readable(s.wave_addr + 8u * (uint32_t)index, 8)) {
+        wave0 = (float)ldf32(s.wave_addr + 8u * (uint32_t)index);
+        wave1 = (float)ldf32(s.wave_addr + 8u * (uint32_t)index + 4);
+    }
+    if (s.sway_addr && index < s.sway_n && wwatch::readable(s.sway_addr + 4u * (uint32_t)index, 4))
+        sway = (float)ldf32(s.sway_addr + 4u * (uint32_t)index);
+    float fix_x = x + off;
+    if (patch && (int)s.pos_prev.size() == s.pos_n * kGrassPosStride && index < s.pos_n) {
+        fix_x = pacing::lerp_f(s.pos_prev[(size_t)(index * kGrassPosStride)], s.pos_cur[(size_t)(index * kGrassPosStride)], t);
+        if ((int)s.off_prev.size() == s.off_n * kGrassPosStride && index < s.off_n)
+            fix_x += pacing::lerp_f(s.off_prev[(size_t)(index * kGrassPosStride)], s.off_cur[(size_t)(index * kGrassPosStride)], t);
+        else
+            fix_x += off;
+        fix_x += dx;
+    }
+    const float scr = grass_screen_px(x + off, now);
+    const float fix = grass_screen_px(fix_x, now);
+    const float ply = grass_screen_px(grass_player_x(), now);
+    const float cam_px = grass_screen_px(0.f, now);
+    float slip = 0.f, fslip = 0.f, pslip = 0.f;
+    if (prev_ok) {
+        const float dcam = cam_px - prev_cam;
+        slip = (scr - prev_scr) - dcam;
+        fslip = (fix - prev_fix) - dcam;
+        pslip = (ply - prev_ply) - dcam;
+    }
+    prev_scr = scr;
+    prev_fix = fix;
+    prev_ply = ply;
+    prev_cam = cam_px;
+    prev_ok = true;
+    const uint32_t bg = ld32(GD(0x101DAB94));
+    const float bg14 = bg && wwatch::readable(bg + 0x14, 4) ? (float)ldf32(bg + 0x14) : 0.f;
+    const float bg18 = bg && wwatch::readable(bg + 0x18, 4) ? (float)ldf32(bg + 0x18) : 0.f;
+    const unsigned kind = bg && wwatch::readable(bg + kGrassBase + kGrassDeco[layer] + 0xBC, 1)
+                              ? ld8(bg + kGrassBase + kGrassDeco[layer] + 0xBC)
+                              : 0;
+    left--;
+    LOG("[interp] grass px hold=%d t=%.2f step=%llu cam=%.1f live=%.1f lerp=%.1f match=%s patch=%d dx=%.2f L%d i=%d k=%u pos=%.1f off=%.1f y=%.1f wave=%.3f/%.3f sway=%.3f scr=%.1f slip=%.2f fix=%.1f fslip=%.2f ply=%.1f pslip=%.2f bg=%.1f/%.1f",
+        g_hold ? 1 : 0, t, (unsigned long long)g_logic_steps, now[0], g_live_box[0], lerp_box[0], match, patch ? 1 : 0, dx, layer, index,
+        kind, x, off, y, wave0, wave1, sway, scr, slip, fix, fslip, ply, pslip, bg14, bg18);
+}
+
 void remember_area() {
     const uint32_t area = ld32(GD(0x101D1598));
     if (area == g_view_area) return;
@@ -345,6 +815,7 @@ void remember_area() {
     g_tile_proj_n = 0;
     g_view_area = area;
     clear_model_poses();
+    clear_grass_wave();
 }
 
 }
@@ -474,54 +945,16 @@ void apply_hold_camera(Cpu* c, bool publish_tiles = false, bool restore = true) 
     g_publish_tiles = false;
 }
 
-// #region agent log
-void agent_cam_log(const char* message, const char* hypothesisId) {
-    static int left = 80;
-    if (left <= 0 || !g_cam.valid || !g_cam_cur_valid) return;
-    const float span = std::fabs(g_cam_cur[0] - g_cam.v[0]) + std::fabs(g_cam_cur[1] - g_cam.v[1]);
-    if (span < 0.2f) return;
-    const float t = pacing::present_sample_t(!g_hold, pass_t());
-    const float drawn0 = pacing::lerp_f(g_cam.v[0], g_cam_cur[0], t);
-    float tile0 = 0, tile12 = 0, model0 = 0, model12 = 0;
-    int tile_ok = 0;
-    if (g_tile_proj_n > 0 && wwatch::readable(g_tile_proj[0], 64)) {
-        tile_ok = 1;
-        std::memcpy(&tile0, mem::ptr(g_tile_proj[0]), 4);
-        std::memcpy(&tile12, mem::ptr(g_tile_proj[0] + 48), 4);
-    }
-    if (g_view_n > 0) {
-        const uint32_t vi = view_info(g_views[0].mgr, g_views[0].view);
-        if (vi && wwatch::readable(vi + kViewProj, 64)) {
-            std::memcpy(&model0, mem::ptr(vi + kViewProj), 4);
-            std::memcpy(&model12, mem::ptr(vi + kViewProj + 48), 4);
-        }
-    }
-    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    FILE* f = std::fopen("/home/econn/git/nsmbu-recomp/.cursor/debug-147cbb.log", "a");
-    if (!f) return;
-    std::fprintf(f,
-                 "{\"sessionId\":\"147cbb\",\"runId\":\"pre\",\"hypothesisId\":\"%s\",\"location\":\"interp.cpp\",\"message\":\"%s\",\"timestamp\":%lld,\"data\":{\"hold\":%d,\"t\":%.4f,\"step\":%llu,\"tiles\":%d,\"views\":%d,\"open\":%d,\"tileOk\":%d,\"tile0\":%.4f,\"tile12\":%.4f,\"model0\":%.4f,\"model12\":%.4f,\"prev0\":%.4f,\"cur0\":%.4f,\"drawn0\":%.4f,\"match\":%d}}\n",
-                 hypothesisId, message, (long long)ms, g_hold ? 1 : 0, t, (unsigned long long)g_logic_steps, g_tile_proj_n, g_view_n, g_box_open ? 1 : 0, tile_ok, tile0, tile12, model0, model12, g_cam.v[0], g_cam_cur[0], drawn0, std::fabs(tile0 - model0) < 0.01f && std::fabs(tile12 - model12) < 0.05f ? 1 : 0);
-    std::fclose(f);
-    left--;
-}
-// #endregion
-
 void finish_open_camera(Cpu* c) {
     const uint32_t r = renderer_instance();
     if (r) {
         g_publish_tiles = true;
         publish_tile_matrix(c, r);
         g_publish_tiles = false;
-        // #region agent log
-        agent_cam_log("before-restore", "ABE");
-        // #endregion
         if (g_box_open) apply_box(c, r, g_live_box);
     }
     g_box_open = false;
 }
-
-
 
 void pose_reset() { g_pose_reset.store(true, std::memory_order_relaxed); }
 
@@ -534,6 +967,7 @@ void apply_pose_reset() {
     g_box_open = false;
     g_sampling = false;
     clear_model_poses();
+    clear_grass_wave();
 }
 
 }
@@ -565,80 +999,6 @@ void keep_tile_proj(uint32_t addr) {
         g_tile_proj[g_tile_proj_n++] = addr;
     }
 }
-int g_dbg_bg = 0, g_dbg_bg_proj = 0, g_dbg_u16 = 0, g_dbg_rec = 0, g_dbg_same = 0, g_dbg_tag = 0;
-void note_bg_draw(bool have_proj) {
-    g_dbg_bg++;
-    if (have_proj) g_dbg_bg_proj++;
-}
-void note_tile_uniform(bool recording, bool tagged, bool same) {
-    g_dbg_u16++;
-    if (recording) g_dbg_rec++;
-    if (tagged) g_dbg_tag++;
-    if (same) g_dbg_same++;
-}
-int g_dbg_in = 0, g_dbg_ortho = 0, g_dbg_have_sample = 0;
-uint32_t g_dbg_sample[16], g_dbg_live[16];
-static bool ortho_words(const uint32_t* w) {
-    static const int z[] = {1, 2, 3, 4, 6, 7, 8, 9, 11};
-    if (w[15] != 0x3f800000) return false;
-    for (int i : z) if (w[i] != 0) return false;
-    return true;
-}
-void sample_tile_uniform(uint32_t values) {
-    if (!g_capture_proj || !values || !wwatch::readable(values, 64) || !wwatch::readable(g_capture_proj + 0x44, 64)) return;
-    uint32_t w[16], live[16];
-    for (int i = 0; i < 16; i++) {
-        w[i] = ld32(values + 4 * i);
-        live[i] = ld32(g_capture_proj + 0x44 + 4 * i);
-    }
-    g_dbg_in++;
-    if (ortho_words(w)) g_dbg_ortho++;
-    if (g_dbg_have_sample == 2) return;
-    if (g_dbg_have_sample == 0 || ortho_words(w)) {
-        for (int i = 0; i < 16; i++) {
-            g_dbg_sample[i] = w[i];
-            g_dbg_live[i] = live[i];
-        }
-        g_dbg_have_sample = ortho_words(w) ? 2 : 1;
-    }
-}
-// #region agent log
-void agent_win_log() {
-    static int left = 12;
-    if (left <= 0 || !course_play_active() || g_dbg_in == 0) {
-        g_dbg_in = g_dbg_ortho = g_dbg_have_sample = 0;
-        return;
-    }
-    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    FILE* f = std::fopen("/home/econn/git/nsmbu-recomp/.cursor/debug-147cbb.log", "a");
-    if (!f) return;
-    std::fprintf(f,
-                 "{\"sessionId\":\"147cbb\",\"runId\":\"pre3\",\"hypothesisId\":\"KLM\",\"location\":\"interp.cpp\",\"message\":\"capture-window\",\"timestamp\":%lld,\"data\":{\"step\":%llu,\"in\":%d,\"ortho\":%d,\"kind\":%d,\"u\":[",
-                 (long long)ms, (unsigned long long)g_logic_steps, g_dbg_in, g_dbg_ortho, g_dbg_have_sample);
-    for (int i = 0; i < 16; i++) std::fprintf(f, "%s%u", i ? "," : "", g_dbg_sample[i]);
-    std::fprintf(f, "],\"live\":[");
-    for (int i = 0; i < 16; i++) std::fprintf(f, "%s%u", i ? "," : "", g_dbg_live[i]);
-    std::fprintf(f, "]}}\n");
-    std::fclose(f);
-    left--;
-    g_dbg_in = g_dbg_ortho = g_dbg_have_sample = 0;
-}
-// #endregion
-// #region agent log
-void agent_cap_log() {
-    static int left = 40;
-    if (left <= 0 || !course_play_active()) return;
-    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    FILE* f = std::fopen("/home/econn/git/nsmbu-recomp/.cursor/debug-147cbb.log", "a");
-    if (!f) return;
-    std::fprintf(f,
-                 "{\"sessionId\":\"147cbb\",\"runId\":\"pre\",\"hypothesisId\":\"FGHIJ\",\"location\":\"interp.cpp\",\"message\":\"after-calc\",\"timestamp\":%lld,\"data\":{\"step\":%llu,\"tiles\":%d,\"bg\":%d,\"bgProj\":%d,\"u16\":%d,\"rec\":%d,\"same\":%d,\"tag\":%d,\"capture\":%u}}\n",
-                 (long long)ms, (unsigned long long)g_logic_steps, g_tile_proj_n, g_dbg_bg, g_dbg_bg_proj, g_dbg_u16, g_dbg_rec, g_dbg_same, g_dbg_tag, g_capture_proj);
-    std::fclose(f);
-    left--;
-    g_dbg_bg = g_dbg_bg_proj = g_dbg_u16 = g_dbg_rec = g_dbg_same = g_dbg_tag = 0;
-}
-// #endregion
 namespace {
 void record_model(Cpu* c);
 void reblend_held(Cpu* c);
@@ -1339,10 +1699,6 @@ extern "C" void hook_029C52CC(Cpu* c) {
         PassTimer timer(0);
         f_029C52CC_orig(c);
     }
-    // #region agent log
-    agent_cap_log();
-    agent_win_log();
-    // #endregion
     nsmbu_align_map_camera();
     if (course_play_active()) {
         const uint32_t r3 = c->r[3], r4 = c->r[4], r5 = c->r[5];
@@ -1358,6 +1714,10 @@ extern "C" void hook_029C52CC(Cpu* c) {
         c->r[4] = r4;
         c->r[5] = r5;
     }
+    if (course_play_active() && blend_enabled() && output_fps() > 60)
+        capture_grass_wave();
+    else
+        clear_grass_wave();
     note_present_share(false);
     finish_logic_pass();
     finish_wake();
@@ -1397,19 +1757,46 @@ extern "C" void hook_029C4FE4(Cpu* c) {
         const bool course = course_play_active() && blend_enabled();
         if (course) apply_hold_camera(c, false, false);
         c->r[3] = self;
+        const float grass_dx = course && g_hold ? baked_grass_shift() : 0.f;
+        if (grass_dx != 0.f) apply_baked_grass_shift(grass_dx);
         const bool drew = present_models(c);
-        c->r[3] = self;
-        if (course) finish_open_camera(c);
         c->r[3] = self;
         f_029C4FE4_orig(c);
         c->r[3] = self;
-        // #region agent log
-        if (course) agent_cam_log("after-draw", "C");
-        // #endregion
-        if (drew) gx2::sync_submitted();
+        if (course) finish_open_camera(c);
+        c->r[3] = self;
+        if (drew || grass_dx != 0.f) gx2::sync_submitted();
+        if (grass_dx != 0.f) apply_baked_grass_shift(-grass_dx);
         return;
     }
     f_029C4FE4_orig(c);
+}
+
+extern "C" void hook_0268B70C(Cpu* c) {
+    using namespace interp;
+    const bool course = enabled() && course_play_active() && blend_enabled() && output_fps() > 60;
+    if (course) trace_grass_screen();
+    if (!course || !g_hold) {
+        const uint32_t obj = grass_draw_obj();
+        const uint32_t n0 = obj && wwatch::readable(obj + 0x398, 4) ? ld32(obj + 0x398) : 0;
+        f_0268B70C_orig(c);
+        if (course) remember_grass_bake(n0);
+        return;
+    }
+    const uint32_t self = c->r[3];
+    const float t = pacing::present_sample_t(false, pass_t());
+    const bool patch = grass_want_hold_patch(t);
+    if (patch) blend_grass_wave(t);
+    const float dx = patch ? grass_cam_dx() : 0.f;
+    if (dx != 0.f) grass_shift_x(dx, false);
+    f_0268B70C_orig(c);
+    c->r[3] = self;
+    if (dx != 0.f) grass_shift_x(dx, true);
+    if (patch) {
+        gx2::sync_submitted();
+        restore_grass_wave();
+    }
+    c->r[3] = self;
 }
 
 extern "C" void hook_024FBF6C(Cpu* c) {
@@ -1437,7 +1824,6 @@ static void course_bg_draw(Cpu* c, uint32_t info, void (*orig)(Cpu*)) {
     }
     const uint32_t prev = g_capture_proj;
     if (proj) g_capture_proj = proj;
-    note_bg_draw(proj != 0);
     orig(c);
     g_capture_proj = prev;
 }

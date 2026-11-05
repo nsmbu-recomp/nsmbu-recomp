@@ -60,8 +60,4 @@ void set_present_vsync(bool on);
 
 bool same_proj_matrix(uint32_t values);
 void keep_tile_proj(uint32_t addr);
-void note_bg_draw(bool have_proj);
-void note_tile_uniform(bool recording, bool tagged, bool same);
-void sample_tile_uniform(uint32_t values);
-void agent_win_log();
 }

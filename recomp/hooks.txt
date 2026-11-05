@@ -54,6 +54,7 @@
 0269282C
 026928C4
 0269325C
+0268B70C  # Bg grass/flower TexQuad draw: in-between camera and blended deco arrays
 029C4FE4  # ApplicationFramework::procDraw_: a 30 fps step draws no frame
 029FD94C  # DualScreenMethodTreeMgr::drawBtm: skip the GamePad picture when that screen is hidden
 

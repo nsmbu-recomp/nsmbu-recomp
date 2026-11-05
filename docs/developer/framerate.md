@@ -56,3 +56,22 @@ The logic box is restored before `procDraw_` runs.
 The port waits for the render thread to copy that picture before it writes those uniforms again.
 Pipes and enemies already follow that matrix because their uniform block stays in memory.
 The tile matrix does not.
+
+## Grass
+
+The foreground grass is a `TexQuadDeco` quad.
+`0x0268B67C` calls `updateGrassAndFlowers` (`0x02686428`) on the 60 Hz step.
+That call writes each bush position at `+0x44` and a width pair at `+0x54`.
+Kind 3 also uses an offset vector at `+0x4C`.
+The draw at `0x02501D08` builds quads from those arrays in world space.
+It uses the wave heap for edge width and scale (`f29` and the float at `+4` in each eight-byte pair), vec3 positions at `+0x44`, and per-quad sway at `TexQuadDeco+0x570`.
+The `Bg+0x38D4` / `+0x38D8` / `+0x38DC` tables only supply instance pointers and tags; do not blend them.
+`0x0268B70C` runs while the logic step records the picture.
+A hold step does not call it.
+That step's `procDraw_` repeats the recorded vertices.
+The port adds the gap between the record camera and the in-between camera onto vertex floats that match a grass world X.
+It restores those floats after the render thread copies the picture.
+`NSMBU_INTERP_GRASS_TRACE` counts `[interp] grass px` lines after the course camera moves 4 units.
+`scr` is that quad in TV pixels under the view box at record time.
+`slip` is how many pixels the quad moved relative to that camera since the previous line.
+`hold=0` on every line means the samples are logic pictures only.

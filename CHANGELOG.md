@@ -6,8 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Foreground grass and flowers follow the in-between camera.
+  The grass draw is recorded on the 60 Hz step, so a hold picture was repeating that step.
+
 ### Added
 
+- `NSMBU_INTERP_GRASS_TRACE` logs foreground grass in TV pixels against the course camera (`slip` is the pan error).
 - Agent skill `crash` points at log paths and what crash, run, and setup logs contain.
 - Settings → Display has a **Stretch picture instead of widening the view** checkbox under aspect ratio (on by default).
   Turn it off to keep the wider-field-of-view behavior for non-16:9 aspects.
@@ -45,6 +51,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- The foreground grass follows the in-between pictures at high frame rates.
+  The draw reads wave, position, and sway data that only advance on the 60 Hz step.
+  A hold picture blends those arrays with the same weight as the camera on the grass draw hook (`0x0268B70C`).
 - The ground and bricks follow the in-between camera at high frame rates.
   Their projection was stored in the display list at the 60 Hz step, so the ground stepped while pipes and enemies stayed smooth.
   The stored matrix is the course camera with the vertical scale negated, and the port keeps that sign.

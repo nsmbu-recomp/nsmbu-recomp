@@ -289,16 +289,12 @@ static void uniform_regs(uint32 stageBase, uint32 offset, uint32 count, uint32 v
         w[0] = mmSQ_ALU_CONSTANT0_0 + stageBase + offset;
         memcpy(w + 1, tmp, 16 * 4);
         gx2::emit(gx2::OP_SET_PROJ_REGS, w, 17);
-        interp::note_tile_uniform(gx2::recording_pos() != 0, true, interp::same_proj_matrix(values));
-        interp::sample_tile_uniform(values);
         return;
     }
     set_regs(mmSQ_ALU_CONSTANT0_0 + stageBase + offset, tmp, count);
     if (stageBase == 0x400 && count == 16) {
         const uint32 end = gx2::recording_pos();
         const bool same = interp::same_proj_matrix(values);
-        interp::note_tile_uniform(end != 0, false, same);
-        interp::sample_tile_uniform(values);
         if (end && same) interp::keep_tile_proj(end - 64);
     }
 }
