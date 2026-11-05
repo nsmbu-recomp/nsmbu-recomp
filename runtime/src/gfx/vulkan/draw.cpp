@@ -16,6 +16,7 @@
 #include "core/write_watch.h"
 #include "gx2/uniform_pack_gen.h"
 #include "shaders.h"
+#include "shader_job.h"
 #include "settings.h"
 #include "vertex_formats.h"
 #include "uniform_snapshot.h"
@@ -1069,10 +1070,10 @@ Pipeline &pipeline(const uint32_t *r, vk::Shader *vs, vk::Shader *ps,
   ci.pDynamicState = &dy;
   ci.layout = p.layout;
   const auto pipelineStarted = std::chrono::steady_clock::now();
-  auto result = vkCreateGraphicsPipelines(R.device, R.pipelineCache, 1, &ci,
-                                          nullptr, &p.pipeline);
+  const VkResult result = vk::create_graphics_pipelines(R.device, R.pipelineCache, 1, &ci,
+                                                        nullptr, &p.pipeline);
   R.pipelineCreateNs += std::chrono::duration_cast<std::chrono::nanoseconds>(
-      std::chrono::steady_clock::now()-pipelineStarted).count();
+      std::chrono::steady_clock::now() - pipelineStarted).count();
   ++R.pipelineCreates;
   for (auto m : modules)
     vkDestroyShaderModule(R.device, m, nullptr);
@@ -2145,8 +2146,16 @@ void draw(const uint32_t *r, uint32_t prim, uint32_t count, uint32_t indexType,
   if (!fs)
     throw std::runtime_error("missing Vulkan fetch shader");
   auto *vs = vk::translate(r, true, fs, fsKey, R.frame, g_shader_state_gen);
+  if (vs && vs->compiling()) {
+    vk::collect_shader(*vs, R.frame);
+    if (vs->compiling()) return;
+  }
   auto *ps = vk::translate(r, false, fs, fsKey, R.frame, g_shader_state_gen,
                            vs && vs->ready() ? vs : nullptr);
+  if (ps && ps->compiling()) {
+    vk::collect_shader(*ps, R.frame);
+    if (ps->compiling()) return;
+  }
   rprof::mark(rprof::kShader);
   if (!vs || !vs->ready() || !ps || !ps->ready())
     throw std::runtime_error("Vulkan shader translation failed: " +

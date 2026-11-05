@@ -879,6 +879,20 @@ void tab_graphics() {
     ImGui::SameLine(0, 30);
     if (check("Edge smoothing (FXAA)", render::fxaa(), &v, render::feature_available(render::kFeatureFXAA)))
         post_changed([v] { render::set_fxaa(v); });
+#ifdef NSMBU_HAS_VULKAN
+    {
+        const bool vk = render::vulkan();
+        const bool shaderEnv = gfxvk::async_shaders_from_env();
+        bool async = gfxvk::async_shaders_enabled();
+        if (check("Async shader compile", async, &async, vk && !shaderEnv))
+            post_changed([async] { gfxvk::set_async_shaders(async); });
+        help("Off is the default. A new shader compiles on the render thread, so the picture can freeze.\n"
+             "On compiles that shader beside the frame. That draw is left out until the shader is ready, so the picture keeps moving.\n"
+             "An object can be missing for a moment.");
+        if (shaderEnv) note("NSMBU_VK_ASYNC_SHADERS=%s is set for this start and takes precedence.", env::VK_ASYNC_SHADERS());
+        else if (!vk) note("Used by the Vulkan renderer only.");
+    }
+#endif
     heading("Presentation (Vulkan)");
 #ifdef NSMBU_HAS_VULKAN
     {

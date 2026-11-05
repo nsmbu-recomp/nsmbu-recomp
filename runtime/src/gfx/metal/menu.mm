@@ -93,6 +93,7 @@ static void load_prefs() {
         aspect::set_stretch_image(YES);
 #ifdef NSMBU_HAS_VULKAN
     if (saved(@"vkPresentMode", {env::VK_PRESENT_MODE})) gfxvk::set_present_mode([pref(@"vkPresentMode") intValue]);
+    if (saved(@"asyncShaders", {env::VK_ASYNC_SHADERS})) gfxvk::set_async_shaders([pref(@"asyncShaders") boolValue]);
 #endif
 }
 static void save_prefs() {
@@ -117,6 +118,7 @@ static void save_prefs() {
     }
 #ifdef NSMBU_HAS_VULKAN
     if (!env_set({env::VK_PRESENT_MODE})) set_pref(@"vkPresentMode", @(gfxvk::present_mode()));
+    if (!env_set({env::VK_ASYNC_SHADERS})) set_pref(@"asyncShaders", @(gfxvk::async_shaders_enabled()));
 #endif
     if (NSString* p = portable_prefs_path()) [g_portable_prefs writeToFile:p atomically:YES];
 }

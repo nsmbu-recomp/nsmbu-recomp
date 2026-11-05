@@ -14,6 +14,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Settings → Graphics has **Async shader compile**, off by default.
+  Turn it on and a new Vulkan shader compiles beside the frame.
+  That draw is left out until the shader is ready, so a burst of new shaders does not freeze the picture.
+  An object can be missing for a moment.
+  `NSMBU_VK_ASYNC_SHADERS=1` turns it on for that start, and `=0` keeps it off.
 - `NSMBU_INTERP_GRASS_TRACE` logs foreground grass in TV pixels against the course camera (`slip` is the pan error).
 - Agent skill `crash` points at log paths and what crash, run, and setup logs contain.
 - Settings → Display has a **Stretch picture instead of widening the view** checkbox under aspect ratio (on by default).

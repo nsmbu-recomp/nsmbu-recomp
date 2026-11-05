@@ -33,6 +33,7 @@
 #include <unordered_map>
 
 #include "core/env.h"
+#include "shader_job.h"
 LatteDecompilerShader* FinishDecompiledShader(LatteDecompilerOutput_t& output);
 LatteFetchShader* LatteShaderRecompiler_createFetchShader(LatteFetchShader::CacheHash hash,
     uint32* regs, uint32* code, uint32 size);
@@ -471,8 +472,13 @@ bool same_output(const Shader& a, const Shader& b) {
            !std::memcmp(&a.descriptorRanks, &b.descriptorRanks, sizeof a.descriptorRanks);
 }
 
+std::mutex decompilerMutex;
 bool decompile(Shader& shader, const uint32_t* regs, bool vertex, LatteFetchShader* fetch,
-               uint32_t address, uint32_t size, uint64_t base, bool packReplacement, const PsLink& link) {
+               uint32_t address, uint32_t size, uint64_t base, bool packReplacement, const PsLink& link,
+               const uint8_t* program = nullptr) {
+    std::lock_guard translationLock(decompilerMutex);
+    const uint8_t* bytes = program ? program : static_cast<const uint8_t*>(ppc_ptr(address));
+    uint8_t* data = const_cast<uint8_t*>(bytes);
     if (!g_renderer || g_renderer->GetType() != RendererAPI::Vulkan) {
         shader.error = "Vulkan renderer was not selected before shader translation"; return false;
     }
@@ -491,16 +497,16 @@ bool decompile(Shader& shader, const uint32_t* regs, bool vertex, LatteFetchShad
     options.strictMul = strictMul;
     uint64_t packBase=0;
     if(mods::cemu::has_shaders()) {
-        packBase=cemu_pack_hash::base(ppc_ptr(address),size,regs,vertex,fetch);
+        packBase=cemu_pack_hash::base(data,size,regs,vertex,fetch);
         options.legacyGraphicPackUniforms=!vertex&&mods::cemu::legacy_pixel_uniforms(packBase);
     }
     const uint64_t decompilerBase=mods::cemu::has_shaders()?packBase:base;
-    if (!vertex) options.areaSampledTextures = ::gfx::area_sample::units_for_pixel_shader(ppc_ptr(address), size);
+    if (!vertex) options.areaSampledTextures = ::gfx::area_sample::units_for_pixel_shader(data, size);
     LatteDecompilerOutput_t output{};
     if (vertex) LatteDecompiler_DecompileVertexShader(decompilerBase, const_cast<uint32_t*>(regs),
-        ppc_ptr(address), size, fetch, options, &output);
+        data, size, fetch, options, &output);
     else LatteDecompiler_DecompilePixelShader(decompilerBase, const_cast<uint32_t*>(regs),
-        ppc_ptr(address), size, options, &output);
+        data, size, options, &output);
     if (!output.shader || output.shader->hasError || !output.shader->strBuf_shaderSource) {
         free_decompiler(output.shader); shader.error = "Latte GLSL translation failed"; return false;
     }
@@ -510,7 +516,7 @@ bool decompile(Shader& shader, const uint32_t* regs, bool vertex, LatteFetchShad
         free_decompiler(output.shader);
         options.areaSampledTextures = 0;
         output = LatteDecompilerOutput_t{};
-        LatteDecompiler_DecompilePixelShader(decompilerBase, const_cast<uint32_t*>(regs), ppc_ptr(address), size, options, &output);
+        LatteDecompiler_DecompilePixelShader(decompilerBase, const_cast<uint32_t*>(regs), data, size, options, &output);
         if (!output.shader || output.shader->hasError || !output.shader->strBuf_shaderSource) {
             free_decompiler(output.shader); shader.error = "Latte GLSL translation failed"; return false;
         }
@@ -606,9 +612,14 @@ void verify_key(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, uint
 }
 }
 
-void select_renderer() { g_renderer = std::make_unique<VulkanRenderer>(); }
+void select_renderer() {
+    finish_shader_jobs();
+    g_renderer = std::make_unique<VulkanRenderer>();
+}
 
 static std::vector<uint32_t> compile_stage(const std::string& source, EShLanguage stage, std::string* error) {
+    static std::mutex glslangMutex;
+    std::lock_guard glslangLock(glslangMutex);
     static std::once_flag init;
     static bool initialized = false;
     std::call_once(init, [] { initialized = glslang::InitializeProcess(); });
@@ -732,6 +743,7 @@ Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, ui
         last.generation == stateGeneration && last.fsKey == fsKey &&
         last.fetch == fetch && (!vertex || last.primitive == primitive)) {
         ++stats.lastHits;
+        collect_shader(*last.shader, frame);
         return last.shader;
     }
     auto remember = [&](Shader* shader) {
@@ -767,23 +779,22 @@ Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, ui
         const uint64_t key = variant_hash(regs, vertex, use, linkage, link);
         if (auto it = variants.find(key); it != variants.end()) {
             ++stats.variantHits;
+            collect_shader(*it->second, frame);
             verify_key(regs, vertex, fetch, fsKey, address, size, base, key, *it->second, link);
             return remember(it->second);
         }
     }
-    auto started = std::chrono::steady_clock::now();
-    struct CompileTimer {
-        std::chrono::steady_clock::time_point start;
-        ~CompileTimer() {
-            ++stats.compiles;
-            stats.compileNs += std::chrono::duration_cast<std::chrono::nanoseconds>(
-                std::chrono::steady_clock::now() - start).count();
-        }
-    } timer{started};
     auto owned = std::make_unique<Shader>();
     Shader* shader = owned.get();
     shader->vertex = vertex;
-    if (!decompile(*shader, regs, vertex, fetch, address, size, base, true, link)) {
+    const bool background = frame != ~uint64_t{0} && shader_jobs_async();
+    const auto started = std::chrono::steady_clock::now();
+    const bool decompiled = decompile(*shader, regs, vertex, fetch, address, size, base, true, link);
+    const uint64_t decompileNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now() - started).count();
+    ++stats.compiles;
+    stats.compileNs += decompileNs;
+    if (!decompiled) {
 
         shader->key = shader->pipelineId = linkage ^ 0xFA17EDull;
         use.failed = shader;
@@ -810,9 +821,8 @@ Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, ui
                       address, __builtin_popcount(link.unfed));
         }
     }
-    const auto decompileEnd = std::chrono::steady_clock::now();
-    stats.decompileNs += std::chrono::duration_cast<std::chrono::nanoseconds>(decompileEnd - started).count();
-    perf::shader_recomp(std::chrono::duration<double, std::milli>(decompileEnd - started).count());
+    stats.decompileNs += decompileNs;
+    perf::shader_recomp(double(decompileNs) / 1e6);
     if (key_verify_rate()) {
         uint64_t legacy = legacy_state_hash(regs, base, vertex) ^ (vertex ? fsKey * 31 : 0);
         if (vertex && mods::cemu::has_shaders())
@@ -842,13 +852,18 @@ Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, ui
         shader->spirv=cached->second.words;
         if(cached->second.fromDisk) ++stats.diskHits;
         else ++stats.spirvReuseHits;
+    } else if (background) {
+        shader->compile = std::make_shared<SpirvCompile>();
+        enqueue_spirv_compile(shader->glsl, vertex, shader->compile);
     } else {
-        auto compileStart=std::chrono::steady_clock::now();
+        const auto compileStart = std::chrono::steady_clock::now();
         shader->spirv = compile_glsl(shader->glsl, vertex, &shader->error);
+        const uint64_t spirvNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now() - compileStart).count();
         ++stats.spirvCompiles;
-        const auto compileEnd = std::chrono::steady_clock::now();
-        stats.spirvCompileNs+=std::chrono::duration_cast<std::chrono::nanoseconds>(compileEnd - compileStart).count();
-        perf::shader_recomp(std::chrono::duration<double, std::milli>(compileEnd - compileStart).count());
+        stats.spirvCompileNs += spirvNs;
+        stats.compileNs += spirvNs;
+        perf::shader_recomp(double(spirvNs) / 1e6);
         if(shader->glsl.size()<=maxSourceBytes &&
            cache_spirv_valid(shader->spirv) && diskShaders.size()<maxCacheEntries) {
             size_t oldBytes=cached==diskShaders.end() ? 0 :
@@ -881,6 +896,62 @@ Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, ui
     }
     if (!shader->error.empty()) fprintf(stderr, "[vulkan] shader %08X: %s\n", address, shader->error.c_str());
     return shader;
+}
+
+void collect_shader(Shader& shader, uint64_t frame) {
+    if (!shader.compile) return;
+    std::unique_lock lock(shader.compile->mutex);
+    if (!shader.compile->done) return;
+    shader.spirv = std::move(shader.compile->words);
+    shader.error = std::move(shader.compile->error);
+    const uint64_t ns = shader.compile->ns;
+    lock.unlock();
+    shader.compile.reset();
+    ++stats.spirvCompiles;
+    stats.spirvCompileNs += ns;
+    stats.compileNs += ns;
+    perf::shader_recomp(double(ns) / 1e6);
+    initialize_disk_cache();
+    const uint64_t spirvKey = cache_checksum(reinterpret_cast<const uint8_t*>(shader.glsl.data()), shader.glsl.size()) ^
+        cache_fingerprint() ^ (shader.vertex ? 0x9E3779B97F4A7C15ull : 0xD1B54A32D192ED03ull);
+    auto cached = diskShaders.find(spirvKey);
+    const bool stored = cached != diskShaders.end() && cached->second.vertex == shader.vertex &&
+        cached->second.source == shader.glsl;
+    if (!stored && shader.glsl.size() <= maxSourceBytes && cache_spirv_valid(shader.spirv) &&
+        diskShaders.size() < maxCacheEntries) {
+        const size_t oldBytes = cached == diskShaders.end() ? 0 :
+            20 + cached->second.source.size() + cached->second.words.size() * 4;
+        const size_t newBytes = 20 + shader.glsl.size() + shader.spirv.size() * 4;
+        if (newBytes <= maxCacheBytes - (diskBytes - oldBytes)) {
+            diskShaders.insert_or_assign(spirvKey, DiskShader{shader.glsl, shader.spirv, shader.vertex, false});
+            diskBytes = diskBytes - oldBytes + newBytes;
+            ++diskRevision;
+            diskDirty = !diskPath.empty();
+            diskChangedFrame = frame;
+        }
+    }
+    shader.pipelineId = shader.key;
+    if (!shader.spirv.empty()) {
+        uint64_t module = hash_bytes(shader.spirv.data(), shader.spirv.size() * 4, shader.vertex ? 0x77 : 0x88);
+        module = hash_bytes(&shader.mapping, sizeof shader.mapping, module);
+        bool shared = false;
+        for (auto [it, end] = shadersByModule.equal_range(module); it != end; ++it)
+            if (it->second->spirv == shader.spirv &&
+                !std::memcmp(&it->second->mapping, &shader.mapping, sizeof shader.mapping)) {
+                shader.pipelineId = it->second->pipelineId;
+                ++stats.moduleAliases;
+                shared = true;
+                break;
+            }
+        if (!shared) shadersByModule.emplace(module, &shader);
+    }
+    if (!shader.error.empty())
+        fprintf(stderr, "[vulkan] shader %016llX: %s\n", (unsigned long long)shader.key, shader.error.c_str());
+}
+
+void publish_finished_shaders(uint64_t frame) {
+    for (auto& entry : shaders)
+        if (entry.second) collect_shader(*entry.second, frame);
 }
 
 namespace {

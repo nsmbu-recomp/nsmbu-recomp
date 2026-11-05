@@ -3,6 +3,7 @@
 #include "backend.h"
 #include "pass.h"
 #include "shaders.h"
+#include "shader_job.h"
 #include "settings.h"
 #include <algorithm>
 #include <cmath>
@@ -182,7 +183,7 @@ VkPipeline pipeline(VkFormat format,Kind kind=kImage) {
   VkPipelineRenderingCreateInfo rendering{VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};rendering.colorAttachmentCount=1;rendering.pColorAttachmentFormats=&format;
   VkGraphicsPipelineCreateInfo ci{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};ci.pNext=&rendering;apply_pipeline_pass(ci,rendering);ci.stageCount=2;ci.pStages=stages;ci.pVertexInputState=&vi;ci.pInputAssemblyState=&ia;ci.pViewportState=&vp;ci.pRasterizationState=&rs;ci.pMultisampleState=&ms;ci.pColorBlendState=&bs;ci.pDynamicState=&ds;ci.layout=resources.layout;
   const auto started=std::chrono::steady_clock::now();
-  vk_check(vkCreateGraphicsPipelines(R.device,R.pipelineCache,1,&ci,nullptr,&result),"presentation pipeline");
+  vk_check(vk::create_graphics_pipelines(R.device,R.pipelineCache,1,&ci,nullptr,&result),"presentation pipeline");
   R.pipelineCreateNs+=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-started).count();
   resources.pipelines.emplace(key,result);++R.pipelineCreates;R.pipelineCacheDirty=true;R.pipelineCacheChangedFrame=R.frame;
  }catch(...){if(result)vkDestroyPipeline(R.device,result,nullptr);if(vs)vkDestroyShaderModule(R.device,vs,nullptr);if(fs)vkDestroyShaderModule(R.device,fs,nullptr);throw;}

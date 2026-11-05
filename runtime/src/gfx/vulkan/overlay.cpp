@@ -4,6 +4,7 @@
 #include "pass.h"
 #include "present.h"
 #include "shaders.h"
+#include "shader_job.h"
 #include "imgui.h"
 #include <chrono>
 #include <cstring>
@@ -162,7 +163,7 @@ VkPipeline pipeline(VkFormat format) {
         ci.pColorBlendState = &bs;
         ci.pDynamicState = &ds;
         ci.layout = res.layout;
-        vk_check(vkCreateGraphicsPipelines(R.device, R.pipelineCache, 1, &ci, nullptr, &result), "overlay pipeline");
+        vk_check(vk::create_graphics_pipelines(R.device, R.pipelineCache, 1, &ci, nullptr, &result), "overlay pipeline");
     } catch (...) {
         vkDestroyShaderModule(R.device, vs, nullptr);
         if (fs) vkDestroyShaderModule(R.device, fs, nullptr);

@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdint>
 #include <array>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 #include "Cafe/HW/Latte/LegacyShaderDecompiler/LatteDecompiler.h"
@@ -18,6 +20,13 @@ struct DescriptorRankPlan {
 DescriptorRankPlan make_descriptor_rank_plan(const LatteDecompilerShaderResourceMapping& mapping,
                                              const LatteDecompilerShader& shader);
 
+struct SpirvCompile {
+    std::mutex mutex;
+    bool done = false;
+    uint64_t ns = 0;
+    std::vector<uint32_t> words;
+    std::string error;
+};
 struct Shader {
     uint64_t key = 0;
     uint64_t pipelineId = 0;
@@ -30,8 +39,12 @@ struct Shader {
     std::string glsl;
     std::string translatedGlsl;
     std::string error;
+    std::shared_ptr<SpirvCompile> compile;
     bool ready() const { return dec && !spirv.empty() && error.empty(); }
+    bool compiling() const { return compile != nullptr; }
 };
+void collect_shader(Shader& shader, uint64_t frame);
+void publish_finished_shaders(uint64_t frame);
 void select_renderer();
 
 LatteFetchShader* get_fetch_shader(const uint32_t* regs, uint64_t* keyOut, uint64_t frame = ~uint64_t{0});

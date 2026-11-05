@@ -12,6 +12,7 @@
 #include "gfx/render_prof.h"
 #include "settings.h"
 #include "shaders.h"
+#include "shader_job.h"
 #include "sparse_hash_memo.h"
 #include "core/write_watch.h"
 #include "core/env.h"
@@ -1033,7 +1034,7 @@ VkPipeline depth_copy_pipeline(const FormatInfo& fmt,bool stencilPass) {
         VkGraphicsPipelineCreateInfo ci{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};ci.pNext=&rendering;apply_pipeline_pass(ci,rendering);ci.stageCount=2;ci.pStages=stages;
         ci.pVertexInputState=&vi;ci.pInputAssemblyState=&ia;ci.pViewportState=&vp;ci.pRasterizationState=&rs;ci.pMultisampleState=&ms;
         ci.pDepthStencilState=&dss;ci.pColorBlendState=&bs;ci.pDynamicState=&ds;ci.layout=depthCopy.layout;
-        check_vk(vkCreateGraphicsPipelines(R.device,R.pipelineCache,1,&ci,nullptr,&result),"create depth copy pipeline");
+        check_vk(vk::create_graphics_pipelines(R.device,R.pipelineCache,1,&ci,nullptr,&result),"create depth copy pipeline");
         depthCopy.pipelines.emplace(key,result);++R.pipelineCreates;R.pipelineCacheDirty=true;R.pipelineCacheChangedFrame=R.frame;
     } catch(...) {
         if(result)vkDestroyPipeline(R.device,result,nullptr);

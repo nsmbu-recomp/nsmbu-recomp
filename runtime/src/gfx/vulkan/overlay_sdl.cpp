@@ -212,6 +212,7 @@ void graphics_changed() {
     put("interpFps", {env::INTERP_FPS}, std::to_string(interp::custom_on() ? interp::custom_fps() : interp::fps()));
     put("fps60Paced", {env::INTERP_PACED}, interp::paced_interpolation_at(60) ? "1" : "0");
     put("scaleFilter", {env::SCALE_FILTER}, std::to_string(gfxvk::scale_filter()));
+    put("asyncShaders", {env::VK_ASYNC_SHADERS}, gfxvk::async_shaders_enabled() ? "1" : "0");
     char aspect[32];
     aspect::choice_text(aspect, sizeof aspect);
     put("aspect", {env::ASPECT}, aspect);
@@ -249,6 +250,7 @@ void load_saved_options() {
     if (saved("heatGuard", {env::HEAT_GUARD})) heat_guard::choice = heat_guard::parse(v["heatGuard"].c_str());
 #endif
     if (saved("scaleFilter", {env::SCALE_FILTER})) gfxvk::set_scale_filter((int)num("scaleFilter"));
+    if (saved("asyncShaders", {env::VK_ASYNC_SHADERS})) gfxvk::set_async_shaders(num("asyncShaders") != 0);
     if (saved("aspect", {env::ASPECT})) aspect::apply_choice(v["aspect"].c_str());
     if (saved("aspectStretch", {env::ASPECT_STRETCH}))
         aspect::set_stretch_image(num("aspectStretch") != 0);

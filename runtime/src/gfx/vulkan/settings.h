@@ -25,6 +25,10 @@ const char* present_mode_name(int mode);
 
 int effective_present_mode();
 
+bool async_shaders_enabled();
+void set_async_shaders(bool on);
+bool async_shaders_from_env();
+
 bool graphics_hotkey(char key, bool activate);
 #ifdef __APPLE__
 void install_graphics_menu(SDL_Window* window);

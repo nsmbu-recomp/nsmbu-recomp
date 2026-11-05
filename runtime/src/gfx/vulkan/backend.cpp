@@ -44,6 +44,8 @@
 #include "core/runtime.h"
 #include "gfx/screenshot.h"
 #include "shaders.h"
+#include "shader_job.h"
+#include "hooks/interp.h"
 #include "settings.h"
 #include "save/savestate.h"
 #include "sparse_hash_memo.h"
@@ -1651,6 +1653,55 @@ void repeat_present() {
     render::hold_repeat();
   }
 }
+void present_while_shader_pending() {
+  static int depth = 0;
+  static ShaderPresentGate gate;
+  if (depth || !R.device || !R.tv.window) return;
+  Surface *tvScan = R.tv.scan && R.tv.scan->image ? R.tv.scan.get() : nullptr;
+  if (!tvScan) return;
+  const int64_t now = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::steady_clock::now().time_since_epoch()).count();
+  int fps = interp::output_fps();
+  if (fps < 1) fps = 60;
+  const int64_t period = 1000000000ll / fps;
+  if (!gate.due(R.frame, now, period)) return;
+  struct Depth {
+    int& n;
+    explicit Depth(int& n) : n(n) { ++n; }
+    ~Depth() { --n; }
+  } guard(depth);
+  Surface *drcScan = R.drc.scan && R.drc.scan->image ? R.drc.scan.get() : nullptr;
+#ifdef NSMBU_SDL_HOST
+  gfx::g_filter = scale_filter();
+  const float layerW = float(R.tv.width.load()), layerH = float(R.tv.height.load());
+#else
+  const float layerW = float(R.tv.swapExtent.width), layerH = float(R.tv.swapExtent.height);
+#endif
+  gfx::PresentPlan plan = gfx::display_plan(
+      tvScan, float(tvScan->extent.width), float(tvScan->extent.height),
+      drcScan, drcScan ? float(drcScan->extent.width) : 0, drcScan ? float(drcScan->extent.height) : 0,
+      layerW, layerH, R.frame);
+  set_present_plan(&plan);
+  set_overlay_draw(overlay::frame(plan.dw > 0 ? plan.dw : layerW, plan.dh > 0 ? plan.dh : layerH, overlay_renderer_init));
+  const uint64_t savedTimeout = g_acquire_timeout_ns;
+  g_acquire_timeout_ns = 0;
+  g_presented = false;
+  present(R.tv);
+  if (plan.drc_window) present(R.drc);
+  g_acquire_timeout_ns = savedTimeout;
+  if (async_present()) flush_async();
+  else flush();
+  set_present_plan(nullptr);
+  const int64_t ended = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::steady_clock::now().time_since_epoch()).count();
+  if (g_presented) {
+    render::note_host_present();
+    gate.presented(ended, period);
+  } else {
+    overlay::undo_frame_sample();
+    gate.missed(ended);
+  }
+}
 void swap() {
   const int64_t delay = interp::pacing::bunched_present_delay_ns(
       interp::course_play_active(), interp::output_fps(), render::since_host_present_ns());
@@ -2548,7 +2599,8 @@ void init() {
 }
 #endif
 void save_renderer_caches() {
-
+  vk::finish_shader_jobs();
+  vk::publish_finished_shaders(0);
   reset_feedback_images();
   wait_idle();
   bc_decode_shutdown();

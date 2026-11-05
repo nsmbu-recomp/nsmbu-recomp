@@ -47,6 +47,17 @@ int effective_present_mode() {
     return present_mode_offered(kPresentImmediate) ? kPresentImmediate : present_mode_offered(kPresentMailbox) ? kPresentMailbox : kPresentFifo;
 }
 const char* present_mode_name(int m) { return m == kPresentMailbox ? "mailbox" : m == kPresentImmediate ? "immediate" : "fifo"; }
+static std::atomic<bool> g_asyncShaders{false};
+bool async_shaders_enabled() {
+    if (env::VK_ASYNC_SHADERS.present()) return env::VK_ASYNC_SHADERS.on();
+    return g_asyncShaders.load(std::memory_order_relaxed);
+}
+void set_async_shaders(bool on) {
+    if (env::VK_ASYNC_SHADERS.present()) return;
+    if (g_asyncShaders.exchange(on, std::memory_order_relaxed) != on)
+        LOG("[vulkan] background shader compile %s", on ? "on" : "off");
+}
+bool async_shaders_from_env() { return env::VK_ASYNC_SHADERS.present(); }
 bool aniso_enabled() { return settings().aniso.load(std::memory_order_relaxed); }
 void set_aniso(bool v) { settings().aniso.store(v,std::memory_order_relaxed); LOG("[gfx] anisotropy %s",v?"on":"off"); }
 bool fxaa_enabled() { return settings().fxaa.load(std::memory_order_relaxed); }
