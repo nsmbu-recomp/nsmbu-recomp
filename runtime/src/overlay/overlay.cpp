@@ -1919,16 +1919,16 @@ static void perf_presentation_footer() {
     perf_label_value("Renderer", kPerfPresLabel, render::api_name(render::active()));
 }
 
-static ImU32 perf_graph_color(float ms) {
-    if (ms <= 12.0f) return IM_COL32(90, 230, 140, 255);
-    if (ms <= 16.7f) return IM_COL32(255, 225, 90, 255);
-    return IM_COL32(255, 110, 95, 255);
+static float perf_graph_target_ms() {
+    const int out = interp::mode() ? std::max(30, interp::output_fps()) : 60;
+    return 1000.0f / (float)out;
 }
 
-static ImU32 perf_graph_fill(float ms) {
-    if (ms <= 12.0f) return IM_COL32(70, 200, 120, 28);
-    if (ms <= 16.7f) return IM_COL32(255, 225, 90, 28);
-    return IM_COL32(255, 110, 95, 28);
+static ImU32 perf_graph_color(float ms) {
+    const float target = perf_graph_target_ms();
+    if (ms <= target * 1.08f) return IM_COL32(90, 230, 140, 255);
+    if (ms <= target * 1.5f) return IM_COL32(255, 225, 90, 255);
+    return IM_COL32(255, 110, 95, 255);
 }
 
 static void perf_frame_graph(double now) {
@@ -1943,7 +1943,6 @@ static void perf_frame_graph(double now) {
     const float invScale = 1.0f / (kMax - kMin);
     const int resW = std::max(1, std::min((int)w, kCount) - 1);
     const float tStep = 1.0f / (float)resW;
-    const float baseline = p0.y + h;
 
     auto sample = [&](int idx) -> float { return U.frames.graph_ms(idx, now); };
 
@@ -1961,8 +1960,6 @@ static void perf_frame_graph(double now) {
         const float v1 = sample(i1);
         const ImVec2 pos1(p0.x + t1 * w, yAt(v1));
         const float segMs = 0.5f * (sample(i0) + v1);
-        dl->AddQuadFilled(
-            ImVec2(pos0.x, baseline), pos0, pos1, ImVec2(pos1.x, baseline), perf_graph_fill(segMs));
         dl->AddLine(pos0, pos1, perf_graph_color(segMs), 1.5f);
         t0 = t1;
         pos0 = pos1;

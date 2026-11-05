@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- The performance overlay frame graph is green when frame time meets your chosen frame rate, and shows only the line without a fill beneath it.
 - The New Super Luigi U story-map notice does not appear at startup.
 - Count-register loops keep the PowerPC CTR in a C local instead of the `Cpu` struct.
   A 4096-byte copy loop, compiled with the game code's `-O3` flags, takes 4 ms with the local and 7–8 ms when CTR stays in memory.
