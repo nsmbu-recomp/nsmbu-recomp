@@ -20,7 +20,7 @@ The `nsmbu` target compiles with `-Wall`.
 
 ## Decomp
 
-Any discoveries you find about the source code document it in the `vendor/decomp/docs` repo.
+Any discoveries you find about the source code document it in the headers in `vendor/decomp/include` also add documentation comments explaining what the function does and any side effect or requirements for calling it.
 
 ## Verification
 
