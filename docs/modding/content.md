@@ -1,8 +1,8 @@
 # File replacements (`content_dir` on Lua packages)
 
-Status: **live**.
-File replacements (models, textures, UI, language packs) ship as Lua packages with an optional `content_dir`.
-`kind: content` is a one-release read-only alias and migrates to `kind: lua` on scan.
+Status: **not installed**.
+The manager rejects `kind: lua` and `kind: content`.
+File replacement packages are not loaded.
 See [lua-mods.md](lua-mods.md) for the package model.
 See [mod-manager.md](mod-manager.md) for install and shared manifest fields.
 
@@ -103,5 +103,6 @@ Content files stay in the package folder under the mods directory; the original 
 
 ## Tests
 
-`mod_content_startup`, `mod_content_fs_off`, and `mod_content_fs_on` cover startup activation and filesystem HLE against synthetic files.
+`mod_content_fs_off` and `mod_content_fs_on` cover filesystem HLE against synthetic files.
+The manager does not activate these packages.
 See [mod-manager.md](mod-manager.md#validation).

@@ -137,10 +137,6 @@ A generated game function with the same name replaces the stub.
 `nsmbu launch` sets `NSMBU_PROFILE`, `NSMBU_VK_STATS`, `NSMBU_SYNC_STATS`, and `NSMBU_CRASH_RECOVERY` when those variables are unset.
 `nsmbu launch --no-debug` and `nsmbu run --release` leave those variables unset.
 
-`nsmbu launch` and `nsmbu run` symlink each package under `modding/examples/` into `nsmbu/mods/<id>/`.
-Existing real folders in that mods directory stay in place.
-Set `NSMBU_NO_EXAMPLE_MODS=1` to skip those links.
-
 ## Python helpers (no `nsmbu` subcommand)
 
 These stay as `python3 tools/…` until they move into the CLI.

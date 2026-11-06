@@ -1,7 +1,11 @@
 # Lua mods: replace native, guest, and content packages
 
-Status: **Phase 3 implemented** (`content_dir` on Lua packages; `kind: content` is a one-release read-only alias and migrates to `lua` on scan).
-The runtime embeds LuaJIT 2.1 and loads `kind: lua` packages.
+Status: **removed from the runtime**.
+The manager installs Cemu graphics packs only.
+`kind: lua` and `kind: content` are rejected.
+LuaJIT stays linked, and the sources under `modding/` stay in the tree.
+The notes below are the old plan.
+
 Logic-step callbacks, config, log, status, and guest memory work now.
 Optional `content_dir` on a Lua package drives the same file-replacement map as the old content kind.
 See [api.md](api.md) for the live surface and for APIs that are still proposal.
@@ -488,7 +492,7 @@ This document is the reason to stop extending either path.
 ### Player migration
 
 Installed `native` and `guest` packages do not convert.
-On the first run after the change, disable them and show "This package uses a removed mod format. Install a Lua package instead."
+On the first run after the change, disable them and tell the player to install a Lua package instead.
 Installed `content` packages are rewritten in place to `kind: lua` with the same `content_dir` and the same id.
 Keep their options empty.
 Keep their enabled bit.

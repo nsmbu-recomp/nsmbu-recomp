@@ -74,6 +74,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Removed
 
+- Lua mods and file-replacement packs no longer install.
+  The Mods tab installs Cemu graphics and shader packs only.
+  LuaJIT stays linked.
 - `T` no longer toggles 120 fps.
 - `R` no longer cycles the internal resolution.
 
