@@ -26,7 +26,14 @@ constexpr uint32_t kCursorIndex = 0x250;
 constexpr uint32_t kCursorFocus = 0x25C;
 constexpr uint32_t kCursorList = 0x34;
 constexpr uint32_t kPad = 0x164;
-constexpr uint32_t kDecide = 1u << 12;
+constexpr uint32_t kPlus = 1u << 11;
+constexpr uint32_t kTouch = 1u << 12;
+constexpr uint32_t kDecide = 1u << 13;
+constexpr uint32_t kConfirm = kPlus | kTouch | kDecide;
+constexpr uint32_t kMenuPads = 0x1214;
+constexpr uint32_t kPadStride = 0x194;
+constexpr uint32_t kHold = 0x10C;
+constexpr int kMenuPadCount = 5;
 constexpr uint32_t kUp = 1u << 4;
 constexpr uint32_t kDown = 1u << 5;
 constexpr uint32_t kLeft = 1u << 6;
@@ -34,6 +41,7 @@ constexpr uint32_t kRight = 1u << 7;
 constexpr float kGuideY = -348.f;
 
 static std::atomic<uint32_t> g_menu{0};
+static std::atomic<bool> g_enabled{false};
 static std::atomic<bool> g_open_request{false};
 static uint32_t g_settings = 0;
 static int g_settings_idx = -1;
@@ -50,6 +58,10 @@ static std::mutex g_hit_mu;
 static float g_win_w = 0, g_win_h = 0, g_ox = 0, g_oy = 0, g_ow = 0, g_oh = 0;
 static bool g_hit_ok = false;
 static float g_nx = -1, g_ny = -1;
+
+bool enabled() { return g_enabled.load(); }
+
+void set_enabled(bool on) { g_enabled.store(on); }
 
 static bool guest_obj(uint32_t p) {
     return p >= 0x01000000u && p < 0x80000000u && (p & 3u) == 0;
@@ -106,6 +118,7 @@ static bool is_left(uint32_t pane) {
 }
 
 static void nudge(uint32_t self) {
+    if (!g_enabled.load()) return;
     const uint32_t parts = self + kParts;
     if (g_translate < 0) {
         for (int i = 0; i < kPartCount && g_translate < 0; i++) {
@@ -193,7 +206,7 @@ static void write_rect(uint32_t btn, float cx, float cy, float hw, float hh) {
 }
 
 static void arm_settings(uint32_t self) {
-    if (!g_settings || g_translate < 0) return;
+    if (!g_enabled.load() || !g_settings || g_translate < 0) return;
     const uint32_t cursor = self + kCursor;
     g_settings_idx = title_index(cursor, g_settings);
     if (g_settings_idx < 0) return;
@@ -249,7 +262,7 @@ static void copy_x(uint32_t dst, uint32_t src) {
 }
 
 void fit_settings_hit(uint32_t mgr, uint32_t point) {
-    if (!g_settings || !guest_obj(mgr)) return;
+    if (!g_enabled.load() || !g_settings || !guest_obj(mgr)) return;
     const uint32_t sentinel = mgr + 0x10;
     uint32_t node = ld32(sentinel);
     uint32_t settings_btn = 0;
@@ -357,7 +370,7 @@ static int middle_index(uint32_t cursor) {
 }
 
 static void on_pad(uint32_t self) {
-    if (overlay::is_open()) return;
+    if (!g_enabled.load() || overlay::is_open()) return;
     const uint32_t cursor = self + kCursor;
     const uint32_t pad_at = cursor + kPad;
     if (ld8(cursor + kCursorFocus) == 0) {
@@ -398,8 +411,12 @@ static void on_pad(uint32_t self) {
         const int back = g_guide_from >= 0 ? g_guide_from : title_i;
         if (back >= 0) choose(cursor, back);
     }
-    if (g_settings_idx >= 0 && idx == g_settings_idx && (trig & kDecide)) {
-        st32(pad_at, ld32(pad_at) & ~kDecide);
+    if (g_settings_idx >= 0 && idx == g_settings_idx && (trig & kConfirm)) {
+        st32(pad_at, ld32(pad_at) & ~kConfirm);
+        for (int i = 0; i < kMenuPadCount; i++) {
+            const uint32_t hold = self + kMenuPads + (uint32_t)i * kPadStride + kHold;
+            st32(hold, ld32(hold) & ~kConfirm);
+        }
         g_open_request.store(true);
     }
     if (g_force_idx >= 0)
@@ -407,7 +424,7 @@ static void on_pad(uint32_t self) {
 }
 
 static void apply_choice(uint32_t self) {
-    if (g_force_idx < 0 || !g_force_btn) return;
+    if (!g_enabled.load() || g_force_idx < 0 || !g_force_btn) return;
     const uint32_t cursor = self + kCursor;
     st32(cursor + kCursorIndex, (uint32_t)g_force_idx);
     st32(cursor + 0x40, g_force_btn);
@@ -419,10 +436,14 @@ static void clear_choice() {
 }
 
 static void take_decide(uint32_t self) {
-    if (overlay::is_open() || g_settings_idx < 0) return;
+    if (!g_enabled.load() || overlay::is_open() || g_settings_idx < 0) return;
     const uint32_t cursor = self + kCursor;
     if ((int)ld32(cursor + kCursorIndex) != g_settings_idx) return;
-    if (ld8(cursor + 0x266) == 0) return;
+    const bool touch = ld8(cursor + 0x266) != 0;
+    const bool decided = ld8(cursor + 0x25F) != 0;
+    if (!touch && !decided) return;
+    st8(cursor + 0x25F, 0);
+    st8(cursor + 0x266, 0);
     g_open_request.store(true);
 }
 
@@ -619,6 +640,7 @@ static void restore_build_regs(Cpu* c, const uint32_t* saved, uint32_t resource)
 }
 
 static void install_settings_button(Cpu* c, uint32_t layout) {
+    if (!g_enabled.load()) return;
     const uint32_t saved[11] = {c->r[0], c->r[3], c->r[4], c->r[5], c->r[6], c->r[7], c->r[8], c->r[9], c->r[10], c->r[11], c->r[12]};
     const uint32_t resource = c->r[3];
     const uint32_t name = guest_obj(c->r[27]) ? ld32(c->r[27]) : 0;
@@ -677,6 +699,7 @@ static void install_settings_button(Cpu* c, uint32_t layout) {
 }
 
 static void install_settings_anim(Cpu* c) {
+    if (!g_enabled.load()) return;
     const uint32_t pai = c->r[4];
     if (!guest_obj(pai) || ld32(pai) != 0x70616931u) return;
     uint32_t flan = 0;
@@ -721,7 +744,7 @@ static void install_settings_anim(Cpu* c) {
 }
 
 static void bind_settings(Cpu* c, uint32_t self) {
-    if (g_settings) return;
+    if (!g_enabled.load() || g_settings) return;
     static uint32_t name_ea = 0;
     static uint32_t safe_ea = 0;
     if (!name_ea) {
@@ -829,6 +852,7 @@ static bool over_tile_locked() {
 }
 
 bool pointer(float nx, float ny) {
+    if (!g_enabled.load()) return false;
     std::lock_guard<std::mutex> lock(g_hit_mu);
     g_nx = nx;
     g_ny = ny;
@@ -836,6 +860,7 @@ bool pointer(float nx, float ny) {
 }
 
 bool click() {
+    if (!g_enabled.load()) return false;
     std::lock_guard<std::mutex> lock(g_hit_mu);
     if (!over_tile_locked()) return false;
     g_open_request.store(true);

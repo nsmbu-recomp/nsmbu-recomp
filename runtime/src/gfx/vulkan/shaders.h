@@ -57,13 +57,14 @@ struct ShaderStats {
     uint64_t fetchLookups = 0, fetchLastHits = 0;
     uint64_t lookups = 0, lastHits = 0, variantHits = 0, compiles = 0, compileNs = 0;
     uint64_t decompileNs = 0, spirvCompiles = 0, spirvCompileNs = 0, diskHits = 0, spirvReuseHits = 0;
-    uint64_t diskLoads = 0, diskLoadNs = 0, diskSaves = 0, diskSaveNs = 0, diskSavedBytes = 0, diskSnapshotNs = 0;
+    uint64_t diskLoads = 0, diskLoadNs = 0, diskLoadWaitNs = 0, diskSaves = 0, diskSaveNs = 0, diskSavedBytes = 0, diskSnapshotNs = 0;
 
     uint64_t programs = 0, shaders = 0, variantKeys = 0, variantAliases = 0, moduleAliases = 0;
     uint64_t verifyChecks = 0, verifyViolations = 0, verifySplitKeys = 0, verifyNs = 0;
 };
 ShaderStats shader_stats();
 
+void start_shader_cache_load();
 void checkpoint_shader_cache(uint64_t frame);
 bool shader_cache_dirty();
 uint64_t shader_cache_changed_frame();

@@ -158,7 +158,9 @@ atomically after 120 frames without new pipelines. First-time shader translation
 and pipeline creation can still cause stalls.
 
 Vulkan also persists compiled SPIR-V in the host configuration directory's
-`shadercache/vulkan-shaders/spirv.bin`. `NSMBU_VK_SHADER_CACHE=/directory` selects
+`shadercache/vulkan-shaders/spirv.bin`. The file is read on a background thread when the device is created.
+The render thread waits only for whatever is still unread at the first shader.
+`NSMBU_VK_SHADER_CACHE=/directory` selects
 an isolated directory; `NSMBU_VK_SHADER_CACHE=0` disables disk storage. An explicit
 directory overrides `NSMBU_SHADER_CACHE=0`. Canonical GLSL and stage deduplication
 remains active in memory when disk storage is disabled. Fresh decompiler metadata
@@ -532,7 +534,7 @@ reuse is on by default on every platform since 2026-10-07 (see "CPU paths").
 
 | Option | Behavior and default |
 | --- | --- |
-| `NSMBU_VSYNC_PRECISE` | macOS defaults to enabled: sleep to near the vsync deadline, then spin for the final portion (up to 2 ms). Set `0` to disable. Other platforms keep the previous off default. Precise sleeping increases CPU use. |
+| `NSMBU_VSYNC_PRECISE` | Desktop defaults to enabled and spins for the last 2 ms of the vsync wait (`0` disables it; Android stays off unless set to `1`, and the spin uses more CPU). |
 | `MVK_CONFIG_PREFILL_METAL_COMMAND_BUFFERS` | macOS defaults to `3`; an explicit MoltenVK override, including `0`, is respected. Normal macOS render batches use an autorelease pool. Other platforms receive no application override. |
 | `NSMBU_VK_DRAW_BATCH` | Defaults to `2048` when unset, on every platform. Set `0` to disable. Positive decimal values up to 1,048,576 select the batch size; malformed or out-of-range values disable batching. |
 | `NSMBU_VK_DRAW_BATCH_CAP` | Accepts `1`, `2`, or `3`. When unset, defaults to `3`. An explicitly invalid value falls back to `2`. Has no effect with batching disabled. |

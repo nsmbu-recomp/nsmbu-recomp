@@ -103,6 +103,7 @@ static void test_cap() {
     CHECK(valid_fps(100) == 120);
     CHECK(valid_fps(150) == 144);
     CHECK(valid_fps(360) == 240);
+    CHECK(present_period_ns(60) == 16'666'667);
     CHECK(present_period_ns(30) == 1'000'000'000LL / 30);
     CHECK(present_period_ns(90) == 1'000'000'000LL / 90);
     CHECK(present_granule(90) == 3);

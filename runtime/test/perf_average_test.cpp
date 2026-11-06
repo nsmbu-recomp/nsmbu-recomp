@@ -26,6 +26,11 @@ int main() {
     h.compute(3.0, avg_ms, worst, fps, logic_rate, low1);
     assert(fps > 59.9f && fps < 60.1f);
     assert(logic_rate > 59.9 && logic_rate < 60.1);
+    h.reset();
+    for (int i = 0; i < 119; ++i) h.push(10.0 + i / 60.0, 1000.0f / 60.0f, 1);
+    h.compute(10.0 + 118 / 60.0 + 0.001, avg_ms, worst, fps, logic_rate, low1);
+    assert(fps > 59.9f && fps < 60.1f);
+    assert(logic_rate > 59.9 && logic_rate < 60.1);
     assert(low1 > 59.9f && low1 < 60.1f);
     h.reset();
     for (int i = 0; i < 10; ++i) h.push(1.1 + i * 0.01, 50.0f, 1);

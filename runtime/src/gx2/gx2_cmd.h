@@ -40,6 +40,7 @@ void emit(Op op, const uint32_t* payload, uint32_t n);
 inline void emit(Op op, std::initializer_list<uint32_t> payload) { emit(op, payload.begin(), (uint32_t)payload.size()); }
 
 void set_reg(uint32_t reg, uint32_t value);
+void mirror_reg(uint32_t reg, uint32_t value);
 void set_regs(uint32_t first, const uint32_t* values, uint32_t count);
 
 uint32_t* regs();

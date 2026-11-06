@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- 60 fps on a high-refresh display keeps 60 logic steps a second.
+  The frame clock was 59.94 Hz when the display was not already near 60 Hz.
+  The performance overlay counts FPS and logic steps across the real time between samples.
+  A steady 60 no longer reads as 59.5.
+  On Windows the frame wait spins for the last part of the interval.
+  Spacing does not follow the 1 ms timer.
+- The Vulkan shader cache loads while the game starts.
+  The first frames no longer wait on that read.
+  On this machine the read takes 197 ms.
+  The render thread waited 0 ms for that read.
+  In the first 120 frames the shader phase fell from 1.70 ms/frame to 0.07 ms/frame.
+  The game thread DrawDone wait fell from 2.31 ms/frame to 0.69 ms/frame.
 - Foreground grass and flowers follow the in-between camera, including the quad corners and vertical pan.
   The grass draw is recorded on the 60 Hz step, so a hold picture was repeating that step.
   The hold only moves those recorded quads, so panning the camera does not crash the course.
@@ -22,10 +34,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   `picture` prints how much a TV rectangle changes across a few frames.
   `restart` rebuilds when the debug binary is older than the runtime sources and opens the same place again.
   `nsmbu wait --cursor NAME` waits until that menu button is selected.
-- The world-map start menu has a Settings button under Change Controller.
-  It uses the same menu button as the other five.
+- Settings → Debug has **Settings button on the start menu**, off by default.
+  Open the world-map start menu again after turning it on.
+  The button sits under Change Controller and uses the same menu button as the other five.
   Quick Save and Main Menu move into the left and middle columns, so the menu is two rows of three.
-  The button opens the settings overlay.
+  A or Enter on that button opens the settings overlay.
   It fades and grows with the other buttons when the menu opens and closes.
   On a controller, move down from Change Controller, or right from Main Menu.
   Up returns to Change Controller, and left returns to Main Menu.
@@ -49,6 +62,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Course replay applies small GPU register packets with less CPU work.
+  The shader-key bit test is a lookup table.
+  A packet of 16 words or fewer compares those words in place.
+  A shader program hash stays in a fixed slot for the frame.
+  On this machine, uncapped 1-1 at 1x went from 1.00 ms per frame (995 swaps/s, one run) to a median of 0.92 ms (1091 swaps/s, three runs).
+  Register time went from 0.32 ms per frame to 0.27 ms.
+  The recorded player path still matches.
 - The performance overlay shows logic steps per second above the frame graph, with a white Logic label like the FPS row, and shader recompile time with the CPU and GPU lines.
 - The performance overlay frame graph is green when frame time meets your chosen frame rate, shows only the line without a fill beneath it, and keeps each hitch visible until it scrolls off instead of flattening early.
 - The New Super Luigi U story-map notice does not appear at startup.

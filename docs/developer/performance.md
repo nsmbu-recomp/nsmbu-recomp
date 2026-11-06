@@ -607,6 +607,48 @@ Uniforms are 0.56 ms/frame, record 0.46 ms/frame, and textures 0.39 ms/frame.
 The other two runs were 7.40 ms (render 4.08 ms) and 7.52 ms (render 4.22 ms).
 Frame time still moves with how many draws the window has.
 
+## Uncapped 1-1 register and shader lookup (2026-11-06)
+
+Release `tools/cli/src/playtest/replays/1-1.replay`, 1x, immediate present, uncapped, `NSMBU_PROFILE=1`.
+Windows are the 120-frame `[prof]` reports from TV frame 1440 through the end of the course.
+The player path matched on every run.
+
+A 1 ms thread-CPU sampler on the run before the change put 42% of samples on the GX2 render thread.
+The hottest named leaves there were `gx2::apply_regs` (137) and `gfxvk::vk::program_hash` (122).
+`gfxvk::draw` had 79 and `bind_stage` had 71.
+`f_02A15500` (204) and `f_02A157FC` (166) sit off that thread and do not set the frame time.
+The render thread was 0.89 ms of a 1.00 ms frame.
+
+Cuts:
+
+- Shader-key bit tests use a table filled once from `vulkan_shader_key_mask`.
+- A register packet of 16 words or fewer compares the words in the function.
+- `program_hash` keeps 128 slots and probes four of them.
+  The hash is still recomputed on the first use of that program in a frame.
+- The viewport memo reads `wwatch::write_seq` only when the vertex shader has a guest uniform buffer.
+
+One run before the change, then three runs after.
+The first of those three also had the sampler attached.
+
+- Frame time: 1.00 ms before, 0.92 ms after (median).
+- Swaps: 995/s before, 1091/s after.
+- Registers: 0.32 ms before, 0.27 ms after.
+- Draw: 0.60 ms before, 0.57 ms after.
+- Shader lookup: 0.10 ms before, 0.09 ms after.
+
+The three after runs were 0.88, 0.92, and 0.95 ms/frame.
+Register time was 0.27, 0.27, and 0.28 ms.
+`build/release/nsmbu --renderer-smoke` passed.
+
+A later count on the same replay, through TV frame 3600, showed 23.5 million register packets.
+19.7 million matched the register file already.
+18.7 million were a single word.
+Returning from `apply_regs` on that one-word match, and mapping vertex semantic ids through a 256-entry table, left frame time in the same band.
+Two runs were 0.88 ms and 0.92 ms.
+Skipping the apply call from the display-list walker, while the value compare still ran, cut the timed register bucket from 0.27 ms to 0.14 ms and left frame time at 0.92 ms and 0.94 ms.
+That walker skip is not in the tree.
+The timed bucket had moved, and the frame had not.
+
 ## Hidden GamePad picture (2026-11-03)
 
 `DualScreenMethodTreeMgr::drawBtm` (`0x029FD94C`) is the GamePad method tree.

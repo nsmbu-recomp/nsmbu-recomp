@@ -71,6 +71,9 @@ struct MenuProbe {
 
 void probe(MenuProbe& out);
 
+bool enabled();
+void set_enabled(bool on);
+
 bool visible();
 void prepare(float win_w, float win_h, bool overlay_open);
 void draw();

@@ -157,9 +157,33 @@ static ShaderKeyDirtyStats shaderKeyDirtyStats;
 ShaderKeyDirtyStats shader_key_dirty_stats() { return shaderKeyDirtyStats; }
 
 #ifdef NSMBU_HAS_VULKAN
+struct KeyBits { bool known; uint32 mask; };
+static const KeyBits& key_bits(uint32 reg) {
+    static KeyBits table[kNumRegs];
+    static const bool ready = [] {
+        for (uint32 r = 0; r < kNumRegs; ++r)
+            table[r].known = vulkan_shader_key_mask(r, table[r].mask);
+        return true;
+    }();
+    (void)ready;
+    return table[reg];
+}
+static bool same_words(const uint32* a, const uint32* b, uint32 n) {
+    for (uint32 i = 0; i < n; ++i)
+        if (a[i] != b[i]) return false;
+    return true;
+}
+#endif
+
+void mirror_reg(uint32 reg, uint32 value) {
+    if (reg >= kNumRegs) return;
+    g_regs[reg] = value;
+    if (g_shadow) g_shadow[reg] = value;
+}
+#ifdef NSMBU_HAS_VULKAN
 static void apply_small_regs(uint32 first, const uint32* v, uint32 n) {
-    if (memcmp(&g_regs[first], v, size_t(n) * 4) == 0 &&
-        (!g_shadow || memcmp(&g_shadow[first], v, size_t(n) * 4) == 0))
+    if (same_words(&g_regs[first], v, n) &&
+        (!g_shadow || same_words(&g_shadow[first], v, n)))
         return;
     static const bool keyDirty = [] {
         const char* e = env::VK_SHADER_KEY_DIRTY();
@@ -183,8 +207,8 @@ static void apply_small_regs(uint32 first, const uint32* v, uint32 n) {
         }
         if ((collectStats || !actualBump) && !shader_irrelevant(reg)) {
             baselineBump = true;
-            uint32 mask;
-            if (keyDirty && vulkan_shader_key_mask(reg, mask) && !((old ^ value) & mask)) {
+            const KeyBits& bits = key_bits(reg);
+            if (keyDirty && bits.known && !((old ^ value) & bits.mask)) {
                 if (collectStats) ++maskedWords;
             } else actualBump = true;
         }
@@ -208,6 +232,7 @@ static void apply_small_regs(uint32 first, const uint32* v, uint32 n) {
 static void apply_regs(uint32 first, const uint32* v, uint32 n) {
     if (first >= kNumRegs || n > kNumRegs - first) return;
     g_register_blocks.touch(first, n);
+    if (n == 1 && g_regs[first] == v[0] && (!g_shadow || g_shadow[first] == v[0])) return;
 #ifdef NSMBU_HAS_VULKAN
     static const bool collectVkStats = env::VK_STATS() != nullptr;
 #else
@@ -268,8 +293,8 @@ static void apply_regs(uint32 first, const uint32* v, uint32 n) {
                 uint32 reg = first + i;
                 if(g_regs[reg] == v[i] || shader_irrelevant(reg)) continue;
                 baselineBump = true;
-                uint32 mask;
-                if(keyDirty && vulkan_shader_key_mask(reg, mask) && !((g_regs[reg] ^ v[i]) & mask)) {
+                const KeyBits& bits = key_bits(reg);
+                if(keyDirty && bits.known && !((g_regs[reg] ^ v[i]) & bits.mask)) {
                     if(collectStats) ++maskedWords;
                 } else actualBump = true;
                 if(actualBump && !collectStats) break;
@@ -600,8 +625,8 @@ static void set_context(uint32 ctx) {
             const char* e = env::VK_SHADER_KEY_DIRTY();
             return render::vulkan() && e && !strcmp(e, "1");
         }();
-        uint32 mask;
-        if (keyDirty && vulkan_shader_key_mask(reg, mask)) return ((old ^ value) & mask) != 0;
+        const KeyBits& bits = key_bits(reg);
+        if (keyDirty && bits.known) return ((old ^ value) & bits.mask) != 0;
 #endif
         return true;
     })) ++g_shader_state_gen;
@@ -821,7 +846,7 @@ static constexpr uint64_t kTicksPerVsync = 4;
 void gx2::set_display_vsync_ns(int64_t ns) {
     if (ns <= 0) return;
     const int64_t reported = ns;
-    if (ns < 16000000 || ns > 17000000) ns = kDefaultVsyncNs;
+    if (ns < 16000000 || ns > 17000000) ns = interp::pacing::present_period_ns(60);
     const int64_t old = g_vsync_period_ns.exchange(ns, std::memory_order_relaxed);
     if (old != ns) LOG("[gx2] vsync period %lld ns (display reported %lld ns)", (long long)ns, (long long)reported);
 }
@@ -1358,10 +1383,10 @@ HLE(gx2, GX2WaitForVsync) {
 
         if (!render::vulkan()) return false;
         const char* value = env::VSYNC_PRECISE();
-#if defined(__APPLE__) || (defined(__linux__) && !defined(__ANDROID__))
-        return !value || atoi(value) != 0;
-#else
+#if defined(__ANDROID__)
         return value && atoi(value) != 0;
+#else
+        return !value || atoi(value) != 0;
 #endif
 #else
         return false;

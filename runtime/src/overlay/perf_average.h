@@ -107,9 +107,16 @@ struct FrameHistory {
         float scratch[kCap];
         int scratch_n = 0;
         worst_ms = 0;
+        double first_t = 0, last_t = 0;
+        uint32_t first_logic = 0;
         for (int n = 0; n < count; ++n) {
             const Sample& s = ring[(start + n) % kCap];
             if (s.t < min_t) continue;
+            if (!frames) {
+                first_t = s.t;
+                first_logic = s.logic;
+            }
+            last_t = s.t;
             sum += s.ms;
             worst_ms = std::max(worst_ms, s.ms);
             logic_sum += s.logic;
@@ -118,8 +125,11 @@ struct FrameHistory {
         }
         if (!frames) return;
         avg_ms = (float)(sum / frames);
-        fps = (float)(frames / kWindowSec);
-        logic_rate = logic_sum / kWindowSec;
+        const double span = last_t - first_t;
+        if (frames >= 2 && span > 1e-6) {
+            fps = (float)((frames - 1) / span);
+            logic_rate = double(logic_sum - first_logic) / span;
+        }
         const float p99 = percentile_ms(scratch, scratch_n, 0.99f);
         if (p99 > 0) low1_fps = 1000.0f / p99;
     }

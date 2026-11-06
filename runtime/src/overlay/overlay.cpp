@@ -1723,6 +1723,13 @@ void tab_debug() {
     }
     help("Where the renderer spends its time over the last few seconds, as text for a bug report");
 
+    heading("World map");
+    if (check("Settings button on the start menu", map_menu::enabled(), &v)) {
+        map_menu::set_enabled(v);
+        hostui::post([v] { hostui::set("mapMenuSettings", v ? "1" : "0"); });
+    }
+    help("Off until you turn it on. Open the world-map start menu again after a change. A or Enter on Settings opens this overlay. A restart restores the original menu.");
+
     heading("Course debug");
     const bool env_locked = env::COLLISION_VIEWER.present();
     if (check("Collision Viewer", collision_wireframe::enabled(), &v, !env_locked)) {
@@ -2404,6 +2411,7 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
             collision_wireframe::set_enabled(v == "1");
         if (!env::HOT_RELOAD_COURSES.present() && hostui::get("hotReloadCourses", v))
             course_hot_reload::set_enabled(v == "1");
+        if (hostui::get("mapMenuSettings", v)) map_menu::set_enabled(v == "1");
 
         if (env::PRO_CONTROLLER.on())
             hostui::post([] { hostui::set_pro_controller(true); });

@@ -27,7 +27,9 @@
 #include <array>
 #include <algorithm>
 #include <cmath>
+#include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <mutex>
 #include <future>
 #include <unordered_map>
@@ -44,8 +46,12 @@ using Latte::REGADDR;
 namespace {
 std::unordered_map<uint64_t, std::unique_ptr<Shader>> shaders;
 std::unordered_map<uint64_t, LatteFetchShader*> fetchShaders;
-struct ProgramHash { uint64_t hash = 0, frame = ~uint64_t{0}; };
-std::unordered_map<uint64_t, ProgramHash> programHashes;
+struct ProgSlot {
+    uint32_t address = 0, size = 0;
+    uint64_t frame = ~uint64_t{0}, hash = 0;
+    bool live = false;
+};
+std::array<ProgSlot, 128> programSlots;
 struct LastShader {
     const uint32_t* regs = nullptr;
     LatteFetchShader* fetch = nullptr;
@@ -86,7 +92,8 @@ constexpr size_t maxCacheEntries = 65536;
 struct DiskShader { std::string source; std::vector<uint32_t> words; bool vertex; bool fromDisk = false; };
 std::unordered_map<uint64_t, DiskShader> diskShaders;
 std::string diskPath;
-bool diskInitialized = false, diskDirty = false;
+std::atomic<bool> diskInitialized{false};
+bool diskDirty = false;
 uint64_t diskChangedFrame = 0, diskAttemptFrame = 0, diskRevision = 0;
 size_t diskBytes = 40;
 uint64_t cache_checksum(const uint8_t* p, size_t n) {
@@ -148,39 +155,109 @@ bool decode_disk_cache(const std::vector<uint8_t>& file,
     if(pos!=file.size()) return false;
     result=std::move(decoded); return true;
 }
-void initialize_disk_cache() {
-    if(diskInitialized) return;
-    diskInitialized=true;
-    auto start=std::chrono::steady_clock::now();
+struct DiskLoadResult {
+    std::unordered_map<uint64_t, DiskShader> shaders;
+    std::string path;
+    size_t bytes = 40;
+    uint64_t loadNs = 0;
+    bool loaded = false;
+};
+std::mutex diskLoadMu;
+std::condition_variable diskLoadCv;
+std::future<DiskLoadResult> diskLoadJob;
+bool diskLoadStarted = false;
+DiskLoadResult read_shader_disk(std::string path) {
+    DiskLoadResult result;
+    result.path = std::move(path);
+    const auto start = std::chrono::steady_clock::now();
+    try { host::set_thread_name("Vulkan shaders"); } catch (...) {}
     try {
-        const char* overridePath=env::VK_SHADER_CACHE();
-        const char* general=env::SHADER_CACHE();
-        if((overridePath && !strcmp(overridePath,"0")) ||
-           (!overridePath && general && !strcmp(general,"0"))) return;
-        std::string dir=overridePath ? overridePath : host::config_dir()+"/shadercache/vulkan-shaders";
-        if(dir.empty()) return;
-        diskPath=dir+"/spirv.bin";
-        std::error_code ec;
-        auto length=std::filesystem::file_size(diskPath,ec);
-        if(ec || length<40 || length>maxCacheBytes) return;
-        std::vector<uint8_t> bytes(static_cast<size_t>(length));
-        FILE* file=fopen(diskPath.c_str(),"rb");
-        if(!file) return;
-        bool read=fread(bytes.data(),1,bytes.size(),file)==bytes.size() && fgetc(file)==EOF && !ferror(file);
-        fclose(file);
-        if(read && decode_disk_cache(bytes,diskShaders)) { ++stats.diskLoads; diskBytes=bytes.size(); }
-    } catch(...) { diskShaders.clear(); }
-    stats.diskLoadNs+=std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::steady_clock::now()-start).count();
+        if (!result.path.empty()) {
+            std::error_code ec;
+            const auto length = std::filesystem::file_size(result.path, ec);
+            if (!ec && length >= 40 && length <= maxCacheBytes) {
+                std::vector<uint8_t> bytes(static_cast<size_t>(length));
+                if (FILE* file = fopen(result.path.c_str(), "rb")) {
+                    const bool read = fread(bytes.data(), 1, bytes.size(), file) == bytes.size() &&
+                        fgetc(file) == EOF && !ferror(file);
+                    fclose(file);
+                    if (read && decode_disk_cache(bytes, result.shaders)) {
+                        result.loaded = true;
+                        result.bytes = bytes.size();
+                    } else result.shaders.clear();
+                }
+            }
+        }
+    } catch (...) { result.shaders.clear(); result.loaded = false; }
+    result.loadNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now() - start).count();
+    return result;
+}
+std::string shader_disk_path() {
+    const char* overridePath = env::VK_SHADER_CACHE();
+    const char* general = env::SHADER_CACHE();
+    if ((overridePath && !strcmp(overridePath, "0")) ||
+        (!overridePath && general && !strcmp(general, "0"))) return {};
+    const std::string dir = overridePath ? overridePath : host::config_dir() + "/shadercache/vulkan-shaders";
+    if (dir.empty()) return {};
+    return dir + "/spirv.bin";
+}
+void apply_disk_load(DiskLoadResult result) {
+    diskPath = std::move(result.path);
+    if (result.loaded) {
+        diskShaders = std::move(result.shaders);
+        diskBytes = result.bytes;
+        ++stats.diskLoads;
+    }
+    stats.diskLoadNs += result.loadNs;
+    diskInitialized.store(true, std::memory_order_release);
+}
+void initialize_disk_cache() {
+    if (diskInitialized.load(std::memory_order_acquire)) return;
+    std::future<DiskLoadResult> job;
+    {
+        std::unique_lock lock(diskLoadMu);
+        if (diskInitialized.load(std::memory_order_relaxed)) return;
+        if (!diskLoadStarted) {
+            diskLoadJob = std::async(std::launch::async, read_shader_disk, shader_disk_path());
+            diskLoadStarted = true;
+        }
+        if (diskLoadJob.valid()) job = std::move(diskLoadJob);
+        else {
+            diskLoadCv.wait(lock, [] { return diskInitialized.load(std::memory_order_relaxed); });
+            return;
+        }
+    }
+    const auto waitStart = std::chrono::steady_clock::now();
+    DiskLoadResult result = job.get();
+    stats.diskLoadWaitNs += std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now() - waitStart).count();
+    {
+        std::lock_guard lock(diskLoadMu);
+        if (!diskInitialized.load(std::memory_order_relaxed)) apply_disk_load(std::move(result));
+    }
+    diskLoadCv.notify_all();
 }
 
 uint64_t program_hash(uint32_t address, uint32_t size, uint64_t frame) {
-
-    auto& entry = programHashes[(uint64_t(address) << 32) | size];
-    if (frame == ~uint64_t{0} || entry.frame != frame) {
-        entry.hash = hash_bytes(ppc_ptr(address), size);
-        entry.frame = frame;
+    if (frame == ~uint64_t{0}) return hash_bytes(ppc_ptr(address), size);
+    const uint32_t start = (address >> 8) & (programSlots.size() - 1);
+    for (uint32_t probe = 0; probe < 4; ++probe) {
+        ProgSlot& entry = programSlots[(start + probe) & (programSlots.size() - 1)];
+        if (entry.live && entry.address == address && entry.size == size) {
+            if (entry.frame != frame) {
+                entry.hash = hash_bytes(ppc_ptr(address), size);
+                entry.frame = frame;
+            }
+            return entry.hash;
+        }
+        if (!entry.live) {
+            entry = {address, size, frame, hash_bytes(ppc_ptr(address), size), true};
+            return entry.hash;
+        }
     }
+    ProgSlot& entry = programSlots[start];
+    entry = {address, size, frame, hash_bytes(ppc_ptr(address), size), true};
     return entry.hash;
 }
 
@@ -194,13 +271,24 @@ size_t gather_linkage(const uint32_t* regs, bool vertex, const LatteFetchShader*
         if (fetch)
             for (const auto& group : fetch->bufferGroups) attributes += group.attribCount;
         if (attributes <= 4 * 32) {
+            struct SemLut { uint32_t words[32]; uint8_t loc[256]; bool ready; };
+            static SemLut semLut{};
+            const uint32_t* sem = regs + mmSQ_VTX_SEMANTIC_0;
+            if (!semLut.ready || memcmp(semLut.words, sem, sizeof semLut.words) != 0) {
+                memcpy(semLut.words, sem, sizeof semLut.words);
+                memset(semLut.loc, 0xFF, sizeof semLut.loc);
+                for (uint32_t f = 0; f < 32; ++f) {
+                    uint32_t id = semLut.words[f];
+                    if (id < 256 && semLut.loc[id] == 0xFF) semLut.loc[id] = uint8_t(f);
+                }
+                semLut.ready = true;
+            }
             uint32_t packed = 0, bytes = 0;
             if (fetch)
                 for (const auto& group : fetch->bufferGroups)
                     for (int i = 0; i < group.attribCount; ++i) {
-                        uint32_t location = 0xFF;
-                        for (uint32_t f = 0; f < 32; ++f)
-                            if (regs[mmSQ_VTX_SEMANTIC_0 + f] == group.attrib[i].semanticId) { location = f; break; }
+                        uint32_t id = group.attrib[i].semanticId;
+                        uint32_t location = id < 256 ? semLut.loc[id] : 0xFFu;
                         packed |= location << (8 * (bytes++ & 3));
                         if ((bytes & 3) == 0) { out[count++] = packed; packed = 0; }
                     }
@@ -610,6 +698,13 @@ void verify_key(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, uint
     stats.verifyNs += std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now() - started).count();
 }
+}
+
+void start_shader_cache_load() {
+    std::lock_guard lock(diskLoadMu);
+    if (diskInitialized.load(std::memory_order_relaxed) || diskLoadStarted) return;
+    diskLoadJob = std::async(std::launch::async, read_shader_disk, shader_disk_path());
+    diskLoadStarted = true;
 }
 
 void select_renderer() {
@@ -1124,7 +1219,7 @@ std::vector<uint8_t> pack_uniforms(const uint32_t* regs, const Shader& shader,
 void reset_shader_memoization() {
     stateMemo.reset();
     lastFetch = {};
-    programHashes.clear();
+    programSlots = {};
     lastShaders[0] = {}; lastShaders[1] = {};
 }
 

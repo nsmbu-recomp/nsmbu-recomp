@@ -149,11 +149,17 @@ void add_wait(Wait w, uint64_t ns) {
 void add_idle(uint64_t ns) { W.idleNs += ns; }
 
 bool fast_class_reg(uint32_t reg) {
-
-    if (reg >= 0xC000 && reg < 0xC000 + 0x1000) return true;
-    for (uint32_t base : {0xE7E0u, 0xE250u, 0xECB0u, 0xE8C0u})
-        if (reg >= base && reg < base + 7 * 16) return true;
-    return false;
+    static const auto table = [] {
+        std::array<char, 0x10000> t{};
+        for (uint32_t r = 0; r < t.size(); ++r) {
+            bool fast = r >= 0xC000 && r < 0xC000 + 0x1000;
+            for (uint32_t base : {0xE7E0u, 0xE250u, 0xECB0u, 0xE8C0u})
+                if (r >= base && r < base + 7 * 16) fast = true;
+            t[r] = fast;
+        }
+        return t;
+    }();
+    return reg < table.size() && table[reg];
 }
 void note_other_reg(uint32_t reg) {
     g_reg_dirty |= 2;

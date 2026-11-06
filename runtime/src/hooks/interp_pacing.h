@@ -146,7 +146,7 @@ inline WakePlan advance_accumulator(int64_t acc_ns, int64_t dt_ns, bool interpol
 
 inline int64_t present_period_ns(int present_cap) {
     present_cap = std::max(1, present_cap);
-    return 1'000'000'000LL / present_cap;
+    return (1'000'000'000LL + present_cap / 2) / present_cap;
 }
 
 constexpr int kShedResumeFrames = 8;

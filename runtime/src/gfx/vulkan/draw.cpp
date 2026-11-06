@@ -14,6 +14,7 @@
 #include "platform/host.h"
 #include "core/runtime.h"
 #include "core/write_watch.h"
+#include "gx2/gx2_cmd.h"
 #include "gx2/uniform_pack_gen.h"
 #include "shaders.h"
 #include "shader_job.h"
@@ -2140,7 +2141,7 @@ void draw(const uint32_t *r, uint32_t prim, uint32_t count, uint32_t indexType,
     return;
   if (r[REGADDR::PA_CL_CLIP_CNTL] & (1 << 22))
     return;
-  ((uint32_t *)r)[REGADDR::VGT_PRIMITIVE_TYPE] = prim;
+  gx2::mirror_reg(REGADDR::VGT_PRIMITIVE_TYPE, prim);
   uint64_t fsKey = 0;
   auto *fs = vk::get_fetch_shader(r, &fsKey, R.frame);
   if (!fs)
@@ -2509,7 +2510,7 @@ void draw(const uint32_t *r, uint32_t prim, uint32_t count, uint32_t indexType,
     uint32_t clip = 0, poly = 0, tl = 0, br = 0, tile = 0, frag = 0;
     uint32_t bias0 = 0, bias1 = 0, bias2 = 0;
     uint64_t packGen = 0, seq = 0;
-    bool cover = false, edge = false, content = false;
+    bool cover = false, edge = false, content = false, guestMem = false;
     VkViewport vp{};
     VkRect2D sc{};
     float biasConstant = 0, biasClamp = 0, biasSlope = 0;
@@ -2529,7 +2530,8 @@ void draw(const uint32_t *r, uint32_t prim, uint32_t count, uint32_t indexType,
   const bool edge = aspect::edge_hud();
   const bool content = aspect::content_clip();
   const uint64_t packGen = gx2::g_uniform_pack_gen;
-  const uint64_t seq = wwatch::write_seq();
+  const bool guestMem = vs && vs->dec && !vs->dec->list_remappedUniformEntries_bufferGroups.empty();
+  const uint64_t seq = guestMem ? wwatch::write_seq() : 0;
   VkViewport vp{};
   VkRect2D sc{};
   bool emptyDraw = false, offsetOn = false;
@@ -2541,7 +2543,8 @@ void draw(const uint32_t *r, uint32_t prim, uint32_t count, uint32_t indexType,
       recordMemo.clip == clipReg && recordMemo.poly == polyReg &&
       recordMemo.tl == tlReg && recordMemo.br == brReg && recordMemo.tile == tileReg && recordMemo.frag == fragReg &&
       recordMemo.bias0 == biasReg0 && recordMemo.bias1 == biasReg1 && recordMemo.bias2 == biasReg2 &&
-      recordMemo.packGen == packGen && recordMemo.seq == seq &&
+      recordMemo.packGen == packGen && recordMemo.guestMem == guestMem &&
+      (!guestMem || recordMemo.seq == seq) &&
       recordMemo.cover == cover && recordMemo.edge == edge && recordMemo.content == content &&
       std::memcmp(recordMemo.view, r + REGADDR::PA_CL_VPORT_XSCALE, sizeof recordMemo.view) == 0;
   if (recordHit) {
@@ -2616,6 +2619,7 @@ void draw(const uint32_t *r, uint32_t prim, uint32_t count, uint32_t indexType,
     recordMemo.bias1 = biasReg1;
     recordMemo.bias2 = biasReg2;
     recordMemo.packGen = packGen;
+    recordMemo.guestMem = guestMem;
     recordMemo.seq = seq;
     recordMemo.cover = cover;
     recordMemo.edge = edge;

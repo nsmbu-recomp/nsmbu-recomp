@@ -1857,9 +1857,9 @@ void swap() {
         LOG("[vulkan shader key verify] %llu pre-narrowing keys checked, %llu violations, %llu split; %.1f ms",
             (unsigned long long)ss.verifyChecks,(unsigned long long)ss.verifyViolations,
             (unsigned long long)ss.verifySplitKeys,ss.verifyNs/1e6);
-      LOG("[vulkan shader disk] hits %llu; memory reuses %llu; SPIR-V compiles %llu %.1f ms; decompile %.1f ms; loads %llu %.1f ms; saves %llu worker %.1f ms %.2f MiB; snapshots %.1f ms",
+      LOG("[vulkan shader disk] hits %llu; memory reuses %llu; SPIR-V compiles %llu %.1f ms; decompile %.1f ms; loads %llu %.1f ms render wait %.1f ms; saves %llu worker %.1f ms %.2f MiB; snapshots %.1f ms",
           (unsigned long long)ss.diskHits,(unsigned long long)ss.spirvReuseHits,(unsigned long long)ss.spirvCompiles,ss.spirvCompileNs/1e6,
-          ss.decompileNs/1e6,(unsigned long long)ss.diskLoads,ss.diskLoadNs/1e6,
+          ss.decompileNs/1e6,(unsigned long long)ss.diskLoads,ss.diskLoadNs/1e6,ss.diskLoadWaitNs/1e6,
           (unsigned long long)ss.diskSaves,ss.diskSaveNs/1e6,ss.diskSavedBytes/double(1<<20),ss.diskSnapshotNs/1e6);
       LOG("[vulkan pipelines] creates %llu total %.1f ms",
           (unsigned long long)R.pipelineCreates,R.pipelineCreateNs/1e6);
@@ -2404,6 +2404,7 @@ static void init_device(std::vector<const char *> extensions,
   if (R.renderPasses) init_pass_caches();
   vkGetDeviceQueue(R.device, R.queueFamily, 0, &R.queue);
   init_pipeline_cache();
+  vk::start_shader_cache_load();
   for (auto& slot:R.submissions) {
   VkCommandPoolCreateInfo pool{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
   pool.queueFamilyIndex = R.queueFamily;
