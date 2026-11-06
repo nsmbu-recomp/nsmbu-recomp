@@ -85,6 +85,18 @@ void log_ring_write(int fd, void (*out)(int, const char*, size_t)) {
     }
 }
 
+void log_ring_copy(std::vector<std::string>& out) {
+    std::lock_guard<std::mutex> lk(g_log_mutex);
+    uint32_t n = g_log_next.load();
+    uint32_t first = n > (uint32_t)kLogRing ? n - kLogRing : 0;
+    out.clear();
+    out.reserve(n - first);
+    for (uint32_t i = first; i < n; i++) {
+        const char* l = g_log_ring[i % kLogRing];
+        out.emplace_back(l, strnlen(l, kLogLine));
+    }
+}
+
 void fatal(const char* fmt, ...) {
     {
         std::lock_guard<std::mutex> lk(g_log_mutex);

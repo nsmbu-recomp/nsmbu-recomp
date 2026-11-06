@@ -32,7 +32,19 @@ type AgentResponse = {
     audio_buffered?: number;
     path?: string;
     output?: string;
+    overlay?: boolean;
+    tab?: string;
+    menu?: boolean;
+    cursor?: number;
+    buttons?: { index: number; name: string; selected: boolean; x0?: number; y0?: number; x1?: number; y1?: number }[];
+    power?: number;
+    power_name?: string;
+    actors?: { profile: number; x: number; y: number; z: number; vx: number; vy: number; vz: number }[];
+    lines?: string[];
+    paths?: string[];
 };
+
+export type { AgentResponse };
 
 export class AgentClient {
     private socket: net.Socket | null = null;

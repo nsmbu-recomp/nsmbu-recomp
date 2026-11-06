@@ -59,5 +59,22 @@ void scene_report(SceneReport& out);
 bool leave_course(std::string& err);
 bool load_story_course(int32_t world, int32_t course, std::string& err);
 bool open_course_select(std::string& err);
+bool open_place(const std::string& place, std::string& err);
+
+struct ActorRow {
+    uint32_t profile = 0;
+    float x = 0, y = 0, z = 0;
+    float vx = 0, vy = 0, vz = 0;
+};
+
+struct ActorProbe {
+    bool power_known = false;
+    int power = 0;
+    char power_name[16] = {};
+    int count = 0;
+    ActorRow rows[64];
+};
+
+bool probe_actors(int limit, float radius, ActorProbe& out, std::string& err);
 
 }

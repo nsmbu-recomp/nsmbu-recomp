@@ -14,6 +14,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- `nsmbu goto`, `ui`, `actors`, `log`, `picture`, and `restart` talk to the running game.
+  `goto` opens the title, the file select, the world map, or a course such as `1-1`.
+  `ui` prints the settings overlay and the world-map menu cursor.
+  `actors` prints the player power-up and nearby actors.
+  `log` prints recent log lines, with `--tag` for labels such as `menu` and `scene`.
+  `picture` prints how much a TV rectangle changes across a few frames.
+  `restart` rebuilds when the debug binary is older than the runtime sources and opens the same place again.
+  `nsmbu wait --cursor NAME` waits until that menu button is selected.
 - Settings → Graphics has **Async shader compile**, off by default.
   Turn it on and a new Vulkan shader compiles beside the frame.
   That draw is left out until the shader is ready, so a burst of new shaders does not freeze the picture.

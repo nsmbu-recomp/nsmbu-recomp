@@ -8,6 +8,7 @@ struct ImDrawData;
 namespace overlay {
 
 bool is_open();
+const char* settings_tab();
 bool wants_text_input();
 void set_open(bool open);
 

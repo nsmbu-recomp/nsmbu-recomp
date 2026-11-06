@@ -13,6 +13,8 @@ Run `nsmbu --help` for the command list.
 Read `docs/developer/automation.md` for playtests, course replay logs, run comparison (`nsmbu scenario` / `compare-runs`), `nsmbu scripted`, and boot recipes.
 Add a new boot recipe there when a command is worth running again.
 Read `docs/developer/cli.md` for install, build/launch, and the short live control commands.
+Live probes on the running game: `nsmbu goto`, `ui`, `actors`, `log`, `picture`, `restart`, and `wait --cursor`.
+Use those instead of scraping `nsmbu/logs/nsmbu.log` or the control socket.
 Read `docs/developer/env.md` when you add, rename, or read an `NSMBU_*` variable.
 Read `game/README.md` for dump folder layout.
 

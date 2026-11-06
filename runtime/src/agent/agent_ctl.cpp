@@ -33,10 +33,12 @@
 #include "gfx/vulkan/api.h"
 #endif
 #include "hooks/interp.h"
+#include "hooks/map_menu_settings.h"
 #include "mods/lua_eval.h"
 #include "mods/mod_json.h"
 #include "mods/sdk/nsmbu.h"
 #include "overlay/hostui.h"
+#include "overlay/overlay.h"
 #include "core/runtime.h"
 
 namespace agent_ctl {
@@ -72,18 +74,30 @@ struct ShotWait {
     std::chrono::steady_clock::time_point started;
     bool requested = false;
     bool drc = false;
+    int ahead = 2;
 };
 std::deque<ShotWait> g_shots;
+
+struct PictureWait {
+    int id = 0;
+    std::vector<std::string> paths;
+    std::vector<int> ahead;
+    std::chrono::steady_clock::time_point started;
+    bool requested = false;
+};
+std::deque<PictureWait> g_pictures;
 std::deque<std::string> g_out_lines;
 std::atomic<bool> g_quit{false};
 
-enum class GuestOp { Status, Eval, Leave };
+enum class GuestOp { Status, Eval, Leave, Goto, Ui, Actors };
 
 struct GuestJob {
     int id = 0;
     GuestOp op = GuestOp::Eval;
     std::string code;
     int timeout_ms = 5000;
+    int limit = 16;
+    float radius = 0;
 };
 std::deque<GuestJob> g_jobs;
 thread_local bool g_servicing = false;
@@ -177,6 +191,102 @@ std::string handle_status(int id) {
     return mods::json::dump(v);
 }
 
+std::string handle_ui(int id) {
+    mods::json::Value v;
+    v.type = mods::json::Value::Object;
+    v.object["id"] = id;
+    v.object["ok"] = true;
+    v.object["overlay"] = overlay::is_open();
+    const char* tab = overlay::settings_tab();
+    if (tab && tab[0]) v.object["tab"] = tab;
+    map_menu::MenuProbe menu;
+    map_menu::probe(menu);
+    v.object["menu"] = menu.open;
+    if (menu.open) v.object["cursor"] = menu.cursor;
+    mods::json::Value buttons;
+    buttons.type = mods::json::Value::Array;
+    for (int i = 0; i < menu.count; i++) {
+        const map_menu::ButtonProbe& b = menu.buttons[i];
+        mods::json::Value row;
+        row.type = mods::json::Value::Object;
+        row.object["index"] = b.index;
+        row.object["name"] = b.name;
+        row.object["selected"] = b.selected;
+        if (b.rect) {
+            row.object["x0"] = (double)b.x0;
+            row.object["y0"] = (double)b.y0;
+            row.object["x1"] = (double)b.x1;
+            row.object["y1"] = (double)b.y1;
+        }
+        buttons.array.push_back(std::move(row));
+    }
+    v.object["buttons"] = std::move(buttons);
+    return mods::json::dump(v);
+}
+
+std::string handle_actors(int id, int limit, float radius) {
+    mods::lua_sdk::ActorProbe probe;
+    std::string err;
+    if (!mods::lua_sdk::probe_actors(limit, radius, probe, err))
+        return response_err(id, err.empty() ? "actors failed" : err);
+    mods::json::Value v;
+    v.type = mods::json::Value::Object;
+    v.object["id"] = id;
+    v.object["ok"] = true;
+    if (probe.power_known) {
+        v.object["power"] = probe.power;
+        if (probe.power_name[0]) v.object["power_name"] = probe.power_name;
+    }
+    mods::json::Value rows;
+    rows.type = mods::json::Value::Array;
+    for (int i = 0; i < probe.count; i++) {
+        const mods::lua_sdk::ActorRow& a = probe.rows[i];
+        mods::json::Value row;
+        row.type = mods::json::Value::Object;
+        row.object["profile"] = (double)a.profile;
+        row.object["x"] = (double)a.x;
+        row.object["y"] = (double)a.y;
+        row.object["z"] = (double)a.z;
+        row.object["vx"] = (double)a.vx;
+        row.object["vy"] = (double)a.vy;
+        row.object["vz"] = (double)a.vz;
+        rows.array.push_back(std::move(row));
+    }
+    v.object["actors"] = std::move(rows);
+    return mods::json::dump(v);
+}
+
+std::string handle_log(int id, const std::string& tag) {
+    std::vector<std::string> lines;
+    log_ring_copy(lines);
+    std::vector<std::string> tags;
+    std::string cur;
+    for (size_t i = 0; i <= tag.size(); i++) {
+        if (i == tag.size() || tag[i] == ',') {
+            if (!cur.empty()) tags.push_back("[" + cur + "]");
+            cur.clear();
+        } else if (tag[i] != ' ')
+            cur.push_back(tag[i]);
+    }
+    mods::json::Value v;
+    v.type = mods::json::Value::Object;
+    v.object["id"] = id;
+    v.object["ok"] = true;
+    mods::json::Value out;
+    out.type = mods::json::Value::Array;
+    for (const std::string& line : lines) {
+        if (!tags.empty()) {
+            bool hit = false;
+            for (const std::string& t : tags)
+                if (line.find(t) != std::string::npos) hit = true;
+            if (!hit) continue;
+        }
+        out.array.push_back(line);
+    }
+    v.object["lines"] = std::move(out);
+    return mods::json::dump(v);
+}
+
 void apply_press(uint32_t bits, int frames, bool tap) {
     std::lock_guard<std::mutex> lk(g_mu);
     g_pad.buttons = bits;
@@ -251,12 +361,73 @@ void handle_request(const mods::json::Value& req) {
         }
         const bool drc = req.get("drc").type == mods::json::Value::Bool ? req.get("drc").boolean
                          : req.get("drc").type == mods::json::Value::Number && req.get("drc").number != 0;
+        int ahead = 2;
+        if (req.get("ahead").type == mods::json::Value::Number) ahead = int(req.get("ahead").number);
+        if (ahead < 0) ahead = 0;
         std::error_code ec;
         std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
         {
             std::lock_guard<std::mutex> lk(g_mu);
-            g_shots.push_back(ShotWait{id, path, std::chrono::steady_clock::now(), false, drc});
+            g_shots.push_back(ShotWait{id, path, std::chrono::steady_clock::now(), false, drc, ahead});
         }
+        return;
+    }
+    if (cmd == "picture") {
+        const auto& paths = req.get("paths");
+        if (paths.type != mods::json::Value::Array || paths.array.empty() || paths.array.size() > 8) {
+            queue_line(response_err(id, "missing paths"));
+            return;
+        }
+        PictureWait wait;
+        wait.id = id;
+        wait.started = std::chrono::steady_clock::now();
+        const auto& aheads = req.get("ahead");
+        for (size_t i = 0; i < paths.array.size(); i++) {
+            if (paths.array[i].type != mods::json::Value::String || paths.array[i].text.empty()) {
+                queue_line(response_err(id, "missing paths"));
+                return;
+            }
+            std::error_code ec;
+            std::filesystem::create_directories(std::filesystem::path(paths.array[i].text).parent_path(), ec);
+            wait.paths.push_back(paths.array[i].text);
+            int ahead = 2 + int(i);
+            if (aheads.type == mods::json::Value::Array && i < aheads.array.size() &&
+                aheads.array[i].type == mods::json::Value::Number)
+                ahead = int(aheads.array[i].number);
+            if (ahead < 0) ahead = 0;
+            wait.ahead.push_back(ahead);
+        }
+        std::lock_guard<std::mutex> lk(g_mu);
+        g_pictures.push_back(std::move(wait));
+        return;
+    }
+    if (cmd == "log") {
+        queue_line(handle_log(id, req.get("tag").string()));
+        return;
+    }
+    if (cmd == "goto") {
+        const std::string place = req.get("place").string();
+        if (place.empty()) {
+            queue_line(response_err(id, "missing place"));
+            return;
+        }
+        std::lock_guard<std::mutex> lk(g_mu);
+        g_jobs.push_back(GuestJob{id, GuestOp::Goto, place, 0});
+        return;
+    }
+    if (cmd == "ui") {
+        std::lock_guard<std::mutex> lk(g_mu);
+        g_jobs.push_back(GuestJob{id, GuestOp::Ui, {}, 0});
+        return;
+    }
+    if (cmd == "actors") {
+        GuestJob job;
+        job.id = id;
+        job.op = GuestOp::Actors;
+        if (req.get("limit").type == mods::json::Value::Number) job.limit = int(req.get("limit").number);
+        if (req.get("radius").type == mods::json::Value::Number) job.radius = float(req.get("radius").number);
+        std::lock_guard<std::mutex> lk(g_mu);
+        g_jobs.push_back(std::move(job));
         return;
     }
     if (cmd == "eval") {
@@ -465,27 +636,40 @@ void service() {
         std::_Exit(0);
 #endif
     }
-    std::vector<std::tuple<int, std::string, bool>> to_request;
+    std::vector<std::tuple<int, std::string, bool, int>> to_request;
+    std::vector<PictureWait> pictures;
     {
         std::lock_guard<std::mutex> lk(g_mu);
         for (auto& s : g_shots)
             if (!s.requested) {
                 s.requested = true;
-                to_request.emplace_back(s.id, s.path, s.drc);
+                to_request.emplace_back(s.id, s.path, s.drc, s.ahead);
+            }
+        for (auto& p : g_pictures)
+            if (!p.requested) {
+                p.requested = true;
+                pictures.push_back(p);
             }
     }
     for (const auto& shot : to_request) {
-        const int id = std::get<0>(shot);
-        const std::string& path = std::get<1>(shot);
+        const std::string path = std::get<1>(shot);
         const bool drc = std::get<2>(shot);
-        hostui::post([path, drc] {
+        const int ahead = std::get<3>(shot);
+        hostui::post([path, drc, ahead] {
 #ifdef NSMBU_VULKAN
-            if (drc) gfxvk::request_drc_dump(path, 0);
+            if (drc) gfxvk::request_drc_dump(path, ahead);
             else
 #endif
-                render::request_tv_dump(path, 2);
+                render::request_tv_dump(path, ahead);
         });
-        (void)id;
+    }
+    for (const auto& picture : pictures) {
+        const std::vector<std::string> paths = picture.paths;
+        const std::vector<int> ahead = picture.ahead;
+        hostui::post([paths, ahead] {
+            for (size_t i = 0; i < paths.size() && i < ahead.size(); i++)
+                render::request_tv_dump(paths[i], ahead[i]);
+        });
     }
     constexpr auto kTimeout = std::chrono::seconds(30);
     {
@@ -506,6 +690,33 @@ void service() {
             } else
                 ++it;
         }
+        for (auto it = g_pictures.begin(); it != g_pictures.end();) {
+            if (!it->requested) {
+                ++it;
+                continue;
+            }
+            std::error_code ec;
+            bool ready = true;
+            for (const std::string& path : it->paths) {
+                if (!std::filesystem::exists(path, ec)) ready = false;
+            }
+            if (ready) {
+                mods::json::Value v;
+                v.type = mods::json::Value::Object;
+                v.object["id"] = it->id;
+                v.object["ok"] = true;
+                mods::json::Value paths;
+                paths.type = mods::json::Value::Array;
+                for (const std::string& path : it->paths) paths.array.push_back(path);
+                v.object["paths"] = std::move(paths);
+                g_out_lines.push_back(mods::json::dump(v));
+                it = g_pictures.erase(it);
+            } else if (std::chrono::steady_clock::now() - it->started > kTimeout) {
+                g_out_lines.push_back(response_err(it->id, "picture timeout"));
+                it = g_pictures.erase(it);
+            } else
+                ++it;
+        }
     }
 #ifndef _WIN32
     flush_writes();
@@ -514,24 +725,19 @@ void service() {
 
 namespace {
 
-bool take_job(GuestJob& job, bool status_only) {
+bool observable(GuestOp op) {
+    return op == GuestOp::Status || op == GuestOp::Ui || op == GuestOp::Actors;
+}
+
+bool take_job(GuestJob& job, bool observe_only) {
     std::lock_guard<std::mutex> lk(g_mu);
-        if (status_only) {
-        for (auto it = g_jobs.begin(); it != g_jobs.end(); ++it) {
-            if (it->op != GuestOp::Status) continue;
-            job = std::move(*it);
-            g_jobs.erase(it);
-            return true;
-        }
-        return false;
-    }
-    if (g_jobs.empty()) return false;
     for (auto it = g_jobs.begin(); it != g_jobs.end(); ++it) {
-        if (it->op != GuestOp::Status) continue;
+        if (!observable(it->op)) continue;
         job = std::move(*it);
         g_jobs.erase(it);
         return true;
     }
+    if (observe_only || g_jobs.empty()) return false;
     job = std::move(g_jobs.front());
     g_jobs.pop_front();
     return true;
@@ -565,6 +771,15 @@ void run_leave(const GuestJob& job) {
     queue_line(response_ok(job.id));
 }
 
+void run_goto(const GuestJob& job) {
+    std::string err;
+    if (!mods::lua_sdk::open_place(job.code, err)) {
+        queue_line(response_err(job.id, err.empty() ? "goto failed" : err));
+        return;
+    }
+    queue_line(response_ok(job.id));
+}
+
 }
 
 void guest_service() {
@@ -575,8 +790,14 @@ void guest_service() {
         if (!take_job(job, false)) return;
         if (job.op == GuestOp::Status)
             queue_line(handle_status(job.id));
+        else if (job.op == GuestOp::Ui)
+            queue_line(handle_ui(job.id));
+        else if (job.op == GuestOp::Actors)
+            queue_line(handle_actors(job.id, job.limit, job.radius));
         else if (job.op == GuestOp::Leave)
             run_leave(job);
+        else if (job.op == GuestOp::Goto)
+            run_goto(job);
         else
             run_eval(job);
     }
@@ -588,7 +809,12 @@ void guest_observe() {
     for (;;) {
         GuestJob job;
         if (!take_job(job, true)) return;
-        queue_line(handle_status(job.id));
+        if (job.op == GuestOp::Ui)
+            queue_line(handle_ui(job.id));
+        else if (job.op == GuestOp::Actors)
+            queue_line(handle_actors(job.id, job.limit, job.radius));
+        else
+            queue_line(handle_status(job.id));
     }
 }
 

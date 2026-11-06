@@ -85,6 +85,7 @@ using clock = std::chrono::steady_clock;
 double now_s() { return std::chrono::duration<double>(clock::now().time_since_epoch()).count(); }
 
 std::atomic<bool> g_open{false};
+std::atomic<int> g_tab_pub{0};
 std::atomic<bool> g_perf{false};
 std::atomic<bool> g_perf_timing{false};
 std::atomic<bool> g_perf_presentation{false};
@@ -2160,6 +2161,7 @@ void settings_tab_button(int i) {
         g_capturing_keys = false;
         U.cap_note.clear();
         U.tab = i;
+        g_tab_pub.store(i, std::memory_order_relaxed);
     }
 }
 #endif
@@ -2201,6 +2203,7 @@ void settings_window() {
             g_capturing_keys = false;
             U.cap_note.clear();
             U.tab = U.select_tab;
+            g_tab_pub.store(U.tab, std::memory_order_relaxed);
         }
         U.select_tab = -1;
         for (int i = 0; i < kTabs; i++) settings_tab_button(i);
@@ -2225,6 +2228,7 @@ void settings_window() {
                 if (ImGui::BeginTabItem(kTabNames[i], nullptr, f)) {
                     if (U.tab != i) U.cap_action = -1, g_capturing_keys = false, U.cap_note.clear();
                     U.tab = i;
+                    g_tab_pub.store(i, std::memory_order_relaxed);
                     ImGui::BeginChild("page", ImVec2(0, 0), ImGuiChildFlags_NavFlattened);
                     switch (i) {
                     case kControls: tab_controls(); break;
@@ -2259,6 +2263,11 @@ void settings_window() {
 }
 
 bool is_open() { return g_open.load(std::memory_order_relaxed); }
+const char* settings_tab() {
+    const int tab = g_tab_pub.load(std::memory_order_relaxed);
+    if (tab < 0 || tab >= kTabs) return "";
+    return kTabIds[tab];
+}
 bool wants_text_input() {
     if (!is_open() || !ImGui::GetCurrentContext()) return false;
     return ImGui::GetIO().WantTextInput;
@@ -2417,7 +2426,11 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
     }
     if (!test.done && render::frame_count() + 1 >= test.at) {
         test.done = true;
-        if (test.tab >= 0) U.select_tab = U.tab = test.tab;
+        if (test.tab >= 0) {
+            U.select_tab = test.tab;
+            U.tab = test.tab;
+            g_tab_pub.store(test.tab, std::memory_order_relaxed);
+        }
         if (test.open) set_open(true);
         if (test.perf) g_perf = true;
         LOG("[overlay] test switch: %s", env::TEST_OVERLAY());

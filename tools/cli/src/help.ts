@@ -33,6 +33,12 @@ Agent control (single game instance):
   nsmbu stick <x> <y> [--frames N]
   nsmbu rstick <x> <y> [--frames N]
   nsmbu screenshot [path]
-  nsmbu wait --frame N | --step N | --scene NAME [--timeout SEC]
+  nsmbu wait --frame N | --step N | --scene NAME | --cursor NAME [--timeout SEC]
+  nsmbu goto <title|file|map|W-C> [--timeout SEC]
+  nsmbu ui
+  nsmbu actors [--limit N] [--radius N]
+  nsmbu log [--tag a,b] [--lines N]
+  nsmbu picture [--frames N] [--rect x,y,w,h]
+  nsmbu restart
   nsmbu quit | close
 `;

@@ -19,13 +19,19 @@ import {
     cmdWine,
 } from "../src/dev.ts";
 import {
+    cmdActors,
+    cmdGoto,
     cmdLeave,
+    cmdLog,
     cmdOpen,
+    cmdPicture,
     cmdPress,
     cmdQuit,
+    cmdRestart,
     cmdScreenshot,
     cmdStatus,
     cmdStick,
+    cmdUi,
     cmdWait,
 } from "../src/agent/commands.ts";
 import { cmdCompletion } from "../src/completion.ts";
@@ -174,6 +180,24 @@ async function main(): Promise<void> {
                 break;
             case "wait":
                 await cmdWait(repo, rest);
+                break;
+            case "goto":
+                await cmdGoto(repo, rest);
+                break;
+            case "ui":
+                await cmdUi(repo);
+                break;
+            case "actors":
+                await cmdActors(repo, rest);
+                break;
+            case "log":
+                await cmdLog(repo, rest);
+                break;
+            case "picture":
+                await cmdPicture(repo, rest);
+                break;
+            case "restart":
+                await cmdRestart(repo);
                 break;
             case "quit":
             case "close":

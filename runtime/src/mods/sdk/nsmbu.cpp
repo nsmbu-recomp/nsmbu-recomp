@@ -8,7 +8,9 @@
 #include "input/input.h"
 #include "core/runtime.h"
 #include "gfx/renderer.h"
+#include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -2951,6 +2953,147 @@ bool load_story_course(int32_t world, int32_t course, std::string& err) {
 
 bool open_course_select(std::string& err) {
     return scene_transition(kCreatorCourseSelect, 0x000A000Au, err);
+}
+
+bool open_title(std::string& err) {
+    return scene_transition(kCreatorTitle, 0, err);
+}
+
+bool open_file_select(std::string& err) {
+    if (!t_guest_cpu) {
+        err = "no guest cpu";
+        return false;
+    }
+    if (!scene_change_open(err)) return false;
+    uint32_t menu = 0;
+    if (!scene_menu_object(menu, err)) return false;
+    if (!menu_state_ready(menu, err)) return false;
+    uint32_t mgr = 0;
+    if (!lua_guest::read_u32(kSubjectMgr, mgr, err)) return false;
+    if (mgr == 0) {
+        err = "file not ready";
+        return false;
+    }
+    if (guest_call(t_guest_cpu, kSubjectSelectFile, {mgr, 0}) == 0) {
+        err = "file not ready";
+        return false;
+    }
+    guest_call(t_guest_cpu, kAppEnterFileState, {menu});
+    return true;
+}
+
+bool open_first_save(uint32_t file, std::string& err) {
+    if (!t_guest_cpu) {
+        err = "no guest cpu";
+        return false;
+    }
+    if (!apply_save_file(file, 0, 0, false, err)) return false;
+    uint32_t src = 0;
+    if (!continue_source(src, err)) return false;
+    guest_call(t_guest_cpu, kOpenFirstSave, {src});
+    return true;
+}
+
+bool open_place(const std::string& place, std::string& err) {
+    if (place == "title") return open_title(err);
+    if (place == "file" || place == "fileselect") return open_file_select(err);
+    if (place == "map" || place == "courseselect") return open_first_save(0, err);
+    int32_t world = 0;
+    int32_t course = 0;
+    if (!parse_course_pack(place.c_str(), place.size(), world, course)) {
+        err = "unknown place";
+        return false;
+    }
+    return scene_load_story_transition(world, course, err);
+}
+
+const char* player_mode_name(int mode) {
+    switch (mode) {
+    case 0: return "small";
+    case 1: return "normal";
+    case 2: return "fire";
+    case 3: return "mini";
+    case 4: return "propeller";
+    case 5: return "penguin";
+    case 6: return "ice";
+    case 7: return "squirrel";
+    case 8: return "p-squirrel";
+    default: return "";
+    }
+}
+
+bool probe_actors(int limit, float radius, ActorProbe& out, std::string& err) {
+    out = {};
+    if (limit < 1) limit = 1;
+    if (limit > 64) limit = 64;
+    std::string local;
+    bool entered = false;
+    if (player_entered(0, entered, local) && entered) {
+        uint32_t slot = 0;
+        int32_t mode = 0;
+        if (slot_addr(0, slot, local) && lua_guest::read_s32(slot + kModeOff, mode, local)) {
+            out.power_known = true;
+            out.power = mode;
+            const char* name = player_mode_name(mode);
+            if (name[0]) std::snprintf(out.power_name, sizeof out.power_name, "%s", name);
+        }
+    }
+    float px = 0, py = 0, pz = 0;
+    bool have = false;
+    uint32_t player = 0;
+    if (entered && actor_addr(0, player, local) && read_vec3(player, kPosX, kPosY, kPosZ, px, py, pz, local))
+        have = true;
+    uint32_t begin = 0, end = 0;
+    if (!live_actor_range(begin, end, err)) {
+        if (!out.power_known) return false;
+        err.clear();
+        return true;
+    }
+    struct Cand {
+        ActorRow row;
+        float dist;
+    };
+    Cand cand[520];
+    int n = 0;
+    for (uint32_t slot = begin; slot < end && n < 520; slot += kActorIdxToPtr) {
+        uint32_t actor = 0;
+        local.clear();
+        if (!lua_guest::read_u32(slot, actor, local) || actor == 0 || actor == player) continue;
+        if (!guest_ok(actor, kActorVptr + 4, local)) continue;
+        bool is_actor_value = false;
+        if (!actor_is_actor(actor, is_actor_value, local) || !is_actor_value) continue;
+        uint32_t profile = 0;
+        float x = 0, y = 0, z = 0, vx = 0, vy = 0, vz = 0;
+        if (!actor_profile_id(actor, profile, local)) continue;
+        if (!read_vec3(actor, kPosX, kPosY, kPosZ, x, y, z, local)) continue;
+        local.clear();
+        if (!read_vec3(actor, kSpeedX, kSpeedY, kSpeedZ, vx, vy, vz, local)) {
+            vx = vy = vz = 0;
+        }
+        float dist = 0;
+        if (have) {
+            const float dx = x - px, dy = y - py, dz = z - pz;
+            dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+            if (radius > 0.f && dist > radius) continue;
+        }
+        cand[n].row.profile = profile;
+        cand[n].row.x = x;
+        cand[n].row.y = y;
+        cand[n].row.z = z;
+        cand[n].row.vx = vx;
+        cand[n].row.vy = vy;
+        cand[n].row.vz = vz;
+        cand[n].dist = dist;
+        n++;
+    }
+    if (have) {
+        std::sort(cand, cand + n, [](const Cand& a, const Cand& b) { return a.dist < b.dist; });
+    }
+    if (n > limit) n = limit;
+    out.count = n;
+    for (int i = 0; i < n; i++) out.rows[i] = cand[i].row;
+    err.clear();
+    return true;
 }
 
 }

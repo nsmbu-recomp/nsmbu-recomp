@@ -135,8 +135,7 @@ void log_msg(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 
 void log_set_sink(void (*sink)(const char*, size_t));
 void log_ring_write(int fd, void (*out)(int, const char*, size_t));
-
-void log_ring_write(int fd, void (*out)(int, const char*, size_t));
+void log_ring_copy(std::vector<std::string>& out);
 #define TRACE(...) do { if (g_trace_hle) log_msg(__VA_ARGS__); } while (0)
 
 namespace config {
