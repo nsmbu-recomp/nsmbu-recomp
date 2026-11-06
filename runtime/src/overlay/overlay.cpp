@@ -67,6 +67,7 @@ namespace gfxvk { bool buffer_cache_enabled(); }
 #include "hooks/interp_pacing.h"
 #include "hooks/collision_wireframe.h"
 #include "hooks/course_hot_reload.h"
+#include "hooks/map_menu_settings.h"
 #include "core/runtime.h"
 #include "save/savestate.h"
 #include "save/save_preview.h"
@@ -2352,11 +2353,13 @@ bool key(int code, bool down, bool repeat, int mods) {
     return true;
 }
 bool mouse_move(float nx, float ny, bool touch) {
-    if (!captures() || g_no_host) return false;
+    const bool tile = map_menu::pointer(nx, ny);
+    if (!captures() || g_no_host) return tile;
     push({Event::MousePos, 0, false, nx, ny, 0, touch});
     return true;
 }
 bool mouse_button(int button, bool down, bool touch) {
+    if (button == 0 && down && map_menu::click()) return true;
     if (!captures() || g_no_host) return false;
     push({Event::MouseButton, button, down, 0, 0, 0, touch});
     return true;
@@ -2486,15 +2489,18 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
     g_average.sample(t, gx2::flips_presented(), logic_steps, int(render::active()),
                      interp::mode(), interp::fps(), hostui::res_scale());
     read_controller();
+    if (map_menu::take_open()) set_open(true);
 
     const bool open = is_open(), perf = perf_overlay_active(), text = !open && text_entry::active();
     const bool coll = collision_wireframe::enabled();
     const bool gui = mods::lua_gui::active();
+    map_menu::prepare(pw, ph, open);
+    const bool menu_tile = map_menu::visible();
     perf::set_demand(perf, open && U.tab == kGraphics);
 
     const std::string toast = open ? std::string() : ss::last_message();
     U.linearized = false;
-    if (!open && !perf && !text && toast.empty() && !coll && !gui) {
+    if (!open && !perf && !text && toast.empty() && !coll && !gui && !menu_tile) {
         if (U.init) {
             std::lock_guard<std::mutex> lk(g_mu);
             g_events.clear();
@@ -2569,6 +2575,7 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
         }
     }
     if (perf) perf_window(open);
+    if (menu_tile) map_menu::draw();
     if (coll || gui) {
         ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), ImVec2(1, 1), IM_COL32(0, 0, 0, 1));
         if (coll) collision_wireframe::draw(ImGui::GetForegroundDrawList(), io.DisplaySize.x, io.DisplaySize.y);

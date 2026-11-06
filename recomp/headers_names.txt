@@ -2085,6 +2085,9 @@
 02585B90 CommonWindow::~CommonWindow
 02586CF4 CommonWindow::cursorIsOnLeftButton
 02586D28 CommonWindow::cursorIsOnRightButton
+025A4218 CourseSelectMenu::~CourseSelectMenu
+025A42CC CourseSelectMenu::create
+025A4B98 CourseSelectMenu::execute
 025D8EDC GamesceneBase::setCoinNumText
 025DA288 GamesceneBase::registerActor
 025F8024 PaCursor::PaCursor

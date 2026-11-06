@@ -22,6 +22,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   `picture` prints how much a TV rectangle changes across a few frames.
   `restart` rebuilds when the debug binary is older than the runtime sources and opens the same place again.
   `nsmbu wait --cursor NAME` waits until that menu button is selected.
+- The world-map start menu has a Settings button under Change Controller.
+  It uses the same menu button as the other five.
+  Quick Save and Main Menu move into the left and middle columns, so the menu is two rows of three.
+  The button opens the settings overlay.
+  It fades and grows with the other buttons when the menu opens and closes.
+  On a controller, move down from Change Controller, or right from Main Menu.
+  Up returns to Change Controller, and left returns to Main Menu.
+  Down from Number of Players selects Main Menu, and up returns to Number of Players.
+  Up from Quick Save selects Star Coins.
+  Change Controller keeps its own cursor, so Switch to GamePad stays selected.
+  Down from Quick Save or Main Menu selects the button guide.
+  Up from the guide returns to that button.
 - Settings → Graphics has **Async shader compile**, off by default.
   Turn it on and a new Vulkan shader compiles beside the frame.
   That draw is left out until the shader is ready, so a burst of new shaders does not freeze the picture.

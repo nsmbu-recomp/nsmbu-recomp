@@ -78,3 +78,10 @@
 @02631BE4  # file-select completion byte, quick path (slot builder 0x02631B50)
 @0263ADD8  # file-select completion byte, quick path (slot builder 0x0263AD40)
 @02641A4C  # file-select completion byte, quick path (slot builder 0x02641974)
+@026730C4  # layout build: add a native Settings button to the world-map start menu
+@02AB7040  # anim parse: give the Settings button the same open and close curves
+@02682674  # cursor hit refresh: keep Settings in the right column
+025A4218  # CourseSelectMenu destructor: drop the settings button
+025A42CC  # CourseSelectMenu::create: move Quick Save and Main Menu into the left and middle columns
+025A4B98  # CourseSelectMenu::execute: keep that grid and open settings from the new button
+@025A4C5C  # CourseSelectMenu::execute: place the cursor before it animates
