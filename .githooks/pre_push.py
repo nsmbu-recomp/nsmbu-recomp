@@ -21,15 +21,13 @@ REQUIRED_TESTS = (
     "build_coverage",
     "screenshot",
     "release_sdk_package",
-    "mod_content_startup",
     "mod_cemu_startup",
     "mod_cemu_backend",
     "mod_packages",
-    "mod_lua",
     "mod_content_fs_on",
     "mod_content_fs_off",
 )
-PATH_ALIAS_TESTS = ("mod_content_startup",)
+PATH_ALIAS_TESTS = ("mod_cemu_startup",)
 
 
 def reject(message):

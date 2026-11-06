@@ -21,36 +21,8 @@ def ensure(root):
     return user, save
 
 
-def sync_example_mods(root):
-    if os.environ.get("NSMBU_MOD_MANAGER_DIR"):
-        return
-    if os.environ.get("NSMBU_NO_EXAMPLE_MODS") == "1":
-        return
-    src_root = os.path.join(root, "modding", "examples")
-    if not os.path.isdir(src_root):
-        return
-    mods_dir = os.path.join(root, USER_NAME, "mods")
-    if os.path.islink(mods_dir):
-        os.unlink(mods_dir)
-    os.makedirs(mods_dir, exist_ok=True)
-    link_example_mods(src_root, mods_dir)
-
-
-def link_example_mods(src_root, mods_dir):
-    for name in sorted(os.listdir(src_root)):
-        src = os.path.join(src_root, name)
-        manifest_path = os.path.join(src, "manifest.json")
-        if not os.path.isdir(src) or not os.path.isfile(manifest_path):
-            continue
-        dest = os.path.join(mods_dir, name)
-        target = os.path.relpath(src, mods_dir)
-        if os.path.islink(dest):
-            if os.readlink(dest) == target:
-                continue
-            os.unlink(dest)
-        elif os.path.exists(dest):
-            continue
-        os.symlink(target, dest)
+def sync_example_mods(_root):
+    return
 
 
 def apply_env(env, root):
