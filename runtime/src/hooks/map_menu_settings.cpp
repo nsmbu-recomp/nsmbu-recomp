@@ -1,6 +1,7 @@
 #include "hooks/map_menu_settings.h"
 
 #include "core/runtime.h"
+#include "guest_addr.h"
 #include "overlay/game_rect.h"
 #include "overlay/overlay.h"
 
@@ -660,7 +661,7 @@ static void install_settings_button(Cpu* c, uint32_t layout) {
         restore_build_regs(c, saved, resource);
         return;
     }
-    const uint32_t neu = guest_call(c, 0x029F1594u, {(uint32_t)file.size()});
+    const uint32_t neu = guest_call(c, GC(0x029F1594u), {(uint32_t)file.size()});
     if (!guest_obj(neu)) {
         restore_build_regs(c, saved, resource);
         return;
@@ -703,7 +704,7 @@ static void install_settings_anim(Cpu* c) {
     std::vector<uint8_t> file(bytes);
     std::memcpy(file.data(), src, bytes);
     if (!patch_menu_flan(file)) return;
-    const uint32_t neu = guest_call(c, 0x029F1594u, {(uint32_t)file.size()});
+    const uint32_t neu = guest_call(c, GC(0x029F1594u), {(uint32_t)file.size()});
     if (!guest_obj(neu)) {
         restore_build_regs(c, saved, resource);
         return;
@@ -724,14 +725,14 @@ static void bind_settings(Cpu* c, uint32_t self) {
     static uint32_t name_ea = 0;
     static uint32_t safe_ea = 0;
     if (!name_ea) {
-        name_ea = guest_call(c, 0x029F1594u, {16});
-        safe_ea = guest_call(c, 0x029F1594u, {8});
+        name_ea = guest_call(c, GC(0x029F1594u), {16});
+        safe_ea = guest_call(c, GC(0x029F1594u), {8});
         if (!guest_obj(name_ea) || !guest_obj(safe_ea)) return;
         std::memcpy(mem::ptr(name_ea), "Pa_SetBtn_00", 13);
         st32(safe_ea, name_ea);
-        st32(safe_ea + 4, 0x100CED94u);
+        st32(safe_ea + 4, GD(0x100CED94u));
     }
-    g_settings = guest_call(c, 0x0267273Cu, {self + 0x28, safe_ea});
+    g_settings = guest_call(c, GC(0x0267273Cu), {self + 0x28, safe_ea});
     if (g_settings) LOG("[menu] settings button pane %08X", g_settings);
 }
 

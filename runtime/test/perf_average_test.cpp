@@ -35,9 +35,9 @@ int main() {
     h.reset();
     for (int i = 0; i < 119; ++i) h.push(1.0 + i * 0.001, 16.0f, 1);
     h.push(2.0, 50.0f, 1);
-    assert(h.line_ms(118) > 49.0f);
+    assert(h.line_ms(119) > 49.0f);
     h.push(2.001, 16.0f, 1);
-    assert(h.line_ms(117) > 49.0f && h.line_ms(118) < 20.0f);
+    assert(h.line_ms(118) > 49.0f && h.line_ms(119) < 20.0f);
     a.reset();
     assert(!a.started);
     auto root = std::filesystem::temp_directory_path() / "nsmbu-telemetry-test";
