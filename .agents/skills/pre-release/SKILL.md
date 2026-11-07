@@ -33,7 +33,7 @@ The `release` skill commits and pushes that changelog, tags `main`, and watches 
    List anything still broken.
    The person reviews this diff.
    The `release` skill commits and pushes the changelog on `main`.
-   That push runs `.githooks/pre_push.py` (`ctest` and `python3 -m unittest discover -s tests/py -p "test_*.py"`).
+   That push runs `.githooks/pre_push.py` (`ctest`, `python3 -m unittest discover -s tests/py -p "test_*.py"`, and `npm test --prefix tools/cli`).
    Linux does not compile the macOS or Windows package jobs.
    Those failures show up later in `gh run view <id> --log-failed`.
 

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Enable once per clone: git config core.hooksPath .githooks
+cd "$(dirname "$0")/.." || exit 1
+exec python3 .githooks/pre_push.py "$@"

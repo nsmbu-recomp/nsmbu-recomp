@@ -24,7 +24,7 @@ Stop without retagging only when the user asks to watch or report.
    When `main` has diverged from `origin/main`, stop and report that.
    When `CHANGELOG.md` has local changes and every other path is clean, commit that file and push `main`.
    The commit message is `Note X.Y.Z.`
-   The push runs `.git-hooks/pre_push.py`.
+   The push runs `.githooks/pre_push.py`.
    When that hook fails, fix the failure and make a new commit.
    When any other path is modified, or `## [X.Y.Z]` is absent from `CHANGELOG.md` on `HEAD` after that push, stop and name the `pre-release` skill.
    Done when `HEAD` equals `origin/main` and that commit contains `## [X.Y.Z]`.

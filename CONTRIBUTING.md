@@ -20,6 +20,10 @@ Two checks enforce this:
 git config core.hooksPath .githooks
 ```
 
+That setting also runs `.githooks/pre_push.py` before each push.
+The script builds the commit you push.
+It then runs `ctest`, the Python unit tests, and `npm test --prefix tools/cli`.
+
 Install Node 24 or newer, CMake 3.20 or newer, Python 3, and Clang.
 Link the developer CLI once: `cd tools/cli && npm link`.
 After that, every command is the global `nsmbu` on `PATH`.

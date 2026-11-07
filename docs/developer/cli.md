@@ -164,7 +164,10 @@ Linux CI also runs the Python tests after that `ctest`.
 python3 -m unittest discover -s tests/py -p "test_*.py"
 ```
 
-`.githooks/pre_push.py` runs a full local `ctest` before a push.
+`.githooks/pre_push.py` runs before a push when `core.hooksPath` is `.githooks`.
+The script builds the commit you push.
+It then runs `ctest`, `python3 -m unittest discover -s tests/py -p "test_*.py"`, and `npm test --prefix tools/cli`.
+
 Profiling follows [performance.md](performance.md).
 
 ## Local userdata
