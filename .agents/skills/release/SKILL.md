@@ -22,7 +22,7 @@ Stop without retagging only when the user asks to watch or report.
    The changelog heading already on `main` is `## [0.4.0] - YYYY-MM-DD`.
 2. Check out `main` and fast-forward (`git pull --ff-only`).
    When `main` has diverged from `origin/main`, stop and report that.
-   When `CHANGELOG.md` or `modding/examples/CHANGELOG.md` has local changes and every other path is clean, commit those changelog files and push `main`.
+   When `CHANGELOG.md` has local changes and every other path is clean, commit that file and push `main`.
    The commit message is `Note X.Y.Z.`
    The push runs `.git-hooks/pre_push.py`.
    When that hook fails, fix the failure and make a new commit.

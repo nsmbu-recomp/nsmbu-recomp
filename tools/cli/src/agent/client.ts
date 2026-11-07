@@ -27,6 +27,7 @@ type AgentResponse = {
     map_lock?: number;
     map_title?: number;
     map_players?: number;
+    banner?: string;
     player?: { x: number; y: number; z: number } | null;
     sound_ready?: boolean;
     audio_buffered?: number;

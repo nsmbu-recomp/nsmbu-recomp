@@ -86,14 +86,10 @@ Several variants run in `linux.yml`: default barriers, sync negative control, co
 
 Logs must contain `[renderer smoke] PASS:` and must not show validation errors (exact greps are in the workflow).
 
-### Mod and CLI lint
+### CLI typecheck
 
-```bash
-nsmbu lint
-```
-
-Builds modding TypeScript→Lua and runs stylua on examples.
-`docs/developer/cli.md` mentions `tsc --noEmit` for the CLI itself; that is not wired into the `verify` skill or CI as a single mandatory agent step.
+`docs/developer/cli.md` mentions `tsc --noEmit` for the CLI itself.
+That is not wired into the `verify` skill or CI as a single mandatory agent step.
 
 ### Scripted run comparison
 
@@ -192,7 +188,7 @@ Not a pass/fail regression harness like `nsmbu test`.
 
 | Situation | Command |
 | --- | --- |
-| Runtime-only C++ / Lua port | `nsmbu build` |
+| Runtime-only C++ change | `nsmbu build` |
 | Hooks / recomp / version switch | `nsmbu game <id> --recomp` then `nsmbu build` |
 | Interp pose / camera | `interp_picture_test` (ctest) plus env flow in `docs/developer/env.md`; playtest `pose-direction-120` |
 
@@ -263,12 +259,12 @@ WWHD’s `vendor/ZeldaWWHDRecomp/tools/verify/` harness is upstream reference, n
 
 **Fragmented or easy to miss**
 
-- `verify` mentions unit tests generically but not `ctest`, Python discovers, `--renderer-smoke`, or `nsmbu lint`
+- `verify` mentions unit tests generically but not `ctest`, Python discovers, or `--renderer-smoke`
 - Playtests never run in CI; agents without `game/usa-1.3.0` cannot fully verify game changes
 - Three short-check paths overlap: `scenes`, live look, `nsmbu scripted` — skill says lasting checks → playtest, nothing enforces it
 - `pre_push` ≠ `verify` ≠ `pre-release` — different command subsets
 - Android verify is install-shaped, not gameplay automation
-- CLI TypeScript has no first-class “run before finish” step in `verify` (modding uses `nsmbu lint`).
+- CLI TypeScript has no first-class “run before finish” step in `verify`.
 
 ## Related docs
 

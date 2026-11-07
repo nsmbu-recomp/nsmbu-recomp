@@ -202,7 +202,7 @@ export const widescreenMapUi: PlayCase = {
             env: { NSMBU_ASPECT: "21:9", NSMBU_HIDDEN_WINDOWS: "0" },
         });
         await session.advance(180, 45);
-        await session.eval("return nsmbu.Scene.open_first_save(0)");
+        await session.goto("map");
         await session.advance(90, 30);
         const path = join(session.workDir, "map.png");
         let edges: { left: number; right: number } | null = null;

@@ -15,18 +15,13 @@ The game draws the stock item from `Common.szs` (`ItemList`) on each player thro
 - A mode the bubble cannot show is not intercepted.
 
 `use_button` and `show_hud` stay out of the example.
-The example does not draw with `nsmbu.Gui`.
-
 ## API
 
-Add these to [modding/sdk/nsmbu.Player.d.ts](../../modding/sdk/nsmbu.Player.d.ts) and [docs/modding/api.md](api.md):
+These calls are not in the runtime yet:
 
-- `nsmbu.Player.set_store_extra(on)` turns the rule above on for every player.
-- `player.stock()` returns the stored mode, or nil when the bubble is empty.
-- `player.set_stock(mode)` sets or clears that player’s bubble.
-
-The example only calls `set_store_extra(true)` from `onLoaded` and `set_store_extra(false)` from `onUnload`.
-`stock` and `set_stock` are there so another mod can read or fill the bubble without copying the rule.
+- A switch that turns the rule above on for every player.
+- A read of the stored mode, empty when the bubble is empty.
+- A write that sets or clears that player’s bubble.
 
 ## Runtime
 
@@ -38,10 +33,8 @@ Do not keep a second copy of the stored mode in the runtime.
 
 ## Example
 
-Add `modding/examples/powerup-storage` again with `main.ts`, `README.md`, and `manifest.json`.
-`main.ts` is the load and unload calls.
-Update [modding/examples/CHANGELOG.md](../../modding/examples/CHANGELOG.md) and the root changelog.
-Player-facing notes: the reserve is the game’s icon above you, you use the game’s stock control, and an item you already brought is left alone.
+There is no example package.
+When the hook exists, player-facing notes are: the reserve is the game’s icon above you, you use the game’s stock control, and an item you already brought is left alone.
 
 ## Check
 

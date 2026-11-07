@@ -1,8 +1,8 @@
-#include "lua_guest.h"
+#include "guest_mem.h"
 #include "ppc.h"
 #include <cstring>
 
-namespace mods::lua_guest {
+namespace mods::guest {
 namespace {
 uint8_t* g_base = nullptr;
 constexpr size_t kMax = 1u << 20;

@@ -16,7 +16,6 @@ Usage:
   nsmbu perf […]
   nsmbu installer [--version VERSION] [--no-open]
   nsmbu apk [--abi arm64-v8a|x86_64] [--device SERIAL] [--build-only] [--install-only] [--yes]
-  nsmbu lint
   nsmbu recomp
   nsmbu scripted <name> […]
   nsmbu test [--list] [--show] [name…]

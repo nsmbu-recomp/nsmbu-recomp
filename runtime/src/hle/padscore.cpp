@@ -5,7 +5,7 @@
 #include "input/input.h"
 #include "../input/motion/motion.h"
 #include "input/rumble.h"
-#include "../mods/lua_press.h"
+#include "../mods/pad_inject.h"
 
 namespace interp { bool repeat_input(); uint64_t logic_steps(); }
 
@@ -84,7 +84,7 @@ HLE(padscore, KPADReadEx) {
     static input::PadState last_p[input::kMaxPlayers];
     const bool repeat = interp::repeat_input();
     input::PadState p = repeat ? last_p[chan] : crashrec::read(1 + (int)chan, player);
-    if (!repeat) p.buttons |= mods::lua_press::active(interp::logic_steps());
+    if (!repeat) p.buttons |= mods::pad_inject::active(interp::logic_steps());
     last_p[chan] = p;
     if (!repeat && player == 0) motion::right_stick(p.rx, p.ry);
     uint32_t hold = pro_buttons(p.buttons);

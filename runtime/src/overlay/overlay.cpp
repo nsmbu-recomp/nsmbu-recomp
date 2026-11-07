@@ -57,7 +57,6 @@ namespace gfxvk { bool buffer_cache_enabled(); }
 #include "mobile_ui.h"
 #include "../mods/mods.h"
 #include "../mods/sdk/nsmbu.h"
-#include "../mods/lua_gui.h"
 #include "../mods/packages.h"
 #include "../input/motion/motion.h"
 #include "../platform/keycodes.h"
@@ -2461,7 +2460,7 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
             }
             if (sscanf(spec.c_str(), "%d,%d", &w, &c) == 2 && render::frame_count() + 1 >= at) {
                 test_load_done = true;
-                mods::lua_sdk::request_load_story(w, c);
+                mods::scene::request_load_story(w, c);
                 LOG("[overlay] test load story %d-%d", w + 1, c + 1);
             }
         }
@@ -2502,14 +2501,13 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
 
     const bool open = is_open(), perf = perf_overlay_active(), text = !open && text_entry::active();
     const bool coll = collision_wireframe::enabled();
-    const bool gui = mods::lua_gui::active();
     map_menu::prepare(pw, ph, open);
     const bool menu_tile = map_menu::visible();
     perf::set_demand(perf, open && U.tab == kGraphics);
 
     const std::string toast = open ? std::string() : ss::last_message();
     U.linearized = false;
-    if (!open && !perf && !text && toast.empty() && !coll && !gui && !menu_tile) {
+    if (!open && !perf && !text && toast.empty() && !coll && !menu_tile) {
         if (U.init) {
             std::lock_guard<std::mutex> lk(g_mu);
             g_events.clear();
@@ -2585,10 +2583,9 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
     }
     if (perf) perf_window(open);
     if (menu_tile) map_menu::draw();
-    if (coll || gui) {
+    if (coll) {
         ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), ImVec2(1, 1), IM_COL32(0, 0, 0, 1));
-        if (coll) collision_wireframe::draw(ImGui::GetForegroundDrawList(), io.DisplaySize.x, io.DisplaySize.y);
-        if (gui) mods::lua_gui::draw(ImGui::GetForegroundDrawList(), io.DisplaySize.x, io.DisplaySize.y);
+        collision_wireframe::draw(ImGui::GetForegroundDrawList(), io.DisplaySize.x, io.DisplaySize.y);
     }
     if (!toast.empty()) {
         ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y - 24), ImGuiCond_Always, ImVec2(0.5f, 1.0f));

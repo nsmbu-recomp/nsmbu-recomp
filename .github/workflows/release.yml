@@ -147,8 +147,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: LuaJIT submodule
-        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
+      - name: Vendored libraries
+        run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - name: Install build tools
         run: brew install ninja
@@ -235,8 +235,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: LuaJIT submodule
-        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
+      - name: Vendored libraries
+        run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - name: Install dependencies
         run: |
@@ -423,8 +423,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: LuaJIT submodule
-        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
+      - name: Vendored libraries
+        run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - name: Pinned llvm-mingw toolchain (installer/toolchains.json)
         run: |
@@ -668,8 +668,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: LuaJIT submodule
-        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
+      - name: Vendored libraries
+        run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - uses: actions/setup-java@v5
         with:

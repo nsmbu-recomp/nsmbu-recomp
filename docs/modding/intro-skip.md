@@ -133,9 +133,9 @@ The decide chain, decoded:
    current until `SaveMgr.mStatus` (`0x101E7DA4` instance `+0x14`) is no longer `cStatus_Writing`.
    Confirming the popup kicks a full `save://rp_savedata.dat` write before the flow moves on.
 
-The native skip uses `lua_press::press` with the A button mask.
+The native skip uses `pad_inject::press` with the A button mask.
 That press reaches the game through the padscore HLE sampling
-(`runtime/src/mods/lua_press.cpp`), which drives the layout animation that sets the `0x2000` bit.
+(`runtime/src/mods/pad_inject.cpp`), which drives the layout animation that sets the `0x2000` bit.
 The writer of that bit inside the layout stack is not traced yet.
 
 ### Boot save-file load
@@ -291,28 +291,21 @@ Course setup `f_024BD86C` calls `f_024D29A4`, which copies those next fields to 
 
 Later in that function, `f_0269A2B4` sprintfs format `0x100E6040` (`"%d-%d"`) as `(byte+0x10)+1` and `(byte+0x11)+1`.
 That string is the `%s` in `course_res_pack/%s.szs` (`f_029D3150`).
-Pack `1-23` is `load_story(0, 22)` or `load_pack("1-23")`.
+Pack `1-23` is world 0, course 22 (`open_place("1-23")`).
 `course_no` is `pack_id - 1`, not a separate map slot index.
 
 Guest `0x024D3AD4` is a save-nibble helper.
 It is not the filename builder.
 Older notes that pointed at ROM tables near `0x100C97xx` for the pack filename were wrong.
 
-The Lua API exposes:
-
-```lua
-scene.load_story(world_no, course_no)
-scene.load_pack("1-23")
-```
-
-Both call `setCourse_Story` when the fader is idle.
-The second argument is the live flow task.
+`open_place("1-23")` and `load_story_course` call `setCourse_Story` when the fader is idle.
+The source argument is the live flow task.
 A null source crashes inside `Scene::setNextScene` (`ld32` at `0x029947D0`).
-They return `"scene busy"` while a scene change is queued or the fader is busy.
+They return `scene busy` while a scene change is queued or the fader is busy.
 The native skip requests the pack once, then waits for `course_task()`.
 
-`load_pack` remains available to mods.
-The native skip uses the same transition with the `--open` pack.
+The agent `goto` command uses the same transition.
+The native skip uses it for the `--open` pack.
 
 ### Course enter banner digits
 

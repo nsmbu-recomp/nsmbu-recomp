@@ -5,8 +5,8 @@
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
+#include <cstdio>
 #include <deque>
-#include <exception>
 #include <filesystem>
 #include <mutex>
 #include <string>
@@ -34,7 +34,6 @@
 #endif
 #include "hooks/interp.h"
 #include "hooks/map_menu_settings.h"
-#include "mods/lua_eval.h"
 #include "mods/mod_json.h"
 #include "mods/sdk/nsmbu.h"
 #include "overlay/hostui.h"
@@ -89,13 +88,12 @@ std::deque<PictureWait> g_pictures;
 std::deque<std::string> g_out_lines;
 std::atomic<bool> g_quit{false};
 
-enum class GuestOp { Status, Eval, Leave, Goto, Ui, Actors };
+enum class GuestOp { Status, Leave, Goto, Ui, Actors };
 
 struct GuestJob {
     int id = 0;
-    GuestOp op = GuestOp::Eval;
+    GuestOp op = GuestOp::Status;
     std::string code;
-    int timeout_ms = 5000;
     int limit = 16;
     float radius = 0;
 };
@@ -164,8 +162,8 @@ std::string handle_status(int id) {
         v.object["player"] = std::move(p);
     } else
         v.object["player"].type = mods::json::Value::Null;
-    mods::lua_sdk::SceneReport scene;
-    mods::lua_sdk::scene_report(scene);
+    mods::scene::SceneReport scene;
+    mods::scene::scene_report(scene);
     if (!scene.scene.empty()) v.object["scene"] = scene.scene;
     if (scene.map_known) v.object["map"] = scene.map;
     if (scene.course_known) v.object["course"] = scene.course;
@@ -188,6 +186,11 @@ std::string handle_status(int id) {
     if (scene.map_lock_known) v.object["map_lock"] = scene.map_lock;
     if (scene.map_title_known) v.object["map_title"] = scene.map_title;
     if (scene.map_players_known) v.object["map_players"] = scene.map_players;
+    if (scene.banner_known) {
+        char digits[32];
+        std::snprintf(digits, sizeof digits, "%u %u %u", scene.banner[0], scene.banner[1], scene.banner[2]);
+        v.object["banner"] = digits;
+    }
     return mods::json::dump(v);
 }
 
@@ -225,9 +228,9 @@ std::string handle_ui(int id) {
 }
 
 std::string handle_actors(int id, int limit, float radius) {
-    mods::lua_sdk::ActorProbe probe;
+    mods::scene::ActorProbe probe;
     std::string err;
-    if (!mods::lua_sdk::probe_actors(limit, radius, probe, err))
+    if (!mods::scene::probe_actors(limit, radius, probe, err))
         return response_err(id, err.empty() ? "actors failed" : err);
     mods::json::Value v;
     v.type = mods::json::Value::Object;
@@ -240,7 +243,7 @@ std::string handle_actors(int id, int limit, float radius) {
     mods::json::Value rows;
     rows.type = mods::json::Value::Array;
     for (int i = 0; i < probe.count; i++) {
-        const mods::lua_sdk::ActorRow& a = probe.rows[i];
+        const mods::scene::ActorRow& a = probe.rows[i];
         mods::json::Value row;
         row.type = mods::json::Value::Object;
         row.object["profile"] = (double)a.profile;
@@ -323,12 +326,12 @@ void handle_request(const mods::json::Value& req) {
     const std::string cmd = req.get("cmd").string();
     if (cmd == "status") {
         std::lock_guard<std::mutex> lk(g_mu);
-        g_jobs.push_back(GuestJob{id, GuestOp::Status, {}, 0});
+        g_jobs.push_back(GuestJob{id, GuestOp::Status, {}});
         return;
     }
     if (cmd == "leave") {
         std::lock_guard<std::mutex> lk(g_mu);
-        g_jobs.push_back(GuestJob{id, GuestOp::Leave, {}, 0});
+        g_jobs.push_back(GuestJob{id, GuestOp::Leave, {}});
         return;
     }
     if (cmd == "press") {
@@ -412,12 +415,12 @@ void handle_request(const mods::json::Value& req) {
             return;
         }
         std::lock_guard<std::mutex> lk(g_mu);
-        g_jobs.push_back(GuestJob{id, GuestOp::Goto, place, 0});
+        g_jobs.push_back(GuestJob{id, GuestOp::Goto, place});
         return;
     }
     if (cmd == "ui") {
         std::lock_guard<std::mutex> lk(g_mu);
-        g_jobs.push_back(GuestJob{id, GuestOp::Ui, {}, 0});
+        g_jobs.push_back(GuestJob{id, GuestOp::Ui, {}});
         return;
     }
     if (cmd == "actors") {
@@ -428,19 +431,6 @@ void handle_request(const mods::json::Value& req) {
         if (req.get("radius").type == mods::json::Value::Number) job.radius = float(req.get("radius").number);
         std::lock_guard<std::mutex> lk(g_mu);
         g_jobs.push_back(std::move(job));
-        return;
-    }
-    if (cmd == "eval") {
-        const auto& cv = req.get("code");
-        if (cv.type != mods::json::Value::String) {
-            queue_line(response_err(id, "missing code"));
-            return;
-        }
-        int timeout_ms = 5000;
-        const auto& tv = req.get("timeout");
-        if (tv.type == mods::json::Value::Number && tv.number > 0) timeout_ms = int(tv.number);
-        std::lock_guard<std::mutex> lk(g_mu);
-        g_jobs.push_back(GuestJob{id, GuestOp::Eval, cv.text, timeout_ms});
         return;
     }
     if (cmd == "quit") {
@@ -743,28 +733,9 @@ bool take_job(GuestJob& job, bool observe_only) {
     return true;
 }
 
-void run_eval(const GuestJob& job) {
-    mods::lua_eval::Result result;
-    try {
-        result = mods::lua_eval::run(job.code, job.timeout_ms);
-    } catch (const std::exception& e) {
-        result.ok = false;
-        result.output = e.what();
-    }
-    mods::json::Value v;
-    v.type = mods::json::Value::Object;
-    v.object["id"] = job.id;
-    v.object["ok"] = result.ok;
-    if (result.ok)
-        v.object["output"] = result.output;
-    else
-        v.object["error"] = result.output;
-    queue_line(mods::json::dump(v));
-}
-
 void run_leave(const GuestJob& job) {
     std::string err;
-    if (!mods::lua_sdk::leave_course(err)) {
+    if (!mods::scene::leave_course(err)) {
         queue_line(response_err(job.id, err.empty() ? "leave failed" : err));
         return;
     }
@@ -773,7 +744,7 @@ void run_leave(const GuestJob& job) {
 
 void run_goto(const GuestJob& job) {
     std::string err;
-    if (!mods::lua_sdk::open_place(job.code, err)) {
+    if (!mods::scene::open_place(job.code, err)) {
         queue_line(response_err(job.id, err.empty() ? "goto failed" : err));
         return;
     }
@@ -798,8 +769,6 @@ void guest_service() {
             run_leave(job);
         else if (job.op == GuestOp::Goto)
             run_goto(job);
-        else
-            run_eval(job);
     }
 }
 

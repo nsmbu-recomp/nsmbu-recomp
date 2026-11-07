@@ -1,6 +1,5 @@
 #include "hooks/interp.h"
 #include "mods/packages.h"
-#include "mods/sdk/nsmbu.h"
 
 #include <algorithm>
 #include <atomic>

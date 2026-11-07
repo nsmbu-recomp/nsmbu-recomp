@@ -1,21 +1,12 @@
 import { loadPack, waitCourse, waitMap, type PlayCase } from "../helpers.ts";
 
-const GLYPHS = `
-local task = nsmbu.Guest.read_u32(0x101D15F0)
-if task == 0 then return "none" end
-local a = nsmbu.Guest.read_u8(task + 0x134)
-local b = nsmbu.Guest.read_u8(task + 0x135)
-local c = nsmbu.Guest.read_u8(task + 0x136)
-return string.format("%d %d %d", a, b, c)
-`;
-
 export const openedCourse: PlayCase = {
     name: "opened-course",
     summary: "0.6.1 course-open regressions: loading card stays put, a second pack loads, leave returns to W102.",
     run: async (session) => {
         await session.start({ save: "repo", open: "1-5" });
         await waitCourse(session, "1-5", 180);
-        const glyphs = await session.eval(GLYPHS);
+        const glyphs = (await session.status()).banner ?? "none";
         if (glyphs === "4 255 255") {
             throw new Error(`direct open rewrote the loading-card digits for 1-5: ${glyphs}`);
         }

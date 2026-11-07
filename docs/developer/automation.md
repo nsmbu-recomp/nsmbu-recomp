@@ -16,7 +16,7 @@ Reuse helpers in `tools/cli/src/playtest/helpers.ts` (`reachMap`, `loadPack`, `l
 Map round-trips use `leaveCourse` / `enterCourse`.
 A direct-open quit uses `Session.leave`.
 The map node name, the node position, and the map player come from agent status.
-Scene moves that need guest Lua stay inside the case through `Session` helpers.
+Scene moves stay inside the case through `Session` helpers (`goto`, `leave`, `status`).
 
 `nsmbu test --list` prints the case names and summaries (the live list).
 `nsmbu test opened-course` runs one case.

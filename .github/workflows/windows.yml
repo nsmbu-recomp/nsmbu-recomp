@@ -34,9 +34,9 @@ jobs:
             mingw-w64-clang-x86_64-zlib
             make
 
-      - name: LuaJIT submodule
+      - name: Vendored libraries
         shell: pwsh
-        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
+        run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - name: Configure
         run: |

@@ -1,5 +1,3 @@
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import { flagString, hasFlag, parseArgv } from "./parse.ts";
 import { runPython, runPythonCapture, runPythonChecked, runShell } from "./run.ts";
 import { clack, confirm, selectOption, textInput } from "./select.ts";
@@ -572,14 +570,6 @@ export async function cmdApk(repo: string, rest: string[]): Promise<void> {
         args.push("--device", device);
     }
     runPythonInherit(repo, "tools/android/apk.py", args);
-}
-
-export function cmdLint(repo: string): void {
-    const verify = existsSync(join(repo, "modding", "node_modules", "typescript-to-lua")) ? "" : "npm --prefix modding ci && ";
-    runShell(
-        repo,
-        `${verify}npm --prefix modding run --silent build && stylua --config-path modding/.stylua.toml modding/examples`,
-    );
 }
 
 export function cmdRecomp(repo: string): void {

@@ -153,9 +153,16 @@ export async function reachMap(session: Session, timeoutSec: number): Promise<vo
     while (Date.now() - start < timeoutSec * 1000) {
         const s = await session.status();
         if (s.map === true && (s.scene === "Map" || s.scene === "CourseSelect")) return;
-        last = await session.eval("return nsmbu.Scene.open_first_save(0)");
-        if (!last.startsWith("true")) {
-            await session.eval("return nsmbu.Scene.open_title()");
+        try {
+            await session.goto("map");
+            last = "map";
+        } catch (err) {
+            last = err instanceof Error ? err.message : String(err);
+            try {
+                await session.goto("title");
+            } catch (titleErr) {
+                last = titleErr instanceof Error ? titleErr.message : String(titleErr);
+            }
             await session.press("A", 15);
         }
         await session.advance(40, 20);
@@ -462,8 +469,12 @@ export async function loadPack(session: Session, pack: string): Promise<void> {
     const start = Date.now();
     let last = "";
     for (;;) {
-        last = await session.eval(`return nsmbu.Scene.load_pack("${pack}")`);
-        if (last.startsWith("true")) return;
+        try {
+            await session.goto(pack);
+            return;
+        } catch (err) {
+            last = err instanceof Error ? err.message : String(err);
+        }
         if (Date.now() - start >= 90_000) throw new Error(`load_pack ${pack} failed: ${last} ${session.last}`);
         await session.advance(30, 20);
     }

@@ -3,17 +3,10 @@
 #include <cstdint>
 #include <string>
 
-struct lua_State;
 struct Cpu;
 
-namespace mods::lua_mod {
-struct Instance;
-}
+namespace mods::scene {
 
-namespace mods::lua_sdk {
-
-void install(lua_State* L, lua_mod::Instance* inst);
-void forget(lua_mod::Instance* inst);
 void set_cpu(Cpu* c);
 Cpu* cpu();
 void request_load_story(int world, int course);
@@ -53,6 +46,8 @@ struct SceneReport {
     int32_t map_title = -1;
     bool map_players_known = false;
     int map_players = 0;
+    bool banner_known = false;
+    uint8_t banner[3] = {};
 };
 
 void scene_report(SceneReport& out);

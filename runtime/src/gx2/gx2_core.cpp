@@ -1270,9 +1270,9 @@ HLE(gx2, GX2SwapScanBuffers) {
         }
     }
     if (!hold) {
-        mods::lua_sdk::set_cpu(c);
+        mods::scene::set_cpu(c);
         mods::packages::frame(steps);
-        mods::lua_sdk::native_intro_skip_tick(steps);
+        mods::scene::native_intro_skip_tick(steps);
         agent_ctl::guest_service();
         collision_wireframe::capture(c);
         course_hot_reload::tick();

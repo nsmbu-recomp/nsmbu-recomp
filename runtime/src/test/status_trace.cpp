@@ -39,8 +39,8 @@ void on_logic_step(uint64_t step) {
     if (step == last) return;
     last = step;
 
-    mods::lua_sdk::SceneReport scene;
-    mods::lua_sdk::scene_report(scene);
+    mods::scene::SceneReport scene;
+    mods::scene::scene_report(scene);
     if (align && *align && !aligned && same_name(scene.scene.c_str(), align)) {
         aligned = true;
         script_frame::set_align_frame(render::frame_count());

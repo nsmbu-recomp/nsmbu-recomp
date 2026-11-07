@@ -210,10 +210,10 @@ uint64_t hash_data(const std::vector<uint8_t>& data) {
 }
 
 void queue_reload(uint8_t world, uint8_t course, const std::string& pack) {
-    mods::lua_sdk::request_load_story(world, course);
+    mods::scene::request_load_story(world, course);
     g_reloading = true;
     g_reload_at = Clock::now();
-    g_reload_generation = mods::lua_sdk::story_load_generation();
+    g_reload_generation = mods::scene::story_load_generation();
     g_reload_world = world;
     g_reload_course = course;
     g_reload_task = ld32(kCourseTask);
@@ -319,7 +319,7 @@ void tick() {
     }
 
     if (g_force.exchange(false, std::memory_order_relaxed)) {
-        if (g_reloading || mods::lua_sdk::story_leave_pending()) {
+        if (g_reloading || mods::scene::story_leave_pending()) {
             g_force.store(true, std::memory_order_relaxed);
             set_status("waiting for course transition");
             return;
@@ -356,7 +356,7 @@ void tick() {
     }
 
     if (g_reloading) {
-        const bool done = mods::lua_sdk::story_load_generation() != g_reload_generation;
+        const bool done = mods::scene::story_load_generation() != g_reload_generation;
         if (done && !g_reload_done_seen) {
             g_reload_done_seen = true;
             g_reload_done_at = now;
@@ -372,7 +372,7 @@ void tick() {
             LOG("[course-reload] %s reloaded", pack.c_str());
         } else {
             if (done) set_status("returning to course");
-            else set_status(mods::lua_sdk::story_leave_pending() ? "leaving course" : "reload requested");
+            else set_status(mods::scene::story_leave_pending() ? "leaving course" : "reload requested");
             if (now - g_reload_at > std::chrono::seconds(30)) {
                 g_reloading = false;
                 set_status("reload timed out");
@@ -419,7 +419,7 @@ void tick() {
             set_status("watching");
             return;
         }
-        if (g_reloading || mods::lua_sdk::story_leave_pending()) {
+        if (g_reloading || mods::scene::story_leave_pending()) {
             set_status("waiting for course transition");
             return;
         }

@@ -723,7 +723,7 @@ bool load_waits(const std::string& why) {
 }
 
 void ensure_cpu(Cpu* c) {
-    if (mods::lua_sdk::cpu() != c) mods::lua_sdk::set_cpu(c);
+    if (mods::scene::cpu() != c) mods::scene::set_cpu(c);
 }
 
 bool copy_savedata(std::vector<uint8_t>& out, std::string& why) {
@@ -845,11 +845,11 @@ void arm_arrival(const pstate::State& s) {
 bool apply_portable(Cpu* c, const pstate::State& s, std::string& why, bool& retry) {
     retry = false;
     if (s.place != "course" && s.place != "map") { why = "this state has no course or map place"; return false; }
-    if (s.place == "course" && mods::lua_sdk::story_leave_pending()) {
+    if (s.place == "course" && mods::scene::story_leave_pending()) {
         if (!restore_savedata(s, why)) return false;
         ensure_cpu(c);
         std::string err;
-        if (!mods::lua_sdk::load_story_course(s.world, s.course, err)) {
+        if (!mods::scene::load_story_course(s.world, s.course, err)) {
             why = err;
             retry = load_waits(err);
             return false;
@@ -871,14 +871,14 @@ bool apply_portable(Cpu* c, const pstate::State& s, std::string& why, bool& retr
             return false;
         }
         std::string err;
-        if (!mods::lua_sdk::open_course_select(err)) {
+        if (!mods::scene::open_course_select(err)) {
             why = err;
             retry = load_waits(err);
             return false;
         }
     } else {
         std::string err;
-        if (!mods::lua_sdk::load_story_course(s.world, s.course, err)) {
+        if (!mods::scene::load_story_course(s.world, s.course, err)) {
             why = err;
             retry = load_waits(err);
             return false;

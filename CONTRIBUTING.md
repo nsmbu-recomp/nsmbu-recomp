@@ -26,7 +26,7 @@ After that, every command is the global `nsmbu` on `PATH`.
 
 Put your dump in `game/`.
 The file layout is in [game/README.md](game/README.md).
-Initialize the build submodules before the first build: `git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp`.
+Initialize the build submodules before the first build: `git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp`.
 
 | Command | Result |
 |---------|--------|
