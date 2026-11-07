@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstdint>
+#include <cstring>
+
 namespace map_menu {
 
 constexpr float kBtnW = 416.f;
@@ -41,6 +44,37 @@ inline bool overlap(Rect a, Rect b) {
 
 inline bool contains(Rect r, float x, float y) {
     return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+}
+
+// The layout load returns the file bytes and does not keep the file name in a register.
+// The start menu is the layout that still has Main Menu and does not yet have Settings.
+inline bool contains_cstr(const uint8_t* data, uint32_t size, const char* name) {
+    const size_t n = std::strlen(name);
+    if (!data || size < n + 1) return false;
+    for (uint32_t i = 0; i + n < size; i++) {
+        if (std::memcmp(data + i, name, n) == 0 && data[i + n] == 0) return true;
+    }
+    return false;
+}
+
+inline bool start_menu_flyt(const uint8_t* data, uint32_t size) {
+    return contains_cstr(data, size, "Pa_TitleBtn_00") && !contains_cstr(data, size, "Pa_SetBtn_00");
+}
+
+// PaCursor keeps a normal button word at 0. A finished decide writes another word and sets +0x268.
+// The port puts the Settings word back to 0 for a few frames after the press. It does not write 1.
+struct SettingsRepair {
+    bool hold = false;
+    uint32_t word = 0;
+};
+
+inline SettingsRepair settings_repair(int index, int settings_index, bool confirm, uint32_t word) {
+    SettingsRepair repair;
+    repair.word = word;
+    if (settings_index < 0 || index != settings_index || !confirm) return repair;
+    repair.hold = true;
+    repair.word = 0;
+    return repair;
 }
 
 inline bool window_to_screen(float nx, float ny, float win_w, float win_h, float ox, float oy, float ow, float oh,

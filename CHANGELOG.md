@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - The installer save screen imports an NSMBU save folder that contains `rp_personal_savedata.dat`.
+- Settings → Debug → **Settings button on the start menu** adds that button under Change Controller when the world map loads.
+- The world-map start menu still moves after you select that Settings button.
 
 ### Removed
 

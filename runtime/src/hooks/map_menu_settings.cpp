@@ -24,6 +24,11 @@ constexpr uint32_t kActive = 0x1A04;
 constexpr uint32_t kCursor = 0xEC8;
 constexpr uint32_t kCursorIndex = 0x250;
 constexpr uint32_t kCursorFocus = 0x25C;
+constexpr uint32_t kDecideAnime = 0x25E;
+constexpr uint32_t kDecideTrig = 0x25F;
+constexpr uint32_t kTouchByte = 0x266;
+constexpr uint32_t kButtonLock = 0x268;
+constexpr uint32_t kButtonState = 0x26C;
 constexpr uint32_t kCursorList = 0x34;
 constexpr uint32_t kPad = 0x164;
 constexpr uint32_t kPlus = 1u << 11;
@@ -51,6 +56,7 @@ static uint32_t g_left[2] = {};
 static int g_left_n = 0;
 static int g_title_idx = -1;
 static uint32_t g_prev_pad = 0;
+static int g_quiet = 0;
 static int g_force_idx = -1;
 static uint32_t g_force_btn = 0;
 static int g_guide_from = -1;
@@ -118,7 +124,7 @@ static bool is_left(uint32_t pane) {
 }
 
 static void nudge(uint32_t self) {
-    if (!g_enabled.load()) return;
+    if (!g_enabled.load() || !g_settings) return;
     const uint32_t parts = self + kParts;
     if (g_translate < 0) {
         for (int i = 0; i < kPartCount && g_translate < 0; i++) {
@@ -178,6 +184,7 @@ static void forget(uint32_t self) {
         g_force_idx = -1;
         g_force_btn = 0;
         g_guide_from = -1;
+        g_quiet = 0;
     }
 }
 
@@ -411,12 +418,13 @@ static void on_pad(uint32_t self) {
         const int back = g_guide_from >= 0 ? g_guide_from : title_i;
         if (back >= 0) choose(cursor, back);
     }
-    if (g_settings_idx >= 0 && idx == g_settings_idx && (trig & kConfirm)) {
+    if (settings_repair(idx, g_settings_idx, (trig & kConfirm) != 0, 0).hold) {
         st32(pad_at, ld32(pad_at) & ~kConfirm);
         for (int i = 0; i < kMenuPadCount; i++) {
             const uint32_t hold = self + kMenuPads + (uint32_t)i * kPadStride + kHold;
             st32(hold, ld32(hold) & ~kConfirm);
         }
+        g_quiet = 4;
         g_open_request.store(true);
     }
     if (g_force_idx >= 0)
@@ -435,15 +443,33 @@ static void clear_choice() {
     g_force_btn = 0;
 }
 
+static void release_settings(uint32_t self, bool tick) {
+    if (!g_enabled.load() || g_quiet <= 0 || g_settings_idx < 0) return;
+    const uint32_t cursor = self + kCursor;
+    const int idx = (int)ld32(cursor + kCursorIndex);
+    const uint32_t state_at = cursor + kButtonState + (uint32_t)g_settings_idx * 4;
+    const SettingsRepair repair = settings_repair(idx, g_settings_idx, true, ld32(state_at));
+    if (!repair.hold) {
+        g_quiet = 0;
+        return;
+    }
+    st32(state_at, repair.word);
+    st8(cursor + kButtonLock, 0);
+    st8(cursor + kDecideAnime, 1);
+    st8(cursor + kDecideTrig, 0);
+    st8(cursor + kTouchByte, 0);
+    st32(cursor + kPad, ld32(cursor + kPad) & ~kConfirm);
+    if (ld8(cursor + kCursorFocus) == 0) st8(cursor + kCursorFocus, 1);
+    if (tick) g_quiet--;
+}
+
 static void take_decide(uint32_t self) {
     if (!g_enabled.load() || overlay::is_open() || g_settings_idx < 0) return;
     const uint32_t cursor = self + kCursor;
-    if ((int)ld32(cursor + kCursorIndex) != g_settings_idx) return;
-    const bool touch = ld8(cursor + 0x266) != 0;
-    const bool decided = ld8(cursor + 0x25F) != 0;
-    if (!touch && !decided) return;
-    st8(cursor + 0x25F, 0);
-    st8(cursor + 0x266, 0);
+    const int idx = (int)ld32(cursor + kCursorIndex);
+    const bool decided = ld8(cursor + kDecideTrig) != 0 || ld8(cursor + kTouchByte) != 0;
+    if (!settings_repair(idx, g_settings_idx, decided, 0).hold) return;
+    g_quiet = 4;
     g_open_request.store(true);
 }
 
@@ -643,11 +669,6 @@ static void install_settings_button(Cpu* c, uint32_t layout) {
     if (!g_enabled.load()) return;
     const uint32_t saved[11] = {c->r[0], c->r[3], c->r[4], c->r[5], c->r[6], c->r[7], c->r[8], c->r[9], c->r[10], c->r[11], c->r[12]};
     const uint32_t resource = c->r[3];
-    const uint32_t name = guest_obj(c->r[27]) ? ld32(c->r[27]) : 0;
-    if (!guest_obj(name)) return;
-    char filename[40] = {};
-    std::memcpy(filename, mem::ptr(name), 39);
-    if (std::strcmp(filename, "CourseSelectMenu.bflyt") != 0 && std::strcmp(filename, "CourseSelectMenuDL.bflyt") != 0) return;
     uint32_t slot = 0;
     if (guest_obj(resource) && ld32(resource) == 0x464C5954u) slot = 0;
     else if (guest_obj(layout)) {
@@ -667,20 +688,19 @@ static void install_settings_button(Cpu* c, uint32_t layout) {
     }
     const bool direct = guest_obj(resource) && ld32(resource) == 0x464C5954u;
     const uint32_t flyt = direct ? resource : (slot ? ld32(slot) : 0);
-    if (!guest_obj(flyt) || ld32(flyt) != 0x464C5954u) {
-        static bool logged = false;
-        if (!logged) {
-            logged = true;
-            LOG("[menu] settings button could not find %s (resource %08X)", filename, resource);
-        }
-        return;
-    }
+    if (!guest_obj(flyt) || ld32(flyt) != 0x464C5954u) return;
     const uint32_t bytes = ld32(flyt + 0xC);
     if (bytes < 0x20 || bytes > 0x100000) return;
+    if (!start_menu_flyt(mem::ptr(flyt), bytes)) return;
     std::vector<uint8_t> file(bytes);
     std::memcpy(file.data(), mem::ptr(flyt), bytes);
     if (!patch_menu_flyt(file)) {
         restore_build_regs(c, saved, resource);
+        static bool logged = false;
+        if (!logged) {
+            logged = true;
+            LOG("[menu] settings button could not be inserted into the start menu");
+        }
         return;
     }
     const uint32_t neu = guest_call(c, GC(0x029F1594u), {(uint32_t)file.size()});
@@ -695,7 +715,7 @@ static void install_settings_button(Cpu* c, uint32_t layout) {
         st32(slot, neu);
         restore_build_regs(c, saved, resource);
     }
-    LOG("[menu] settings button added to %s", filename);
+    LOG("[menu] settings button added to the start menu");
 }
 
 static void install_settings_anim(Cpu* c) {
@@ -892,6 +912,7 @@ extern "C" void site_02682674(Cpu* c) {
 }
 
 extern "C" void site_025A4C5C(Cpu* c) {
+    map_menu::release_settings(c->r[30], false);
     map_menu::apply_choice(c->r[30]);
     map_menu::clear_choice();
 }
@@ -910,6 +931,7 @@ extern "C" void hook_025A4B98(Cpu* c) {
         map_menu::bind_settings(c, self);
         c->r[3] = self;
         map_menu::on_pad(self);
+        map_menu::release_settings(self, true);
     }
     c->r[3] = self;
     f_025A4B98_orig(c);

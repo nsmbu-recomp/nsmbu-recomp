@@ -1730,7 +1730,7 @@ void tab_debug() {
         map_menu::set_enabled(v);
         hostui::post([v] { hostui::set("mapMenuSettings", v ? "1" : "0"); });
     }
-    help("Off until you turn it on. Open the world-map start menu again after a change. A or Enter on Settings opens this overlay. A restart restores the original menu.");
+    help("Off until you turn it on. The button is added when the world map loads, so leave to the title and come back after a change. A or Enter on Settings opens this overlay. A restart restores the original menu.");
 
     heading("Course debug");
     const bool env_locked = env::COLLISION_VIEWER.present();

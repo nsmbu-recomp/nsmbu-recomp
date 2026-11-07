@@ -41,6 +41,25 @@ int main() {
     check(contains(settings, sx, sy), "a click on the settings center hits the tile");
     check(!contains(settings, star.x + 8.f, star.y + 8.f), "Star Coins is not the settings tile");
 
+    const char title[] = "xxPa_TitleBtn_00";
+    const char both[] = "Pa_TitleBtn_00\0Pa_SetBtn_00";
+    const char other[] = "Pa_NumBtn_00";
+    check(start_menu_flyt(reinterpret_cast<const uint8_t*>(title), sizeof title),
+          "Main Menu still in the file marks the start menu");
+    check(!start_menu_flyt(reinterpret_cast<const uint8_t*>(both), sizeof both),
+          "a file that already has Settings is left alone");
+    check(!start_menu_flyt(reinterpret_cast<const uint8_t*>(other), sizeof other),
+          "another layout is not the start menu");
+
+    const SettingsRepair idle = settings_repair(6, 6, false, 0);
+    const SettingsRepair live = settings_repair(6, 6, false, 1);
+    const SettingsRepair pressed = settings_repair(6, 6, true, 2);
+    const SettingsRepair neighbor = settings_repair(2, 6, true, 2);
+    check(!idle.hold && idle.word == 0, "an idle Settings button is left alone");
+    check(!live.hold && live.word == 1, "a Settings highlight does not rewrite the cursor word");
+    check(pressed.hold && pressed.word == 0, "a Settings press returns the cursor word to idle");
+    check(!neighbor.hold && neighbor.word == 2, "another button keeps its press");
+
     if (fails) {
         std::fprintf(stderr, "%d map menu settings checks failed\n", fails);
         return 1;
