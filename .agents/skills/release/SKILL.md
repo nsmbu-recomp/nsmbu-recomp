@@ -67,15 +67,3 @@ Re-running the same name replaces only that tag.
 3. Watch the `release` run that step starts, not the short test-release run.
    `gh run list --workflow=release.yml --limit 3`, then `gh run watch <id> --exit-status`.
 4. Done when `gh release view <name> --json isPrerelease,url` shows a pre-release URL, and `gh release view devel-build --json tagName` is still `devel-build`.
-
-## Jobs to expect
-
-- `version` sets `VERSION` from the tag.
-  On the nightly schedule it starts a development build when `main` moved since the `devel-build` tag.
-- `macos`, `windows-x86_64`, `windows-arm64`, `linux-x86_64`, and `linux-aarch64` build, package, and run unit tests.
-  Windows and Linux install SDL3 from the `sdl3` release in `nsmbu-recomp/ci-assets`.
-  When that release is missing or its pins do not match, run the SDL3 workflow in that repo.
-- `android-arm64` and `android-x86_64` build a signed setup APK without game code (`ANDROID_KEYSTORE_B64` secrets).
-- `publish` uploads zips, the AppImage, and APKs, then runs `gh release create`.
-
-Any failed package job skips publish.

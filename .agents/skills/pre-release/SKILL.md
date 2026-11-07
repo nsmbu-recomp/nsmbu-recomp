@@ -24,7 +24,7 @@ The `release` skill commits and pushes that changelog, tags `main`, and watches 
    Move the cleaned game block under `## [X.Y.Z] - YYYY-MM-DD` and leave `## [Unreleased]` empty above it.
    `tools/release/notes.py` copies that block when the tag workflow publishes, so the heading has to be in the commit a person tags.
 4. From this checkout, run `nsmbu test`, then `nsmbu installer --no-open`.
-   Follow the `nsmbu` skill when a case fails.
+   Follow the `cli` skill when a case fails.
    A failure from any other checkout, or from a binary that does not match `game/`, is a checkout mistake.
    Use this checkout and rerun.
    Leave the setup window to the person at the machine.
@@ -32,16 +32,10 @@ The `release` skill commits and pushes that changelog, tags `main`, and watches 
 5. Report the version, branch, both command results, and `git diff --stat`.
    List anything still broken.
    The person reviews this diff.
-   The `release` skill commits and pushes the changelog on `main`.
-   That push runs `.githooks/pre_push.py` (`ctest`, `python3 -m unittest discover -s tests/py -p "test_*.py"`, and `npm test --prefix tools/cli`).
+   That later push runs `.githooks/pre_push.py` (`ctest`, `python3 -m unittest discover -s tests/py -p "test_*.py"`, and `npm test --prefix tools/cli`).
    Linux does not compile the macOS or Windows package jobs.
    Those failures show up later in `gh run view <id> --log-failed`.
 
 Done when the version block is in the working tree, `nsmbu test` and `nsmbu installer --no-open` have passed in this checkout, and the review report is delivered.
+Leave the tree uncommitted.
 The remote is unchanged and `git status` still shows the preparation as local changes.
-
-## Rules
-
-- Leave every edit uncommitted.
-- Leave every remote untouched, including `main` and tags.
-- The `release` skill commits and pushes the changelog on `main`.

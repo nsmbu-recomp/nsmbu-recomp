@@ -39,5 +39,5 @@ nsmbu status
 
 Done on the same course line as the direct open, with `pack=1-1`.
 The only unlocked neighbour of `W101` is back to `W1M0`.
-Returning to the map is the pause-menu Quit path in the `nsmbu` skill.
+Returning to the map is the pause-menu Quit path (`leaveCourse` in `docs/developer/automation.md`).
 `scene=CourseSelect` with `map=1` means the map is up again.

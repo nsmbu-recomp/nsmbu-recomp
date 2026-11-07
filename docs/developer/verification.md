@@ -62,7 +62,7 @@ ctest --test-dir build/linux --output-on-failure
 The root `CMakeLists.txt` registers many tests: mods, input (`input_mapping`, issue #9), interpolation (`interp_picture`, `interp_joints`, `interp_pacing`), portable state, extract crypto, SDL host tests, Vulkan-only tests when enabled, and more.
 
 **Shortcut:** `nsmbu build` for a warm debug link after runtime-only edits.
-See the `nsmbu` skill for when `--recomp` is required.
+See the `cli` skill for when `--recomp` is required.
 
 ### Python tool tests (Linux CI, after `ctest`)
 

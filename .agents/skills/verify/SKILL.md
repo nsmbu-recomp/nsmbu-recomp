@@ -26,7 +26,7 @@ Leave player steps only for what still needs a person in the level.
 
 Read `nsmbu game --list` and use `usa-1.3.0`.
 `nsmbu game usa-1.3.0` switches the active dump.
-The `nsmbu` skill owns `--recomp`, warm builds, playtests, scenario/compare-runs, and live look.
+The `cli` skill owns `--recomp`, warm builds, playtests, scenario/compare-runs, and live look.
 The `scenes` skill owns a short boot to the map, a course, or the title.
 
 ## Android

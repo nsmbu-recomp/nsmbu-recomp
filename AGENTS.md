@@ -22,10 +22,7 @@ Any discoveries you find about the source code document it in the headers in `ve
 
 ## Tests
 
-Add a test for every behavior change.
-Put a host C or C++ test in `tests/host` and register it in `tests/CMakeLists.txt`.
-Put a Python test in `tests/py` and a Node unit test in `tests/cli`.
-Put a game regression in a playtest case under `tools/cli/src/playtest/cases/`.
+Add one test for every behavior change, in the suite that owns that behavior.
 The new test fails on the old behavior and passes with the change.
 
 - `ctest --test-dir build/linux --output-on-failure` runs the host tests.
@@ -36,4 +33,3 @@ The new test fails on the old behavior and passes with the change.
 ## Verification
 
 Read the `verify` skill before you finish a change.
-See [docs/developer/verification.md](docs/developer/verification.md) for the full check inventory.
