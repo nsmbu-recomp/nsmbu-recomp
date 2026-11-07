@@ -28,6 +28,11 @@ Put a Python test in `tests/py` and a Node unit test in `tests/cli`.
 Put a game regression in a playtest case under `tools/cli/src/playtest/cases/`.
 The new test fails on the old behavior and passes with the change.
 
+- `ctest --test-dir build/linux --output-on-failure` runs the host tests.
+- `python3 -m unittest discover -s tests/py -p "test_*.py"` runs the Python tests.
+- `npm test --prefix tools/cli` runs the Node unit tests.
+- `nsmbu test` runs only the game playtests in `tools/cli/test/playtests.test.ts`.
+
 ## Verification
 
 Read the `verify` skill before you finish a change.
