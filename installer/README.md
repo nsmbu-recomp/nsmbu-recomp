@@ -52,7 +52,7 @@ The setup importer also reads `<repo>/nsmbu` when this tree is a source checkout
 | `install-macos.command` | setup in Terminal, macOS (shipped as `tools/Setup in Terminal.command`) |
 | `install-windows.bat` | setup in a console window, Windows (`tools/Setup in a console window.bat`): runs `NSMBU.exe --console-setup`, which runs `setup.py` in that console with the bundled Python (`tools/python`) |
 | `install-linux.sh` | setup in a terminal, Linux (`tools/setup-in-terminal.sh`; falls back to a pinned standalone Python) |
-| `test_setup.py` | unit tests of the helpers (`python3 installer/test_setup.py`) |
+| `tests/py/installer/test_setup.py` | unit tests of the helpers (`python3 tests/py/installer/test_setup.py`) |
 
 In a release folder the program is `NSMBU.app` (macOS), `NSMBU.exe` (Windows) or
 `nsmbu-launcher` plus `NSMBU.desktop` (Linux); the terminal setup in `tools/` is the fallback.
@@ -134,7 +134,7 @@ Windows limits ordinary paths to 259 characters.
 Setup unpacks, moves and deletes the compiler with `\\?\` paths (`longpath()` in `setup.py`), because the deepest files of llvm-mingw pass that limit below a deep release folder.
 The game and its tools use ordinary paths, so setup stops before any download when the data folder is longer than `MAX_DATA_DIR_CHARS` (179).
 The deepest name below the data folder is the shader cache file `nsmbu\shadercache\vulkan-<8 hex>-<8 hex>-<32 hex>.bin` (79 characters, `DEEPEST_DATA_PATH`).
-A Python that joins paths with `/` (MSYS2) keeps ordinary paths, so `test_setup.py LongPaths` runs on MSYS2 Python and on python.org Python in `windows.yml`.
+A Python that joins paths with `/` (MSYS2) keeps ordinary paths, so `tests/py/installer/test_setup.py LongPaths` runs on MSYS2 Python and on python.org Python in `windows.yml`.
 The release workflow repeats the check in a 174 character release folder, and in one 175 characters deep that must stop with exit code 1.
 
 ## Linux on x86-64 and arm64

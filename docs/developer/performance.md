@@ -522,7 +522,7 @@ That is CPU headroom, not frames, on this machine.
 
 `nsmbu recomp` writes the reload count to `report.txt`; recompile the same tree with `NSMBU_RECOMP_NONLEAF_LIVE=0` for the baseline.
 A build with the pass on must still pass `nsmbu test replay-1-1` (`player state matched` in `.tmp/playtest/replay-1-1/nsmbu.log`).
-`python3 -m unittest recomp/test_leaflocal.py` covers the transform itself.
+`python3 -m unittest discover -s tests/py/recomp -p "test_leaflocal.py"` covers the transform itself.
 
 Three things mislead while measuring this.
 The `[prof]` windows for one setting swing up to 20% between runs here, so compare three runs per side and use the medians; a single pair can show a gain that is not there.

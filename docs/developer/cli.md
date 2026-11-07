@@ -152,17 +152,16 @@ These stay as `python3 tools/…` until they move into the CLI.
 
 ## Host tests
 
-Host tests are CTest targets in `CMakeLists.txt`.
+Host tests are CTest targets in `tests/CMakeLists.txt`.
 
 ```bash
 ctest --test-dir build --output-on-failure
 ```
 
-Linux CI also runs these scripts after that `ctest`.
+Linux CI also runs the Python tests after that `ctest`.
 
 ```bash
-python3 installer/test_setup.py
-python3 recomp/test_builds.py
+python3 -m unittest discover -s tests/py -p "test_*.py"
 ```
 
 `.githooks/pre_push.py` runs a full local `ctest` before a push.

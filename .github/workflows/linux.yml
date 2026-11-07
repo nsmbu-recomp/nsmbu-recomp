@@ -55,17 +55,7 @@ jobs:
       - name: Unit tests
         run: |
           ctest --test-dir build/linux --output-on-failure
-          python3 installer/test_setup.py
-          python3 recomp/test_builds.py
-          python3 recomp/test_output.py
-          python3 recomp/test_pool.py
-          python3 tools/android/test_apk_cli.py
-          python3 tools/lib/test_dev_game_icon.py
-
-      - name: Shader preparation and benchmark tooling unit tests
-        run: |
-          python3 tools/test_shaderprep.py
-          python3 -m unittest discover -s tools/bench -p "test_*.py"
+          python3 -m unittest discover -s tests/py -p "test_*.py"
           npm test --prefix tools/cli
 
       - name: Configure synchronization validation coverage

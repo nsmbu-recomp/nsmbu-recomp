@@ -66,13 +66,14 @@ See the `nsmbu` skill for when `--recomp` is required.
 
 ### Python tool tests (Linux CI, after `ctest`)
 
-- `installer/test_setup.py` (includes issue #11 Windows paste test)
-- `recomp/test_builds.py`, `test_output.py`, `test_pool.py`
-- `tools/android/test_apk_cli.py`
-- `tools/lib/test_dev_game_icon.py`
-- `tools/test_shaderprep.py`
-- `python3 -m unittest discover -s tools/bench -p "test_*.py"`
-- `npm test --prefix tools/cli` (Node `node:test` unit tests under `tools/cli/test/`; game playtests are `tools/cli/test/playtests.test.ts` via `nsmbu test`)
+```bash
+python3 -m unittest discover -s tests/py -p "test_*.py"
+```
+
+That directory holds the installer, recompiler, shader, benchmark, release, and Android Python tests.
+Issue #11 Windows paste coverage is `tests/py/installer/test_setup.py`.
+`npm test --prefix tools/cli` runs the Node unit tests in `tests/cli/`.
+Game playtests stay `tools/cli/test/playtests.test.ts` via `nsmbu test`.
 
 ### Vulkan renderer smoke (no gameplay)
 
@@ -106,7 +107,7 @@ Useful for comparing two builds without adding a new `PlayCase`.
 
 ### Git push hook
 
-`.githooks/pre_push.py` (see `pre-release` skill) builds a clean tree or worktree and runs full `ctest`, `test_setup.py`, and `test_builds.py`.
+`.githooks/pre_push.py` (see `pre-release` skill) builds a clean tree or worktree and runs full `ctest` and `python3 -m unittest discover -s tests/py -p "test_*.py"`.
 It does **not** run `nsmbu test`.
 
 ## Tier B — Needs `game/` and a debug build
@@ -147,7 +148,7 @@ Agents with a local dump are the main line for game regressions.
 Issue coverage outside playtests (see `docs/developer/automation.md`):
 
 - #9 multiplayer bindings — `ctest -R input_mapping`
-- #11 Windows common-key paste — `installer/test_setup.py`
+- #11 Windows common-key paste — `tests/py/installer/test_setup.py`
 - #7 choppy gameplay — no deterministic playtest; shader precompile and Vulkan smoke cover mitigations
 - 0.6.2 mismatched color-target freeze — Vulkan renderer smoke (`mismatched_color_targets`)
 

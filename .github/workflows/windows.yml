@@ -54,10 +54,8 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Shader preparation and benchmark tooling unit tests
-        run: |
-          python tools/test_shaderprep.py
-          python -m unittest discover -s tools/bench -p "test_*.py"
+      - name: Python unit tests
+        run: python -m unittest discover -s tests/py -p "test_*.py"
 
       - name: CLI unit tests
         shell: pwsh
@@ -67,7 +65,7 @@ jobs:
       # MSYS2's Python joins paths with "/" and keeps ordinary paths (setup.NATIVE_WINDOWS_PATHS); the
       # release's kind of Python (python.org, backslashes) really crosses MAX_PATH in the deep unpack test.
       - name: Installer long path unit tests (MSYS2 Python)
-        run: python installer/test_setup.py LongPaths
+        run: python tests/py/installer/test_setup.py LongPaths
 
       - uses: actions/setup-python@v5
         with:
@@ -75,4 +73,4 @@ jobs:
 
       - name: Installer long path unit tests (python.org Python, as in the release)
         shell: pwsh
-        run: python installer/test_setup.py LongPaths
+        run: python tests/py/installer/test_setup.py LongPaths

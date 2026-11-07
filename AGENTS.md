@@ -20,6 +20,14 @@ The `nsmbu` target compiles with `-Wall`.
 
 Any discoveries you find about the source code document it in the headers in `vendor/decomp/include` also add documentation comments explaining what the function does and any side effect or requirements for calling it.
 
+## Tests
+
+Add a test for every behavior change.
+Put a host C or C++ test in `tests/host` and register it in `tests/CMakeLists.txt`.
+Put a Python test in `tests/py` and a Node unit test in `tests/cli`.
+Put a game regression in a playtest case under `tools/cli/src/playtest/cases/`.
+The new test fails on the old behavior and passes with the change.
+
 ## Verification
 
 Read the `verify` skill before you finish a change.

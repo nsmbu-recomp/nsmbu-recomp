@@ -38,6 +38,7 @@ LIB_EXT = (".a", ".lib", ".tbd", ".dylib", ".so")
 
 TOOL_FILES = [
     "tools/rpx/rpx.py",
+    "tools/check_content.py",
     "recomp/recomp.py",
     "recomp/analyze.py",
     "recomp/ppc2c.py",

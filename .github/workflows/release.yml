@@ -164,10 +164,7 @@ jobs:
       - name: Unit tests
         run: |
           ctest --test-dir build/rel --output-on-failure
-          python3 installer/test_setup.py
-          python3 recomp/test_builds.py
-          python3 recomp/test_output.py
-          python3 recomp/test_pool.py
+          python3 -m unittest discover -s tests/py -p "test_*.py"
 
       - name: Package
         run: |
@@ -315,10 +312,7 @@ jobs:
         run: |
           export LD_LIBRARY_PATH="$HOME/sdl3/lib"
           ctest --test-dir build/rel --output-on-failure
-          python3 installer/test_setup.py
-          python3 recomp/test_builds.py
-          python3 recomp/test_output.py
-          python3 recomp/test_pool.py
+          python3 -m unittest discover -s tests/py -p "test_*.py"
 
       - name: Package
         run: |
@@ -480,7 +474,7 @@ jobs:
       - name: Unit tests
         run: |
           ctest --test-dir build/rel --output-on-failure
-          python installer/test_setup.py
+          python -m unittest discover -s tests/py -p "test_*.py"
 
       - name: Pinned embeddable Python, shipped in the release (installer/toolchains.json)
         # the setup runs with it (tools/python); the release itself downloads no Python (issue #58)

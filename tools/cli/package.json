@@ -10,7 +10,7 @@
     "nsmbu": "./bin/nsmbu.ts"
   },
   "scripts": {
-    "test": "node --test test/compare-runs.test.ts test/playtest-args.test.ts test/replay-verdict.test.ts test/replay-bug-1.test.ts test/bench-prof.test.ts test/save-dat-roundtrip.test.ts test/agent-probe.test.ts"
+    "test": "node --test ../../tests/cli/compare-runs.test.ts ../../tests/cli/playtest-args.test.ts ../../tests/cli/replay-verdict.test.ts ../../tests/cli/replay-bug-1.test.ts ../../tests/cli/bench-prof.test.ts ../../tests/cli/save-dat-roundtrip.test.ts ../../tests/cli/agent-probe.test.ts"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",
