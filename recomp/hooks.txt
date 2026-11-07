@@ -84,4 +84,3 @@
 025A4218  # CourseSelectMenu destructor: drop the settings button
 025A42CC  # CourseSelectMenu::create: move Quick Save and Main Menu into the left and middle columns
 025A4B98  # CourseSelectMenu::execute: keep that grid and open settings from the new button
-@025A4C5C  # CourseSelectMenu::execute: place the cursor before it animates

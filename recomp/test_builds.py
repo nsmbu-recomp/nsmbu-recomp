@@ -100,9 +100,9 @@ class Hooks(unittest.TestCase):
              (False, 0x029D8478), (False, 0x029D7648), (False, 0x029D8C10), (True, 0x029D8C48),
              (True, 0x029D71A4), (True, 0x02631BE4), (True, 0x0263ADD8), (True, 0x02641A4C),
              (True, 0x026730C4), (True, 0x02AB7040), (True, 0x02682674),
-             (False, 0x025A4218), (False, 0x025A42CC), (False, 0x025A4B98), (True, 0x025A4C5C),
+             (False, 0x025A4218), (False, 0x025A42CC), (False, 0x025A4B98),
              (False, 0x02ABC054), (False, 0x02ABCAE8), (True, 0x02ABCB34), (True, 0x02ABCB38),
-             (False, 0x02632418)],
+             (True, 0x025A4C5C), (False, 0x02632418)],
         )
         same_addrs = {0x024D752C, 0x029CBBB4, 0x024BD86C, 0x029872BC}
         for site, canon, addr, where, same in entries:
@@ -197,9 +197,12 @@ class Hooks(unittest.TestCase):
             entries, skipped = builds.read_hooks(builds.hook_files(), build)
             self.assertEqual(
                 skipped,
-                [("hooks_nslu_notice.txt", "USA EU NSMBU_NSLU_USA NSMBU_NSLU_EU")],
+                [("hooks_menu_cursor.txt", "USA EU NSMBU_NSLU_USA NSMBU_NSLU_EU"),
+                 ("hooks_nslu_notice.txt", "USA EU NSMBU_NSLU_USA NSMBU_NSLU_EU")],
             )
             by_canon = {canon: addr for _, canon, addr, *_ in entries}
+            self.assertNotIn(0x025A4C5C, by_canon)
+            self.assertTrue(build.body_differs(0x025A4C5C))
             self.assertEqual(by_canon[0x0252D9C0], draw_at)
             self.assertEqual(by_canon[0x0252F900], missing_at)
             self.assertTrue(build.function_missing(0x0252F900))

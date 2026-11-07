@@ -224,6 +224,23 @@ def differing_hook(site, same, is_entry):
         return "refuse"
     return "warn"
 
+def hook_refused(build, site, canon, same, is_entry):
+    """True when this hook makes translation exit. Setup stops on that exit.
+
+    Call it only for an address in code this build compiled differently, or pass any address:
+    a hook in unchanged code is not refused here. `is_entry` is true when the mapped address is
+    a function entry. An instruction site is refused even then.
+    """
+    if not (build.function_missing(canon) or build.body_differs(canon)):
+        return False
+    return hook_on_differing(build, site, canon, same, is_entry) == "refuse"
+
+def hook_refuse_message(where, canon, build_name):
+    """The line translation prints before it exits. Setup shows this in its error."""
+    return ('%s: %08X is inside a function the %s build compiled differently; the '
+            'hook is written for the canonical (USA) code. Mark its file with '
+            '"# builds: USA" or write the hook for this build.' % (where, canon, build_name))
+
 def read_hooks(paths, build):
     """Read the hooks files that apply to `build`.
 

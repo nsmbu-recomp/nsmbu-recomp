@@ -311,17 +311,15 @@ class Recompiler:
         kept = []
         for site, canon, addr, where, same in hook_entries:
             if self.build.function_missing(canon) or self.build.body_differs(canon):
+                is_entry = addr in self.entries
                 fate = game_builds.hook_on_differing(
-                    self.build, site, canon, same, addr in self.entries)
+                    self.build, site, canon, same, is_entry)
                 if fate == "skip" and self.build.function_missing(canon):
                     self.hooks_missing.append((where, canon))
                 if fate == "skip":
                     continue
-                if fate == "refuse":
-                    raise SystemExit('%s: %08X is inside a function the %s build compiled differently; the '
-                                     'hook is written for the canonical (USA) code. Mark its file with '
-                                     '"# builds: USA" or write the hook for this build.' % (
-                                         where, canon, self.build.name))
+                if game_builds.hook_refused(self.build, site, canon, same, is_entry):
+                    raise SystemExit(game_builds.hook_refuse_message(where, canon, self.build.name))
                 if fate == "warn":
                     self.hooks_in_changed.append((where, canon, addr))
                     print("warning: %s: the %s build compiled %08X (there: %08X) differently; the hook wraps "

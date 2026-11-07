@@ -952,6 +952,56 @@ class LongPaths(unittest.TestCase):
             tc = setup.get_toolchain("llvm-mingw-20260922", d, setup.UI(False))
             self.assertEqual(os.path.basename(tc.cxx[0]), "x86_64-w64-mingw32-clang++.exe")
 
+class TranslationHooks(unittest.TestCase):
+    """Setup translates the game by running recomp.py. A refused hook makes that process exit,
+    and setup stops with 'translating the game code failed'."""
+
+    def test_shipped_hooks_do_not_stop_a_known_build(self):
+        problems = []
+        for build in setup.game_builds.all_builds():
+            entries, _skipped = setup.game_builds.read_hooks(setup.game_builds.hook_files(), build)
+            for site, canon, _addr, where, same in entries:
+                # An entry wrap only warns. Pass is_entry so a site is the case that always stops setup.
+                if setup.game_builds.hook_refused(build, site, canon, same, True):
+                    problems.append("%s: %s" % (build.name, setup.game_builds.hook_refuse_message(where, canon, build.name)))
+        self.assertEqual(problems, [])
+
+    def test_base_disc_cursor_site_stops_translation(self):
+        """The USA base disc setup failure: @025A4C5C in the shared hooks file."""
+        line = "@025A4C5C  # CourseSelectMenu::execute: place the cursor before it animates\n"
+        for name in ("USA_V0", "EU_V0"):
+            build = setup.game_builds.by_name(name)
+            with tempfile.TemporaryDirectory() as directory:
+                path = os.path.join(directory, "hooks.txt")
+                with open(path, "w", encoding="utf-8") as source:
+                    source.write(line)
+                entries, skipped = setup.game_builds.read_hooks([path], build)
+            self.assertEqual(skipped, [])
+            site, canon, _addr, where, same = entries[0]
+            self.assertTrue(setup.game_builds.hook_refused(build, site, canon, same, True))
+            self.assertIn("025A4C5C", setup.game_builds.hook_refuse_message(where, canon, build.name))
+
+    def test_recompile_stops_when_translation_rejects_a_hook(self):
+        line = setup.game_builds.hook_refuse_message("hooks.txt:87", 0x025A4C5C, "USA_V0")
+
+        class FakeProc:
+            def __init__(self):
+                self.stdout = iter(["progress 0 1 reading game code", line])
+
+            def wait(self):
+                return 1
+
+        with tempfile.TemporaryDirectory() as temporary:
+            with mock.patch.object(setup.subprocess, "Popen", return_value=FakeProc()), \
+                    mock.patch.object(setup, "say"), \
+                    mock.patch.object(setup.Progress, "update"):
+                with self.assertRaises(setup.SetupError) as caught:
+                    setup.recompile(os.path.join(temporary, "game"), os.path.join(temporary, "gen"))
+        text = str(caught.exception)
+        self.assertIn("translating the game code failed (exit code 1)", text)
+        self.assertIn(line, text)
+
+
 class BracketsInInstallFolder(unittest.TestCase):
     def test_recompile_counts_generated_code_in_a_folder_with_brackets(self):
         with tempfile.TemporaryDirectory() as temporary:
