@@ -6,11 +6,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-### Fixed
-
-- **Stretch picture instead of widening the view** stretches the 16:9 TV picture into the chosen shape, such as 21:9.
-  The GamePad picture keeps its own shape.
-
 ## [0.9.0] - 2026-11-07
 
 ### Added
@@ -51,6 +46,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Phones and PCs whose Vulkan driver is 1.1 or 1.2, and has no dynamic rendering, can start the game (#63).
+- **Stretch picture instead of widening the view** stretches the 16:9 TV picture into the chosen shape, such as 21:9.
+  The GamePad picture keeps its own shape.
 - 60 fps on a high-refresh display keeps 60 logic steps a second.
 - Foreground grass and flowers follow the camera between frames, including an up or down pan.
   That pan no longer crashes the course.
