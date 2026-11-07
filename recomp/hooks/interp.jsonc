@@ -11,29 +11,29 @@
     // The ground and brick passes are in this layer, not only 0269325C.
     { "address": "024B47A8" }, // course tiles: in-between ortho for this draw, then the logic edges
     { "address": "024B47C8" }, // course tiles: the second tile draw
-    { "address": "026904D4" },
-    { "address": "026905C0" },
-    { "address": "02690680" },
-    { "address": "0269083C" },
-    { "address": "02691690" },
-    { "address": "0269179C" },
-    { "address": "026917E4" },
-    { "address": "02691868" },
-    { "address": "0269196C" },
-    { "address": "02691970" },
-    { "address": "026919A4" },
-    { "address": "02691A8C" },
-    { "address": "02691B74" },
-    { "address": "02691DF0" },
-    { "address": "02691EAC" },
-    { "address": "0269206C" },
-    { "address": "026920B0" },
-    { "address": "02692194" },
-    { "address": "0269222C" },
-    { "address": "02692748" },
-    { "address": "0269282C" },
-    { "address": "026928C4" },
-    { "address": "0269325C" },
+    { "address": "026904D4" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "026905C0" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02690680" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269083C" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691690" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269179C" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "026917E4" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691868" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269196C" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691970" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "026919A4" }, // course tile draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691A8C" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691B74" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691DF0" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691EAC" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269206C" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "026920B0" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02692194" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269222C" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02692748" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269282C" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "026928C4" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269325C" }, // ground and brick pass: capture the live ortho from RenderInfo in r5, then restore the logic edges
     { "address": "0268B70C" }, // Bg grass/flower TexQuad draw: in-between camera and blended deco arrays
     { "address": "029C4FE4" }, // ApplicationFramework::procDraw_: a 30 fps step draws no frame
     { "address": "029FD94C" }, // DualScreenMethodTreeMgr::drawBtm: skip the GamePad picture when that screen is hidden
