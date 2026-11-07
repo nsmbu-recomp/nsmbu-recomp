@@ -8,126 +8,62 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-- Crash recovery stays off until you turn it on in Save States.
-  A crash does not turn it on.
-  A debug launch does not turn it on.
-- 60 fps on a high-refresh display keeps 60 logic steps a second.
-  The frame clock was 59.94 Hz when the display was not already near 60 Hz.
-  The performance overlay counts FPS and logic steps across the real time between samples.
-  A steady 60 no longer reads as 59.5.
-  On Windows the frame wait spins for the last part of the interval.
-  Spacing does not follow the 1 ms timer.
-- The Vulkan shader cache loads while the game starts.
-  The first frames no longer wait on that read.
-  On this machine the read takes 197 ms.
-  The render thread waited 0 ms for that read.
-  In the first 120 frames the shader phase fell from 1.70 ms/frame to 0.07 ms/frame.
-  The game thread DrawDone wait fell from 2.31 ms/frame to 0.69 ms/frame.
-- Foreground grass and flowers follow the in-between camera, including the quad corners and vertical pan.
-  The grass draw is recorded on the 60 Hz step, so a hold picture was repeating that step.
-  The hold only moves those recorded quads, so panning the camera does not crash the course.
+- **Stretch picture instead of widening the view** stretches the 16:9 TV picture into the chosen shape, such as 21:9.
+  The GamePad picture keeps its own shape.
+
+## [0.9.0] - 2026-11-07
 
 ### Added
 
-- `nsmbu goto`, `ui`, `actors`, `log`, `picture`, and `restart` talk to the running game.
-  `goto` opens the title, the file select, the world map, or a course such as `1-1`.
-  `ui` prints the settings overlay and the world-map menu cursor.
-  `actors` prints the player power-up and nearby actors.
-  `log` prints recent log lines, with `--tag` for labels such as `menu` and `scene`.
-  `picture` prints how much a TV rectangle changes across a few frames.
-  `restart` rebuilds when the debug binary is older than the runtime sources and opens the same place again.
-  `nsmbu wait --cursor NAME` waits until that menu button is selected.
-- Settings → Debug has **Settings button on the start menu**, off by default.
-  Open the world-map start menu again after turning it on.
-  The button sits under Change Controller and uses the same menu button as the other five.
-  Quick Save and Main Menu move into the left and middle columns, so the menu is two rows of three.
-  A or Enter on that button opens the settings overlay.
-  It fades and grows with the other buttons when the menu opens and closes.
-  On a controller, move down from Change Controller, or right from Main Menu.
-  Up returns to Change Controller, and left returns to Main Menu.
-  Down from Number of Players selects Main Menu, and up returns to Number of Players.
-  Up from Quick Save selects Star Coins.
-  Change Controller keeps its own cursor, so Switch to GamePad stays selected.
-  Down from Quick Save or Main Menu selects the button guide.
-  Up from the guide returns to that button.
-- Settings → Graphics has **Async shader compile**, off by default.
-  Turn it on and a new Vulkan shader compiles beside the frame.
-  That draw is left out until the shader is ready, so a burst of new shaders does not freeze the picture.
-  An object can be missing for a moment.
-  `NSMBU_VK_ASYNC_SHADERS=1` turns it on for that start, and `=0` keeps it off.
-- `NSMBU_INTERP_GRASS_TRACE` logs foreground grass in TV pixels against the course camera (`slip` is the pan error).
-- Agent skill `crash` points at log paths and what crash, run, and setup logs contain.
-- Settings → Display has a **Stretch picture instead of widening the view** checkbox under aspect ratio (on by default).
-  Turn it off to keep the wider-field-of-view behavior for non-16:9 aspects.
-- `.vscode/launch.json` to debug `build/debug/nsmbu` with **lldb-dap** (uses `game/active` via `tools/run/vscode_lldb_init.py`, same env defaults as `nsmbu launch`).
 - The installer can add a New Super Luigi U folder on the Keys screen, next to a disc image, or with an extracted game folder.
   A Cemu archive that already contains the matching add-on installs it with the game.
+- Settings → Graphics has **Async shader compile**, off by default.
+  Turn it on so a burst of new shaders does not freeze the picture.
+  An object can be missing for a moment while its shader compiles.
+- Settings → Display has **Stretch picture instead of widening the view**, on by default.
+  Turn it off to keep the wider view on screens that are not 16:9.
+- Settings → Debug can add a **Settings** button on the world-map start menu.
+  It is off by default, and the menu becomes two rows of three the next time you open it.
 
 ### Changed
 
-- A new Vulkan shader keeps the last picture on screen until that shader is ready, then the draw uses it.
-  The shader on screen compiles before shaders that are not on screen.
-  The shader text is released after the compile starts.
-  Shader-key verification keeps the text.
-- Vulkan compiles each distinct shader once.
-  Variants that produce the same shader share that compile, including one that is still running.
-  The shader cache stores each compiled program once and no longer keeps the shader text.
-  An existing cache still loads and is rewritten in the smaller form.
-- Course replay applies small GPU register packets with less CPU work.
-  The shader-key bit test is a lookup table.
-  A packet of 16 words or fewer compares those words in place.
-  A shader program hash stays in a fixed slot for the frame.
-  On this machine, uncapped 1-1 at 1x went from 1.00 ms per frame (995 swaps/s, one run) to a median of 0.92 ms (1091 swaps/s, three runs).
-  Register time went from 0.32 ms per frame to 0.27 ms.
-  The recorded player path still matches.
-- The performance overlay shows logic steps per second above the frame graph, with a white Logic label like the FPS row, and shader recompile time with the CPU and GPU lines.
-- The performance overlay frame graph is green when frame time meets your chosen frame rate, shows only the line without a fill beneath it, and keeps each hitch visible until it scrolls off instead of flattening early.
+- Vulkan starts in **Vsync (smooth)** when you have not chosen a presentation mode.
+- A new shader keeps the last picture on screen until that shader is ready.
+  The shader you can see compiles before shaders that are off screen.
+- Each shader compiles once, and the shader cache stores that program once.
+  An existing cache still loads, then it is saved in the smaller form.
+- Courses draw faster when the frame rate is uncapped.
+- The world map draws faster once the picture has settled.
+- The hidden GamePad picture is not drawn, so the world map can hold a higher frame rate.
 - The New Super Luigi U story-map notice does not appear at startup.
-- Count-register loops keep the PowerPC CTR in a C local instead of the `Cpu` struct.
-  A 4096-byte copy loop, compiled with the game code's `-O3` flags, takes 4 ms with the local and 7–8 ms when CTR stays in memory.
-  The same loop with the cache-line clear takes 6 ms with the local and 8–9 ms without it.
-- The README lists the port's extra features, puts experimental options in their own list, and keeps a short Controls subsection for Settings, full screen, save states, screenshots, and the GamePad screen.
-- Vulkan presentation defaults to **Vsync (smooth)** instead of low-latency mailbox when you have not chosen a mode in settings.
-- A full recompile builds register write-back text only for statements that branch or return.
-  On this machine, translation of USA 1.3.0 takes 7.1 s, down from 9.1 s (16 workers).
-  The full recompile takes 15.7 s, down from 17.6 s.
-  The generated C is the same.
-- Build coverage lists expect the drawBtm hook.
-- The world map reuses an unchanged texture bind instead of setting that texture up again.
-- `nsmbu bench overworld` measures the world map after the load has settled.
-- Uniform register writes are applied in one copy.
-- Unchanged uniform packs, pixel shaders, vertex buffers, index binds, and texture alias checks are reused.
-- The settled world map does less repeated render work.
-  On this machine the overworld bench median is 7.46 ms/frame, down from 8.05 ms/frame.
-- The hidden GamePad picture is not drawn.
-  On this machine the settled world map then holds 164–165 swaps/s at a 165 fps cap.
-  The same boot was about 135–146 swaps/s before.
+- The performance overlay shows logic steps per second above the frame graph, and shader recompile time with the CPU and GPU lines.
+- The performance overlay frame graph is green when the frame time meets your frame rate, shows the line only, and keeps each hitch until it scrolls off.
 
 ### Removed
 
 - Lua mods and file-replacement packs no longer install.
   The Mods tab installs Cemu graphics and shader packs only.
-  LuaJIT stays linked.
-- `T` no longer toggles 120 fps.
+- `T` no longer switches between 60 fps and 120 fps.
+  Choose the frame rate in the frame menu.
 - `R` no longer cycles the internal resolution.
+  Change it in Settings.
 
 ### Fixed
 
-- The foreground grass follows the in-between pictures at high frame rates.
-  The draw reads wave, position, and sway data that only advance on the 60 Hz step.
-  A hold picture blends those arrays with the same weight as the camera on the grass draw hook (`0x0268B70C`).
-- The ground and bricks follow the in-between camera at high frame rates.
-  Their projection was stored in the display list at the 60 Hz step, so the ground stepped while pipes and enemies stayed smooth.
-  The stored matrix is the course camera with the vertical scale negated, and the port keeps that sign.
-  The rewrite uses the display list byte order, so the course picture stays on screen.
-- The ground and the characters use the same camera sample on an in-between picture.
-  The picture no longer jitters when the camera moves.
-- The performance overlay averages FPS, frame time, logic, and CPU/GPU lines over the same two-second window as the frame graph, refreshes those numbers every 0.5 s, and keeps the graph scrolling at a steady wall-clock rate when frame rate drops.
-- Phones and PCs whose Vulkan driver is 1.1 or 1.2 and has no dynamic rendering can start the game (#63).
-- Polygon offset sends the depth-bias command on every draw that enables it.
-- New Super Luigi U add-on files in `content/RDashRes` mount on boot, so the eShop prompt stays off when that add-on is present.
-- `nsmbu installer` takes SDL3 and Vulkan-Headers from the pins in the tree, so a local run does not need the release workflow environment.
-- SDL3 for that package is built without a precompiled header and without the zig linker's `--dependency-file` flag, which crashed the link.
+- Phones and PCs whose Vulkan driver is 1.1 or 1.2, and has no dynamic rendering, can start the game (#63).
+- 60 fps on a high-refresh display keeps 60 logic steps a second.
+- Foreground grass and flowers follow the camera between frames, including an up or down pan.
+  That pan no longer crashes the course.
+- Foreground grass wave and sway follow the in-between pictures at high frame rates.
+- The ground and bricks follow the camera between frames, so they stay smooth with pipes and enemies.
+- The ground and the characters share one camera sample between frames, so the picture no longer jitters when the camera moves.
+- The shader cache loads while the game starts, so the first frames no longer wait on that read.
+- Crash recovery stays off until you turn it on in Save States.
+  A crash does not turn it on.
+- The performance overlay averages its numbers over the same two-second window as the frame graph.
+  The numbers refresh every half second, and the graph keeps scrolling when the frame rate drops.
+- A steady 60 fps no longer shows as 59.5 on the performance overlay.
+- When New Super Luigi U is installed, the eShop prompt stays off.
 
 ## [0.8.4] - 2026-11-03
 
@@ -516,7 +452,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - The TV and GamePad present together on one vsync.
 
-[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.4...HEAD
+[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.4...v0.9.0
 [0.8.4]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.1...v0.8.2

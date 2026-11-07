@@ -15,7 +15,7 @@ bool game_content_rect(float display_w, float display_h, float& ox, float& oy, f
         ow = pw * display_w;
         oh = ph * display_h;
     } else {
-        const gfx::Box b = gfx::display_layout(display_w, display_h, 1280.0f, 720.0f);
+        const gfx::Box b = gfx::layout(display_w, display_h, 1280.0f, 720.0f, 0, 0, false).tv;
         if (b.w > 0 && b.h > 0) {
             ox = b.x;
             oy = b.y;

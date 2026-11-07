@@ -1,6 +1,7 @@
 
 
 #include "gfx/display_modes.h"
+#include "gfx/picture_box.h"
 
 #include <algorithm>
 #include <chrono>
@@ -207,16 +208,11 @@ static void pause_view_update(float tv_change, bool tv_dark) {
 }
 
 static Box fit(float dw, float dh, float tw, float th, float* scale) {
-    float s = std::min(dw / tw, dh / th);
-    if (g_filter == kInteger && s >= 1) s = floorf(s + 1e-3f);
-    *scale = s;
-    float w = roundf(tw * s), h = roundf(th * s);
-    return {floorf((dw - w) / 2), floorf((dh - h) / 2), w, h};
+    return fit_picture(dw, dh, tw, th, g_filter, scale);
 }
 
-static Box stretch(float dw, float dh, float* scale) {
-    *scale = 1.0f;
-    return {0, 0, dw, dh};
+static Box tv_box(float dw, float dh, float tw, float th, float* scale) {
+    return tv_picture(dw, dh, tw, th, aspect::stretch_image(), aspect::mode() == aspect::kWindow, aspect::requested(), g_filter, scale);
 }
 
 Layout layout(float dw, float dh, float tw, float th, float pw, float ph, bool pip_on, bool drc_only) {
@@ -229,7 +225,7 @@ Layout layout(float dw, float dh, float tw, float th, float pw, float ph, bool p
         return L;
     }
     if (tw <= 0 || th <= 0) return L;
-    L.tv = aspect::stretch_image() ? stretch(dw, dh, &L.scale) : fit(dw, dh, tw, th, &L.scale);
+    L.tv = tv_box(dw, dh, tw, th, &L.scale);
     if (pip_on && pw > 0 && ph > 0) {
 
         float ow = roundf(L.tv.w * g_pip_size), oh = roundf(ow * ph / pw);
@@ -246,7 +242,11 @@ static Layout g_tv_layout;
 static Box g_button;
 static float g_tv_dw = 0, g_tv_dh = 0;
 
-Box display_layout(float dw, float dh, float tw, float th) { return layout(dw, dh, tw, th, 0, 0, false).tv; }
+Box display_layout(float dw, float dh, float tw, float th) {
+    float scale = 1;
+    if (dw <= 0 || dh <= 0 || tw <= 0 || th <= 0) return {};
+    return fit(dw, dh, tw, th, &scale);
+}
 
 static bool sim_screen(float* w, float* h) {
     static float sw = 0, sh = 0;

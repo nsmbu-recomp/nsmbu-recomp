@@ -1048,8 +1048,9 @@ void tab_display() {
     bool stretch = aspect::stretch_image();
     if (check("Stretch picture instead of widening the view", stretch, &stretch))
         post_changed([stretch] { aspect::set_stretch_image(stretch); });
-    help("When this is on, the TV picture fills the window and can look stretched.\n"
-         "When it is off, wider or taller aspect ratios show more of the level.");
+    help("When this is on, the 16:9 TV picture stretches to fill the chosen shape.\n"
+         "The GamePad picture keeps its own shape.\n"
+         "When it is off, a wider or taller shape shows more of the level.");
     heading("Picture scaling");
     static const char* const f[] = {"Smooth", "Sharp", "Integer scale (pixel exact)"};
     const bool fok = hostui::scale_filter_available();

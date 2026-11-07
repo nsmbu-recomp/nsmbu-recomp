@@ -526,6 +526,11 @@ target_include_directories(drc_mode_test PRIVATE runtime/src)
 target_compile_options(drc_mode_test PRIVATE -UNDEBUG)
 add_test(NAME drc_mode COMMAND drc_mode_test)
 
+add_executable(tv_stretch_test runtime/test/tv_stretch_test.cpp)
+target_include_directories(tv_stretch_test PRIVATE runtime/src)
+target_compile_options(tv_stretch_test PRIVATE -UNDEBUG)
+add_test(NAME tv_stretch COMMAND tv_stretch_test)
+
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_Interpreter_FOUND)
   add_test(NAME build_coverage COMMAND "${Python3_EXECUTABLE}" -m unittest discover
