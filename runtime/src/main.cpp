@@ -527,7 +527,6 @@ int main(int argc, char** argv) {
     }
 #endif
     mods::cemu::set_vulkan(render::requested()==render::Api::Vulkan);
-    mods::content::set_game_root(config::game_dir);
     mods::packages::initialize();
 #if TARGET_OS_IPHONE
     if (const std::string why = game_folder::unusable_reason(config::game_dir); !why.empty())

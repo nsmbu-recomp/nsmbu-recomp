@@ -28,7 +28,6 @@ enum Op : uint32_t {
     OP_SETUP_CONTEXT,
     OP_FENCE,
 
-    OP_SET_PROJ_REGS,
     OP_LAYOUT_ROOT,
     OP_PEEK_Z,
     OP_LAYOUT_CONTENT,

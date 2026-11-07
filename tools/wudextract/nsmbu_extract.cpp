@@ -30,8 +30,7 @@
 // (0005000010101d00_v64). Without it an archive with a single title uses that one.
 // --only GLOB (repeatable): extract only the files whose path in the title (code/..., content/...,
 // meta/...) matches one of the patterns, without case; '*' matches any run of characters ('/' too),
-// '?' one character. The setup uses it to take only the language files of a second disc
-// (content/Common/Pack/permanent_2d_*.pack, meta/meta.xml).
+// '?' one character.
 //
 // info on an archive prints "format wua", one "title ID VERSION FOLDER FILES BYTES" line per title
 // folder, and for the selected title "selected FOLDER", "title_id", "version", "files", "bytes".

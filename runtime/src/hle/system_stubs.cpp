@@ -113,12 +113,6 @@ HLE(nn_aoc, AOC_OpenTitle) {
     ret(c, kResultOk);
 }
 
-extern "C" void f_0203DEEC_orig(Cpu* c);
-extern "C" void hook_0203DEEC(Cpu* c) {
-    threads::park_sleep_until(std::chrono::steady_clock::now() + std::chrono::milliseconds(1));
-    f_0203DEEC_orig(c);
-}
-
 HLE(nsysnet, socket_lib_init) { ret(c, 0); }
 HLE(nsysnet, socket_lib_finish) { ret(c, 0); }
 HLE(nsysnet, NSSLInit) { ret(c, 0); }

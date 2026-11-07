@@ -15,7 +15,6 @@
 #include "core/runtime.h"
 #include "core/write_watch.h"
 #include "../mods/content.h"
-#include "text/rtl_text.h"
 
 namespace {
 
@@ -176,11 +175,6 @@ int32_t open_file(const std::string& gpath, const std::string& mode, uint32_t ou
             LOG("[aoc] missing %s host %s", gpath.c_str(), hp.c_str());
     }
     if (!f) return FS_NOT_FOUND;
-    if (mode.find_first_of("wa+") == std::string::npos) {
-        const size_t slash = gpath.find_last_of('/');
-        if (!mods::content::pack_language(slash == std::string::npos ? gpath : gpath.substr(slash + 1)).empty())
-            rtl_text::language_pack_opened(hp);
-    }
     std::lock_guard<std::mutex> lk(g_fs_mutex);
     uint32_t h = g_next_handle++;
     g_files[h] = {f, gpath, m};

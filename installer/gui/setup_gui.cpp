@@ -1797,7 +1797,7 @@ static void send_import(bool replace) {
     std::string r = replace ? ",\"replace\":true" : "";
     if (A.save_kind == 2) request("import_existing", r.empty() ? "" : r.substr(1));
     else if (A.save_kind == 3) request("import_existing", "\"path\":" + jstr(A.save_path) + r);
-    else request("import_save", std::string("\"kind\":\"hd\",\"path\":") + jstr(A.save_path) + r);
+    else request("import_save", std::string("\"kind\":\"nsmbu\",\"path\":") + jstr(A.save_path) + r);
 }
 
 static void screen_save() {
@@ -1807,10 +1807,10 @@ static void screen_save() {
     if (kind == 4) kind = 3;
     else if (kind == 2 && !A.legacy) kind = 1;
     radio("Start with a new save", &kind, 0);
-    radio("NSMBU save (a folder with cking.sav, from Cemu or a Wii U)", &kind, 1);
+    radio("NSMBU save (a folder with rp_personal_savedata.dat, from Cemu or a Wii U)", &kind, 1);
     if (A.save_kind == 1) {
         ImGui::Indent();
-        if (button("Choose folder...##hd")) choose_folder("save");
+        if (button("Choose folder...##save")) choose_folder("save");
         if (!A.save_path.empty()) ImGui::SameLine(), ImGui::TextUnformatted(base_name(A.save_path).c_str());
         ImGui::Unindent();
     }
@@ -2370,7 +2370,7 @@ static void automation_frame() {
             else if (k == "disc_mode") set_disc_mode(v == "paste" ? 1 : 0);
             else if (k == "common_mode") set_common_mode(v == "paste" ? 1 : 0);
             else if (k == "save_kind")
-                set_save_kind(v == "hd" ? 1 : v == "legacy" ? 2 : v == "other" ? 3 : 0);
+                set_save_kind(v == "nsmbu" ? 1 : v == "legacy" ? 2 : v == "other" ? 3 : 0);
             else if (k == "save_path") set_save_path(v);
         }
     }

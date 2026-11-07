@@ -181,7 +181,6 @@ extern "C" void site_024F8168(Cpu* c) { adjust_projection_args(c, 1, 2); }
 extern "C" void site_025ADB38(Cpu* c) { adjust_projection_args(c, 1, 2); }
 
 extern "C" {
-void f_02874038_orig(Cpu* c);
 void f_02ABC054_orig(Cpu* c);
 void f_02ABCAE8_orig(Cpu* c);
 }
@@ -405,22 +404,9 @@ extern "C" void hook_02ABCAE8(Cpu* c) {
     f_02ABCAE8_orig(c);
 }
 
-static thread_local int t_tag = 0;
-static void with_tv_projection(Cpu* c, void (*fn)(Cpu*)) {
-    if (aspect::original()) { fn(c); return; }
-    t_tag++;
-    fn(c);
-    t_tag--;
-}
 namespace aspect {
-bool tagged_projection() { return t_tag > 0; }
 void layout_root_target(uint32_t root, bool tv) { set_root_tv(root, tv); }
 }
-
-extern "C" void hook_02874038(Cpu* c) { with_tv_projection(c, f_02874038_orig); }
-
-extern "C" void f_028F8250_orig(Cpu* c);
-extern "C" void hook_028F8250(Cpu* c) { with_tv_projection(c, f_028F8250_orig); }
 
 static void adjust_perspective(Cpu* c) {
     float fovy = (float)c->f[3].ps0, aspect_arg = (float)c->f[4].ps0;

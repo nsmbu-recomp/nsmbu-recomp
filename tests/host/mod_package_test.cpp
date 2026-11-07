@@ -143,15 +143,8 @@ int main(int argc, char** argv) {
     std::ofstream(legacy/"content"/"Object"/"test.arc")<<"synthetic model archive";
     assert(!install(legacy.string(),error));
     assert(error.find("Only Cemu graphics packs can be installed")!=std::string::npos);
-    auto loose=root/"permanent_3d.pack";std::ofstream(loose)<<"SARCsynthetic-fixture";
+    auto loose=root/"loose.pack";std::ofstream(loose)<<"SARCsynthetic-fixture";
     assert(!install(loose.string(),error));
-    auto game=root/"game";fs::create_directories(game/"content"/"Common"/"Layout");
-    std::ofstream(game/"content"/"Common"/"Layout"/"Title_00.szs")<<"original";
-    mods::content::set_game_root(game);
-    auto translation=root/"FanTranslation";fs::create_directories(translation);
-    std::ofstream(translation/"permanent_2d_EuEnglish.pack")<<"SARCsynthetic translation";
-    assert(!install(translation.string(),error));
-    mods::content::set_game_root({});
     auto invalid=root/"CodeMod";fs::create_directories(invalid/"content");std::ofstream(invalid/"content"/"dummy")<<"fixture";std::ofstream(invalid/"patches.txt")<<"code";
     assert(!install(invalid.string(),error));
     assert(error.find("Only Cemu graphics packs can be installed")!=std::string::npos);
