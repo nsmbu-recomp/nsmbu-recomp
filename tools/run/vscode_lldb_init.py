@@ -20,6 +20,17 @@ def sh_quote(s):
     return "'" + s.replace("'", "'\\''") + "'"
 
 
+def command_lines(exe, child_env, run_args):
+    # `--` keeps values that start with `-` from being parsed as settings options.
+    return [
+        f"target create {sh_quote(exe)}",
+        "settings set -- target.env-vars "
+        + " ".join(sh_quote(f"{k}={v}") for k, v in sorted(child_env.items())),
+        "settings set -- target.run-args " + " ".join(sh_quote(a) for a in run_args),
+        "process launch",
+    ]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--no-debug-env", action="store_true")
@@ -42,13 +53,7 @@ def main():
     os.makedirs(tmp, exist_ok=True)
     out = os.path.join(tmp, "vscode_lldb.lldb")
     run_args = ["--game", game, "--save", save]
-    lines = [
-        f"target create {sh_quote(exe)}",
-        "settings set target.env-vars "
-        + " ".join(sh_quote(f"{k}={v}") for k, v in sorted(child_env.items())),
-        "settings set target.run-args " + " ".join(sh_quote(a) for a in run_args),
-        "process launch",
-    ]
+    lines = command_lines(exe, child_env, run_args)
     with open(out, "w", encoding="utf-8") as handle:
         handle.write("\n".join(lines) + "\n")
 

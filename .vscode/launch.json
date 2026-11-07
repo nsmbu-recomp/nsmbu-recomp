@@ -4,6 +4,7 @@
         {
             "name": "NSMBU",
             "type": "lldb-dap",
+            "debugAdapterExecutable": "${workspaceFolder}/tools/run/lldb-dap.sh",
             "request": "launch",
             "preLaunchTask": "nsmbu: vscode lldb init",
             "launchCommands": [
@@ -15,6 +16,7 @@
         {
             "name": "NSMBU (no debug env)",
             "type": "lldb-dap",
+            "debugAdapterExecutable": "${workspaceFolder}/tools/run/lldb-dap.sh",
             "request": "launch",
             "preLaunchTask": "nsmbu: vscode lldb init (no debug env)",
             "launchCommands": [
@@ -26,6 +28,7 @@
         {
             "name": "Attach to NSMBU",
             "type": "lldb-dap",
+            "debugAdapterExecutable": "${workspaceFolder}/tools/run/lldb-dap.sh",
             "request": "attach",
             "program": "${workspaceFolder}/build/debug/nsmbu",
             "pid": "${command:pickMyProcess}"
