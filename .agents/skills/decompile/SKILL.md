@@ -1,11 +1,6 @@
 ---
 name: decompile
-description: >-
-  Continue vendor/decomp (REDPRO2) decompilation of NSMBU USA v1.3.0: disassemble
-  with ppcdis.py, write C++ under vendor/decomp/src and include, manage docs/TODO.md
-  claims, triple-repo commits, and autonomous subagent batches from headers_names.txt.
-  Use when decompiling game functions, expanding REDPRO2, answering decomp TODOs, or
-  running the decomp work queue.
+description: "Decompile NSMBU USA v1.3.0 into vendor/decomp with ppcdis.py. Use when decompiling functions, answering decomp TODOs, or running the decomp work queue."
 disable-model-invocation: true
 ---
 
@@ -15,13 +10,13 @@ disable-model-invocation: true
 
 Continue the `vendor/decomp` decompilation of NSMBU USA v1.3.0, working fully autonomously: spawn subagents to implement decompilation, keep finding new work for further subagents, and commit each piece as it lands.
 
-No responses needed from the user; keep going until the queue is empty or blocked.
+No responses needed from the user, keep going until the queue is empty or blocked.
 
 ## Requirements
 
 - Decompiled C++ (not only prose notes) must be written into `vendor/decomp/src` and `vendor/decomp/include`.
-- One claim per TODO item; checked items are removed from `vendor/decomp/docs/TODO.md` and the answer goes into the note it came from.
-- Never invent sead/agl names when no tree has the symbols; keep the address and describe the site.
+- One claim per TODO item, checked items are removed from `vendor/decomp/docs/TODO.md` and the answer goes into the note it came from.
+- Never invent sead/agl names when no tree has the symbols, keep the address and describe the site.
 - Decompiled code must match existing `vendor/decomp` style (`// Address: 0x...` markers, `L_` labels, raw offsets).
 - Discoveries about original game code go in the headers under `vendor/decomp/include`, with a comment on what the function does and any side effect or requirement for calling it.
 
@@ -38,9 +33,9 @@ No responses needed from the user; keep going until the queue is empty or blocke
 
 Commit order on every landed batch:
 
-1. `vendor/decomp/include` — new or updated headers.
-2. `vendor/decomp` — `.cpp`, docs under `docs/`, `docs/TODO.md` edits.
-3. Parent — submodule gitlink bumps.
+1. `vendor/decomp/include` - new or updated headers.
+2. `vendor/decomp` - `.cpp`, docs under `docs/`, `docs/TODO.md` edits.
+3. Parent - submodule gitlink bumps.
 
 Push all three when the user expects sync (autonomous runs: push after each batch).
 
@@ -62,7 +57,7 @@ Added `.cpp` and `.h` files are documentation only and are never compiled.
 Match nearby decomp files:
 
 - File-level and per-function `// Address: 0x...` on decompiled functions and anonymous helpers.
-- Member access via `reinterpret_cast` and byte offsets; filler arrays like `_1C[(0x3D0-0x1C)/4]`.
+- Member access via `reinterpret_cast` and byte offsets, filler arrays like `_1C[(0x3D0-0x1C)/4]`.
 - Internal asm labels as `L_029B5450` (or project convention in the file you extend).
 
 Style references:
@@ -83,7 +78,7 @@ Before research-only work, read `vendor/decomp/docs/TODO.md`.
 
 ## Autonomous work loop
 
-Plan for bounded parallel batches; avoid duplicate symbols across agents.
+Plan for bounded parallel batches, avoid duplicate symbols across agents.
 
 ### Build the queue
 
@@ -116,8 +111,8 @@ The orchestrator commits.
 
 Temp files under `.tmp/` only (not `/tmp/`):
 
-- `.tmp/dumpw.py`, `.tmp/cstr.py` — data-word and C-string readers when needed.
-- `.tmp/nsmbu-sead/` — sead, agl, nw_ptcl sources for verified naming.
+- `.tmp/dumpw.py`, `.tmp/cstr.py` - data-word and C-string readers when needed.
+- `.tmp/nsmbu-sead/` - sead, agl, nw_ptcl sources for verified naming.
 
 ## Domain reference
 

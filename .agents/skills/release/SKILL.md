@@ -1,6 +1,6 @@
 ---
 name: release
-description: "Publish an NSMBU GitHub release by committing the changelog, tagging the tip of main, and watching the release workflow. Use when the user asks to publish a release, push a v* tag, watch a release workflow until it is published, or publish a named test pre-release such as issue-60. Changelog cleanup and local tests are the pre-release skill."
+description: "Publish an NSMBU GitHub release: commit the changelog, tag main, and watch the workflow. Use when publishing a release, pushing a v* tag, or a named test pre-release such as issue-60. Cleanup and local tests are the pre-release skill."
 ---
 
 # Release

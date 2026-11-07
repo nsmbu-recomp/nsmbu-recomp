@@ -31,8 +31,8 @@ Done when status shows `map=1` and `scene=CourseSelect` or `scene=Map`.
 
 `A` on `W1M0` does not enter a course.
 One stick-right reaches `W101`.
-That walk is in [course.md](course.md).
+That walk is in `course.md`.
 
 `nsmbu scripted` forces a hidden window, immediate present, and resolution scale 1.
-Use it only for a log that must match [automation.md](../../../../docs/developer/automation.md).
+Use it only for a log that must match `docs/developer/automation.md`.
 The press list there is the same map, measured in TV frames.

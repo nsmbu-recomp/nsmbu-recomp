@@ -25,7 +25,7 @@ Use `nsmbu open 1-1` when the question is the live course.
 
 ## From the world map
 
-Start from [overworld.md](overworld.md).
+Start from `overworld.md`.
 The repo save stands on `W1M0`.
 `A` there does not enter a course.
 The first course node is `W101`.

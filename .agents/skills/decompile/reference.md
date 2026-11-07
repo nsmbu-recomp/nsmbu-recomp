@@ -4,19 +4,19 @@ USA v1.3.0 `red-pro2.rpx` unless a note says Europe.
 
 ## Tools
 
-- `python3 tools/rpx/ppcdis.py ADDR [COUNT] [RPX]` — `.text` disassembly; annotates `headers_names.txt` callees and imports.
-- `recomp/headers_names.txt` — class and symbol for game addresses (~5k symbols).
-- `game/active` — which dump `ppcdis.py` uses by default.
+- `python3 tools/rpx/ppcdis.py ADDR [COUNT] [RPX]` - `.text` disassembly, annotates `headers_names.txt` callees and imports.
+- `recomp/headers_names.txt` - class and symbol for game addresses (~5k symbols).
+- `game/active` - which dump `ppcdis.py` uses by default.
 
 ## TODO workflow
 
-`vendor/decomp/docs/TODO.md` — one checkbox per open question; answer in the linked markdown under `vendor/decomp/docs/`.
+`vendor/decomp/docs/TODO.md` - one checkbox per open question, answer in the linked markdown under `vendor/decomp/docs/`.
 
-Example open theme: soft-restart — bootstrap order between audio init (`0x029E8324`) and first `startSound`; tables `.rodata 0x1017C1A4`, `0x1017C284`, `0x1018D9E0`, `0x1018DA04`; see `docs/soft-restart-tls.md` (TLS table `0x1017C814`, not `0x1018C814`).
+Example open theme: soft-restart - bootstrap order between audio init (`0x029E8324`) and first `startSound`; tables `.rodata 0x1017C1A4`, `0x1017C284`, `0x1018D9E0`, `0x1018DA04`; see `docs/soft-restart-tls.md` (TLS table `0x1017C814`, not `0x1018C814`).
 
 ## Dispatch tables
 
-8-byte `{pad, fn}` convention; function pointer at **+4**:
+8-byte `{pad, fn}` convention, function pointer at **+4**:
 
 - App dispatch `0x10185280`
 - Base table `0x101906D4`
@@ -38,7 +38,7 @@ Example open theme: soft-restart — bootstrap order between audio init (`0x029E
 ## agl / rendering
 
 - `agl::RenderBuffer` size `0x50`: `mColorTarget[8]` at `+0x2C`, `mDepthTarget` at `+0x4C`.
-- `clear(u32 target_index, u32 clr_flag, const Color4f&, f32 depth, u32 stencil)` — flag bits `1` colour, `2` depth, `4` stencil.
+- `clear(u32 target_index, u32 clr_flag, const Color4f&, f32 depth, u32 stencil)` - flag bits `1` colour, `2` depth, `4` stencil.
 
 `RenderObjLayer::RenderStep`: `cRenderStep_CalcView=0`, `UpdateGPUBuffer`, `Opa`, `Xlu`, `Particle`, `PostFx`, `cRenderStep_Num=6`.
 
@@ -76,9 +76,9 @@ under `.tmp/nsmbu-sead/`.
 
 ## Docs map (completed themes)
 
-- `docs/frame-loop.md` — sead helpers, 11-node `DualScreenMethodTreeMgr` layout.
-- `docs/map-shadow-interp.md` — TV DepthShadow, `0x024F9E24` as mid-function label.
-- `docs/soft-restart-tls.md` — TLS / audio bootstrap.
+- `docs/frame-loop.md` - sead helpers, 11-node `DualScreenMethodTreeMgr` layout.
+- `docs/map-shadow-interp.md` - TV DepthShadow, `0x024F9E24` as mid-function label.
+- `docs/soft-restart-tls.md` - TLS / audio bootstrap.
 
 ## Parent repo
 
