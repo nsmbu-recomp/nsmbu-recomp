@@ -62,6 +62,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Vulkan compiles each distinct shader once.
+  Variants that produce the same shader share that compile, including one that is still running.
+  The shader cache stores each compiled program once and no longer keeps the shader text.
+  An existing cache still loads and is rewritten in the smaller form.
 - Course replay applies small GPU register packets with less CPU work.
   The shader-key bit test is a lookup table.
   A packet of 16 words or fewer compares those words in place.

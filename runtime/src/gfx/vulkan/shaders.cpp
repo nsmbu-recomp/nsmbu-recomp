@@ -36,6 +36,7 @@
 
 #include "core/env.h"
 #include "shader_job.h"
+#include "shader_disk_cache.h"
 LatteDecompilerShader* FinishDecompiledShader(LatteDecompilerOutput_t& output);
 LatteFetchShader* LatteShaderRecompiler_createFetchShader(LatteFetchShader::CacheHash hash,
     uint32* regs, uint32* code, uint32 size);
@@ -85,82 +86,37 @@ uint64_t hash_bytes(const void* bytes, size_t size, uint64_t hash = 0x9E3779B97F
 
 constexpr char cacheRecipe[] = "WWVKSC02:glsl450:vk1.1:spv1.3:noopt:resources1:strictmul1:"
     GLSLANG_VERSION_FLAVOR;
-constexpr size_t maxCacheBytes = 128u * 1024u * 1024u;
-constexpr size_t maxSourceBytes = 4u * 1024u * 1024u;
-constexpr size_t maxSpirvWords = 1024u * 1024u;
-constexpr size_t maxCacheEntries = 65536;
-struct DiskShader { std::string source; std::vector<uint32_t> words; bool vertex; bool fromDisk = false; };
+constexpr size_t maxCacheBytes = diskcache::kMaxBytes;
+constexpr size_t maxSourceBytes = diskcache::kMaxSourceBytes;
+constexpr size_t maxCacheEntries = diskcache::kMaxEntries;
+using DiskShader = diskcache::Entry;
 std::unordered_map<uint64_t, DiskShader> diskShaders;
+diskcache::WordPool diskWords;
+std::unordered_map<uint64_t, std::pair<ShaderSourceId, std::shared_ptr<SpirvCompile>>> pendingCompiles;
+std::vector<Shader*> pendingShaderRecords;
 std::string diskPath;
 std::atomic<bool> diskInitialized{false};
 bool diskDirty = false;
 uint64_t diskChangedFrame = 0, diskAttemptFrame = 0, diskRevision = 0;
-size_t diskBytes = 40;
-uint64_t cache_checksum(const uint8_t* p, size_t n) {
-    uint64_t h=14695981039346656037ull;
-    for(size_t i=0;i<n;++i) h=(h^p[i])*1099511628211ull;
-    return h;
-}
+size_t diskBytes = diskcache::kHeaderBytes;
+uint64_t cache_checksum(const uint8_t* p, size_t n) { return diskcache::checksum(p, n); }
 uint64_t cache_fingerprint() {
     return cache_checksum(reinterpret_cast<const uint8_t*>(cacheRecipe),sizeof(cacheRecipe)) ^
         (uint64_t(GLSLANG_VERSION_MAJOR)<<48) ^ (uint64_t(GLSLANG_VERSION_MINOR)<<32) ^
         (uint64_t(GLSLANG_VERSION_PATCH)<<16);
 }
-void cache_put(std::vector<uint8_t>& out,uint64_t value,size_t bytes) {
-    for(size_t i=0;i<bytes;++i) out.push_back(uint8_t(value>>(i*8)));
-}
-bool cache_take(const std::vector<uint8_t>& in,size_t& offset,uint64_t& value,size_t bytes) {
-    if(offset>in.size() || bytes>in.size()-offset) return false;
-    value=0; for(size_t i=0;i<bytes;++i) value|=uint64_t(in[offset++])<<(i*8);
-    return true;
-}
-bool cache_spirv_valid(const std::vector<uint32_t>& words) {
-    if(words.size()<5 || words.size()>maxSpirvWords || words[0]!=0x07230203 ||
-       words[1]!=0x00010300 || !words[3] || words[3]>0x400000 || words[4]!=0) return false;
-    for(size_t i=5;i<words.size();) {
-        size_t length=words[i]>>16;
-        if(!length || length>words.size()-i) return false;
-        i+=length;
-    }
-    return words.size()>5;
-}
-bool decode_disk_cache(const std::vector<uint8_t>& file,
-                      std::unordered_map<uint64_t,DiskShader>& result) {
-
-    if(file.size()<40 || file.size()>maxCacheBytes || memcmp(file.data(),"WWVKSC02",8)) return false;
-    size_t pos=8; uint64_t fingerprint,length,checksum,count;
-    if(!cache_take(file,pos,fingerprint,8) || fingerprint!=cache_fingerprint() ||
-       !cache_take(file,pos,length,8) || length!=file.size()-40 ||
-       !cache_take(file,pos,checksum,8) || checksum!=cache_checksum(file.data()+40,file.size()-40) ||
-       !cache_take(file,pos,count,8) || count>maxCacheEntries) return false;
-    std::unordered_map<uint64_t,DiskShader> decoded;
-    for(uint64_t i=0;i<count;++i) {
-        uint64_t key,stage,sourceLength,wordCount;
-        if(!cache_take(file,pos,key,8) || !cache_take(file,pos,stage,4) || stage>1 ||
-           !cache_take(file,pos,sourceLength,4) || !sourceLength || sourceLength>maxSourceBytes ||
-           !cache_take(file,pos,wordCount,4) || wordCount<5 || wordCount>maxSpirvWords ||
-           sourceLength>file.size()-pos || wordCount>(file.size()-pos-sourceLength)/4) return false;
-        DiskShader entry;
-        entry.vertex=stage!=0;
-        entry.fromDisk=true;
-        entry.source.assign(reinterpret_cast<const char*>(file.data()+pos),size_t(sourceLength));
-        pos+=sourceLength;
-        entry.words.reserve(size_t(wordCount));
-        for(uint64_t j=0;j<wordCount;++j) {
-            uint64_t word; if(!cache_take(file,pos,word,4)) return false;
-            entry.words.push_back(uint32_t(word));
-        }
-        if(!cache_spirv_valid(entry.words) || !decoded.emplace(key,std::move(entry)).second) return false;
-    }
-    if(pos!=file.size()) return false;
-    result=std::move(decoded); return true;
+uint64_t source_cache_key(const std::string& text, bool vertex) {
+    return cache_checksum(reinterpret_cast<const uint8_t*>(text.data()), text.size()) ^
+        cache_fingerprint() ^ (vertex ? 0x9E3779B97F4A7C15ull : 0xD1B54A32D192ED03ull);
 }
 struct DiskLoadResult {
-    std::unordered_map<uint64_t, DiskShader> shaders;
+    diskcache::Map shaders;
+    diskcache::WordPool words;
     std::string path;
-    size_t bytes = 40;
+    size_t bytes = diskcache::kHeaderBytes;
     uint64_t loadNs = 0;
     bool loaded = false;
+    bool legacy = false;
 };
 std::mutex diskLoadMu;
 std::condition_variable diskLoadCv;
@@ -181,10 +137,17 @@ DiskLoadResult read_shader_disk(std::string path) {
                     const bool read = fread(bytes.data(), 1, bytes.size(), file) == bytes.size() &&
                         fgetc(file) == EOF && !ferror(file);
                     fclose(file);
-                    if (read && decode_disk_cache(bytes, result.shaders)) {
-                        result.loaded = true;
-                        result.bytes = bytes.size();
-                    } else result.shaders.clear();
+                    if (read) {
+                        const auto decoded = diskcache::decode(bytes, cache_fingerprint(), result.shaders, &result.words);
+                        if (decoded.ok) {
+                            result.loaded = true;
+                            result.bytes = decoded.bytes;
+                            result.legacy = decoded.legacy;
+                        } else {
+                            result.shaders.clear();
+                            result.words = {};
+                        }
+                    }
                 }
             }
         }
@@ -206,8 +169,14 @@ void apply_disk_load(DiskLoadResult result) {
     diskPath = std::move(result.path);
     if (result.loaded) {
         diskShaders = std::move(result.shaders);
+        diskWords = std::move(result.words);
         diskBytes = result.bytes;
         ++stats.diskLoads;
+        if (result.legacy) {
+            ++diskRevision;
+            diskDirty = !diskPath.empty();
+            diskChangedFrame = 0;
+        }
     }
     stats.diskLoadNs += result.loadNs;
     diskInitialized.store(true, std::memory_order_release);
@@ -827,8 +796,99 @@ LatteFetchShader* get_fetch_shader(const uint32_t* regs, uint64_t* keyOut, uint6
     return remember(fetch);
 }
 
+void release_pending_compile(uint64_t key, const std::shared_ptr<SpirvCompile>& compile) {
+    auto it = pendingCompiles.find(key);
+    if (it != pendingCompiles.end() && it->second.second == compile)
+        pendingCompiles.erase(it);
+}
+void assign_pipeline_module(Shader& shader) {
+    shader.pipelineId = shader.key;
+    const auto& words = shader.spirv();
+    if (words.empty()) return;
+    uint64_t module = hash_bytes(words.data(), words.size() * 4, shader.vertex ? 0x77 : 0x88);
+    module = hash_bytes(&shader.mapping, sizeof shader.mapping, module);
+    for (auto [it, end] = shadersByModule.equal_range(module); it != end; ++it) {
+        if (it->second == &shader) continue;
+        if (it->second->spirv() == words &&
+            !std::memcmp(&it->second->mapping, &shader.mapping, sizeof shader.mapping)) {
+            shader.pipelineId = it->second->pipelineId;
+            ++stats.moduleAliases;
+            return;
+        }
+    }
+    shadersByModule.emplace(module, &shader);
+}
+void remember_spirv(Shader& shader, uint64_t frame) {
+    if (!shader.spirvWords || shader.sourceId.length > maxSourceBytes ||
+        !diskcache::spirv_valid(*shader.spirvWords)) return;
+    auto cached = diskShaders.find(shader.spirvKey);
+    if (cached == diskShaders.end() && diskShaders.size() >= maxCacheEntries) return;
+    if (cached != diskShaders.end() && cached->second.vertex == shader.vertex &&
+        cached->second.source == shader.sourceId && cached->second.words &&
+        *cached->second.words == *shader.spirvWords) {
+        shader.spirvWords = cached->second.words;
+        return;
+    }
+    bool fresh = false;
+    shader.spirvWords = diskWords.intern(shader.spirvWords, fresh);
+    const size_t oldBytes = cached == diskShaders.end() ? 0 : diskcache::record_bytes(0, false);
+    const size_t newBytes = diskcache::record_bytes(shader.spirvWords->size(), fresh);
+    if (diskBytes < oldBytes || newBytes > maxCacheBytes - (diskBytes - oldBytes)) return;
+    DiskShader entry;
+    entry.source = shader.sourceId;
+    entry.words = shader.spirvWords;
+    entry.vertex = shader.vertex;
+    diskShaders.insert_or_assign(shader.spirvKey, std::move(entry));
+    diskBytes = diskBytes - oldBytes + newBytes;
+    ++diskRevision;
+    diskDirty = !diskPath.empty();
+    diskChangedFrame = frame;
+}
+void collect_shader(Shader& shader, uint64_t frame) {
+    if (!shader.compile) return;
+    SpirvWords words;
+    std::string error;
+    uint64_t ns = 0;
+    bool account = false;
+    std::shared_ptr<SpirvCompile> compile;
+    {
+        std::unique_lock lock(shader.compile->mutex);
+        if (!shader.compile->done) return;
+        compile = shader.compile;
+        words = shader.compile->words;
+        error = shader.compile->error;
+        ns = shader.compile->ns;
+        account = !shader.compile->accounted;
+        shader.compile->accounted = true;
+    }
+    shader.spirvWords = std::move(words);
+    shader.error = std::move(error);
+    shader.compile.reset();
+    if (account) {
+        ++stats.spirvCompiles;
+        stats.spirvCompileNs += ns;
+        stats.compileNs += ns;
+        perf::shader_recomp(double(ns) / 1e6);
+    }
+    initialize_disk_cache();
+    remember_spirv(shader, frame);
+    assign_pipeline_module(shader);
+    release_pending_compile(shader.spirvKey, compile);
+    if (!shader.error.empty())
+        fprintf(stderr, "[vulkan] shader %016llX: %s\n", (unsigned long long)shader.key, shader.error.c_str());
+}
+void poll_pending_shaders(uint64_t frame) {
+    size_t retained = 0;
+    for (auto* shader : pendingShaderRecords) {
+        if (shader->compile) collect_shader(*shader, frame);
+        if (shader->compile) pendingShaderRecords[retained++] = shader;
+    }
+    pendingShaderRecords.resize(retained);
+}
+
 Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, uint64_t fsKey,
                   uint64_t frame, uint64_t stateGeneration, const Shader* linkedVs) {
+    poll_pending_shaders(frame);
     ++stats.lookups;
     auto& last = lastShaders[vertex ? 0 : 1];
     uint32_t primitive = vertex ? regs[REGADDR::VGT_PRIMITIVE_TYPE] & 0x3F : 0;
@@ -939,114 +999,49 @@ Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, ui
     shadersByOutput.emplace(output, shader);
     remember(shader);
     initialize_disk_cache();
-
-    uint64_t spirvKey=cache_checksum(reinterpret_cast<const uint8_t*>(shader->glsl.data()),shader->glsl.size()) ^
-        cache_fingerprint() ^ (vertex ? 0x9E3779B97F4A7C15ull : 0xD1B54A32D192ED03ull);
-    auto cached=diskShaders.find(spirvKey);
-    if(cached!=diskShaders.end() && cached->second.vertex==vertex && cached->second.source==shader->glsl) {
-        shader->spirv=cached->second.words;
-        if(cached->second.fromDisk) ++stats.diskHits;
+    shader->sourceId = shader_source_id(shader->glsl);
+    shader->spirvKey = source_cache_key(shader->glsl, vertex);
+    auto cached = diskShaders.find(shader->spirvKey);
+    if (cached != diskShaders.end() && cached->second.vertex == vertex &&
+        cached->second.source == shader->sourceId && cached->second.words) {
+        shader->spirvWords = cached->second.words;
+        if (cached->second.fromDisk) ++stats.diskHits;
         else ++stats.spirvReuseHits;
+        assign_pipeline_module(*shader);
     } else if (background) {
-        shader->compile = std::make_shared<SpirvCompile>();
-        enqueue_spirv_compile(shader->glsl, vertex, shader->compile);
+        auto pending = pendingCompiles.find(shader->spirvKey);
+        if (pending != pendingCompiles.end() && pending->second.first == shader->sourceId)
+            shader->compile = pending->second.second;
+        if (shader->compile) {
+            ++stats.spirvReuseHits;
+        } else {
+            shader->compile = std::make_shared<SpirvCompile>();
+            pendingCompiles.insert_or_assign(shader->spirvKey,
+                std::make_pair(shader->sourceId, shader->compile));
+            pendingShaderRecords.push_back(shader);
+            enqueue_spirv_compile(shader->glsl, vertex, shader->compile);
+        }
+        shader->pipelineId = shader->key;
     } else {
         const auto compileStart = std::chrono::steady_clock::now();
-        shader->spirv = compile_glsl(shader->glsl, vertex, &shader->error);
+        auto compiled = compile_glsl(shader->glsl, vertex, &shader->error);
+        shader->spirvWords = compiled.empty() ? nullptr :
+            std::make_shared<const std::vector<uint32_t>>(std::move(compiled));
         const uint64_t spirvNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::steady_clock::now() - compileStart).count();
         ++stats.spirvCompiles;
         stats.spirvCompileNs += spirvNs;
         stats.compileNs += spirvNs;
         perf::shader_recomp(double(spirvNs) / 1e6);
-        if(shader->glsl.size()<=maxSourceBytes &&
-           cache_spirv_valid(shader->spirv) && diskShaders.size()<maxCacheEntries) {
-            size_t oldBytes=cached==diskShaders.end() ? 0 :
-                20+cached->second.source.size()+cached->second.words.size()*4;
-            size_t newBytes=20+shader->glsl.size()+shader->spirv.size()*4;
-            if(newBytes<=maxCacheBytes-(diskBytes-oldBytes)) {
-                diskShaders.insert_or_assign(spirvKey,DiskShader{shader->glsl,shader->spirv,vertex,false});
-                diskBytes=diskBytes-oldBytes+newBytes;
-                ++diskRevision;
-                diskDirty=!diskPath.empty();
-                diskChangedFrame=frame;
-            }
-        }
-    }
-
-    shader->pipelineId = shader->key;
-    if (!shader->spirv.empty()) {
-        uint64_t module = hash_bytes(shader->spirv.data(), shader->spirv.size() * 4, vertex ? 0x77 : 0x88);
-        module = hash_bytes(&shader->mapping, sizeof shader->mapping, module);
-        bool shared = false;
-        for (auto [it, end] = shadersByModule.equal_range(module); it != end; ++it)
-            if (it->second->spirv == shader->spirv &&
-                !std::memcmp(&it->second->mapping, &shader->mapping, sizeof shader->mapping)) {
-                shader->pipelineId = it->second->pipelineId;
-                ++stats.moduleAliases;
-                shared = true;
-                break;
-            }
-        if (!shared) shadersByModule.emplace(module, shader);
+        remember_spirv(*shader, frame);
+        assign_pipeline_module(*shader);
     }
     if (!shader->error.empty()) fprintf(stderr, "[vulkan] shader %08X: %s\n", address, shader->error.c_str());
     return shader;
 }
 
-void collect_shader(Shader& shader, uint64_t frame) {
-    if (!shader.compile) return;
-    std::unique_lock lock(shader.compile->mutex);
-    if (!shader.compile->done) return;
-    shader.spirv = std::move(shader.compile->words);
-    shader.error = std::move(shader.compile->error);
-    const uint64_t ns = shader.compile->ns;
-    lock.unlock();
-    shader.compile.reset();
-    ++stats.spirvCompiles;
-    stats.spirvCompileNs += ns;
-    stats.compileNs += ns;
-    perf::shader_recomp(double(ns) / 1e6);
-    initialize_disk_cache();
-    const uint64_t spirvKey = cache_checksum(reinterpret_cast<const uint8_t*>(shader.glsl.data()), shader.glsl.size()) ^
-        cache_fingerprint() ^ (shader.vertex ? 0x9E3779B97F4A7C15ull : 0xD1B54A32D192ED03ull);
-    auto cached = diskShaders.find(spirvKey);
-    const bool stored = cached != diskShaders.end() && cached->second.vertex == shader.vertex &&
-        cached->second.source == shader.glsl;
-    if (!stored && shader.glsl.size() <= maxSourceBytes && cache_spirv_valid(shader.spirv) &&
-        diskShaders.size() < maxCacheEntries) {
-        const size_t oldBytes = cached == diskShaders.end() ? 0 :
-            20 + cached->second.source.size() + cached->second.words.size() * 4;
-        const size_t newBytes = 20 + shader.glsl.size() + shader.spirv.size() * 4;
-        if (newBytes <= maxCacheBytes - (diskBytes - oldBytes)) {
-            diskShaders.insert_or_assign(spirvKey, DiskShader{shader.glsl, shader.spirv, shader.vertex, false});
-            diskBytes = diskBytes - oldBytes + newBytes;
-            ++diskRevision;
-            diskDirty = !diskPath.empty();
-            diskChangedFrame = frame;
-        }
-    }
-    shader.pipelineId = shader.key;
-    if (!shader.spirv.empty()) {
-        uint64_t module = hash_bytes(shader.spirv.data(), shader.spirv.size() * 4, shader.vertex ? 0x77 : 0x88);
-        module = hash_bytes(&shader.mapping, sizeof shader.mapping, module);
-        bool shared = false;
-        for (auto [it, end] = shadersByModule.equal_range(module); it != end; ++it)
-            if (it->second->spirv == shader.spirv &&
-                !std::memcmp(&it->second->mapping, &shader.mapping, sizeof shader.mapping)) {
-                shader.pipelineId = it->second->pipelineId;
-                ++stats.moduleAliases;
-                shared = true;
-                break;
-            }
-        if (!shared) shadersByModule.emplace(module, &shader);
-    }
-    if (!shader.error.empty())
-        fprintf(stderr, "[vulkan] shader %016llX: %s\n", (unsigned long long)shader.key, shader.error.c_str());
-}
-
 void publish_finished_shaders(uint64_t frame) {
-    for (auto& entry : shaders)
-        if (entry.second) collect_shader(*entry.second, frame);
+    poll_pending_shaders(frame);
 }
 
 namespace {
@@ -1073,24 +1068,8 @@ DiskSaveResult write_shader_snapshot(DiskSnapshot snapshot,std::string path,uint
     };
     std::string temporary;
     try {
-        std::vector<uint8_t> payload;
-        size_t expected=0;
-        for(const auto& [key,entry]:snapshot) {
-            size_t bytes=20+entry.source.size()+entry.words.size()*4;
-            if(bytes>maxCacheBytes-40-expected) return finish();
-            expected+=bytes;
-        }
-        payload.reserve(expected);
-        for(const auto& [key,entry]:snapshot) {
-            cache_put(payload,key,8); cache_put(payload,entry.vertex,4);
-            cache_put(payload,entry.source.size(),4); cache_put(payload,entry.words.size(),4);
-            payload.insert(payload.end(),entry.source.begin(),entry.source.end());
-            for(uint32_t word:entry.words) cache_put(payload,word,4);
-        }
-        std::vector<uint8_t> header={'W','W','V','K','S','C','0','2'};
-        cache_put(header,cache_fingerprint(),8); cache_put(header,payload.size(),8);
-        cache_put(header,cache_checksum(payload.data(),payload.size()),8);
-        cache_put(header,snapshot.size(),8);
+        const auto bytes = diskcache::encode(snapshot, cache_fingerprint());
+        if (bytes.empty()) return finish();
         std::error_code ec;
         auto parent=std::filesystem::path(path).parent_path();
         if(!parent.empty()) std::filesystem::create_directories(parent,ec);
@@ -1098,11 +1077,10 @@ DiskSaveResult write_shader_snapshot(DiskSnapshot snapshot,std::string path,uint
         temporary=path+".tmp-"+std::to_string(start.time_since_epoch().count());
         FILE* file=fopen(temporary.c_str(),"wb");
         if(!file) return finish();
-        bool wrote=fwrite(header.data(),1,header.size(),file)==header.size() &&
-                   fwrite(payload.data(),1,payload.size(),file)==payload.size();
+        bool wrote=fwrite(bytes.data(),1,bytes.size(),file)==bytes.size();
         if(fclose(file)!=0) wrote=false;
         result.saved=wrote && host::replace_file(temporary,path);
-        if(result.saved) result.bytes=header.size()+payload.size();
+        if(result.saved) result.bytes=bytes.size();
     } catch(...) { result.saved=false; }
     if(!result.saved && !temporary.empty()) { std::error_code ec; std::filesystem::remove(temporary,ec); }
     return finish();
@@ -1231,6 +1209,8 @@ void clear_shader_cache() {
     shadersByOutput.clear();
     shadersByModule.clear();
     verifiedKeys.clear();
+    pendingCompiles.clear();
+    pendingShaderRecords.clear();
     reset_shader_memoization();
 
 }

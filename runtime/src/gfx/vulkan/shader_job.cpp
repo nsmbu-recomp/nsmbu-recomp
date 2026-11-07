@@ -59,11 +59,14 @@ void run(Worker& w) {
             w.queue.pop_front();
         }
         if (!item.done) continue;
-        std::vector<uint32_t> words;
+        std::vector<uint32_t> compiled;
         std::string error;
         const auto started = std::chrono::steady_clock::now();
-        try { words = compile_glsl(item.source, item.vertex, &error); }
+        try { compiled = compile_glsl(item.source, item.vertex, &error); }
         catch (...) { error = "SPIR-V compile failed"; }
+        SpirvWords words;
+        if (!compiled.empty())
+            words = std::make_shared<const std::vector<uint32_t>>(std::move(compiled));
         const uint64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::steady_clock::now() - started).count();
         std::lock_guard doneLock(item.done->mutex);

@@ -157,14 +157,16 @@ incompatible, truncated, or checksum-invalid files fall back to an empty cache. 
 atomically after 120 frames without new pipelines. First-time shader translation
 and pipeline creation can still cause stalls.
 
-Vulkan also persists compiled SPIR-V in the host configuration directory's
-`shadercache/vulkan-shaders/spirv.bin`. The file is read on a background thread when the device is created.
+Vulkan also persists compiled SPIR-V in the host configuration directory's `shadercache/vulkan-shaders/spirv.bin`.
+The file is read on a background thread when the device is created.
 The render thread waits only for whatever is still unread at the first shader.
-`NSMBU_VK_SHADER_CACHE=/directory` selects
-an isolated directory; `NSMBU_VK_SHADER_CACHE=0` disables disk storage. An explicit
-directory overrides `NSMBU_SHADER_CACHE=0`. Canonical GLSL and stage deduplication
-remains active in memory when disk storage is disabled. Fresh decompiler metadata
-is kept for every guest variant; identical final shader programs share compilation.
+`NSMBU_VK_SHADER_CACHE=/directory` selects an isolated directory.
+`NSMBU_VK_SHADER_CACHE=0` disables disk storage.
+An explicit directory overrides `NSMBU_SHADER_CACHE=0`.
+Distinct final GLSL shares one compile, including a compile that is still running, and that sharing stays active when disk storage is disabled.
+The cache stores each compiled program once, named by a hash of the text, and does not keep the text.
+An older cache that still contains the text still loads and is rewritten in the smaller form.
+Fresh decompiler metadata is kept for every guest variant.
 
 Shader keys have two levels, like Cemu's base and auxiliary shader hashes but exact
 about what the GLSL translation reads (`gfx/vulkan/shaders.cpp`, `gather_linkage` and
@@ -200,18 +202,18 @@ stencil test off, depth bias words with the bias off) does not create pipelines.
 a fixed-size struct hashed and compared as bytes. Descriptor sets are cached per
 submission by a 64-bit hash of layout and descriptors, confirmed by comparing them.
 
-The versioned cache checks the compiler recipe, exact shader source, checksum,
-record bounds and SPIR-V structure. Incompatible or corrupt files become misses.
-After 120 quiet frames, the render thread copies a bounded immutable snapshot
-and schedules one background save. The worker serializes, checksums, and atomically
-replaces the file; it does not access Vulkan objects or the live shader cache.
-Completion is polled on the render thread. Shaders discovered during a save remain
-dirty for a later snapshot, and failed writes remain eligible for retry. Orderly
-window close joins any worker and saves the latest records before exiting. Forced
-termination can leave the most recent additions unsaved. Files and live canonical
-entries are bounded to 128 MiB. New programs compile once when
-encountered; this does not precompute every unvisited scene or warm all device
-pipelines before gameplay.
+The versioned cache checks the compiler recipe, the shader text hash and length, checksum, record bounds and SPIR-V structure.
+Incompatible or corrupt files become misses.
+After 120 quiet frames, the render thread copies a bounded immutable snapshot and schedules one background save.
+The worker serializes, checksums, and atomically replaces the file.
+It does not access Vulkan objects or the live shader cache.
+Completion is polled on the render thread.
+Shaders discovered during a save remain dirty for a later snapshot, and failed writes remain eligible for retry.
+Orderly window close joins any worker and saves the latest records before exiting.
+Forced termination can leave the most recent additions unsaved.
+Files and live canonical entries are bounded to 128 MiB.
+New programs compile once when encountered.
+This does not precompute every unvisited scene or warm all device pipelines before gameplay.
 
 Set `NSMBU_VK_STATS=1` to report frame rate, frame-interval percentiles, upload
 traffic, shader compilation, and GPU/presentation waits every 120 frames.

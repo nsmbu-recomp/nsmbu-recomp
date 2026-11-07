@@ -795,8 +795,9 @@ Pipeline &pipeline(const uint32_t *r, vk::Shader *vs, vk::Shader *ps,
   VkPipelineShaderStageCreateInfo stages[2]{};
   for (int i = 0; i < 2; i++) {
     VkShaderModuleCreateInfo mc{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-    mc.codeSize = shaders[i]->spirv.size() * 4;
-    mc.pCode = shaders[i]->spirv.data();
+    const auto& spirv = shaders[i]->spirv();
+    mc.codeSize = spirv.size() * 4;
+    mc.pCode = spirv.data();
     vk_check(vkCreateShaderModule(R.device, &mc, nullptr, &modules[i]),
              "shader module");
     stages[i] = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
@@ -1095,7 +1096,8 @@ Pipeline &pipeline(const uint32_t *r, vk::Shader *vs, vk::Shader *ps,
         fclose(f);
       }
       if (FILE *f = fopen((std::string(name) + ".spv").c_str(), "wb")) {
-        fwrite(shader->spirv.data(), 4, shader->spirv.size(), f);
+        const auto& spirv = shader->spirv();
+        fwrite(spirv.data(), 4, spirv.size(), f);
         fclose(f);
       }
     }

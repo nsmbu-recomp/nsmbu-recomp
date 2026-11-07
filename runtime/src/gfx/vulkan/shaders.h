@@ -5,6 +5,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include "shader_source.h"
 #include "Cafe/HW/Latte/LegacyShaderDecompiler/LatteDecompiler.h"
 
 struct LatteFetchShader;
@@ -23,8 +24,9 @@ DescriptorRankPlan make_descriptor_rank_plan(const LatteDecompilerShaderResource
 struct SpirvCompile {
     std::mutex mutex;
     bool done = false;
+    bool accounted = false;
     uint64_t ns = 0;
-    std::vector<uint32_t> words;
+    SpirvWords words;
     std::string error;
 };
 struct Shader {
@@ -35,12 +37,18 @@ struct Shader {
     LatteDecompilerShaderResourceMapping mapping;
     DescriptorRankPlan descriptorRanks;
     LatteDecompilerOutputUniformOffsets uniforms;
-    std::vector<uint32_t> spirv;
+    SpirvWords spirvWords;
     std::string glsl;
     std::string translatedGlsl;
     std::string error;
+    ShaderSourceId sourceId;
+    uint64_t spirvKey = 0;
     std::shared_ptr<SpirvCompile> compile;
-    bool ready() const { return dec && !spirv.empty() && error.empty(); }
+    const std::vector<uint32_t>& spirv() const {
+        static const std::vector<uint32_t> none;
+        return spirvWords ? *spirvWords : none;
+    }
+    bool ready() const { return dec && !spirv().empty() && error.empty(); }
     bool compiling() const { return compile != nullptr; }
 };
 void collect_shader(Shader& shader, uint64_t frame);
