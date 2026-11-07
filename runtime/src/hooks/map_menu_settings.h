@@ -77,26 +77,30 @@ inline SettingsRepair settings_repair(int index, int settings_index, bool confir
     return repair;
 }
 
-// PaMenuBtn_Down is 8 frames. The overlay waits until that click can play.
-constexpr int kSettingsClickFrames = 10;
+// The menu plays the click, then leaves that state. This is only a cap if that end never arrives.
+constexpr int kSettingsClickFrames = 60;
 
 inline int settings_open_delay(bool confirm) {
     return confirm ? kSettingsClickFrames : 0;
 }
 
-// CourseSelectMenu reads +0x25E before the cursor. A clear byte on this press opens Button Settings.
-// The first frame still leaves the pad so the cursor can play the click.
-struct SettingsClick {
-    bool block_menu = false;
-    bool pass_pad = false;
+// A press clears the decide byte so the button can play. Other frames keep the byte set.
+inline uint8_t settings_decide_byte(bool pressed) {
+    return pressed ? 0 : 1;
+}
+
+// The click ends in the button action. Settings stays on this menu and opens the overlay.
+struct SettingsClickEnd {
+    bool keep_menu = false;
+    bool open_overlay = false;
 };
 
-inline SettingsClick settings_click(bool pending, bool first_frame) {
-    SettingsClick click;
-    if (!pending) return click;
-    click.block_menu = true;
-    click.pass_pad = first_frame;
-    return click;
+inline SettingsClickEnd settings_click_end(bool settings_button) {
+    SettingsClickEnd end;
+    if (!settings_button) return end;
+    end.keep_menu = true;
+    end.open_overlay = true;
+    return end;
 }
 
 // P_Image_00 and P_Image_01 are the Main Menu pictures inside the copied button.

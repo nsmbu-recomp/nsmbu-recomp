@@ -16,7 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Settings → Debug → **Settings button on the start menu** adds that button under Change Controller when the world map loads.
 - The world-map start menu still moves after you select that Settings button.
 - The world-map Settings button shows its label without the Main Menu icon.
-- Pressing that Settings button plays the button click, then opens the overlay, and leaves Button Settings closed.
+- Pressing that Settings button plays the same click as the other buttons, then opens the overlay.
+  Button Settings stays closed.
 
 ### Removed
 

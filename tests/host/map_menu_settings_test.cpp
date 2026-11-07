@@ -60,15 +60,14 @@ int main() {
     check(pressed.hold && pressed.word == 0, "a Settings press returns the cursor word to idle");
     check(!neighbor.hold && neighbor.word == 2, "another button keeps its press");
     check(settings_open_delay(true) == kSettingsClickFrames && kSettingsClickFrames > 8,
-          "a Settings press waits until the click can play");
+          "the click can finish before the overlay opens on its own");
     check(settings_open_delay(false) == 0, "a Settings highlight does not open the overlay");
-    const SettingsClick first = settings_click(true, true);
-    const SettingsClick later = settings_click(true, false);
-    const SettingsClick idle_click = settings_click(false, true);
-    check(first.block_menu && first.pass_pad,
-          "the first Settings frame blocks Button Settings and still reaches the button");
-    check(later.block_menu && !later.pass_pad, "later Settings frames keep Button Settings closed");
-    check(!idle_click.block_menu && !idle_click.pass_pad, "a quiet frame does not rewrite the cursor");
+    check(settings_decide_byte(true) == 0, "a Settings press lets the button play");
+    check(settings_decide_byte(false) == 1, "a quiet Settings button keeps its decide byte");
+    const SettingsClickEnd mine = settings_click_end(true);
+    const SettingsClickEnd neighbor_end = settings_click_end(false);
+    check(mine.keep_menu && mine.open_overlay, "the Settings click returns to this menu and opens the overlay");
+    check(!neighbor_end.keep_menu && !neighbor_end.open_overlay, "another button keeps its own action");
     uint8_t icon[0x54] = {};
     std::memcpy(icon, "pic1", 4);
     icon[8] = 1;
