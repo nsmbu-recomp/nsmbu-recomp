@@ -2,13 +2,11 @@
 
 ## Rules
 
-- Assume that the Typescript to Lua watcher is already running.
 - Never commit any game files to the repo they must always be gitignored.
 
 ## Changelog
 
-Record every user-facing change in the changelog, including developer tooling and other work that ships in release notes.
-Unreleased entries are cleaned up when cutting a release; you do not need to match final release formatting now.
+Record every user-facing change only in the changelog (Skip developer-facing changes).
 When a change fixes a tracked issue, include its number in the entry (for example `#123`).
 
 ## Code style
