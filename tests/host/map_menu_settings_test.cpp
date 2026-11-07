@@ -59,6 +59,31 @@ int main() {
     check(!live.hold && live.word == 1, "a Settings highlight does not rewrite the cursor word");
     check(pressed.hold && pressed.word == 0, "a Settings press returns the cursor word to idle");
     check(!neighbor.hold && neighbor.word == 2, "another button keeps its press");
+    check(settings_open_delay(true) == kSettingsClickFrames && kSettingsClickFrames > 8,
+          "a Settings press waits until the click can play");
+    check(settings_open_delay(false) == 0, "a Settings highlight does not open the overlay");
+    const SettingsClick first = settings_click(true, true);
+    const SettingsClick later = settings_click(true, false);
+    const SettingsClick idle_click = settings_click(false, true);
+    check(first.block_menu && first.pass_pad,
+          "the first Settings frame blocks Button Settings and still reaches the button");
+    check(later.block_menu && !later.pass_pad, "later Settings frames keep Button Settings closed");
+    check(!idle_click.block_menu && !idle_click.pass_pad, "a quiet frame does not rewrite the cursor");
+    uint8_t icon[0x54] = {};
+    std::memcpy(icon, "pic1", 4);
+    icon[8] = 1;
+    icon[0xA] = 255;
+    std::memcpy(icon + 0xC, "P_Image_00", 11);
+    std::memset(icon + 0x4C, 0x3F, 8);
+    uint8_t label[0x54] = {};
+    std::memcpy(label, "txt1", 4);
+    label[8] = 1;
+    std::memcpy(label + 0xC, "T_Btn_00", 9);
+    check(settings_icon_name(icon, sizeof icon), "the arrow picture is the Settings icon");
+    check(!settings_icon_name(label, sizeof label), "the Settings label stays");
+    hide_settings_icon(icon);
+    check((icon[8] & 1u) == 0 && icon[0xA] == 0 && icon[0x4C] == 0 && icon[0x50] == 0,
+          "the Settings icon is hidden");
 
     if (fails) {
         std::fprintf(stderr, "%d map menu settings checks failed\n", fails);

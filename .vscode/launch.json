@@ -30,6 +30,10 @@
             "type": "lldb-dap",
             "debugAdapterExecutable": "${workspaceFolder}/tools/run/lldb-dap.sh",
             "request": "attach",
+            "initCommands": [
+                "process handle SIGSEGV --pass true --stop false --notify false",
+                "process handle SIGBUS --pass true --stop false --notify false"
+            ],
             "program": "${workspaceFolder}/build/debug/nsmbu",
             "pid": "${command:pickMyProcess}"
         }

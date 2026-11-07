@@ -77,6 +77,46 @@ inline SettingsRepair settings_repair(int index, int settings_index, bool confir
     return repair;
 }
 
+// PaMenuBtn_Down is 8 frames. The overlay waits until that click can play.
+constexpr int kSettingsClickFrames = 10;
+
+inline int settings_open_delay(bool confirm) {
+    return confirm ? kSettingsClickFrames : 0;
+}
+
+// CourseSelectMenu reads +0x25E before the cursor. A clear byte on this press opens Button Settings.
+// The first frame still leaves the pad so the cursor can play the click.
+struct SettingsClick {
+    bool block_menu = false;
+    bool pass_pad = false;
+};
+
+inline SettingsClick settings_click(bool pending, bool first_frame) {
+    SettingsClick click;
+    if (!pending) return click;
+    click.block_menu = true;
+    click.pass_pad = first_frame;
+    return click;
+}
+
+// P_Image_00 and P_Image_01 are the Main Menu pictures inside the copied button.
+inline bool settings_icon_name(const uint8_t* pane, uint32_t size) {
+    if (!pane || size < 0x54 || std::memcmp(pane, "pic1", 4) != 0) return false;
+    const char* names[] = {"P_Image_00", "P_Image_01"};
+    for (const char* name : names) {
+        const size_t len = std::strlen(name);
+        if (size < 0xC + len + 1) continue;
+        if (std::memcmp(pane + 0xC, name, len) == 0 && pane[0xC + len] == 0) return true;
+    }
+    return false;
+}
+
+inline void hide_settings_icon(uint8_t* pane) {
+    pane[8] = (uint8_t)(pane[8] & ~1u);
+    pane[0xA] = 0;
+    std::memset(pane + 0x4C, 0, 8);
+}
+
 inline bool window_to_screen(float nx, float ny, float win_w, float win_h, float ox, float oy, float ow, float oh,
                              float& sx, float& sy) {
     if (!(win_w > 1.f && win_h > 1.f && ow > 1.f && oh > 1.f)) return false;

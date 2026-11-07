@@ -25,3 +25,7 @@ class LldbInitCommands(unittest.TestCase):
         self.assertIn("settings set -- target.run-args", run_args)
         self.assertIn("'--game'", run_args)
         self.assertIn("'--save'", run_args)
+        text = "\n".join(lines)
+        self.assertIn("process handle SIGSEGV --pass true --stop false --notify false", text)
+        self.assertLess(text.index("process handle SIGSEGV"), text.index("process launch"))
+        self.assertEqual(lines[-1], "process launch --stop-at-entry")

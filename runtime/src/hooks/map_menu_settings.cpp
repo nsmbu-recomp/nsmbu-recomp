@@ -57,6 +57,8 @@ static int g_left_n = 0;
 static int g_title_idx = -1;
 static uint32_t g_prev_pad = 0;
 static int g_quiet = 0;
+static bool g_pass_press = false;
+constexpr uint32_t kCursorMove = 0x10216958u;
 static int g_force_idx = -1;
 static uint32_t g_force_btn = 0;
 static int g_guide_from = -1;
@@ -185,6 +187,7 @@ static void forget(uint32_t self) {
         g_force_btn = 0;
         g_guide_from = -1;
         g_quiet = 0;
+        g_pass_press = false;
     }
 }
 
@@ -419,13 +422,8 @@ static void on_pad(uint32_t self) {
         if (back >= 0) choose(cursor, back);
     }
     if (settings_repair(idx, g_settings_idx, (trig & kConfirm) != 0, 0).hold) {
-        st32(pad_at, ld32(pad_at) & ~kConfirm);
-        for (int i = 0; i < kMenuPadCount; i++) {
-            const uint32_t hold = self + kMenuPads + (uint32_t)i * kPadStride + kHold;
-            st32(hold, ld32(hold) & ~kConfirm);
-        }
-        g_quiet = 4;
-        g_open_request.store(true);
+        g_pass_press = true;
+        g_quiet = settings_open_delay(true);
     }
     if (g_force_idx >= 0)
         st32(pad_at, ld32(pad_at) & ~(kUp | kDown | kLeft | kRight));
@@ -443,34 +441,53 @@ static void clear_choice() {
     g_force_btn = 0;
 }
 
-static void release_settings(uint32_t self, bool tick) {
-    if (!g_enabled.load() || g_quiet <= 0 || g_settings_idx < 0) return;
+static void finish_settings_click(Cpu* c, uint32_t self) {
     const uint32_t cursor = self + kCursor;
-    const int idx = (int)ld32(cursor + kCursorIndex);
     const uint32_t state_at = cursor + kButtonState + (uint32_t)g_settings_idx * 4;
-    const SettingsRepair repair = settings_repair(idx, g_settings_idx, true, ld32(state_at));
-    if (!repair.hold) {
-        g_quiet = 0;
-        return;
-    }
+    const SettingsRepair repair = settings_repair(g_settings_idx, g_settings_idx, true, ld32(state_at));
     st32(state_at, repair.word);
     st8(cursor + kButtonLock, 0);
-    st8(cursor + kDecideAnime, 1);
     st8(cursor + kDecideTrig, 0);
     st8(cursor + kTouchByte, 0);
     st32(cursor + kPad, ld32(cursor + kPad) & ~kConfirm);
-    if (ld8(cursor + kCursorFocus) == 0) st8(cursor + kCursorFocus, 1);
-    if (tick) g_quiet--;
+    for (int i = 0; i < kMenuPadCount; i++) {
+        const uint32_t hold = self + kMenuPads + (uint32_t)i * kPadStride + kHold;
+        st32(hold, ld32(hold) & ~kConfirm);
+    }
+    guest_call(c, GC(0x029C4AF0u), {cursor + 0x10, GC(kCursorMove)});
+    st8(cursor + kCursorFocus, 1);
+    st8(cursor + kDecideAnime, 1);
+    g_open_request.store(true);
 }
 
-static void take_decide(uint32_t self) {
-    if (!g_enabled.load() || overlay::is_open() || g_settings_idx < 0) return;
+static void release_settings(Cpu* c, uint32_t self, bool tick) {
+    if (overlay::is_open()) {
+        g_quiet = 0;
+        return;
+    }
+    if (!g_enabled.load() || g_quiet <= 0 || g_settings_idx < 0) return;
     const uint32_t cursor = self + kCursor;
     const int idx = (int)ld32(cursor + kCursorIndex);
-    const bool decided = ld8(cursor + kDecideTrig) != 0 || ld8(cursor + kTouchByte) != 0;
-    if (!settings_repair(idx, g_settings_idx, decided, 0).hold) return;
-    g_quiet = 4;
-    g_open_request.store(true);
+    if (!settings_repair(idx, g_settings_idx, true, 0).hold) {
+        g_quiet = 0;
+        return;
+    }
+    const SettingsClick click = settings_click(true, g_pass_press);
+    if (click.block_menu) st8(cursor + kDecideAnime, 1);
+    if (click.pass_pad) return;
+    st32(cursor + kPad, ld32(cursor + kPad) & ~kConfirm);
+    for (int i = 0; i < kMenuPadCount; i++) {
+        const uint32_t hold = self + kMenuPads + (uint32_t)i * kPadStride + kHold;
+        st32(hold, ld32(hold) & ~kConfirm);
+    }
+    if (!tick) return;
+    g_quiet--;
+    if (g_quiet > 0) return;
+    finish_settings_click(c, self);
+}
+
+static void take_decide(uint32_t) {
+    g_pass_press = false;
 }
 
 static uint16_t ru16(const uint8_t* p) {
@@ -565,6 +582,17 @@ static bool patch_menu_flyt(std::vector<uint8_t>& file) {
             wf32(copy.data() + 0x30, kRowBotY);
             replace_bytes(copy, (const uint8_t*)title_id, std::strlen(title_id) + 1, (const uint8_t*)set_id, std::strlen(set_id) + 1);
             replace_bytes(copy, ja, sizeof ja, en, sizeof en);
+            if (copy.size() >= 0x60) {
+                const uint32_t props = ru32(copy.data() + 0x54);
+                for (uint32_t i = 0; i < props && i < 16; i++) {
+                    const uint32_t prop = 0x60 + i * 40;
+                    if (prop + 40 > copy.size()) break;
+                    const uint32_t pane = ru32(copy.data() + prop + 28);
+                    if (!pane || pane >= copy.size()) continue;
+                    if (!settings_icon_name(copy.data() + pane, (uint32_t)copy.size() - pane)) continue;
+                    hide_settings_icon(copy.data() + pane);
+                }
+            }
             out.insert(out.end(), copy.begin(), copy.end());
             inserted = true;
         }
@@ -912,7 +940,7 @@ extern "C" void site_02682674(Cpu* c) {
 }
 
 extern "C" void site_025A4C5C(Cpu* c) {
-    map_menu::release_settings(c->r[30], false);
+    map_menu::release_settings(c, c->r[30], false);
     map_menu::apply_choice(c->r[30]);
     map_menu::clear_choice();
 }
@@ -931,7 +959,8 @@ extern "C" void hook_025A4B98(Cpu* c) {
         map_menu::bind_settings(c, self);
         c->r[3] = self;
         map_menu::on_pad(self);
-        map_menu::release_settings(self, true);
+        map_menu::release_settings(c, self, true);
+        c->r[3] = self;
     }
     c->r[3] = self;
     f_025A4B98_orig(c);

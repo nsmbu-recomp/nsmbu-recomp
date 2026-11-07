@@ -27,7 +27,15 @@ def command_lines(exe, child_env, run_args):
         "settings set -- target.env-vars "
         + " ".join(sh_quote(f"{k}={v}") for k, v in sorted(child_env.items())),
         "settings set -- target.run-args " + " ".join(sh_quote(a) for a in run_args),
-        "process launch",
+        # Guest texture pages fault on write. The game handles that SIGSEGV.
+        # Stopping in the debugger kills the session.
+        "process handle SIGSEGV --pass true --stop false --notify false",
+        "process handle SIGBUS --pass true --stop false --notify false",
+        # launchCommands are asynchronous. lldb-dap waits for a stop and
+        # reports "process failed to stop within 30 seconds" if none arrives.
+        # With the faults passed through, a free run never stops. Stop at
+        # entry so that wait succeeds; the adapter continues afterwards.
+        "process launch --stop-at-entry",
     ]
 
 
