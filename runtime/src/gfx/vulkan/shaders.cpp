@@ -30,7 +30,9 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <deque>
 #include <mutex>
+#include <functional>
 #include <future>
 #include <unordered_map>
 
@@ -517,13 +519,14 @@ uint32_t key_verify_rate() {
     return rate;
 }
 uint64_t output_hash(const Shader& shader) {
-    uint64_t hash = hash_bytes(shader.glsl.data(), shader.glsl.size(), shader.vertex ? 0x5151 : 0xA2A2);
+    const uint64_t source[3]{shader.sourceId.low, shader.sourceId.high, shader.sourceId.length};
+    uint64_t hash = hash_bytes(source, sizeof source, shader.vertex ? 0x5151 : 0xA2A2);
     hash = hash_bytes(&shader.mapping, sizeof shader.mapping, hash);
     hash = hash_bytes(&shader.uniforms, sizeof shader.uniforms, hash);
     return hash_bytes(&shader.descriptorRanks, sizeof shader.descriptorRanks, hash);
 }
 bool same_output(const Shader& a, const Shader& b) {
-    return a.vertex == b.vertex && a.glsl == b.glsl &&
+    return a.vertex == b.vertex && a.sourceId == b.sourceId &&
            !std::memcmp(&a.mapping, &b.mapping, sizeof a.mapping) &&
            !std::memcmp(&a.uniforms, &b.uniforms, sizeof a.uniforms) &&
            !std::memcmp(&a.descriptorRanks, &b.descriptorRanks, sizeof a.descriptorRanks);
@@ -617,6 +620,10 @@ bool decompile(Shader& shader, const uint32_t* regs, bool vertex, LatteFetchShad
                 accepted?"applied":"rejected: ",accepted?"":error.c_str());
         }
     }
+    if (shader.dec && shader.dec->strBuf_shaderSource) {
+        delete shader.dec->strBuf_shaderSource;
+        shader.dec->strBuf_shaderSource = nullptr;
+    }
     return true;
 }
 std::unordered_map<uint64_t, uint64_t> verifiedKeys;
@@ -676,7 +683,130 @@ void start_shader_cache_load() {
     diskLoadStarted = true;
 }
 
+struct TranslationSnap {
+    std::array<uint32_t, gx2::kNumRegs> regs{};
+    std::vector<uint8_t> program;
+    LatteFetchShader fetch;
+    std::vector<std::vector<LatteParsedFetchShaderAttribute>> attributes;
+    bool hasFetch = false;
+    TranslationSnap(const uint32_t* sourceRegs, uint32_t address, uint32_t size, const LatteFetchShader* sourceFetch) {
+        std::copy_n(sourceRegs, regs.size(), regs.begin());
+        const auto* bytes = static_cast<const uint8_t*>(ppc_ptr(address));
+        program.assign(bytes, bytes + size);
+        if (!sourceFetch) return;
+        hasFetch = true;
+        fetch.key = sourceFetch->key;
+        fetch.attributeBufferMask = sourceFetch->attributeBufferMask;
+        fetch.vkPipelineHashFragment = sourceFetch->vkPipelineHashFragment;
+        fetch.mtlFetchVertexManually = sourceFetch->mtlFetchVertexManually;
+        fetch.m_cacheHash = sourceFetch->m_cacheHash;
+        fetch.m_isRegistered = false;
+        attributes.reserve(sourceFetch->bufferGroups.size() + sourceFetch->bufferGroupsInvalid.size());
+        auto copyGroups = [&](const auto& source, auto& destination) {
+            destination.reserve(source.size());
+            for (const auto& group : source) {
+                if (group.attribCount < 0 || (group.attribCount && !group.attrib))
+                    throw std::runtime_error("invalid fetch translation snapshot");
+                attributes.emplace_back();
+                auto& owned = attributes.back();
+                if (group.attribCount) owned.assign(group.attrib, group.attrib + group.attribCount);
+                destination.push_back(group);
+                destination.back().attrib = owned.data();
+            }
+        };
+        copyGroups(sourceFetch->bufferGroups, fetch.bufferGroups);
+        copyGroups(sourceFetch->bufferGroupsInvalid, fetch.bufferGroupsInvalid);
+    }
+};
+struct TranslationWorker {
+    std::mutex mutex;
+    std::condition_variable wake;
+    std::deque<std::function<void()>> queue;
+    std::thread thread;
+    bool stop = false;
+    bool joining = false;
+    void finish() {
+        std::thread joiningThread;
+        {
+            std::lock_guard lock(mutex);
+            if (thread.joinable() && thread.get_id() == std::this_thread::get_id())
+                throw std::logic_error("translation worker cannot join itself");
+            stop = true;
+            joining = true;
+            joiningThread = std::move(thread);
+        }
+        wake.notify_all();
+        if (joiningThread.joinable()) joiningThread.join();
+        std::lock_guard lock(mutex);
+        joining = false;
+        stop = false;
+    }
+    ~TranslationWorker() { finish(); }
+};
+TranslationWorker& translation_worker() {
+    static TranslationWorker value;
+    return value;
+}
+void translation_run(TranslationWorker& w) {
+    try { host::set_thread_name("Vulkan translate"); } catch (...) {}
+    for (;;) {
+        std::function<void()> job;
+        {
+            std::unique_lock lock(w.mutex);
+            w.wake.wait(lock, [&] { return w.stop || !w.queue.empty(); });
+            if (w.queue.empty()) return;
+            job = std::move(w.queue.front());
+            w.queue.pop_front();
+        }
+        if (job) job();
+    }
+}
+void submit_translation(std::function<void()> job) {
+    auto& w = translation_worker();
+    bool inlineJob = false;
+    {
+        std::lock_guard lock(w.mutex);
+        inlineJob = w.joining || (w.thread.joinable() && w.thread.get_id() == std::this_thread::get_id());
+        if (!inlineJob) {
+            if (!w.thread.joinable()) {
+                w.stop = false;
+                w.thread = std::thread(translation_run, std::ref(w));
+            }
+            w.queue.push_back(std::move(job));
+        }
+    }
+    if (inlineJob) job();
+    else w.wake.notify_one();
+}
+void finish_translation() { translation_worker().finish(); }
+bool decompile_off_thread(Shader& shader, const uint32_t* regs, bool vertex, LatteFetchShader* fetch,
+                          uint32_t address, uint32_t size, uint64_t base, const PsLink& link, uint64_t frame) {
+    if (frame == ~uint64_t{0} || !shader_jobs_async())
+        return decompile(shader, regs, vertex, fetch, address, size, base, true, link);
+    auto snap = std::make_shared<TranslationSnap>(regs, address, size, fetch);
+    auto promise = std::make_shared<std::promise<void>>();
+    auto done = promise->get_future();
+    submit_translation([&shader, snap, vertex, address, size, base, link, promise] {
+        try {
+            decompile(shader, snap->regs.data(), vertex, snap->hasFetch ? &snap->fetch : nullptr,
+                      address, size, base, true, link, snap->program.data());
+            promise->set_value();
+        } catch (...) {
+            promise->set_exception(std::current_exception());
+        }
+    });
+    std::exception_ptr presentationError;
+    while (done.wait_for(std::chrono::milliseconds(1)) != std::future_status::ready) {
+        if (!presentationError) try { gfxvk::present_while_shader_pending(); }
+        catch (...) { presentationError = std::current_exception(); }
+    }
+    done.get();
+    if (presentationError) std::rethrow_exception(presentationError);
+    return shader.dec && shader.error.empty();
+}
+
 void select_renderer() {
+    finish_translation();
     finish_shader_jobs();
     g_renderer = std::make_unique<VulkanRenderer>();
 }
@@ -885,6 +1015,24 @@ void poll_pending_shaders(uint64_t frame) {
     }
     pendingShaderRecords.resize(retained);
 }
+void wait_shader(Shader& shader, uint64_t frame) {
+    while (shader.compiling()) {
+        prioritize_spirv_compile(shader.compile);
+        {
+            std::unique_lock lock(shader.compile->mutex);
+            if (!shader.compile->done)
+                shader.compile->wake.wait_for(lock, std::chrono::milliseconds(1),
+                                               [&] { return shader.compile->done; });
+        }
+        collect_shader(shader, frame);
+        if (shader.compiling() && frame != ~uint64_t{0})
+            gfxvk::present_while_shader_pending();
+    }
+}
+bool retain_shader_source() { return key_verify_rate() != 0; }
+void release_shader_text(Shader& shader) {
+    if (!retain_shader_source()) std::string{}.swap(shader.glsl);
+}
 
 Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, uint64_t fsKey,
                   uint64_t frame, uint64_t stateGeneration, const Shader* linkedVs) {
@@ -944,7 +1092,7 @@ Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, ui
     shader->vertex = vertex;
     const bool background = frame != ~uint64_t{0} && shader_jobs_async();
     const auto started = std::chrono::steady_clock::now();
-    const bool decompiled = decompile(*shader, regs, vertex, fetch, address, size, base, true, link);
+    const bool decompiled = decompile_off_thread(*shader, regs, vertex, fetch, address, size, base, link, frame);
     const uint64_t decompileNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now() - started).count();
     ++stats.compiles;
@@ -978,6 +1126,8 @@ Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, ui
     }
     stats.decompileNs += decompileNs;
     perf::shader_recomp(double(decompileNs) / 1e6);
+    shader->sourceId = shader_source_id(shader->glsl);
+    shader->spirvKey = source_cache_key(shader->glsl, vertex);
     if (key_verify_rate()) {
         uint64_t legacy = legacy_state_hash(regs, base, vertex) ^ (vertex ? fsKey * 31 : 0);
         if (vertex && mods::cemu::has_shaders())
@@ -999,8 +1149,6 @@ Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, ui
     shadersByOutput.emplace(output, shader);
     remember(shader);
     initialize_disk_cache();
-    shader->sourceId = shader_source_id(shader->glsl);
-    shader->spirvKey = source_cache_key(shader->glsl, vertex);
     auto cached = diskShaders.find(shader->spirvKey);
     if (cached != diskShaders.end() && cached->second.vertex == vertex &&
         cached->second.source == shader->sourceId && cached->second.words) {
@@ -1019,7 +1167,10 @@ Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, ui
             pendingCompiles.insert_or_assign(shader->spirvKey,
                 std::make_pair(shader->sourceId, shader->compile));
             pendingShaderRecords.push_back(shader);
-            enqueue_spirv_compile(shader->glsl, vertex, shader->compile);
+            while (!enqueue_spirv_compile(shader->glsl, vertex, shader->compile)) {
+                if (frame != ~uint64_t{0}) gfxvk::present_while_shader_pending();
+                wait_spirv_queue();
+            }
         }
         shader->pipelineId = shader->key;
     } else {
@@ -1037,6 +1188,7 @@ Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, ui
         assign_pipeline_module(*shader);
     }
     if (!shader->error.empty()) fprintf(stderr, "[vulkan] shader %08X: %s\n", address, shader->error.c_str());
+    release_shader_text(*shader);
     return shader;
 }
 

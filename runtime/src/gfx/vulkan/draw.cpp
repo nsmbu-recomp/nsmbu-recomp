@@ -2149,16 +2149,10 @@ void draw(const uint32_t *r, uint32_t prim, uint32_t count, uint32_t indexType,
   if (!fs)
     throw std::runtime_error("missing Vulkan fetch shader");
   auto *vs = vk::translate(r, true, fs, fsKey, R.frame, g_shader_state_gen);
-  if (vs && vs->compiling()) {
-    vk::collect_shader(*vs, R.frame);
-    if (vs->compiling()) return;
-  }
+  if (vs && vs->compiling()) vk::wait_shader(*vs, R.frame);
   auto *ps = vk::translate(r, false, fs, fsKey, R.frame, g_shader_state_gen,
                            vs && vs->ready() ? vs : nullptr);
-  if (ps && ps->compiling()) {
-    vk::collect_shader(*ps, R.frame);
-    if (ps->compiling()) return;
-  }
+  if (ps && ps->compiling()) vk::wait_shader(*ps, R.frame);
   rprof::mark(rprof::kShader);
   if (!vs || !vs->ready() || !ps || !ps->ready())
     throw std::runtime_error("Vulkan shader translation failed: " +

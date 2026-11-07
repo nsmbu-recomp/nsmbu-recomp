@@ -62,6 +62,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- A new Vulkan shader keeps the last picture on screen until that shader is ready, then the draw uses it.
+  The shader on screen compiles before shaders that are not on screen.
+  The shader text is released after the compile starts.
+  Shader-key verification keeps the text.
 - Vulkan compiles each distinct shader once.
   Variants that produce the same shader share that compile, including one that is still running.
   The shader cache stores each compiled program once and no longer keeps the shader text.

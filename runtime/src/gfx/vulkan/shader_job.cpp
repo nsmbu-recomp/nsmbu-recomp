@@ -69,18 +69,22 @@ void run(Worker& w) {
             words = std::make_shared<const std::vector<uint32_t>>(std::move(compiled));
         const uint64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::steady_clock::now() - started).count();
-        std::lock_guard doneLock(item.done->mutex);
-        item.done->words = std::move(words);
-        item.done->error = std::move(error);
-        item.done->ns = ns;
-        item.done->done = true;
+        {
+            std::lock_guard doneLock(item.done->mutex);
+            item.done->words = std::move(words);
+            item.done->error = std::move(error);
+            item.done->ns = ns;
+            item.done->done = true;
+            item.done->wake.notify_all();
+        }
+        w.wake.notify_all();
     }
 }
 std::mutex pipelineMutex;
 }
 bool shader_jobs_async() { return async_shaders_enabled(); }
-void enqueue_spirv_compile(std::string source, bool vertex, std::shared_ptr<SpirvCompile> done) {
-    if (!done) return;
+bool enqueue_spirv_compile(const std::string& source, bool vertex, std::shared_ptr<SpirvCompile> done) {
+    if (!done) return true;
     auto& w = worker();
     {
         std::lock_guard lock(w.mutex);
@@ -88,9 +92,11 @@ void enqueue_spirv_compile(std::string source, bool vertex, std::shared_ptr<Spir
             std::lock_guard doneLock(done->mutex);
             done->error = "shader compile shutdown";
             done->done = true;
-            return;
+            done->wake.notify_all();
+            return true;
         }
-        w.queue.push_back(Worker::Item{std::move(source), vertex, std::move(done)});
+        if (w.queue.size() >= 8) return false;
+        w.queue.push_back(Worker::Item{source, vertex, std::move(done)});
         if (!w.thread.joinable()) {
             w.stop = false;
             w.thread = std::thread(run, std::ref(w));
@@ -98,6 +104,27 @@ void enqueue_spirv_compile(std::string source, bool vertex, std::shared_ptr<Spir
         }
     }
     w.wake.notify_one();
+    return true;
+}
+void prioritize_spirv_compile(const std::shared_ptr<SpirvCompile>& done) {
+    if (!done) return;
+    auto& w = worker();
+    std::lock_guard lock(w.mutex);
+    for (auto it = w.queue.begin(); it != w.queue.end(); ++it) {
+        if (it->done == done) {
+            if (it != w.queue.begin()) {
+                auto item = std::move(*it);
+                w.queue.erase(it);
+                w.queue.push_front(std::move(item));
+            }
+            return;
+        }
+    }
+}
+void wait_spirv_queue() {
+    auto& w = worker();
+    std::unique_lock lock(w.mutex);
+    w.wake.wait_for(lock, std::chrono::milliseconds(1), [&] { return w.queue.size() < 8 || w.joining; });
 }
 void finish_shader_jobs() { worker().finish(); }
 VkResult create_graphics_pipelines(VkDevice device, VkPipelineCache cache, uint32_t count,

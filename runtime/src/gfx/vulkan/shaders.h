@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <array>
 #include <memory>
+#include <condition_variable>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -23,6 +24,7 @@ DescriptorRankPlan make_descriptor_rank_plan(const LatteDecompilerShaderResource
 
 struct SpirvCompile {
     std::mutex mutex;
+    std::condition_variable wake;
     bool done = false;
     bool accounted = false;
     uint64_t ns = 0;
@@ -52,6 +54,7 @@ struct Shader {
     bool compiling() const { return compile != nullptr; }
 };
 void collect_shader(Shader& shader, uint64_t frame);
+void wait_shader(Shader& shader, uint64_t frame);
 void publish_finished_shaders(uint64_t frame);
 void select_renderer();
 
