@@ -134,7 +134,8 @@ A generated game function with the same name replaces the stub.
 
 ## Launch
 
-`nsmbu launch` sets `NSMBU_PROFILE`, `NSMBU_VK_STATS`, `NSMBU_SYNC_STATS`, and `NSMBU_CRASH_RECOVERY` when those variables are unset.
+`nsmbu launch` sets `NSMBU_PROFILE`, `NSMBU_VK_STATS`, and `NSMBU_SYNC_STATS` when those variables are unset.
+It does not set `NSMBU_CRASH_RECOVERY`.
 `nsmbu launch --no-debug` and `nsmbu run --release` leave those variables unset.
 
 ## Python helpers (no `nsmbu` subcommand)

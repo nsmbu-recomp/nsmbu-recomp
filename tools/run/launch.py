@@ -16,7 +16,6 @@ LAUNCH_DEBUG_ENV = {
     "NSMBU_PROFILE": "1",
     "NSMBU_VK_STATS": "1",
     "NSMBU_SYNC_STATS": "1",
-    "NSMBU_CRASH_RECOVERY": "1",
 }
 
 def nsmbu_exe(prefer_release=False):

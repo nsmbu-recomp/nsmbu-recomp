@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Crash recovery stays off until you turn it on in Save States.
+  A crash does not turn it on.
+  A debug launch does not turn it on.
 - 60 fps on a high-refresh display keeps 60 logic steps a second.
   The frame clock was 59.94 Hz when the display was not already near 60 Hz.
   The performance overlay counts FPS and logic steps across the real time between samples.

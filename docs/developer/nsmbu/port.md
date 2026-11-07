@@ -95,7 +95,8 @@ Clang needs a GNU `libstdc++` (for example `libstdc++-14-dev` on Ubuntu).
 
 The `nsmbu` CLI exports `NSMBU_USER_DIR` to the gitignored `nsmbu/` folder on dev commands.
 `nsmbu launch` starts `build/debug/nsmbu` with `--game` set to `game/` and `--save nsmbu/save`.
-Default debug env vars (`NSMBU_PROFILE`, `NSMBU_VK_STATS`, `NSMBU_SYNC_STATS`, `NSMBU_CRASH_RECOVERY`) are set when they are not already in the environment.
+Default debug env vars (`NSMBU_PROFILE`, `NSMBU_VK_STATS`, `NSMBU_SYNC_STATS`) are set when they are not already in the environment.
+`NSMBU_CRASH_RECOVERY` is not one of them.
 
 `nsmbu launch --no-debug` skips those debug defaults.
 It still uses `nsmbu/`.

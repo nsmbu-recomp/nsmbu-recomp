@@ -34,7 +34,7 @@ Initialize the build submodules before the first build: `git submodule update --
 When `game/code/red-pro2.rpx` is newer than the generated code, `nsmbu build` runs the recompiler.
 When that file is absent, the build uses stubs so the tree can link.
 
-`nsmbu launch` sets `NSMBU_PROFILE`, `NSMBU_VK_STATS`, `NSMBU_SYNC_STATS`, and `NSMBU_CRASH_RECOVERY` when those variables are unset.
+`nsmbu launch` sets `NSMBU_PROFILE`, `NSMBU_VK_STATS`, and `NSMBU_SYNC_STATS` when those variables are unset.
 
 Agent control and the full command list are in [docs/developer/cli.md](docs/developer/cli.md).
 

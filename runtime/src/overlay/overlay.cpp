@@ -640,7 +640,9 @@ void tab_saves() {
     bool on;
     if (check("Crash Recovery (automatic state every few minutes)", crashrec::enabled(), &on)) crashrec::set_enabled(on);
     help("Saves the game into automatic states in the background and records the controller input since the latest "
-         "one. After a crash, the crash log says how to load it. Saving freezes the game for a moment.");
+         "one. This stays off until you turn it on here. A crash does not turn it on. "
+         "After a crash, the crash log says how to load the latest automatic state when this was already on. "
+         "Saving freezes the game for a moment.");
     for (int i = 1; i <= crashrec::kAutoSlots; i++) {
         const crashrec::AutoInfo& a = U.autos[i];
         ImGui::PushID(100 + i);

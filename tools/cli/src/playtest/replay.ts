@@ -55,7 +55,6 @@ export async function runReplay(session: Session, name: string, timeoutSec: numb
             NSMBU_PROFILE: "1",
             NSMBU_VK_STATS: "1",
             NSMBU_SYNC_STATS: "1",
-            NSMBU_CRASH_RECOVERY: "1",
         },
     });
     const deadline = Date.now() + timeoutSec * 1000;
