@@ -144,8 +144,8 @@ These stay as `python3 tools/…` until they move into the CLI.
 
 | Script | Role |
 | --- | --- |
-| `recomp/analyze.py` | Find branch islands in recomp output ([vendor/decomp/docs/decomp-notes.md](../../vendor/decomp/docs/decomp-notes.md)) |
-| `tools/rpx/ppcdis.py` | Disassemble guest `.text` (see `vendor/decomp/docs/TODO.md`) |
+| `recomp/analyze.py` | Find branch islands in recomp output, including `bctr` into a run of `b` opcodes |
+| `tools/rpx/ppcdis.py` | Disassemble guest `.text`. Annotates import calls and names from `recomp/headers_names.txt` |
 | `tools/frames/flicker.py` | Compare frame dumps ([automation.md](automation.md)) |
 | `tools/bench/bench_lib.py` | Save-state A/B statistics (unit tests; scenarios use `nsmbu bench`) |
 | `tools/shader/shaderprep.py` | Metal shader head-start cache |

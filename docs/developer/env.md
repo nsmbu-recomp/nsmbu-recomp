@@ -37,7 +37,7 @@ The host test `env` in `tests/host/env_test.cpp` covers `.name()`, a read after 
 Course models blend between the last two logic poses when in-between frames are on.
 A picture's pose is the uniform block copied when its display list runs.
 Snapshot that block at submit, as `vendor/ZeldaWWHDRecomp/runtime/src/gx2/submitted_uniforms.h` does.
-`vendor/decomp/docs/frame-loop.md` is the order of `ModelG3d::calc`, `calcGPU`, and the render-thread copy.
+`ModelG3d::calc` and `calcGPU` in `vendor/decomp/include/graphics/ModelG3d.h` are the order of the skeleton uniform block and the render-thread copy.
 `interp_picture_test` checks that a later write to the live block leaves the copied pose unchanged.
 A pose or camera change is done when that test passes and two consecutive TV frames are dumped with `NSMBU_DUMP_FRAMES`.
 `NSMBU_INTERP_MODEL_TRACE` is how many moving course pictures to log.

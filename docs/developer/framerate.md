@@ -4,7 +4,7 @@ Guest logic stays at 60 steps a second.
 Pictures above that rate are extra draws between those steps.
 The present cap is 30, 60, 120, 144, 165, or 240, or a custom cap from 60 to 1000.
 The `NSMBU_*` variables are in [env.md](env.md) under Frame interpolation.
-The sead frame order is in `vendor/decomp/docs/frame-loop.md`.
+The sead frame order is on `ApplicationFramework` in `vendor/decomp/include/system/ApplicationFramework.h`.
 
 ## In-between pictures
 

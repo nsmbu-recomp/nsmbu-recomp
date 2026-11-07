@@ -18,7 +18,9 @@ The `nsmbu` target compiles with `-Wall`.
 
 ## Decomp
 
-Any discoveries you find about the source code document it in the headers in `vendor/decomp/include` also add documentation comments explaining what the function does and any side effect or requirements for calling it.
+Document a discovery about original game code as a comment on that function's declaration in `vendor/decomp/include`.
+State what the function does, and any side effect or requirement for calling it.
+That declaration comment is the record.
 
 ## Tests
 

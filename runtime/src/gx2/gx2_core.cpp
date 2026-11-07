@@ -1181,6 +1181,9 @@ HLE(gx2, GX2SetClearDepthStencil) {
     db->clearDepth = farg(c, 0);
     db->clearStencil = arg(c, 1) & 0xFF;
 }
+// The game treats this copy as finished when the call returns.
+// agl tile-mode conversion then frees the temporary surface and can reuse that memory for the shader program array.
+// Wait for the render thread unless a display list is being recorded. Display lists run when they are called.
 HLE(gx2, GX2CopySurface) {
 
     static const bool dbg = env::COPYDBG() != nullptr;

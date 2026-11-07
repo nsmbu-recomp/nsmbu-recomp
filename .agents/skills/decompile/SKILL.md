@@ -1,6 +1,6 @@
 ---
 name: decompile
-description: "Decompile NSMBU USA v1.3.0 into vendor/decomp with ppcdis.py. Use when decompiling functions, answering decomp TODOs, or running the decomp work queue."
+description: "Decompile NSMBU USA v1.3.0 into vendor/decomp with ppcdis.py. Use when decompiling functions, answering an open question on a decomp function, or running the decomp work queue."
 disable-model-invocation: true
 ---
 
@@ -14,18 +14,20 @@ No responses needed from the user, keep going until the queue is empty or blocke
 
 ## Requirements
 
-- Decompiled C++ (not only prose notes) must be written into `vendor/decomp/src` and `vendor/decomp/include`.
-- One claim per TODO item, checked items are removed from `vendor/decomp/docs/TODO.md` and the answer goes into the note it came from.
+- Decompiled C++ must be written into `vendor/decomp/src` and `vendor/decomp/include`.
+- A discovery about original game code is a comment on that function's declaration in `vendor/decomp/include`.
+  State what the function does, and any side effect or requirement for calling it.
+  The `.cpp` body keeps the `// Address:` marker and the code.
 - Never invent sead/agl names when no tree has the symbols, keep the address and describe the site.
 - Decompiled code must match existing `vendor/decomp` style (`// Address: 0x...` markers, `L_` labels, raw offsets).
-- Discoveries about original game code go in the headers under `vendor/decomp/include`, with a comment on what the function does and any side effect or requirement for calling it.
 
 ## Decisions
 
 - Use `python3 tools/rpx/ppcdis.py ADDR [COUNT] [RPX]` plus `recomp/headers_names.txt` as the only naming sources.
   `game/active` selects the dump.
 - Unresolved helpers get `sub_<ADDRESS>` names plus an `// Address:` comment rather than invented names.
-- Treat `vendor/decomp/docs/TODO.md` as the open-claim list.
+- An open question is a comment on the function declaration it asks about.
+  The answer replaces that comment on the same declaration.
 - Three nested repos exist: parent `nsmbu-recomp`, `vendor/decomp`, and `vendor/decomp/include` (submodule `headers.git`, branch `recomp`).
   Each needs its own commit.
 
@@ -33,8 +35,8 @@ No responses needed from the user, keep going until the queue is empty or blocke
 
 Commit order on every landed batch:
 
-1. `vendor/decomp/include` - new or updated headers.
-2. `vendor/decomp` - `.cpp`, docs under `docs/`, `docs/TODO.md` edits.
+1. `vendor/decomp/include` - new or updated headers, including the declaration comment.
+2. `vendor/decomp` - `.cpp`.
 3. Parent - submodule gitlink bumps.
 
 Push all three when the user expects sync (autonomous runs: push after each batch).
@@ -69,12 +71,12 @@ Style references:
 
 Leave known-inaccurate legacy decomp alone unless the task explicitly fixes it (e.g. `vendor/decomp/src/system/GameFrame.cpp` and root task at `+0x1C`).
 
-## TODO claims
+## Open questions
 
-Before research-only work, read `vendor/decomp/docs/TODO.md`.
-
-- At most one open checkbox per research question.
-- Subagent completes the answer in the linked `docs/*.md` note, removes the checkbox from `TODO.md`, commits in the decomp repo.
+An open question is one comment on the function declaration in `vendor/decomp/include`.
+The answer replaces that comment.
+Sweep `addi` (14), `addic` (12), record-form `addic` (13), and `ori` (24) together.
+The compiler materialises a static address with `lis` + `addic` often enough that an `addi`-only sweep reports a false "no reference".
 
 ## Autonomous work loop
 
@@ -93,16 +95,16 @@ Hand each subagent one class, at most 25 functions:
 - Unknown names stay `sub_` plus the address.
 - The orchestrator commits.
 
-### Subagent instructions (TODO item)
+### Subagent instructions (open question)
 
-One claim from `TODO.md`.
+One question from a comment on a function declaration.
 Research with `ppcdis`, rodata sweeps, and reloc inspection.
-Write the answer into the target doc and remove the TODO line.
+Replace that comment with the answer on the same declaration.
 The orchestrator commits.
 
 ### Orchestrator
 
-1. Spawn decomp batches and TODO subagents in parallel where claims do not overlap files.
+1. Spawn decomp batches and open-question subagents in parallel where claims do not overlap files.
 2. Review landed diffs for style and naming rules.
 3. Commit include, then decomp, then the parent gitlink bumps, and push.
 4. Regenerate the queue and take the next class batch.

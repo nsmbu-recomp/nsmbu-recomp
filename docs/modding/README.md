@@ -8,7 +8,7 @@ This folder is the modding documentation for NSMBU recomp.
 | --- | --- |
 | [mod-manager.md](mod-manager.md) | In-game Mods tab, install, storage, shared manifest fields |
 | [cemu.md](cemu.md) | `kind: cemu` graphics and shader packs |
-| [Guest UI / layout hooks](../../vendor/decomp/docs/ui-system.md#mod-integration) | Pause, `Multi2D`, and native menu hook map (decomp note; C++ hooks today) |
+| `vendor/decomp/include/game/CommonWindowMgr.h`, `layout/CommonWindow.h`, `layout_sys/AnimLayout.h`, `layout/CourseSelectMenu.h` | Pause, `Multi2D`, and the world-map start menu |
 
 The Mods tab installs Cemu graphics and shader packs only.
 Any other package kind is rejected.

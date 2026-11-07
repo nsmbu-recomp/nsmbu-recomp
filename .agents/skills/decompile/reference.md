@@ -8,11 +8,14 @@ USA v1.3.0 `red-pro2.rpx` unless a note says Europe.
 - `recomp/headers_names.txt` - class and symbol for game addresses (~5k symbols).
 - `game/active` - which dump `ppcdis.py` uses by default.
 
-## TODO workflow
+## Open questions
 
-`vendor/decomp/docs/TODO.md` - one checkbox per open question, answer in the linked markdown under `vendor/decomp/docs/`.
+An open question is a comment on the function declaration in `vendor/decomp/include`.
+The answer replaces that comment.
 
-Example open theme: soft-restart - bootstrap order between audio init (`0x029E8324`) and first `startSound`; tables `.rodata 0x1017C1A4`, `0x1017C284`, `0x1018D9E0`, `0x1018DA04`; see `docs/soft-restart-tls.md` (TLS table `0x1017C814`, not `0x1018C814`).
+Example: audio bootstrap order between `0x029E8324` and the first `startSound` is on `SndAudioMgr`.
+The method table is `0x1017C814`, not `0x1018C814`.
+Related rodata: `0x1017C1A4`, `0x1017C284`, `0x1018D9E0`, `0x1018DA04`.
 
 ## Dispatch tables
 
@@ -73,12 +76,6 @@ When present, use:
 - `engine/library/include/gfx/seadFrameBuffer.h`
 
 under `.tmp/nsmbu-sead/`.
-
-## Docs map (completed themes)
-
-- `docs/frame-loop.md` - sead helpers, 11-node `DualScreenMethodTreeMgr` layout.
-- `docs/map-shadow-interp.md` - TV DepthShadow, `0x024F9E24` as mid-function label.
-- `docs/soft-restart-tls.md` - TLS / audio bootstrap.
 
 ## Parent repo
 
