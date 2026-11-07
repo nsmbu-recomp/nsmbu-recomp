@@ -332,8 +332,8 @@ class Recompiler:
                     continue
                 if fate == "refuse":
                     raise SystemExit('%s: %08X is inside a function the %s build compiled differently; the '
-                                     'hook is written for the canonical (USA) code. Mark its file with '
-                                     '"# builds: USA" or write the hook for this build.' % (
+                                     'hook is written for the canonical (USA) code. Limit its file with '
+                                     '"builds": ["USA"] or write the hook for this build.' % (
                                          where, canon, self.build.name))
                 if fate == "warn":
                     self.hooks_in_changed.append((where, canon, addr))
@@ -819,7 +819,7 @@ class Recompiler:
             f.write("\n/* hooked functions: hook_X is implemented in the runtime, f_X_orig is the game's code */\n")
             for e in sorted(self.sym(a) for a in self.hooks):
                 f.write("void f_%08X_orig(Cpu* __restrict c);%s\nvoid hook_%08X(Cpu* c);\n" % (e, comment(e), e))
-            f.write("\n/* instruction-level hooks (\"@ADDR\" in hooks.txt), run before the instruction at ADDR */\n")
+            f.write("\n/* instruction-level hooks (\"sites\" in recomp/hooks/*.jsonc), run before the instruction at ADDR */\n")
             for e in sorted(self.sym(a) for a in self.sites):
                 f.write("void site_%08X(Cpu* c);\n" % e)
             f.write("\n/* imported functions */\n")

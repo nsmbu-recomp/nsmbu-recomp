@@ -74,9 +74,10 @@ class CoverageTests(unittest.TestCase):
 
     def test_every_active_hook_is_mapped(self):
         entries, skipped = builds.read_hooks(builds.hook_files(), builds.canonical_build())
-        self.assertEqual(skipped, [("hooks_base_hud.txt", "USA_V0 EU_V0")])
+        self.assertEqual(skipped, [("base_hud.jsonc", "USA_V0 EU_V0")])
         self.assertEqual(
-            [(site, canon) for site, canon, *_ in entries],
+            sorted((site, canon) for site, canon, *_ in entries),
+            sorted(
             [(False, 0x02ACD218), (False, 0x024D752C), (True, 0x022A79C4), (False, 0x022A7760),
              (False, 0x029A6170), (False, 0x029B85C8), (False, 0x02A06818), (False, 0x02A061AC),
              (False, 0x02A062EC), (False, 0x02994164), (False, 0x029CBBB4), (False, 0x024BD86C),
@@ -99,8 +100,7 @@ class CoverageTests(unittest.TestCase):
              (True, 0x029D71A4), (True, 0x02631BE4), (True, 0x0263ADD8), (True, 0x02641A4C),
              (True, 0x026730C4), (True, 0x02AB7040), (True, 0x02682674),
              (False, 0x025A4218), (False, 0x025A42CC), (False, 0x025A4B98), (True, 0x025A4C5C),
-             (False, 0x02ABC054), (False, 0x02ABCAE8), (True, 0x02ABCB34), (True, 0x02ABCB38),
-             (False, 0x02632418)],
+             (False, 0x02ABC054), (False, 0x02ABCAE8), (True, 0x02ABCB34), (True, 0x02ABCB38)]),
         )
         for site, canon, native, where, _same in entries:
             self.assertEqual(canon, native, where)

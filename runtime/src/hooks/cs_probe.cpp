@@ -702,8 +702,6 @@ extern "C" void hook_02994164(Cpu* c) {
 
 extern "C" void hook_029CBBB4(Cpu*) {}
 
-extern "C" void hook_02632418(Cpu*) {}
-
 extern "C" void hook_024BD86C(Cpu* c) {
     if (mods::scene::story_leave_pending()) return;
     interp::begin_course_setup();

@@ -1,0 +1,13 @@
+// Draws that run with a missing model or a missing Mii shader.
+
+{
+  "hooks": [
+    {
+      "address": "024D752C",
+      "same": true
+      // draw queues: drop items whose model pointer at node+0x28 is null
+    },
+    { "address": "024EFE58" }, // ModelFFL::drawOpa: skip while the Mii shader program is null
+    { "address": "024F009C" } // ModelFFL::drawXlu: skip while the Mii shader program is null
+  ]
+}

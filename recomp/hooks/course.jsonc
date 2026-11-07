@@ -1,0 +1,29 @@
+// Opening a course, the world map, and the course HUD.
+
+{
+  "hooks": [
+    { "address": "02994164" }, // Scene::setNextScene: onSceneChange and scene src for mod API transitions
+    {
+      "address": "029CBBB4",
+      "same": true
+      // error viewer: this port does not draw it, so the call must not pause the game
+    },
+    {
+      "address": "024BD86C",
+      "same": true
+      // course setup: skip while a story load is leaving the live course
+    },
+    { "address": "0226FBC4" }, // CourseSelectPlayer setup: seed map pose before path resolve / spawn
+    { "address": "0252F900" }, // course HUD: AreaTask is null while a course change replaces the area
+    { "address": "025CF020" } // course HUD helper: AreaTask is null during course teardown
+  ],
+  "sites": [
+    { "address": "024B8324" }, // course out: after enter type 3, seed map checkpoint/pose if still missing
+    { "address": "0226FD14" }, // CourseSelectPlayer spawn: seed MainGame pose again before the read
+    { "address": "0226FECC" }, // CourseSelectPlayer createImmediately: seed player fields before pack
+    { "address": "02270310" }, // CourseSelectPlayer createLater: seed player fields before pack
+    { "address": "022703A4" }, // CourseSelectPlayer createImmediately fallback: seed before pack
+    { "address": "0227CCF4" }, // map focus: copy the opened course node into the camera pose
+    { "address": "0227E2A8" } // map focus: same copy on the second pose setup
+  ]
+}

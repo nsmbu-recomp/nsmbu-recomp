@@ -135,7 +135,7 @@ set(NSMBU_GUEST_STUBS ${CMAKE_BINARY_DIR}/generated/nsmbu_guest_stubs.c)
 file(GLOB_RECURSE NSMBU_GUEST_STUB_INPUTS CONFIGURE_DEPENDS
   ${CMAKE_SOURCE_DIR}/runtime/src/*.c ${CMAKE_SOURCE_DIR}/runtime/src/*.cpp
   ${CMAKE_SOURCE_DIR}/runtime/src/*.h ${CMAKE_SOURCE_DIR}/runtime/src/*.mm
-  ${CMAKE_SOURCE_DIR}/recomp/hooks.txt ${CMAKE_SOURCE_DIR}/recomp/hooks_*.txt)
+  ${CMAKE_SOURCE_DIR}/recomp/hooks/*.jsonc)
 add_custom_command(
   OUTPUT ${NSMBU_GUEST_STUBS}
   COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/recomp/guest_stubs.py ${NSMBU_GUEST_STUBS}

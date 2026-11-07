@@ -81,7 +81,7 @@ def source_files(root, test_fixtures=False):
     root = Path(root)
     source_paths = [path for path in desktop_files(root) + [root / name for name in ANDROID_SOURCES] if path.is_file()]
     recomp = root / "recomp"
-    source_paths += sorted(path for path in recomp.glob("hooks*.txt") if path.is_file())
+    source_paths += sorted(path for path in (recomp / "hooks").glob("*.jsonc") if path.is_file())
     source_paths += sorted(path for path in (recomp / "builds").glob("*.json") if path.is_file())
     if test_fixtures:
         source_paths += [root / name for name in FIXTURE_SOURCES]

@@ -381,9 +381,10 @@ def main():
 
     for rel in TOOL_FILES + INSTALLER_FILES:
         copy(os.path.join(ROOT, rel), os.path.join(pkg, rel))
-    for hp in sorted(os.listdir(os.path.join(ROOT, "recomp"))):
-        if re.match(r"hooks.*\.txt$", hp):
-            copy(os.path.join(ROOT, "recomp", hp), os.path.join(pkg, "recomp", hp))
+    hooks_dir = os.path.join(ROOT, "recomp", "hooks")
+    for hp in sorted(os.listdir(hooks_dir)):
+        if hp.endswith(".jsonc"):
+            copy(os.path.join(hooks_dir, hp), os.path.join(pkg, "recomp", "hooks", hp))
 
     builds_dir = os.path.join(ROOT, "recomp", "builds")
     if os.path.isdir(builds_dir):

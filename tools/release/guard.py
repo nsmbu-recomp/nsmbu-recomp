@@ -56,7 +56,7 @@ BAD_NAME = [
     (re.compile(r"(^|/)common\.key$", re.I), "Wii U common key"),
 ]
 TEXT_EXT = {".py", ".txt", ".md", ".json", ".sh", ".command", ".bat", ".ps1", ".h", ".hpp", ".c", ".cpp", ".inl",
-            ".cfg", ".ini", ".xml", ".plist", ".toml", ".yml", ".yaml", ".rsp", ""}
+            ".cfg", ".ini", ".xml", ".plist", ".toml", ".jsonc", ".yml", ".yaml", ".rsp", ""}
 KEYLIKE = re.compile(rb"(?<![0-9A-Fa-f])[0-9A-Fa-f]{32}(?![0-9A-Fa-f])")
 
 GEN_CODE = re.compile(rb"void f_[0-9A-F]{8}\(Cpu\* __restrict c\) \{\n")

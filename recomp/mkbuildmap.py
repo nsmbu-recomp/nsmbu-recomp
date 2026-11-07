@@ -5,7 +5,7 @@ usage:
   mkbuildmap.py CANONICAL.rpx OTHER.rpx --name EU --title 0005000010101e00 [--out FILE]
   mkbuildmap.py --check FILE [CANONICAL.rpx OTHER.rpx]
 
-Every game address in this repository (recomp/hooks*.txt, runtime/src, the docs) is an
+Every game address in this repository (recomp/hooks/*.jsonc, runtime/src, the docs) is an
 address of the USA build: the canonical id of that function or object. Another build of the same
 game (a region, or a pack that inserts more functions) has the same core code at shifted
 addresses. A build map (recomp/builds/*.json) is a piecewise constant shift that turns a
@@ -23,7 +23,7 @@ of the game's code. Deriving it asserts that the two builds really are the same 
   - every data address referenced from such a function maps to exactly one address.
 
 Functions whose body differs (region language code, or a pack tweak) are listed in the map. A
-hook on one of them is not valid for the other build, which is why hooks*.txt files can be marked
+hook on one of them is not valid for the other build, which is why recomp/hooks/*.jsonc files can be marked
 as belonging to a build (see recomp/builds.py).
 """
 import argparse

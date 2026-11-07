@@ -5,16 +5,16 @@ of that function or that global. `recomp/builds/*.json` holds, for every other b
 piecewise constant shift from a canonical address to that build's address, derived and checked from
 the two executables by `recomp/mkbuildmap.py` (numbers only, never any of the game's code).
 
-A hooks file (`hooks*.txt`) may start with
+A hooks file (`recomp/hooks/*.jsonc`) may set
 
-    # builds: USA
+    "builds": ["USA_V0", "EU_V0"]
 
-to say that its hooks belong to one build only. That is for hooks that patch code which another
-build already has, like the European language code the USA build lacks (`hooks_language.txt`).
+to say that its hooks belong to those builds only. That is for hooks that patch code which another
+build already has, like the base-disc course HUD (`base_hud.jsonc`).
 Everything else is checked automatically: a hook or site inside a function whose body differs
 between the builds is refused, because the code it patches is not the same code there. A wrap of
-the whole function is allowed and reported, unless the line says `same`: the replacement was
-checked and applies to that function in every build. A hook on a function this build does not
+the whole function is allowed and reported, unless the entry sets `"same": true`: the replacement
+was checked and applies to that function in every build. A hook on a function this build does not
 have is skipped. Its mapped address sits inside a different function.
 """
 import bisect
@@ -22,7 +22,6 @@ import glob
 import hashlib
 import json
 import os
-import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CANONICAL = "USA"
@@ -199,8 +198,6 @@ def identify(rpx_path):
     """Which build `rpx_path` is, or None if it is not one the port knows."""
     return by_sha256(file_sha256(rpx_path))
 
-_BUILDS_RE = re.compile(r"^#\s*builds:\s*(.+)$", re.I)
-
 def hook_on_differing(build, site, canon, same, is_entry):
     """Fate of a hook in code this build compiled differently. See differing_hook.
 
@@ -228,29 +225,19 @@ def read_hooks(paths, build):
     """Read the hooks files that apply to `build`.
 
     Returns (entries, skipped): entries is a list of (is_site, canonical address, this build's
-    address, "file:line", same), skipped names the files that belong to another build. `same` is
-    true when the line says the whole-function replacement applies to every build. The caller
-    checks that every entry applies to the build (the recompiler does, once it knows every function).
+    address, "file:key", same), skipped names the files that belong to another build. `same` is
+    true when the entry sets `"same": true`. The caller checks that every entry applies to the
+    build (the recompiler does, once it knows every function).
     """
     entries, skipped = [], []
     for path in paths:
         if not os.path.exists(path):
             continue
-        with open(path, encoding="utf-8") as source:
-            lines = source.readlines()
-        for lineno, line in enumerate(lines, 1):
-            m = _BUILDS_RE.match(line.strip())
-            if m:
-                only = [s.strip().lower() for s in re.split(r"[,\s]+", m.group(1)) if s.strip()]
-                if build.name.lower() not in only:
-                    skipped.append((os.path.basename(path), m.group(1).strip()))
-                    break
-                continue
-            text = line.split("#")[0].strip()
-            if not text:
-                continue
-            where = "%s:%d" % (os.path.basename(path), lineno)
-            site, canon, same = _parse_hook(text, where)
+        label, hooks = load_hook_file(path)
+        if label is not None and build.name.lower() not in [name.lower() for name in label.split()]:
+            skipped.append((os.path.basename(path), label))
+            continue
+        for site, canon, same, where in hooks:
             try:
                 mapped = build.code(canon)
             except ValueError:
@@ -260,23 +247,97 @@ def read_hooks(paths, build):
             entries.append((site, canon, mapped, where, same))
     return entries, skipped
 
-def _parse_hook(text, where):
-    site = text.startswith("@")
-    body = text[1:].strip() if site else text
-    parts = body.split()
-    if len(parts) != 1 and not (len(parts) == 2 and parts[1].lower() == "same"):
-        raise ValueError("%s: a hook is an address, optionally followed by 'same'" % where)
-    if site and len(parts) == 2:
-        raise ValueError("%s: 'same' is for a whole-function hook" % where)
+def load_jsonc(text, where):
+    """JSON plus // line comments and /* block comments */."""
+    out = []
+    i, n = 0, len(text)
+    in_string = False
+    escape = False
+    while i < n:
+        ch = text[i]
+        if in_string:
+            out.append(ch)
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            i += 1
+            continue
+        if ch == '"':
+            in_string = True
+            out.append(ch)
+            i += 1
+            continue
+        if ch == "/" and i + 1 < n and text[i + 1] == "/":
+            i += 2
+            while i < n and text[i] not in "\r\n":
+                i += 1
+            continue
+        if ch == "/" and i + 1 < n and text[i + 1] == "*":
+            end = text.find("*/", i + 2)
+            if end < 0:
+                raise ValueError("%s: unclosed block comment" % where)
+            i = end + 2
+            continue
+        out.append(ch)
+        i += 1
     try:
-        canon = int(parts[0], 16)
+        return json.loads("".join(out))
+    except json.JSONDecodeError as exc:
+        raise ValueError("%s: %s" % (where, exc)) from exc
+
+def load_hook_file(path):
+    """(builds label or None, [(is_site, canonical address, same, where)])."""
+    name = os.path.basename(path)
+    with open(path, encoding="utf-8") as source:
+        data = load_jsonc(source.read(), name)
+    if not isinstance(data, dict):
+        raise ValueError("%s: a hook file is an object" % name)
+    unknown = set(data) - {"builds", "hooks", "sites"}
+    if unknown:
+        raise ValueError("%s: unknown key %s" % (name, sorted(unknown)[0]))
+    label = None
+    if "builds" in data:
+        builds = data["builds"]
+        if (not isinstance(builds, list) or not builds
+                or not all(isinstance(item, str) and item.strip() for item in builds)):
+            raise ValueError("%s: builds is an array of build names" % name)
+        label = " ".join(item.strip() for item in builds)
+    entries = []
+    for section, site in (("hooks", False), ("sites", True)):
+        items = data.get(section, [])
+        if not isinstance(items, list):
+            raise ValueError("%s: %s is an array" % (name, section))
+        for value in items:
+            entries.append(_hook_entry(site, value, name, section))
+    return label, entries
+
+def _hook_entry(site, value, name, section):
+    if not isinstance(value, dict):
+        raise ValueError("%s: a %s entry is an object" % (name, section))
+    unknown = set(value) - {"address", "same"}
+    if unknown:
+        raise ValueError("%s: unknown key %s" % (name, sorted(unknown)[0]))
+    address = value.get("address")
+    if not isinstance(address, str):
+        raise ValueError("%s: address is a hex string" % name)
+    where = "%s:%s.%s" % (name, section, address)
+    try:
+        canon = int(address, 16)
     except ValueError:
-        raise ValueError("%s: %s is not an address" % (where, parts[0]))
-    return site, canon, len(parts) == 2
+        raise ValueError("%s: %s is not an address" % (where, address))
+    if "same" in value and value["same"] is not True:
+        raise ValueError("%s: same is true" % where)
+    same = value.get("same", False)
+    if site and same:
+        raise ValueError("%s: same is for a whole-function hook" % where)
+    return site, canon, same, where
 
 def hook_files(directory=None):
-    d = directory or HERE
-    return [os.path.join(d, "hooks.txt")] + sorted(glob.glob(os.path.join(glob.escape(d), "hooks_*.txt")))
+    d = os.path.join(HERE, "hooks") if directory is None else directory
+    return sorted(glob.glob(os.path.join(glob.escape(d), "*.jsonc")))
 
 def hook_inputs_stamp(directory=None):
     lines = []

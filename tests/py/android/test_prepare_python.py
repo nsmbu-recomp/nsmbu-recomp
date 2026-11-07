@@ -31,7 +31,7 @@ class ResourceIdentityTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[3]
         bundled = {path.relative_to(root).as_posix() for path in source_files(root)}
         for name in ("installer/setup.py", "installer/toolchains.json", "recomp/recomp.py",
-                     "recomp/builds.py", "recomp/hooks.txt", "tools/rpx/rpx.py",
+                     "recomp/builds.py", "recomp/hooks/aspect.jsonc", "tools/rpx/rpx.py",
                      "tools/android/setup_adapter.py", "tools/android/ondevice_setup.py"):
             if (root / name).is_file():
                 self.assertIn(name, bundled)

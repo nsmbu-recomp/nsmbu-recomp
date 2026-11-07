@@ -244,7 +244,7 @@ archive written by the test) and `ArchiveTitles` in `test_setup.py`.
 
 ## Game version check
 
-The hooks (`recomp/hooks*.txt`) use canonical USA addresses.
+The hooks (`recomp/hooks/*.jsonc`) use canonical USA addresses.
 Setup accepts `code/red-pro2.rpx` from New Super Mario Bros. U USA (`00050000-10101d00`, title version 64
 or base disc 0) or Europe (`00050000-10101e00`, title version 80 or base disc 0).
 The build registry (`recomp/builds.py` and `recomp/builds/*.json`) keeps those SHA-256

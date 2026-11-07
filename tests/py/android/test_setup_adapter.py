@@ -132,8 +132,8 @@ class TranslationTests(unittest.TestCase):
             return value
         previous = adapter().translate(self.game)
         expected = inventory(previous)
-        hooks = package / "recomp/hooks_update_test.txt"
-        hooks.write_text("02000000\n")
+        hooks = package / "recomp/hooks/update_test.jsonc"
+        hooks.write_text('{ "hooks": [ { "address": "02000000" } ] }\n')
         updated = adapter().translate(self.game)
         self.assertNotEqual(previous, updated)
         self.assertEqual(inventory(previous), expected)

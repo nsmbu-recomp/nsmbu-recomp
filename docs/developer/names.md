@@ -5,7 +5,7 @@ An address is the canonical id of a function, a global, or an instruction site (
 A name is easier to read and easier to talk about.
 Add the name next to the address.
 Do not replace the address with the name: the address stays the key in the hooks files and in the runtime.
-`hooks.txt` and `hooks_*.txt` list the call sites the runtime replaces.
+`recomp/hooks/*.jsonc` lists the call sites the runtime replaces.
 A regional rebuild shifts those addresses through the map in [builds.md](builds.md) and keeps the `f_XXXXXXXX` names.
 
 ## Where the names come from
@@ -76,7 +76,7 @@ A nested `class` in the file adds to the scope: in `references/headers/scene/Sce
 | --- | --- | --- | --- |
 | Generated C | `f_XXXXXXXX`, 8 uppercase hex digits | `f_02994164` | `recomp/recomp.py` names every function by its canonical address |
 | Generated C comments | the header name in a `/* ... */` comment | `/* Scene::setNextScene */` | `recomp/names.py` reads `references/headers` and `recomp.py` writes the name above the definition, next to the prototype in `funcs.h`, and at every call site of a named function |
-| `recomp/hooks.txt` | `XXXXXXXX` for a function entry, `@XXXXXXXX` for an instruction site | `@022A79C4` | the recompiler reads this file |
+| `recomp/hooks/*.jsonc` | `hooks` for a function entry, `sites` for an instruction, `"same": true` for a checked wrap | `"address": "022A79C4"` | the recompiler reads these files |
 | A hooked function | `hook_XXXXXXXX` in the runtime, `f_XXXXXXXX_orig` for the game code | `hook_02994164` | `f_` plus the same digits |
 | Runtime code and data | `GC(0xXXXXXXXX)` for code, `GD(0xXXXXXXXX)` for data | `GC(0x02994164)` | [runtime/include/guest_addr.h](../runtime/include/guest_addr.h) |
 | A runtime constant | a `kName` constant that holds the address | `kSetNextScene = GC(0x02994164)` | [runtime/src/mods/sdk/nsmbu.cpp](../runtime/src/mods/sdk/nsmbu.cpp) |

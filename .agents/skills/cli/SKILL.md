@@ -31,7 +31,7 @@ nsmbu build
 `--list` prints JSON (`active`, `versions`, `loose_images`).
 `nsmbu game <id>` writes `game/active` and skips prompts.
 Add `--recomp` to refresh `build/gen` from that dump's RPX.
-Reuse `build/gen` unless `recomp/recomp.py` changed, you switch game version, or `hooks.txt` / `hooks_*.txt` changed.
+Reuse `build/gen` unless `recomp/recomp.py` changed, you switch game version, or a `recomp/hooks/*.jsonc` file changed.
 Runtime-only edits need `nsmbu build` only.
 
 ## Warm build
@@ -41,7 +41,7 @@ A warm build, same compilers and flags, should run `cmake --build` only.
 Every build also regenerates `build/debug/generated/nsmbu_guest_stubs.c` and relinks.
 The line `0 hooks` in that step is normal.
 Hooks live in `build/gen`.
-Regenerate the stubs only when `hooks.txt`, `hooks_*.txt`, or `recomp/recomp.py` changed.
+Regenerate the stubs only when a `recomp/hooks/*.jsonc` file or `recomp/recomp.py` changed.
 A runtime-only edit compiles the changed `.cpp` and links.
 
 ## One live game

@@ -1,2 +1,0 @@
-# Performance: game functions replaced by native versions with identical results (runtime/src/hooks_*.cpp)
-# NSMBU USA 1.3.0: no JAudio DSP entry points mapped yet.

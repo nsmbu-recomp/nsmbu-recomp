@@ -77,9 +77,10 @@ class Identify(unittest.TestCase):
 class Hooks(unittest.TestCase):
     def test_every_file_is_read_for_the_canonical_build(self):
         entries, skipped = builds.read_hooks(builds.hook_files(), builds.canonical_build())
-        self.assertEqual(skipped, [("hooks_base_hud.txt", "USA_V0 EU_V0")])
+        self.assertEqual(skipped, [("base_hud.jsonc", "USA_V0 EU_V0")])
         self.assertEqual(
-            [(site, addr) for site, _, addr, *_ in entries],
+            sorted((site, addr) for site, _, addr, *_ in entries),
+            sorted(
             [(False, 0x02ACD218), (False, 0x024D752C), (True, 0x022A79C4), (False, 0x022A7760),
              (False, 0x029A6170), (False, 0x029B85C8), (False, 0x02A06818), (False, 0x02A061AC),
              (False, 0x02A062EC), (False, 0x02994164), (False, 0x029CBBB4), (False, 0x024BD86C),
@@ -102,8 +103,7 @@ class Hooks(unittest.TestCase):
              (True, 0x029D71A4), (True, 0x02631BE4), (True, 0x0263ADD8), (True, 0x02641A4C),
              (True, 0x026730C4), (True, 0x02AB7040), (True, 0x02682674),
              (False, 0x025A4218), (False, 0x025A42CC), (False, 0x025A4B98), (True, 0x025A4C5C),
-             (False, 0x02ABC054), (False, 0x02ABCAE8), (True, 0x02ABCB34), (True, 0x02ABCB38),
-             (False, 0x02632418)],
+             (False, 0x02ABC054), (False, 0x02ABCAE8), (True, 0x02ABCB34), (True, 0x02ABCB38)]),
         )
         same_addrs = {0x024D752C, 0x029CBBB4, 0x024BD86C, 0x029872BC}
         for site, canon, addr, where, same in entries:
@@ -112,9 +112,9 @@ class Hooks(unittest.TestCase):
 
     def test_build_directive_skips_a_file(self):
         with tempfile.TemporaryDirectory() as directory:
-            path = os.path.join(directory, "hooks_language.txt")
+            path = os.path.join(directory, "hooks_language.jsonc")
             with open(path, "w", encoding="utf-8") as source:
-                source.write("# builds: USA\n022A79C4\n")
+                source.write('{ "builds": ["USA"], "hooks": [ { "address": "022A79C4" } ] }\n')
             other = builds.Build({
                 "name": "EU",
                 "title_id": "0005000010101e00",
@@ -123,21 +123,21 @@ class Hooks(unittest.TestCase):
                 "data_bounds": ["10000000", "104DA1C8"],
             })
             entries, skipped = builds.read_hooks([path], other)
-        self.assertEqual(skipped, [("hooks_language.txt", "USA")])
+        self.assertEqual(skipped, [("hooks_language.jsonc", "USA")])
         self.assertEqual(entries, [])
 
     def test_europe_hooks_map(self):
         eu = builds.by_name("EU")
         self.assertIsNotNone(eu)
         entries, skipped = builds.read_hooks(builds.hook_files(), eu)
-        self.assertEqual(skipped, [("hooks_base_hud.txt", "USA_V0 EU_V0")])
+        self.assertEqual(skipped, [("base_hud.jsonc", "USA_V0 EU_V0")])
         by_canon = {canon: addr for _, canon, addr, *_ in entries}
         self.assertEqual(by_canon[0x024D752C], 0x024D752C)
         self.assertEqual(by_canon[0x02ACD218], 0x02ACD618)
         self.assertEqual(by_canon[0x029CBBB4], 0x029CBC58)
         self.assertTrue(eu.body_differs(0x029CBBB4))
         same = [canon for _, canon, _, _, checked in entries if checked]
-        self.assertEqual(same, [0x024D752C, 0x029CBBB4, 0x024BD86C, 0x029872BC])
+        self.assertEqual(set(same), {0x024D752C, 0x029CBBB4, 0x024BD86C, 0x029872BC})
 
     def test_same_is_a_checked_wrap(self):
         self.assertEqual(builds.differing_hook(False, True, True), "keep")
@@ -146,9 +146,10 @@ class Hooks(unittest.TestCase):
         self.assertEqual(builds.differing_hook(True, False, False), "refuse")
         self.assertEqual(builds.differing_hook(False, True, False), "refuse")
         with tempfile.TemporaryDirectory() as directory:
-            path = os.path.join(directory, "hooks.txt")
+            path = os.path.join(directory, "hooks.jsonc")
             with open(path, "w", encoding="utf-8") as source:
-                source.write("029CBBB4 same\n@022A79C4 same\n")
+                source.write('{ "hooks": [ { "address": "029CBBB4", "same": true } ],'
+                             ' "sites": [ { "address": "022A79C4", "same": true } ] }\n')
             with self.assertRaises(ValueError):
                 builds.read_hooks([path], builds.by_name("EU"))
 
@@ -166,7 +167,7 @@ class Hooks(unittest.TestCase):
         combo = builds.by_name("NSMBU_NSLU_USA")
         self.assertIsNotNone(combo)
         entries, skipped = builds.read_hooks(builds.hook_files(), combo)
-        self.assertEqual(skipped, [("hooks_base_hud.txt", "USA_V0 EU_V0")])
+        self.assertEqual(skipped, [("base_hud.jsonc", "USA_V0 EU_V0")])
         by_canon = {canon: addr for _, canon, addr, *_ in entries}
         self.assertNotEqual(by_canon[0x02ACD218], 0x02ACD218)
         self.assertEqual(by_canon[0x029CBBB4], combo.code(0x029CBBB4))
@@ -176,7 +177,7 @@ class Hooks(unittest.TestCase):
         combo = builds.by_name("NSMBU_NSLU_EU")
         self.assertIsNotNone(combo)
         entries, skipped = builds.read_hooks(builds.hook_files(), combo)
-        self.assertEqual(skipped, [("hooks_base_hud.txt", "USA_V0 EU_V0")])
+        self.assertEqual(skipped, [("base_hud.jsonc", "USA_V0 EU_V0")])
         by_canon = {canon: addr for _, canon, addr, *_ in entries}
         self.assertNotEqual(by_canon[0x02ACD218], 0x02ACD218)
         self.assertEqual(by_canon[0x029CBBB4], combo.code(0x029CBBB4))
@@ -196,10 +197,7 @@ class Hooks(unittest.TestCase):
             self.assertNotEqual(missing_at, draw_at)
             self.assertTrue(draw_at <= missing_at < draw_at + draw_size)
             entries, skipped = builds.read_hooks(builds.hook_files(), build)
-            self.assertEqual(
-                skipped,
-                [("hooks_nslu_notice.txt", "USA EU NSMBU_NSLU_USA NSMBU_NSLU_EU")],
-            )
+            self.assertEqual(skipped, [])
             by_canon = {canon: addr for _, canon, addr, *_ in entries}
             self.assertEqual(by_canon[0x0252D9C0], draw_at)
             self.assertEqual(by_canon[0x0252F900], missing_at)
@@ -219,12 +217,12 @@ class Hooks(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             d = os.path.join(temporary, "tools [recomp]")
             os.makedirs(d)
-            open(os.path.join(d, "hooks.txt"), "w").close()
-            with open(os.path.join(d, "hooks_perf.txt"), "w", encoding="utf-8") as source:
+            open(os.path.join(d, "hooks.jsonc"), "w").close()
+            with open(os.path.join(d, "hooks_perf.jsonc"), "w", encoding="utf-8") as source:
                 source.write("029C52CC\n")
             paths = builds.hook_files(d)
-        self.assertEqual(paths[0], os.path.join(d, "hooks.txt"))
-        self.assertEqual([os.path.basename(p) for p in paths[1:]], ["hooks_perf.txt"])
+        self.assertEqual(paths[0], os.path.join(d, "hooks.jsonc"))
+        self.assertEqual([os.path.basename(p) for p in paths[1:]], ["hooks_perf.jsonc"])
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

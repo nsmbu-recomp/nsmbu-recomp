@@ -339,7 +339,7 @@ class Adapter:
                   "translator": self.hash_tree(self.package / "recomp"),
                   "switches": {name: value for name, value in os.environ.items() if name.startswith("NSMBU_RECOMP_")}}
         inputs["translator"] = {name: value for name, value in inputs["translator"].items()
-                                if Path(name).suffix in (".py", ".txt", ".json")}
+                                if Path(name).suffix in (".py", ".json", ".jsonc")}
         identity = hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
         stage = self.storage / ("translation-" + identity)
         state = stage / "complete.json"
