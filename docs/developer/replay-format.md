@@ -133,6 +133,59 @@ The first pad line holds from step 17 to step 23.
 At step 24 the `Y` button goes down and position check `602.590027 -848 3000` applies.
 The left stick stays at `1 0`, which the recorder captured at the start.
 
+## Development-build log
+
+A development build writes the same pad changes into the run log.
+`nsmbu build` produces that binary at `build/debug`.
+It is the binary `nsmbu open` starts.
+A release build is compiled with `NDEBUG` (`nsmbu build --release`, a packaged build) and does not write these lines.
+
+Each line is tagged `[input] `.
+Drop that prefix and the remaining text is a replay file line, with two extras that are not pad samples:
+
+- `course clock reset` marks a course exit.
+  The next course entry starts again at step 0.
+  Copy one entry: from its `version=1` through the line before `course clock reset` (or through the end of the log).
+- `frame <n> ...` is a pad change while no course is playing (title, file select, world map).
+  `<n>` is the TV frame.
+  The fields after it are the same as a pad line without the step and without a position.
+
+Course lines omit `x y z`.
+Playback therefore does not stop for a position gap.
+The header is `version=1`, `origin=control`, and the start snapshot (`player`, `lives`, `player_coins`, `coins`, `mode`) when a player is present.
+There is no `course=` line.
+Open the same course yourself.
+There is no `exit=` line, so playback quits when the samples end.
+Add `exit=none` to keep the game on live input after that.
+
+The run log in a source checkout is `nsmbu/logs/nsmbu.log`.
+The next start renames it to `nsmbu-previous.log`, so copy the lines out before launching the replay.
+`NSMBU_REPLAY_INPUT` replaces the live pad for that start:
+
+```bash
+nsmbu close
+NSMBU_REPLAY_INPUT="$PWD/.tmp/repro/name.replay" nsmbu open 1-1
+```
+
+Done when the new log contains `[input] replay finished` or `[input] replay stopped`.
+`[input] replay diverged` means the samples stopped early.
+
+A `frame` line is not a course replay.
+Hold ranges become `NSMBU_PRESS` and `NSMBU_STICK`.
+`NSMBU_PRESS` is `from-to:hex`, inclusive, using the button bits in `runtime/src/input/input.h` (`A` is `8000`).
+`NSMBU_STICK` is `from-to:lx:ly`.
+The next logged frame is the first frame the previous hold is no longer down, so the range ends on the frame before it.
+
+```
+[input] frame 100 A 1 0 0 0 0 0 0
+[input] frame 110 - 0 0 0 0 0 0 0
+```
+
+That pair is `NSMBU_PRESS=100-109:8000` and `NSMBU_STICK=100-109:1:0`.
+
+An agent that cannot produce the input asks a person to do it once on the debug build, copies these lines, and reruns them.
+The steps are in the `verify` skill.
+
 ## Related
 
 - [automation.md](automation.md) describes the `replay-1-1`, `replay-2-1`, and `replay-bug-1` playtests.

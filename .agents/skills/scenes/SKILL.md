@@ -16,5 +16,7 @@ If it reports a game already running, read `nsmbu status` or run `nsmbu close`, 
 Poll with `nsmbu wait`.
 Save a picture with `nsmbu screenshot .tmp/repro/<name>.png`.
 
+When the check is controller input you cannot script, ask the person to do it on this debug boot and rerun the `[input]` log.
+The `verify` skill has the steps.
 A check that must keep passing is a playtest case.
 The `cli` skill owns playtests and `nsmbu scenario` / `compare-runs`.

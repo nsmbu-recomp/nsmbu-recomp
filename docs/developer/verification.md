@@ -29,7 +29,11 @@ When someone must play through a level, end the turn with explicit player steps.
 If a command can prove pass or fail in this turn, run it.
 Examples: unit test, `nsmbu test`, scene boot, screenshot, `nsmbu apk`.
 
-If someone must play a level, end with Host, Place, Actions, and Pass, and call that part unverified.
+If the missing piece is controller input, ask a person to do it once on the debug build and rerun the `[input]` log.
+The `verify` skill has the steps.
+The line layout is in [replay-format.md](replay-format.md).
+
+If someone must judge a level, end with Host, Place, Actions, and Pass, and call that part unverified.
 
 ```mermaid
 flowchart TD
@@ -37,7 +41,9 @@ flowchart TD
   done --> readVerify[Read verify skill]
   readVerify --> canCmd{Can a command settle it?}
   canCmd -->|yes| runAll[Run all such checks]
-  canCmd -->|no| player[Player steps template]
+  canCmd -->|no| input{Can one play be logged?}
+  input -->|yes| relog[Ask, then rerun the input log]
+  input -->|no| player[Player steps template]
   runAll --> buildOnly[Build / ctest / Python tools]
   runAll --> gameNeed[Dump + nsmbu test / boot / screenshot]
   runAll --> android[nsmbu apk on device]

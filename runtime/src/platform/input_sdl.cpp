@@ -914,6 +914,72 @@ static std::string buttons_text(uint32_t buttons) {
     return text;
 }
 
+#ifndef NDEBUG
+static bool pad_idle(const PadState& s) {
+    return !s.buttons && s.lx == 0 && s.ly == 0 && s.rx == 0 && s.ry == 0 && !s.touch;
+}
+
+// Development builds only. One course entry is a replay file body: header lines, then a pad line on each change.
+// Leaving the course logs `course clock reset` and the next entry starts again at step 0.
+// Outside a course the line starts with `frame` and the TV frame count.
+static void log_dev_pad(const PadState& s) {
+    if (env::REPLAY_INPUT()) return;
+    static PadState prev{};
+    static bool have = false;
+    static bool header = false;
+    static bool in_course = false;
+    static bool armed = false;
+    static uint64_t origin = 0;
+
+    const bool course = interp::course_play_active();
+    if (course != in_course) {
+        if (in_course) LOG("[input] course clock reset");
+        have = false;
+        header = false;
+        armed = false;
+        in_course = course;
+    }
+    if (course) {
+        if (!interp::input_enabled()) return;
+        const uint64_t now = interp::logic_steps();
+        if (!armed) {
+            armed = true;
+            origin = now;
+        }
+        if (have && pad_same(prev, s)) return;
+        prev = s;
+        have = true;
+        if (!header) {
+            header = true;
+            LOG("[input] version=1");
+            LOG("[input] origin=control");
+            interp::PlayerSnapshot snap;
+            if (interp::player_snapshot(snap, 0)) {
+                LOG("[input] player=%d", snap.player);
+                LOG("[input] lives=%d", snap.lives);
+                LOG("[input] player_coins=%d", snap.coins);
+                LOG("[input] coins=%d", snap.course_coins);
+                if (const char* mode = player_mode_text(snap.mode))
+                    LOG("[input] mode=%s", mode);
+                else
+                    LOG("[input] mode=%d", snap.mode);
+            }
+        }
+        const std::string buttons = buttons_text(s.buttons);
+        LOG("[input] %llu %s %.9g %.9g %.9g %.9g %d %.9g %.9g", (unsigned long long)(now - origin), buttons.c_str(),
+            s.lx, s.ly, s.rx, s.ry, s.touch ? 1 : 0, s.tx, s.ty);
+        return;
+    }
+    if (!have && pad_idle(s)) return;
+    if (have && pad_same(prev, s)) return;
+    prev = s;
+    have = true;
+    const std::string buttons = buttons_text(s.buttons);
+    LOG("[input] frame %llu %s %.9g %.9g %.9g %.9g %d %.9g %.9g", (unsigned long long)render::frame_count(),
+        buttons.c_str(), s.lx, s.ly, s.rx, s.ry, s.touch ? 1 : 0, s.tx, s.ty);
+}
+#endif
+
 static bool parse_start_line(const char* p, ReplayStart& start) {
     if (strncmp(p, "start", 5) != 0) return false;
     p += 5;
@@ -1430,6 +1496,9 @@ PadState read(int player) {
     }
     if (overlay::blocks_input()) s = PadState{};
     if (player == 0) record_pad(s);
+#ifndef NDEBUG
+    if (player == 0) log_dev_pad(s);
+#endif
     return s;
 }
 

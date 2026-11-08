@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <vector>
 #include "input/input.h"
 #include "input/input_map.h"
 #include "input/rumble.h"
@@ -36,7 +37,26 @@ bool player_snapshot(interp::PlayerSnapshot& out, int player){if(player!=0)retur
 bool set_player_mode(int player, int mode){if(player!=0)return false;++g_mode_sets;g_snapshot.mode=mode;return true;}
 }
 namespace timebase { uint64_t now(){return 0;} }
-void log_msg(const char*,...){}
+static std::vector<std::string> g_logs;
+void log_msg(const char* fmt, ...) {
+    char buf[1024];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, sizeof buf, fmt, ap);
+    va_end(ap);
+    g_logs.emplace_back(buf);
+}
+static bool logged(const char* text) {
+    for (const auto& line : g_logs)
+        if (line == text) return true;
+    return false;
+}
+static int dev_pad_lines() {
+    int n = 0;
+    for (const auto& line : g_logs)
+        if (line.rfind("[input] ", 0) == 0 && line.size() > 8 && line[8] >= '0' && line[8] <= '9') ++n;
+    return n;
+}
 
 static bool promptShown=false;static int promptKeys=0;static std::string promptText;
 static bool overlayOpen=false;
@@ -62,11 +82,16 @@ static void set_env(const env::Var& name, const char* value) {
 #endif
 }
 int main(){
+ assert(input::development_input_log());
  SDL_SetHint(SDL_HINT_VIDEO_DRIVER,"dummy");
  assert(SDL_Init(SDL_INIT_EVENTS|SDL_INIT_VIDEO));
  input::init();input_map::set_current(input_map::Mapping::defaults(),false);
  auto key=[](SDL_Scancode code,bool down){SDL_Event e{};e.type=down?SDL_EVENT_KEY_DOWN:SDL_EVENT_KEY_UP;e.key.scancode=code;input::handle_event(e);};
  key(SDL_SCANCODE_K,true);assert(input::read().buttons&input::kA);
+ assert(logged("[input] version=1"));
+ assert(logged("[input] origin=control"));
+ assert(logged("[input] mode=fire"));
+ assert(logged("[input] 0 A 0 0 0 0 0 0 0"));
  key(SDL_SCANCODE_K,false);assert(!(input::read().buttons&input::kA));
  key(SDL_SCANCODE_W,true);assert(input::read().ly==1);
  key(SDL_SCANCODE_D,true);assert(input::read().lx>0.7f&&input::read().lx<0.71f);
@@ -231,6 +256,7 @@ int main(){
         "12 00008000 0 0 0 0 0 0 0 600 -848 3000\n"
         "20 - 0 0 0 0 0 0 0 600 -848 3000\n",wf);
   fclose(wf);
+  const int pads_before_replay = dev_pad_lines();
   set_env(env::REPLAY_INPUT,rep);
   g_input_enabled=false;
   g_snapshot.mode=0;
@@ -263,7 +289,19 @@ int main(){
   bool quit=false;
   for(SDL_Event pending;SDL_PollEvent(&pending);) if(pending.type==SDL_EVENT_QUIT) quit=true;
   assert(quit);
+  assert(dev_pad_lines() == pads_before_replay);
   remove(rep);
+  set_env(env::REPLAY_INPUT, nullptr);
+  input::release_keys();
+  input::set_touch(false, 0, 0);
+  g_course = false;
+  input::read();
+  assert(logged("[input] course clock reset"));
+  g_logs.clear();
+  key(SDL_SCANCODE_K, true);
+  assert(input::read().buttons & input::kA);
+  assert(logged("[input] frame 0 A 0 0 0 0 0 0 0"));
+  assert(!logged("[input] version=1"));
  }
  SDL_DestroyWindow(controls);SDL_DestroyWindow(game);input::set_prompt_window(nullptr);
  SDL_Quit();puts("input_sdl_test: keyboard mapping, focus, touch, Pro mode, guarded save-state shortcuts, screenshot binding, text prompt routing, rumble passed");

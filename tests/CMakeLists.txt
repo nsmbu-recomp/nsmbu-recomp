@@ -274,6 +274,11 @@ if(NOT ANDROID)
   add_test(NAME crash_log_module COMMAND ${CMAKE_COMMAND} -DNSMBU=$<TARGET_FILE:nsmbu>
            -DWORK=${CMAKE_BINARY_DIR}/crash_log_test_work -P ${CMAKE_CURRENT_SOURCE_DIR}/host/crash_log_test.cmake)
 endif()
+add_executable(input_dev_log_test ${CMAKE_CURRENT_SOURCE_DIR}/host/input_dev_log_test.cpp)
+target_include_directories(input_dev_log_test PRIVATE ${CMAKE_SOURCE_DIR}/runtime/src)
+target_compile_options(input_dev_log_test PRIVATE -DNDEBUG)
+add_test(NAME input_dev_log COMMAND input_dev_log_test)
+
 if(NSMBU_SDL_HOST)
   add_test(NAME sdl_input COMMAND input_sdl_test)
   add_test(NAME host_platform COMMAND platform_test)

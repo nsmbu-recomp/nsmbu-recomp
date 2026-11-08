@@ -11,6 +11,9 @@ Run `nsmbu --help` for the command list.
 ## Docs
 
 Read `docs/developer/automation.md` for playtests, benches, course replay, `nsmbu scenario` / `compare-runs`, `nsmbu scripted`, and boot recipes.
+Development builds write `[input]` pad lines.
+The `verify` skill is how you ask a person to play an input once and rerun it.
+The line layout is in `docs/developer/replay-format.md`.
 Read `docs/developer/cli.md` for install, build/launch, and live control commands.
 Read `docs/developer/env.md` when you add, rename, or read an `NSMBU_*` variable.
 Read Frame interpolation in `docs/developer/env.md` before changing a model pose, a camera picture, or interpolation.

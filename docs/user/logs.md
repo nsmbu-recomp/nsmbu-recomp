@@ -64,6 +64,9 @@ If the data folder is not writable, it falls back to:
 ## Source and developer overrides
 
 In a source checkout the current run log is `nsmbu/logs/nsmbu.log`.
+A development build (`build/debug`) also writes `[input]` lines there for each controller change.
+A release build does not.
+Replaying those lines is described in [replay-format.md](../developer/replay-format.md).
 The previous run is `nsmbu/logs/nsmbu-previous.log`.
 Crash dumps in that folder are `crash-YYYYMMDD-HHMMSS.log`.
 Issue attachments download into `.tmp/issues/`.

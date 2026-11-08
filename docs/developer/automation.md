@@ -284,6 +284,9 @@ A menu check should enter `FileSelect` directly instead of waiting out this titl
 
 These are separate from `scripted-run.sh` and appear in benches and device checks:
 
+- Development builds write each pad change as an `[input]` line in the run log.
+  Release builds do not.
+  A person can play an input once, and an agent can rerun it from those lines ([replay-format.md](replay-format.md), `verify` skill).
 - `NSMBU_RECORD_INPUT` — path of a text log of pad changes, keyed by guest logic step
 - `NSMBU_RECORD_COURSE` — course named in the log's `course=` header
 - `NSMBU_REPLAY_INPUT` — play that log back and ignore the live pad
