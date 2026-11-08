@@ -125,7 +125,7 @@ The thread table at the bottom gives the busy share per game thread (`GX2 render
 `.tmp/perf/nsmbu.data` resolves against the binary by build ID.
 Keep that binary unchanged until the data is read.
 
-Name in-binary sample rows with `grep` on the log offset against `recomp/headers_names.txt` and the rules in [names.md](names.md).
+Name guest addresses in those rows with the rules in [names.md](names.md).
 Use Linux `perf` when you need full symbolication of mapped libraries.
 Reads of guest code live in `build/gen/code_*.c` (`f_XXXXXXXX`).
 

@@ -2,14 +2,13 @@
 """Class and function names for guest addresses.
 
 The names come from the [nsmbu/headers](https://github.com/nsmbu/headers) project (USA v1.3.0):
-`python3 recomp/names.py` walks a `references/headers` checkout and writes the extracted
-`{address: name}` table to `recomp/headers_names.txt`, which is in git. Local `recomp.py` and
-`stubgen.py` read that file when present; if it is missing (release packages omit it), they use an
-empty table.
+`python3 recomp/names.py` walks a `references/headers` checkout and writes a local
+`{address: name}` table to `recomp/headers_names.txt`. That file is gitignored. Local `recomp.py`
+and `stubgen.py` read it when present; if it is missing, they use an empty table.
 
 usage:
     names.py path/to/headers...     extract into headers_names.txt
-    names.py                        show the committed count
+    names.py                        show the local extract count
 
 The headers tie a name to an address in three shapes:
 
@@ -186,4 +185,4 @@ if __name__ == "__main__":
     if sys.argv[1:]:
         extract(sys.argv[1:])
     else:
-        print("%d committed names" % len(load()))
+        print("%d names" % len(load()))

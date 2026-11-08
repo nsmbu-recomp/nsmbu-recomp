@@ -23,7 +23,7 @@ No responses needed from the user, keep going until the queue is empty or blocke
 
 ## Decisions
 
-- Use `python3 tools/rpx/ppcdis.py ADDR [COUNT] [RPX]` plus `recomp/headers_names.txt` as the only naming sources.
+- Use `python3 tools/rpx/ppcdis.py ADDR [COUNT] [RPX]` plus `references/headers` (`Address: 0x`) as the naming sources.
   `game/active` selects the dump.
 - Unresolved helpers get `sub_<ADDRESS>` names plus an `// Address:` comment rather than invented names.
 - An open question is a comment on the function declaration it asks about.
@@ -46,11 +46,11 @@ Added `.cpp` and `.h` files are documentation only and are never compiled.
 
 ## Naming and disassembly
 
-1. Resolve the symbol in `recomp/headers_names.txt` (class + name for the USA v1.3.0 address).
+1. Resolve the symbol in `references/headers` (class + name for the USA v1.3.0 address).
 2. Disassemble: `python3 tools/rpx/ppcdis.py 0xADDR [instruction_count]`.
 3. For cross-refs and rodata, sweep these PowerPC address materialisations together: `addi` (14), `addic` (12), record-form addic (13), and `ori` (24).
    An `addi`-only sweep misses `lis` + `addic` sites and yields a false "no reference".
-4. Name call targets from `headers_names.txt` or `ppcdis` annotations.
+4. Name call targets from `references/headers` or `ppcdis` annotations.
    Everything else is `sub_029B1234` with `// Address: 0x029B1234`.
 5. Optional sead/agl/nw names only when the matching tree exists under `.tmp/nsmbu-sead/` or documented vendor paths (see [reference.md](reference.md)).
 
@@ -84,7 +84,7 @@ Plan for bounded parallel batches, avoid duplicate symbols across agents.
 
 ### Build the queue
 
-Named symbols in `recomp/headers_names.txt` minus addresses already present as `// Address: 0x` in `vendor/decomp/src` and `vendor/decomp/include`.
+Named symbols in `references/headers` (`Address: 0x`) minus addresses already present as `// Address: 0x` in `vendor/decomp/src` and `vendor/decomp/include`.
 Regenerate that missing-symbol list after each batch before spawning the next wave.
 
 ### Subagent instructions (decomp batch)

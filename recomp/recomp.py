@@ -474,7 +474,7 @@ class Recompiler:
         return addr | 0x80000000
 
     def callee(self, addr):
-        """The comment for a call site: the callee's name from headers_names.txt."""
+        """The comment for a call site: the callee's name from the local headers extract."""
         label = self.names.get(self.sym(addr))
         return " /* %s */" % label if label else ""
 

@@ -122,7 +122,7 @@ When that RPX is absent, the build fills `build/gen` with `recomp/stubgen.py` so
 Set `NSMBU_VERBOSE_BUILD=1` to print full CMake configure output (pkg-config checks and other `--` status lines).
 
 An RPX from a disc that lacks the 1.3.0 update has different addresses.
-Those addresses miss `references/headers` and `recomp/headers_names.txt`.
+Those addresses miss `references/headers`.
 
 A warm `nsmbu build` skips `cmake -S` when the build cache already matches the compiler flags and CMake options.
 Regenerate guest stubs only when a `recomp/hooks/*.jsonc` file, or the recomp inputs, changed.
@@ -145,7 +145,7 @@ These stay as `python3 tools/…` until they move into the CLI.
 | Script | Role |
 | --- | --- |
 | `recomp/analyze.py` | Find branch islands in recomp output, including `bctr` into a run of `b` opcodes |
-| `tools/rpx/ppcdis.py` | Disassemble guest `.text`. Annotates import calls and names from `recomp/headers_names.txt` |
+| `tools/rpx/ppcdis.py` | Disassemble guest `.text` and annotate import calls, plus names from a local `recomp/headers_names.txt` when that extract exists |
 | `tools/frames/flicker.py` | Compare frame dumps ([automation.md](automation.md)) |
 | `tools/bench/bench_lib.py` | Save-state A/B statistics (unit tests; scenarios use `nsmbu bench`) |
 | `tools/shader/shaderprep.py` | Metal shader head-start cache |
