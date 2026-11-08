@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- The README lists more of the port's features.
+- The README lists the game program's command-line options.
 - The New Super Luigi U story-map notice appears again when that add-on is installed.
 
 ### Fixed
@@ -38,6 +40,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Removed
 
+- The per-system pages under the user docs.
+- The terminal installer page.
+- The keys, files, and blocked-app pages under the user docs.
 - The leftover Lua scripting runtime is gone.
 
 ## [0.9.1] - 2026-11-07
