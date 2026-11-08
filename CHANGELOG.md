@@ -8,9 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- The course pause menu has a Settings button under Change Controller.
-  A or Enter plays the pause click and opens this overlay.
+- On the course pause menu, Change Controller is Settings.
+  A or Enter plays the pause click, lets that press finish, then opens this overlay.
   The pause buttons stay hidden until the overlay closes.
+  Closing the overlay returns to the pause menu.
+  The blue panel keeps its original height.
   Settings → Debug can turn that button off.
 
 ### Changed
@@ -19,6 +21,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- A or Enter on the pause menu Settings row opens this overlay.
+  It does not open the controller menu.
+  Closing the overlay does not open that menu either.
 - The installer save screen imports an NSMBU save folder that contains `rp_personal_savedata.dat`.
 - Settings → Debug → **Settings button on the start menu** adds that button under Change Controller when the world map loads.
 - The world-map start menu still moves after you select that Settings button.

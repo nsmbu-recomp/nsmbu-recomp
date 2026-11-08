@@ -1736,7 +1736,7 @@ void tab_debug() {
         pause_menu::set_enabled(v);
         hostui::post([v] { hostui::set("pauseMenuSettings", v ? "1" : "0"); });
     }
-    help("On until you turn it off. The button is added when a course loads, so leave the course and enter it again after a change. A or Enter on Settings opens this overlay. Continue, Quit, and Change Controller stay as they are.");
+    help("On until you turn it off. Change Controller becomes Settings when a course loads, so leave the course and enter it again after a change. A or Enter on Settings opens this overlay. Continue and Quit stay as they are. The blue panel keeps its original height.");
 
     heading("Course debug");
     const bool env_locked = env::COLLISION_VIEWER.present();

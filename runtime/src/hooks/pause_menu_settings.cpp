@@ -12,33 +12,41 @@ extern "C" void f_025F3834_orig(Cpu* c);
 
 namespace pause_menu {
 
-constexpr uint32_t kLayout = 0;
-constexpr uint32_t kArray = 0x0C;
 constexpr uint32_t kIndex = 0x10;
+constexpr uint32_t kButtons = 0x0C;
 constexpr uint32_t kMgr = 0x14;
 constexpr uint32_t kPad = 0x50;
 constexpr uint32_t kDraw = 0x8;
 constexpr uint32_t kActive = 0x250;
+constexpr uint32_t kShown = 0xA90;
+constexpr uint32_t kPause = 0x101D830Cu;
+constexpr uint32_t kCursorInst = 0x101D17A8u;
+constexpr uint32_t kCursorDraw = 0x2C5F4u;
 constexpr uint32_t kMin = 0x204;
 constexpr uint32_t kMax = 0x208;
-constexpr uint32_t kCount = 0x1AA4;
 constexpr uint32_t kName = 0x54;
-constexpr uint32_t kFlag = 4;
-constexpr uint32_t kSkip = 0x10;
-constexpr uint32_t kDecide = 1u << 13;
-constexpr int kMaxButtons = 48;
+constexpr uint32_t kState = 0x220;
+constexpr uint32_t kChangeState = 0x029C4AF0u;
+constexpr uint32_t kMenuState = 0x10216DB4u;
+constexpr uint32_t kMode = 0x1C;
+constexpr uint32_t kMenuAnim = 0x10216E24u;
+constexpr uint32_t kPlayAnim = 0x02671680u;
+constexpr uint32_t kWindowMgr = 0x101D15E8u;
 
 static std::atomic<bool> g_enabled{kStartsEnabled};
 static std::atomic<bool> g_open_request{false};
-static int g_settings_i = -1;
-static int g_story_max = -1;
-static uint32_t g_menu = 0;
-static bool g_click = false;
 static bool g_blank = false;
+static bool g_armed = false;
+static bool g_opened = false;
+static bool g_saw_overlay = false;
+static int g_age = 0;
+static int g_settle = 0;
+static int g_index = 2;
+static bool g_anim = false;
 static uint8_t g_draw = 1;
 static uint8_t g_active = 1;
-static uint32_t g_saved[kMaxButtons] = {};
-static uint8_t g_saved_on[kMaxButtons] = {};
+static uint8_t g_shown = 1;
+static uint8_t g_cursor = 1;
 
 bool enabled() { return g_enabled.load(); }
 
@@ -53,97 +61,16 @@ static bool guest_obj(uint32_t p) {
     return p >= 0x01000000u && p < 0x80000000u && (p & 3u) == 0;
 }
 
-static bool guest_name(uint32_t addr, const char* name) {
-    if (!guest_obj(addr)) return false;
-    const size_t n = std::strlen(name);
-    const uint8_t* p = mem::ptr(addr);
-    if (std::memcmp(p, name, n) != 0 || p[n] != 0) return false;
-    return true;
-}
-
-static bool button_named(uint32_t btn, const char* name) {
-    if (!guest_obj(btn)) return false;
-    if (guest_name(ld32(btn + kName), name)) return true;
-    for (uint32_t off = 0; off < 0x80; off += 4) {
-        if (guest_name(ld32(btn + off), name)) return true;
-    }
-    return false;
-}
-
-static uint32_t button_at(uint32_t self, int index) {
-    if (index < 0 || index >= kMaxButtons) return 0;
-    const uint32_t arr = ld32(self + kArray);
-    if (!guest_obj(arr)) return 0;
-    return ld32(arr + (uint32_t)index * 4u);
-}
-
-static void forget(uint32_t self) {
-    if (g_menu != self) return;
-    g_menu = 0;
-    g_settings_i = -1;
-    g_story_max = -1;
-    g_click = false;
-    g_blank = false;
-    std::memset(g_saved_on, 0, sizeof g_saved_on);
-}
-
-static void bind_settings(Cpu* c, uint32_t self) {
-    if (!g_enabled.load() || g_settings_i >= 0 || g_menu == self) return;
-    const uint32_t layout = ld32(self + kLayout);
-    const uint32_t arr = ld32(self + kArray);
-    const int count = (int)ld32(self + kCount);
-    if (!guest_obj(layout) || !guest_obj(arr) || count < 3 || count >= kMaxButtons - 1) return;
-    for (int i = 0; i < count; i++) {
-        if (!button_named(button_at(self, i), "Pa_SetBtn_00")) continue;
-        const uint32_t btn = button_at(self, i);
-        st32(btn + kFlag, ld32(btn + kFlag) | kSkip);
-        g_settings_i = i;
-        g_menu = self;
+static void hide_cursor(bool hide) {
+    const uint32_t inst = ld32(kCursorInst);
+    if (!guest_obj(inst)) return;
+    if (hide) {
+        const uint8_t cur = ld8(inst + kCursorDraw);
+        if (cur != 0) g_cursor = cur;
+        st8(inst + kCursorDraw, 0);
         return;
     }
-    static uint32_t name_ea = 0;
-    static uint32_t safe_ea = 0;
-    if (!name_ea) {
-        name_ea = guest_call(c, GC(0x029F1594u), {16});
-        safe_ea = guest_call(c, GC(0x029F1594u), {8});
-        if (!guest_obj(name_ea) || !guest_obj(safe_ea)) return;
-        std::memcpy(mem::ptr(name_ea), "Pa_SetBtn_00", 13);
-        st32(safe_ea, name_ea);
-        st32(safe_ea + 4, GD(0x100CED94u));
-    }
-    const uint32_t btn = guest_call(c, GC(0x026829C0u), {self + kMgr, safe_ea});
-    if (!guest_obj(btn)) return;
-    const uint32_t neu = guest_call(c, GC(0x029F1594u), {(uint32_t)(count + 1) * 4u});
-    if (!guest_obj(neu)) return;
-    std::memcpy(mem::ptr(neu), mem::ptr(arr), (size_t)count * 4u);
-    st32(neu + (uint32_t)count * 4u, btn);
-    st32(self + kArray, neu);
-    // Bit 4 of the button word is set on a button the cursor may land on.
-    st32(btn + kFlag, ld32(btn + kFlag) | kSkip);
-    g_settings_i = count;
-    g_menu = self;
-    LOG("[pause] settings button is cursor %d", g_settings_i);
-}
-
-static void mark_skipped(uint32_t self) {
-    if (g_story_max < 0 || g_settings_i < 0) return;
-    for (int i = g_story_max + 1; i < g_settings_i; i++) {
-        const uint32_t btn = button_at(self, i);
-        if (!guest_obj(btn) || g_saved_on[i]) continue;
-        const uint32_t flag = ld32(btn + kFlag);
-        g_saved[i] = flag;
-        g_saved_on[i] = 1;
-        st32(btn + kFlag, flag & ~kSkip);
-    }
-}
-
-static void restore_skipped(uint32_t self) {
-    for (int i = 0; i < kMaxButtons; i++) {
-        if (!g_saved_on[i]) continue;
-        const uint32_t btn = button_at(self, i);
-        if (guest_obj(btn)) st32(btn + kFlag, g_saved[i]);
-        g_saved_on[i] = 0;
-    }
+    st8(inst + kCursorDraw, g_cursor != 0 ? g_cursor : 1);
 }
 
 static void hide_for_overlay(uint32_t self) {
@@ -151,54 +78,151 @@ static void hide_for_overlay(uint32_t self) {
     if (open && !g_blank) {
         g_draw = ld8(self + kDraw);
         g_active = ld8(self + kActive);
+        if (!g_armed) g_shown = ld8(self + kShown);
         g_blank = true;
     }
     if (g_blank && open) {
         st8(self + kDraw, 0);
         st8(self + kActive, 0);
-        st32(self + kPad, ld32(self + kPad) & ~kDecide);
+        st8(self + kShown, 0);
+        st32(self + kPad, pause_settings_idle_pad(ld32(self + kPad)));
+        hide_cursor(true);
         return;
     }
     if (g_blank && !open) {
         st8(self + kDraw, g_draw ? g_draw : 1);
         st8(self + kActive, g_active ? g_active : 1);
+        st8(self + kShown, g_shown ? g_shown : 1);
+        hide_cursor(false);
         g_blank = false;
-        g_click = false;
     }
 }
 
-static void before(Cpu* c, uint32_t self) {
-    if (!g_enabled.load()) return;
-    if (!guest_obj(self)) return;
-    if (g_menu != 0 && g_menu != self) forget(g_menu);
-    bind_settings(c, self);
-    if (g_settings_i < 0 || g_menu != self) return;
-    hide_for_overlay(self);
-    if (g_blank) return;
+static bool button_name_is(uint32_t button, const char* name) {
+    if (!guest_obj(button)) return false;
+    const uint32_t p = ld32(button + kName);
+    if (!guest_obj(p)) return false;
+    const size_t n = std::strlen(name);
+    return std::memcmp(mem::ptr(p), name, n + 1) == 0;
+}
+
+static bool settings_row(uint32_t self) {
     const int mn = (int)ld32(self + kMin);
     const int mx = (int)ld32(self + kMax);
-    // Create stores 0 and 2 for Continue, Quit, and Change Controller (0x025FCD34).
-    if (button_named(button_at(self, mx), "Pa_PlayStyle_00") || (mn == 0 && mx == 2)) g_story_max = mx;
-    const bool story = g_story_max >= 0 && mn == 0 && (mx == g_story_max || mx == g_settings_i);
-    if (story) {
-        st32(self + kMax, (uint32_t)g_settings_i);
-        mark_skipped(self);
-    }
     const int idx = (int)ld32(self + kIndex);
-    const uint32_t pad = ld32(self + kPad);
-    if (idx == g_settings_i && (pad & kDecide)) {
-        st32(self + kPad, pad & ~kDecide);
-        if (!g_click && settings_click_end(true).keep_menu) {
-            g_click = true;
-            guest_call(c, GC(0x026829A4u), {self + kMgr});
-            if (settings_click_end(true).open_overlay) g_open_request.store(true);
-        }
-    }
+    if (story_settings_row(mn, mx, idx)) return true;
+    const uint32_t arr = ld32(self + kButtons);
+    if (!guest_obj(arr) || idx < 0 || idx > 40) return false;
+    return button_name_is(ld32(arr + (uint32_t)idx * 4), "Pa_PlayStyle_00");
 }
 
-static void after(uint32_t self) {
-    if (!g_enabled.load() || g_menu != self) return;
-    restore_skipped(self);
+static uint32_t current_state(Cpu* c, uint32_t self) {
+    const uint32_t st = ld32(self + kState + 8);
+    if (!guest_obj(st)) return 0;
+    const uint32_t vt = ld32(st);
+    if (!guest_obj(vt)) return 0;
+    const uint32_t fn = ld32(vt + 0x14);
+    if (!guest_obj(fn)) return 0;
+    return guest_call(c, fn, {st});
+}
+
+static bool controller_state(uint32_t id) {
+    return pause_controller_state(id);
+}
+
+static bool in_controller_window(Cpu* c, uint32_t self) {
+    if (controller_state(ld32(self + kState + 4)) || controller_state(ld32(self + kState + 8))) return true;
+    return controller_state(current_state(c, self));
+}
+
+static void close_controller_window() {
+    const uint32_t mgr = ld32(kWindowMgr);
+    if (!guest_obj(mgr) || ld32(mgr + 0x1AA0) != 5) return;
+    st32(mgr + 0x1AA0, 0);
+    st8(mgr + 0x1AB8, 0);
+    st8(mgr + 0x1ABD, 0);
+    st8(mgr + 0x22B4, 0);
+}
+
+static void show_button_panel(Cpu* c, uint32_t self) {
+    const uint32_t layout = ld32(self);
+    if (!guest_obj(layout)) return;
+    guest_call(c, GC(kPlayAnim), {layout, 2u, kMenuAnim, 0u});
+}
+
+static void leave_controller_window(Cpu* c, uint32_t self) {
+    st32(self + kPad, pause_settings_idle_pad(ld32(self + kPad)));
+    // 3 at +0x1C is the decided button. The next step would enter the controller window.
+    st32(self + kMode, 0);
+    st8(self + 0xA91, 0);
+    st8(self + 0xA93, 0);
+    st8(self + 0x251, 0);
+    const uint32_t cur = ld32(self + kState + 8);
+    const uint32_t next = ld32(self + kState + 4);
+    const uint32_t id = current_state(c, self);
+    const uint32_t inside = guest_obj(cur) ? ld32(cur + 8) : 0;
+    const bool controller = controller_state(cur) || controller_state(next) || controller_state(id) ||
+                            controller_state(inside);
+    if (!controller) return;
+    guest_call(c, GC(kChangeState), {self + kState, kMenuState});
+    st32(self + kIndex, (uint32_t)g_index);
+    st32(self + kMode, 0);
+    guest_call(c, GC(0x025BE1F0u), {self});
+    if (!g_anim) {
+        g_anim = true;
+        show_button_panel(c, self);
+    }
+    close_controller_window();
+}
+
+static void disarm() {
+    g_armed = false;
+    g_opened = false;
+    g_saw_overlay = false;
+    g_age = 0;
+    g_settle = 0;
+    g_anim = false;
+}
+
+// 0x025FD500 has already stepped the course pause object before this runs.
+// That step can enter the controller window. Keep the pause menu there instead.
+static void intercept_course_pause(Cpu* c) {
+    if (!g_enabled.load()) return;
+    const uint32_t self = ld32(kPause);
+    if (!guest_obj(self)) return;
+    const bool open = overlay::is_open();
+    if (g_armed && g_saw_overlay && !open && g_settle == 0)
+        g_settle = pause_settings_settle(true, false);
+    if (open) g_saw_overlay = true;
+    hide_for_overlay(self);
+    if (g_armed) {
+        leave_controller_window(c, self);
+        if (!g_opened && !open && pause_settings_ready(g_age) && settings_click_end(true).open_overlay) {
+            g_opened = true;
+            g_open_request.store(true);
+            LOG("[pause] Settings opens the overlay");
+        } else if (!g_opened && !open) {
+            g_age++;
+        }
+        if (g_saw_overlay && !open) {
+            if (g_settle > 0) g_settle--;
+            if (g_settle == 0) disarm();
+        }
+        return;
+    }
+    if (g_blank) return;
+    if (!pause_menu_shown(ld8(self + kActive), ld8(self + kShown))) return;
+    if (!settings_row(self)) return;
+    const uint32_t pad = ld32(self + kPad);
+    const bool back = (pad & (1u << 14)) != 0 && !settings_confirm_pad(pad);
+    if (back || !settings_click_end(true).keep_menu) return;
+    if (!in_controller_window(c, self) && !settings_confirm_pad(pad)) return;
+    g_index = (int)ld32(self + kIndex);
+    g_shown = ld8(self + kShown);
+    if (g_shown == 0) g_shown = 1;
+    g_armed = true;
+    g_age = 0;
+    leave_controller_window(c, self);
 }
 
 static uint32_t flyt_slot(uint32_t base, int bytes) {
@@ -266,20 +290,17 @@ static void install_settings_button(Cpu* c, uint32_t layout) {
         st32(slot, neu);
         restore_build_regs(c, saved, resource);
     }
-    g_settings_i = -1;
-    g_story_max = -1;
-    g_menu = 0;
-    LOG("[pause] settings button added to the pause menu");
+    LOG("[pause] Change Controller is the Settings button");
 }
 
 }
 
 extern "C" void hook_025F3834(Cpu* c) {
     const uint32_t self = c->r[3];
-    pause_menu::before(c, self);
+    pause_menu::intercept_course_pause(c);
     c->r[3] = self;
     f_025F3834_orig(c);
-    pause_menu::after(self);
+    c->r[3] = self;
 }
 
 // The layout site is shared with the world-map button. This file owns the pause half.
