@@ -110,9 +110,8 @@ Useful for comparing two builds without adding a new `PlayCase`.
 ### Git push hook
 
 `.githooks/pre_push.py` runs before a push when `core.hooksPath` is `.githooks`.
-When the checkout is clean and `HEAD` is the commit you push, the script builds that checkout.
-When the checkout is dirty, or you push a different commit, the script builds a worktree of that commit under `.tmp/pre-push/`.
-The script then runs `ctest`, `python3 -m unittest discover -s tests/py -p "test_*.py"`, and `npm test --prefix tools/cli`.
+The script builds and tests this checkout.
+It runs `ctest`, `python3 -m unittest discover -s tests/py -p "test_*.py"`, and `npm test --prefix tools/cli`.
 It does not run `nsmbu test`.
 
 ## Tier B — Needs `game/` and a debug build

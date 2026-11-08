@@ -27,11 +27,6 @@ class PrePushTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             pre.parse_push_lines("refs/heads/dev abc")
 
-    def test_in_place_only_when_the_checkout_is_that_commit(self):
-        self.assertTrue(pre.tests_in_checkout(SHA_A, SHA_A, True))
-        self.assertFalse(pre.tests_in_checkout(SHA_A, SHA_A, False))
-        self.assertFalse(pre.tests_in_checkout(SHA_B, SHA_A, True))
-
     def test_commands_are_the_three_unit_suites(self):
         commands = [" ".join(cmd) for cmd in pre.test_commands("build/debug")]
         self.assertEqual(
