@@ -1,5 +1,7 @@
 #pragma once
 
+#include "guest_addr.h"
+
 #include <cstdint>
 #include <cstring>
 
@@ -90,9 +92,7 @@ inline uint8_t settings_decide_byte(bool pressed) {
 }
 
 // InBtn brings the six buttons back. It runs after the overlay closes.
-constexpr uint32_t kSettingsMenuReturn = 0x10211DF4u;
-
-inline uint32_t settings_return_state() { return kSettingsMenuReturn; }
+inline uint32_t settings_return_state() { return GD(0x10211DF4u); }
 
 // The menu pad and the cursor pad both carry directions. Either one can move the cursor.
 inline uint32_t settings_dir_pad(uint32_t cursor_pad, uint32_t menu_pad) {
@@ -124,7 +124,7 @@ inline bool settings_release_previous(bool previous_valid, bool same_button) {
 }
 
 // The button manager plays this on the new button after a move. +0x98 or +0x7C skips it.
-inline uint32_t settings_cursor_sound() { return 0x02677A38u; }
+inline uint32_t settings_cursor_sound() { return GC(0x02677A38u); }
 
 // A clear focus byte returns before that step runs. A move sets focus for that frame.
 inline bool settings_focus_for_move(bool choosing) { return choosing; }
@@ -138,9 +138,8 @@ inline bool settings_move_without_focus(bool after_overlay, bool blank, bool cli
 // The yellow cursor stays off the blank page. After the overlay closes it uses the hover state.
 inline bool settings_hide_cursor(bool blank) { return blank; }
 
-constexpr uint32_t kSettingsCursorHover = 0x102169B8u;
-
-inline uint32_t settings_cursor_state() { return kSettingsCursorHover; }
+// Hover is the cursor state after the overlay closes.
+inline uint32_t settings_cursor_state() { return GD(0x102169B8u); }
 
 // The buttons stay on the blank frame while the overlay is open.
 struct SettingsBlank {

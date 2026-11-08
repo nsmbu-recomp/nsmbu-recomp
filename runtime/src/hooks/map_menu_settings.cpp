@@ -65,9 +65,9 @@ static int g_settle = 0;
 static bool g_blank = false;
 static bool g_saw_overlay = false;
 static bool g_nav = false;
-constexpr uint32_t kCursorMove = 0x10216958u;
-constexpr uint32_t kMenuIdle = 0x10211B14u;
-constexpr uint32_t kMenuAnim = 0x10211B54u;
+const uint32_t kCursorMove = GD(0x10216958u);
+const uint32_t kMenuIdle = GD(0x10211B14u);
+const uint32_t kMenuAnim = GD(0x10211B54u);
 constexpr uint32_t kMpState = 0x18;
 constexpr uint32_t kStateId = 8;
 static int g_force_idx = -1;
@@ -497,11 +497,11 @@ static void place_yellow(Cpu* c, uint32_t self) {
     const uint32_t cursor = self + kCursor;
     st32(cursor + settings_yellow_target(), show);
     st32(cursor + 0x40, show);
-    const uint32_t inst = ld32(0x101D17A8u);
+    const uint32_t inst = ld32(GD(0x101D17A8u));
     if (!guest_obj(inst)) return;
     uint32_t type = ld32(cursor + 0x258);
     if (type >= 0x18u) type = 0;
-    guest_call(c, 0x024C6744u, {inst, show, type, 0});
+    guest_call(c, GC(0x024C6744u), {inst, show, type, 0});
     c->r[3] = self;
     hide_yellow_cursor(false);
 }
@@ -529,8 +529,8 @@ static void finish_settings_click(Cpu* c, uint32_t self) {
     st8(cursor + kDecideTrig, 0);
     st8(cursor + kTouchByte, 0);
     clear_confirm(self);
-    guest_call(c, GC(0x029C4AF0u), {cursor + 0x10, GC(kCursorMove)});
-    guest_call(c, GC(0x029C4AF0u), {self + 0x10, GC(kMenuIdle)});
+    guest_call(c, GC(0x029C4AF0u), {cursor + 0x10, kCursorMove});
+    guest_call(c, GC(0x029C4AF0u), {self + 0x10, kMenuIdle});
     c->r[3] = self;
     st8(cursor + kCursorFocus, 1);
     st8(cursor + kDecideAnime, 1);
@@ -551,7 +551,7 @@ void blank_cursor() {
 }
 
 static void hide_yellow_cursor(bool hide) {
-    const uint32_t inst = ld32(0x101D17A8u);
+    const uint32_t inst = ld32(GD(0x101D17A8u));
     if (!guest_obj(inst)) return;
     const uint32_t at = inst + 0x2C5F4u;
     if (hide) {
@@ -573,8 +573,8 @@ static void restore_settings_menu(Cpu* c, uint32_t self) {
     st8(cursor + kDecideTrig, 0);
     st8(cursor + kTouchByte, 0);
     clear_confirm(self);
-    guest_call(c, GC(0x029C4AF0u), {cursor + 0x10, GC(settings_cursor_state())});
-    guest_call(c, GC(0x029C4AF0u), {self + 0x10, GC(settings_return_state())});
+    guest_call(c, GC(0x029C4AF0u), {cursor + 0x10, settings_cursor_state()});
+    guest_call(c, GC(0x029C4AF0u), {self + 0x10, settings_return_state()});
     c->r[3] = self;
     st8(cursor + kCursorFocus, 1);
     st8(cursor + kDecideAnime, 1);
