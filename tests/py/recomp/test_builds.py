@@ -197,8 +197,13 @@ class Hooks(unittest.TestCase):
             self.assertNotEqual(missing_at, draw_at)
             self.assertTrue(draw_at <= missing_at < draw_at + draw_size)
             entries, skipped = builds.read_hooks(builds.hook_files(), build)
-            self.assertEqual(skipped, [])
+            self.assertEqual(
+                skipped,
+                [("map_menu_cursor.jsonc", "USA EU NSMBU_NSLU_USA NSMBU_NSLU_EU")],
+            )
             by_canon = {canon: addr for _, canon, addr, *_ in entries}
+            self.assertNotIn(0x025A4C5C, by_canon)
+            self.assertTrue(build.body_differs(0x025A4C5C))
             self.assertEqual(by_canon[0x0252D9C0], draw_at)
             self.assertEqual(by_canon[0x0252F900], missing_at)
             self.assertTrue(build.function_missing(0x0252F900))

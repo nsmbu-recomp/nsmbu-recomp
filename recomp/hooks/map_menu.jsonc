@@ -9,7 +9,6 @@
   "sites": [
     { "address": "026730C4" }, // layout build: add a native Settings button to the world-map start menu
     { "address": "02AB7040" }, // anim parse: give the Settings button the same open and close curves
-    { "address": "02682674" }, // cursor hit refresh: keep Settings in the right column
-    { "address": "025A4C5C" } // CourseSelectMenu::execute: place the cursor before it animates
+    { "address": "02682674" } // cursor hit refresh: keep Settings in the right column
   ]
 }
