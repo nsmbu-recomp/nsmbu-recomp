@@ -143,7 +143,7 @@ These stay as `python3 tools/…` until they move into the CLI.
 | Script | Role |
 | --- | --- |
 | `recomp/analyze.py` | Find branch islands in recomp output, including `bctr` into a run of `b` opcodes |
-| `tools/rpx/ppcdis.py` | Disassemble guest `.text` and annotate import calls, plus names from a local `recomp/headers_names.txt` when that extract exists |
+| `tools/rpx/ppcdis.py` | Disassemble guest `.text`, or query `callers`, `func`, `access`, and `xref`. Import calls and a local `recomp/headers_names.txt` are annotated on the disassembly |
 | `tools/bench/bench_lib.py` | Save-state A/B statistics (unit tests; scenarios use `nsmbu bench`) |
 | `tools/shader/shaderprep.py` | Metal shader head-start cache |
 
