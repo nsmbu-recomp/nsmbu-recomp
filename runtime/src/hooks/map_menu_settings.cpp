@@ -1,5 +1,6 @@
 #include "hooks/map_menu_settings.h"
 
+#include "agent/agent_eval.h"
 #include "core/runtime.h"
 #include "guest_addr.h"
 #include "overlay/game_rect.h"
@@ -1060,6 +1061,45 @@ bool click() {
 bool take_open() { return g_open_request.exchange(false); }
 
 void draw() {}
+
+mods::json::Value eval_menu(const mods::json::Value&) {
+    MenuProbe menu;
+    probe(menu);
+    mods::json::Value v;
+    v.type = mods::json::Value::Object;
+    v.object["open"] = menu.open;
+    if (menu.open) v.object["cursor"] = menu.cursor;
+    mods::json::Value buttons;
+    buttons.type = mods::json::Value::Array;
+    for (int i = 0; i < menu.count; i++) {
+        const ButtonProbe& b = menu.buttons[i];
+        mods::json::Value row;
+        row.type = mods::json::Value::Object;
+        row.object["index"] = b.index;
+        row.object["name"] = b.name;
+        row.object["selected"] = b.selected;
+        if (b.rect) {
+            row.object["x0"] = (double)b.x0;
+            row.object["y0"] = (double)b.y0;
+            row.object["x1"] = (double)b.x1;
+            row.object["y1"] = (double)b.y1;
+        }
+        buttons.array.push_back(std::move(row));
+    }
+    v.object["buttons"] = std::move(buttons);
+    return v;
+}
+
+const void* eval_win_w() { return &g_win_w; }
+
+struct EvalReg {
+    EvalReg() {
+        agent_eval::add_call({"map.menu", "World-map start menu.", true, eval_menu});
+        agent_eval::add_read({"map.win_w", "World-map window width.", agent_eval::Type::F32, 1, eval_win_w});
+    }
+};
+
+static EvalReg g_eval_reg;
 
 }
 

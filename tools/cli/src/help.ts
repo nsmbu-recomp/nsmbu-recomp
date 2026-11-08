@@ -36,6 +36,7 @@ Agent control (single game instance):
   nsmbu goto <title|file|map|W-C> [--timeout SEC]
   nsmbu ui
   nsmbu actors [--limit N] [--radius N]
+  nsmbu eval --list | <name> [json]
   nsmbu log [--tag a,b] [--lines N]
   nsmbu picture [--frames N] [--rect x,y,w,h]
   nsmbu restart

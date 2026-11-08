@@ -19,6 +19,7 @@ import {
 } from "../src/dev.ts";
 import {
     cmdActors,
+    cmdEval,
     cmdGoto,
     cmdLeave,
     cmdLog,
@@ -185,6 +186,9 @@ async function main(): Promise<void> {
                 break;
             case "actors":
                 await cmdActors(repo, rest);
+                break;
+            case "eval":
+                await cmdEval(repo, rest);
                 break;
             case "log":
                 await cmdLog(repo, rest);

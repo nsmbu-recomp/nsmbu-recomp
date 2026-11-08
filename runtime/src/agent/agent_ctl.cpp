@@ -1,5 +1,7 @@
 #include "agent/agent_ctl.h"
 
+#include "agent/agent_eval.h"
+
 #include <atomic>
 #include <chrono>
 #include <cerrno>
@@ -88,7 +90,7 @@ std::deque<PictureWait> g_pictures;
 std::deque<std::string> g_out_lines;
 std::atomic<bool> g_quit{false};
 
-enum class GuestOp { Status, Leave, Goto, Ui, Actors };
+enum class GuestOp { Status, Leave, Goto, Ui, Actors, Eval };
 
 struct GuestJob {
     int id = 0;
@@ -96,6 +98,9 @@ struct GuestJob {
     std::string code;
     int limit = 16;
     float radius = 0;
+    std::string name;
+    mods::json::Value args;
+    bool observe = false;
 };
 std::deque<GuestJob> g_jobs;
 thread_local bool g_servicing = false;
@@ -433,6 +438,51 @@ void handle_request(const mods::json::Value& req) {
         g_jobs.push_back(std::move(job));
         return;
     }
+    if (cmd == "eval") {
+        const auto& list = req.get("list");
+        const bool listing = (list.type == mods::json::Value::Bool && list.boolean) ||
+                             (list.type == mods::json::Value::Number && list.number != 0);
+        if (listing) {
+            try {
+                mods::json::Value v = mods::json::parse(agent_eval::list_json());
+                v.object["id"] = id;
+                v.object["ok"] = true;
+                queue_line(mods::json::dump(v));
+            } catch (const std::exception& e) {
+                queue_line(response_err(id, e.what()));
+            }
+            return;
+        }
+        const std::string name = req.get("name").string();
+        if (name.empty()) {
+            queue_line(response_err(id, "missing name"));
+            return;
+        }
+        bool observe = false;
+        if (!agent_eval::lookup(name, observe)) {
+            queue_line(response_err(id, "unknown eval"));
+            return;
+        }
+        mods::json::Value args;
+        args.type = mods::json::Value::Object;
+        const auto& given = req.get("args");
+        if (given.type != mods::json::Value::Null) {
+            if (given.type != mods::json::Value::Object) {
+                queue_line(response_err(id, "eval json must be an object"));
+                return;
+            }
+            args = given;
+        }
+        GuestJob job;
+        job.id = id;
+        job.op = GuestOp::Eval;
+        job.name = name;
+        job.args = std::move(args);
+        job.observe = observe;
+        std::lock_guard<std::mutex> lk(g_mu);
+        g_jobs.push_back(std::move(job));
+        return;
+    }
     if (cmd == "quit") {
         g_quit.store(true);
         queue_line(response_ok(id));
@@ -715,14 +765,32 @@ void service() {
 
 namespace {
 
-bool observable(GuestOp op) {
-    return op == GuestOp::Status || op == GuestOp::Ui || op == GuestOp::Actors;
+bool observable(const GuestJob& job) {
+    if (job.op == GuestOp::Status || job.op == GuestOp::Ui || job.op == GuestOp::Actors) return true;
+    if (job.op == GuestOp::Eval) return job.observe;
+    return false;
+}
+
+std::string handle_eval(const GuestJob& job) {
+    std::string err;
+    const std::string value = agent_eval::invoke(job.name, job.args, err);
+    if (!err.empty()) return response_err(job.id, err);
+    try {
+        mods::json::Value v;
+        v.type = mods::json::Value::Object;
+        v.object["id"] = job.id;
+        v.object["ok"] = true;
+        v.object["value"] = mods::json::parse(value);
+        return mods::json::dump(v);
+    } catch (const std::exception& e) {
+        return response_err(job.id, e.what());
+    }
 }
 
 bool take_job(GuestJob& job, bool observe_only) {
     std::lock_guard<std::mutex> lk(g_mu);
     for (auto it = g_jobs.begin(); it != g_jobs.end(); ++it) {
-        if (!observable(it->op)) continue;
+        if (!observable(*it)) continue;
         job = std::move(*it);
         g_jobs.erase(it);
         return true;
@@ -765,6 +833,8 @@ void guest_service() {
             queue_line(handle_ui(job.id));
         else if (job.op == GuestOp::Actors)
             queue_line(handle_actors(job.id, job.limit, job.radius));
+        else if (job.op == GuestOp::Eval)
+            queue_line(handle_eval(job));
         else if (job.op == GuestOp::Leave)
             run_leave(job);
         else if (job.op == GuestOp::Goto)
@@ -782,6 +852,8 @@ void guest_observe() {
             queue_line(handle_ui(job.id));
         else if (job.op == GuestOp::Actors)
             queue_line(handle_actors(job.id, job.limit, job.radius));
+        else if (job.op == GuestOp::Eval)
+            queue_line(handle_eval(job));
         else
             queue_line(handle_status(job.id));
     }

@@ -125,6 +125,12 @@ const COMMANDS: CommandSpec[] = [
     { name: "goto", description: "Open the title, file select, map, or a course", noFiles: true },
     { name: "ui", description: "Menu cursor and settings overlay", noFiles: true },
     { name: "actors", description: "Player power and nearby actors", noFiles: true },
+    {
+        name: "eval",
+        description: "Call or read a named probe",
+        noFiles: true,
+        flags: [{ name: "list", description: "List probes" }],
+    },
     { name: "log", description: "Recent log lines from the running game", noFiles: true },
     { name: "picture", description: "Pixel delta across a few TV frames", noFiles: true },
     { name: "restart", description: "Rebuild if needed and reopen the same place", noFiles: true },

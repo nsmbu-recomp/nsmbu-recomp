@@ -6,6 +6,7 @@ import { AgentClient, type AgentResponse } from "./client.ts";
 import { agentDir, agentPidPath, agentSocketPath } from "./paths.ts";
 import { isPidAlive, readAgentPid, removeAgentArtifacts } from "./process.ts";
 import { arrived, cursorSelected, decodePng, delta, fnv, newerThan, placeKind, sample, tvRect, type Rect } from "./probe.ts";
+import { evalBody } from "./eval.ts";
 import { canConnectSocket, waitForSocket } from "./socket.ts";
 import { spawnPython } from "../run.ts";
 import { flagNumber, flagString, hasFlag, parseArgv } from "../parse.ts";
@@ -302,6 +303,19 @@ export async function cmdActors(repo: string, argv: string[]): Promise<void> {
                 `profile=${a.profile} pos=(${num(a.x)}, ${num(a.y)}, ${num(a.z)}) vel=(${num(a.vx)}, ${num(a.vy)}, ${num(a.vz)})`,
             );
         }
+    } finally {
+        client.close();
+    }
+}
+
+export async function cmdEval(repo: string, argv: string[]): Promise<void> {
+    const body = evalBody(argv);
+    const client = new AgentClient(repo);
+    try {
+        const r = await client.request(body);
+        if (!r.ok) throw new Error(r.error ?? "eval failed");
+        if (body.list) console.log(JSON.stringify({ evals: r.evals ?? [] }));
+        else console.log(JSON.stringify(r.value));
     } finally {
         client.close();
     }

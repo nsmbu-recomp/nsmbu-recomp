@@ -205,6 +205,16 @@ Use them for a short look while writing a playtest case; lasting coverage stays 
   `1-1` is a course pack.
 - `nsmbu ui` — settings overlay open flag and tab, and the world-map start menu cursor, button names, and rectangles.
 - `nsmbu actors [--limit N] [--radius N]` — the player power-up, then the nearest course actors with profile id, position, and velocity.
+- `nsmbu eval --list` — one JSON object naming every probe compiled into the debug game.
+  Each entry has `name`, `kind` (`call` or `read`), `help`, and `observe`.
+  A read also has `type` and `count`.
+- `nsmbu eval <name> [json]` — run that probe on the guest thread and print the JSON value.
+  A call receives the JSON object and may change the game when `observe` is false.
+  A read copies host memory whose type and size were registered with the name.
+  `ping` returns its arguments.
+  `map.menu` returns the world-map start menu.
+  `map.win_w` returns the window width used for that menu.
+  A missing name, bad JSON, or a null address is an error.
 - `nsmbu log [--tag a,b] [--lines N]` — recent lines from the in-process log ring.
   `--tag menu,scene` keeps lines that contain `[menu]` or `[scene]`.
 - `nsmbu picture [--frames N] [--rect x,y,w,h]` — capture a few TV frames and print a hash plus the mean and max channel change inside the rectangle.
@@ -213,7 +223,7 @@ Use them for a short look while writing a playtest case; lasting coverage stays 
 - `nsmbu restart` — remember the course pack, world map, title, or file select, quit, rebuild `build/debug/nsmbu` when a runtime source is newer, then open that place again.
 - `nsmbu quit` / `close` — graceful quit and tear down control files under `.tmp/agent/`.
 
-These commands block until their work is done: `open` waits for the socket, `leave` waits for the guest thread to quit the course, `press` / `stick` hold for their frames, `screenshot` and `picture` wait for the PNGs, `status`, `ui`, and `actors` wait for the guest thread, `goto` waits until that place is current, and `wait` polls until the frame, step, scene, or cursor bound.
+These commands block until their work is done: `open` waits for the socket, `leave` waits for the guest thread to quit the course, `press` / `stick` hold for their frames, `screenshot` and `picture` wait for the PNGs, `status`, `ui`, `actors`, and `eval <name>` wait for the guest thread, `eval --list` answers from the listen thread, `goto` waits until that place is current, and `wait` polls until the frame, step, scene, or cursor bound.
 Use `wait --step N` or `wait --scene NAME` when the next action needs guest progress.
 `nsmbu scripted <name>` remains for exit-at-frame dumps (see [automation.md](automation.md)).
 

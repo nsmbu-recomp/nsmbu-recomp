@@ -43,6 +43,8 @@ type AgentResponse = {
     actors?: { profile: number; x: number; y: number; z: number; vx: number; vy: number; vz: number }[];
     lines?: string[];
     paths?: string[];
+    evals?: { name: string; kind: string; help?: string; observe?: boolean; type?: string; count?: number }[];
+    value?: unknown;
 };
 
 export type { AgentResponse };
