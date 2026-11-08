@@ -22,6 +22,8 @@ Document a discovery about original game code as a comment on that function's de
 State what the function does, and any side effect or requirement for calling it.
 That declaration comment is the record.
 
+When decompiling a function, hand the address or symbol to the `decompile` agent and return with the decompiled function.
+
 ## Tests
 
 Add one test for every behavior change, in the suite that owns that behavior.
