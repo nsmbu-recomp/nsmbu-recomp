@@ -80,7 +80,7 @@ Done when status shows `name=W101`.
 The only unlocked neighbour of `W101` is back to `W1M0`.
 Stick left for that return.
 
-`nsmbu scripted` forces a hidden window, immediate present, and resolution scale 1.
+Hidden map boots often set `NSMBU_HIDDEN_WINDOWS=1`, immediate present, and resolution scale 1 (see [automation.md](../../../docs/developer/automation.md)).
 Use it only for a log that must match `docs/developer/automation.md`.
 The press list there is the same map, measured in TV frames.
 

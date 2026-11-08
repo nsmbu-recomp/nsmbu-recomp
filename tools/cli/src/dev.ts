@@ -1,5 +1,5 @@
 import { flagString, hasFlag, parseArgv } from "./parse.ts";
-import { runPython, runPythonCapture, runPythonChecked, runShell } from "./run.ts";
+import { runPython, runPythonCapture, runPythonChecked } from "./run.ts";
 import { clack, confirm, selectOption, textInput } from "./select.ts";
 
 const GAME_USAGE =
@@ -57,17 +57,6 @@ export function cmdCrash(repo: string): void {
     cmdLaunch(repo, { noDebug: false, trace: false, gdb: false, lldb: false }, [], {
         NSMBU_TEST_HOST_CRASH: "1",
     });
-}
-
-export function cmdWine(
-    repo: string,
-    opts: { noDebug: boolean; trace: boolean },
-    rest: string[],
-): void {
-    const buildArgs: string[] = opts.noDebug ? ["--release"] : [];
-    buildArgs.push(...rest);
-    runPythonInherit(repo, "tools/build/build_windows.py", buildArgs);
-    cmdLaunch(repo, { noDebug: opts.noDebug, trace: opts.trace, gdb: false, lldb: false, wine: true }, rest);
 }
 
 export function cmdRun(repo: string, release: boolean, rest: string[]): void {
@@ -500,11 +489,37 @@ export async function cmdGame(repo: string, rest: string[]): Promise<void> {
 }
 
 export function cmdProfile(repo: string, rest: string[]): void {
-    runPython(repo, "tools/run/profile.py", rest);
-}
-
-export function cmdPerf(repo: string, rest: string[]): void {
-    runPython(repo, "tools/run/perf.py", rest);
+    const { flags, positional } = parseArgv(
+        rest,
+        ["cpu", "seconds", "attach", "exit-at", "load-at", "log"],
+        ["seconds", "attach", "exit-at", "load-at", "log"],
+    );
+    const args: string[] = [];
+    if (hasFlag(flags, "cpu")) {
+        args.push("--cpu");
+    }
+    const seconds = flagString(flags, "seconds");
+    if (seconds) {
+        args.push("--seconds", seconds);
+    }
+    const attach = flagString(flags, "attach");
+    if (attach) {
+        args.push("--attach", attach);
+    }
+    const exitAt = flagString(flags, "exit-at");
+    if (exitAt) {
+        args.push("--exit-at", exitAt);
+    }
+    const loadAt = flagString(flags, "load-at");
+    if (loadAt) {
+        args.push("--load-at", loadAt);
+    }
+    const log = flagString(flags, "log");
+    if (log) {
+        args.push("--log", log);
+    }
+    args.push(...positional);
+    runPython(repo, "tools/run/profile.py", args);
 }
 
 export function cmdInstaller(repo: string, rest: string[]): void {
@@ -587,15 +602,4 @@ export function cmdRecomp(repo: string): void {
         throw new Error(`game/${id}/ is not extracted yet; run nsmbu game`);
     }
     runPython(repo, "recomp/recomp.py", [`game/${id}/code/red-pro2.rpx`, "build/gen"]);
-}
-
-export function cmdScripted(repo: string, name: string, rest: string[]): void {
-    runShell(repo, `bash tools/run/scripted-run.sh ${shellQuote(name)} ${rest.map(shellQuote).join(" ")}`.trim());
-}
-
-function shellQuote(s: string): string {
-    if (/^[a-zA-Z0-9._/-]+$/.test(s)) {
-        return s;
-    }
-    return `'${s.replace(/'/g, "'\\''")}'`;
 }

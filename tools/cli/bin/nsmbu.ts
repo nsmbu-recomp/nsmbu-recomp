@@ -10,12 +10,9 @@ import {
     cmdGame,
     cmdInstaller,
     cmdLaunch,
-    cmdPerf,
     cmdProfile,
     cmdRecomp,
     cmdRun,
-    cmdScripted,
-    cmdWine,
 } from "../src/dev.ts";
 import {
     cmdActors,
@@ -89,18 +86,6 @@ async function main(): Promise<void> {
                 cmdRun(repo, hasFlag(flags, "release"), positional);
                 break;
             }
-            case "wine": {
-                const { flags, positional } = parseArgv(rest, ["no-debug", "trace"], []);
-                cmdWine(
-                    repo,
-                    {
-                        noDebug: hasFlag(flags, "no-debug"),
-                        trace: hasFlag(flags, "trace"),
-                    },
-                    positional,
-                );
-                break;
-            }
             case "extract":
                 cmdExtract(repo, rest);
                 break;
@@ -122,9 +107,6 @@ async function main(): Promise<void> {
             case "profile":
                 cmdProfile(repo, rest);
                 break;
-            case "perf":
-                cmdPerf(repo, rest);
-                break;
             case "installer":
                 cmdInstaller(repo, rest);
                 break;
@@ -134,14 +116,6 @@ async function main(): Promise<void> {
             case "recomp":
                 cmdRecomp(repo);
                 break;
-            case "scripted": {
-                const [name, ...scriptRest] = rest;
-                if (!name) {
-                    throw new Error("usage: nsmbu scripted <name> […]");
-                }
-                cmdScripted(repo, name, scriptRest);
-                break;
-            }
             case "test":
                 await cmdTest(repo, rest);
                 break;

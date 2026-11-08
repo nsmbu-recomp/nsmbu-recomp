@@ -2,33 +2,8 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "NSMBU",
-            "type": "lldb-dap",
-            "debugAdapterExecutable": "${workspaceFolder}/tools/run/lldb-dap.sh",
-            "request": "launch",
-            "preLaunchTask": "nsmbu: vscode lldb init",
-            "launchCommands": [
-                "command source ${workspaceFolder}/.tmp/vscode_lldb.lldb"
-            ],
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "NSMBU (no debug env)",
-            "type": "lldb-dap",
-            "debugAdapterExecutable": "${workspaceFolder}/tools/run/lldb-dap.sh",
-            "request": "launch",
-            "preLaunchTask": "nsmbu: vscode lldb init (no debug env)",
-            "launchCommands": [
-                "command source ${workspaceFolder}/.tmp/vscode_lldb.lldb"
-            ],
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal"
-        },
-        {
             "name": "Attach to NSMBU",
             "type": "lldb-dap",
-            "debugAdapterExecutable": "${workspaceFolder}/tools/run/lldb-dap.sh",
             "request": "attach",
             "initCommands": [
                 "process handle SIGSEGV --pass true --stop false --notify false",

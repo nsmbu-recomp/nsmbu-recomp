@@ -78,15 +78,13 @@ The CLI exports `NSMBU_CLI=1` and `NSMBU_USER_DIR=<repo>/nsmbu` on every dev com
 | `nsmbu build` / `build --release` / `build --sanitizer` | `tools/build/build.py` |
 | `nsmbu launch` (+ `--no-debug`, `--trace`, `--gdb`, `--lldb`) | `tools/run/launch.py` |
 | `nsmbu crash` | launch with `NSMBU_TEST_HOST_CRASH=1`; in a Debug build the process exits non-zero and prints the crash log path instead of the Report crash dialog |
-| `nsmbu wine` (+ `--no-debug`, `--trace`) | cross-build `build/windows/nsmbu.exe` then `tools/run/launch.py --wine` |
 | `nsmbu run` / `run --release` | build then launch |
 | `nsmbu extract` | `tools/disc/extract.py` |
 | `nsmbu save <save.dat\|save.json> [output] [--output PATH]` | convert `rp_savedata.dat` to JSON and back |
-| `nsmbu profile` / `perf` | profiling helpers |
+| `nsmbu profile [slot] [--cpu] [--seconds N] [--attach PID]` | slot-1 scene `[prof]` digest; `--cpu` adds a Linux `perf` sample. `NSMBU_VK_GPU_TIMESTAMPS=1` adds GPU submission intervals. World-map scores stay on `nsmbu bench` |
 | `nsmbu installer [--version VERSION] [--no-open]` | builds this Linux host's GitHub Release folder (the zip contents) at `build/installer` with the pinned zig toolchain, SDL3, and Vulkan-Headers from the tree, then opens that folder's setup window; `--no-open` returns after the package is ready; does not publish |
 | `nsmbu apk` | builds the same setup APK as a release: Python, the compiler and the extractor are inside, and the game code is not. Installs it on a USB device (`adb`). `--build-only` skips adb. `--install-only` installs the last APK. |
 | `nsmbu recomp` | Recomp only |
-| `nsmbu scripted <name>` | wraps `tools/run/scripted-run.sh` |
 | `nsmbu test [--list] [--show] [name…]` | boots a game per playtest and runs selected cases in parallel ([automation.md](automation.md)); `--show` leaves the window on screen and runs one case at a time |
 | `nsmbu scenario OUT [VAR=value …]` | headless logic-step trace for build-to-build comparison ([automation.md](automation.md)) |
 | `nsmbu compare-runs RUN_A RUN_B [--scene NAME] [--steps N]` | diff two `scenario` output folders ([automation.md](automation.md)) |
@@ -146,7 +144,6 @@ These stay as `python3 tools/…` until they move into the CLI.
 | --- | --- |
 | `recomp/analyze.py` | Find branch islands in recomp output, including `bctr` into a run of `b` opcodes |
 | `tools/rpx/ppcdis.py` | Disassemble guest `.text` and annotate import calls, plus names from a local `recomp/headers_names.txt` when that extract exists |
-| `tools/frames/flicker.py` | Compare frame dumps ([automation.md](automation.md)) |
 | `tools/bench/bench_lib.py` | Save-state A/B statistics (unit tests; scenarios use `nsmbu bench`) |
 | `tools/shader/shaderprep.py` | Metal shader head-start cache |
 
@@ -225,7 +222,7 @@ Use them for a short look while writing a playtest case; lasting coverage stays 
 
 These commands block until their work is done: `open` waits for the socket, `leave` waits for the guest thread to quit the course, `press` / `stick` hold for their frames, `screenshot` and `picture` wait for the PNGs, `status`, `ui`, `actors`, and `eval <name>` wait for the guest thread, `eval --list` answers from the listen thread, `goto` waits until that place is current, and `wait` polls until the frame, step, scene, or cursor bound.
 Use `wait --step N` or `wait --scene NAME` when the next action needs guest progress.
-`nsmbu scripted <name>` remains for exit-at-frame dumps (see [automation.md](automation.md)).
+Frame dumps and fixed `NSMBU_PRESS` timelines use `NSMBU_DUMP_FRAMES`, `NSMBU_EXIT_AT_FRAME`, and related vars with `nsmbu launch` (see [automation.md](automation.md)).
 
 ## Runtime work
 

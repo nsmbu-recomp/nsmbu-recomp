@@ -40,14 +40,6 @@ const COMMANDS: CommandSpec[] = [
         flags: [{ name: "release", description: "Release build" }],
     },
     {
-        name: "wine",
-        description: "Build Windows nsmbu.exe then launch under Wine",
-        flags: [
-            { name: "no-debug", description: "Release build without debug env" },
-            { name: "trace", description: "Trace launch" },
-        ],
-    },
-    {
         name: "game",
         description: "Set up / select dump, extract, optional recomp",
         noFiles: true,
@@ -66,8 +58,18 @@ const COMMANDS: CommandSpec[] = [
         description: "Convert save data to JSON and back",
         flags: [{ name: "output", description: "Write to PATH", takesFile: true }],
     },
-    { name: "profile", description: "Profiling helpers" },
-    { name: "perf", description: "Perf helpers" },
+    {
+        name: "profile",
+        description: "Fixed-scene frame digest, or CPU samples with --cpu",
+        flags: [
+            { name: "cpu", description: "Sample CPU stacks with perf" },
+            { name: "seconds", description: "Seconds of CPU samples" },
+            { name: "attach", description: "Sample a running game pid" },
+            { name: "exit-at", description: "Stop at this TV frame" },
+            { name: "load-at", description: "Load the save slot at this TV frame" },
+            { name: "log", description: "Log path", takesFile: true },
+        ],
+    },
     {
         name: "installer",
         description: "Build the installer",
@@ -89,7 +91,6 @@ const COMMANDS: CommandSpec[] = [
         ],
     },
     { name: "recomp", description: "Run recomp only", noFiles: true },
-    { name: "scripted", description: "Headless scripted boot", noFiles: true },
     {
         name: "test",
         description: "Run playtests",

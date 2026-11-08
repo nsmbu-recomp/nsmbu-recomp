@@ -10,9 +10,9 @@ Three layers apply on most changes.
 
 **Project skills** (`.agents/skills/`) — Routing table:
 
-- **`cli`** — Builds, dumps, playtests, benches, scripted boots, live look, replay.
+- **`cli`** — Builds, dumps, playtests, benches, live look, replay.
 - **`file-select`**, **`world-map`**, **`course`** — How to open and operate that place (`.agents/skills/live/`).
-- **`pre-release`** / **`release`** — Full `nsmbu test`, installer, tag workflow.
+- **`release`** — Full `nsmbu test`, installer, tag workflow.
 - **`decompile`** — Decomp workflow only (no compile-time proof in NSMBU).
 - **`crash`** — Where run, crash, and setup logs are, and what each file contains.
 
@@ -136,7 +136,7 @@ Each case uses `.tmp/playtest/<name>/` for save, control socket, log, and userda
 
 Playtests are **not** in GitHub CI (no game dump in CI).
 Agents with a local dump are the main line for game regressions.
-`pre-release` requires full `nsmbu test`.
+`release` requires full `nsmbu test` before a version tag.
 
 Issue coverage outside playtests (see `docs/developer/automation.md`):
 
@@ -157,11 +157,10 @@ Checks that must keep passing belong in a `PlayCase`, not a one-off boot.
 One game, one socket under `.tmp/agent/`.
 `nsmbu test` refuses to start while the live agent is up.
 
-### Scripted boots
+### Headless frame dumps
 
-`nsmbu scripted <name>` wraps `tools/run/scripted-run.sh` with `NSMBU_EXIT_AT_FRAME`, `NSMBU_DUMP_FRAMES`, `NSMBU_PRESS`, and related vars.
-Frame PNGs land in `.tmp/<name>/`.
-Flicker checks: `python3 tools/frames/flicker.py`.
+Set `NSMBU_EXIT_AT_FRAME`, `NSMBU_DUMP_FRAMES`, and pad env vars on `nsmbu launch`, or use the boot recipes in [automation.md](automation.md).
+Frame PNGs land in the working directory as `frame_<n>.png`.
 
 ### Course replay playtests
 
@@ -192,8 +191,7 @@ Not a pass/fail regression harness like `nsmbu test`.
 ### Special runtime checks
 
 - `nsmbu crash` — host crash path / crash log (Debug build)
-- `nsmbu wine` — Windows binary under Wine (heavy; CI has `windows.yml`)
-- `nsmbu installer --no-open` — release-style Linux package (`pre-release`)
+- `nsmbu installer --no-open` — release-style Linux package (`release`)
 
 ## Tier C — Android
 
@@ -256,13 +254,13 @@ WWHD’s `vendor/ZeldaWWHDRecomp/tools/verify/` harness is upstream reference, n
 **Fragmented or easy to miss**
 
 - Playtests never run in CI; agents without `game/usa-1.3.0` cannot fully verify game changes
-- Three short-check paths overlap: `file-select` / `world-map` / `course`, live look, `nsmbu scripted` — skill says lasting checks → playtest, nothing enforces it
-- `pre_push` and `pre-release` run different command subsets
+- Three short-check paths overlap: `file-select` / `world-map` / `course`, live look — skill says lasting checks → playtest, nothing enforces it
+- `pre_push` and `release` run different command subsets
 - Android install is not gameplay automation
 - CLI TypeScript has no first-class “run before finish” step.
 
 ## Related docs
 
-- [automation.md](automation.md) — playtests, scripted boots, gametest compare
+- [automation.md](automation.md) — playtests, headless dumps, gametest compare
 - [cli.md](cli.md) — full `nsmbu` command list
 - [env.md](env.md) — `NSMBU_*` variables and interpolation checks

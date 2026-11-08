@@ -78,13 +78,38 @@ nsmbu build --release
 nsmbu profile
 ```
 
-`nsmbu profile` writes `.tmp/repro/nsmbu.log`.
+`nsmbu profile` loads slot 1 and prints a `[profile]` digest of the last `[prof]` window.
+The log stays at `.tmp/repro/nsmbu.log`.
+The binary is `build/release/nsmbu` when that file exists.
 Pass a slot (`nsmbu profile 1`), or `--exit-at`, `--load-at`, or `--log`.
-
-Read `[prof]`, `[vulkan perf]`, and `[gx2] frame` in `.tmp/repro/nsmbu.log`.
+`nsmbu profile --cpu` records Linux `perf` stacks for that scene and prints the top symbols plus the same digest.
+`nsmbu profile --cpu --attach PID` samples a game that is already running.
 A missing live thread logs `does not exist yet`.
 Load at a later TV frame.
 An exited thread in the save is ignored.
+
+### GPU intervals
+
+`waits ms/frame: gpu` in the `[profile]` digest is render-thread time blocked on the GPU.
+Draw phases in that digest are render-thread CPU.
+A GPU load percentage is the Android performance report (`GPU busy`).
+
+Desktop and macOS time the GPU with Vulkan timestamp queries.
+Set the switch in the environment so `nsmbu profile` keeps it:
+
+```sh
+NSMBU_VK_GPU_TIMESTAMPS=1 nsmbu profile
+```
+
+Read `[vulkan GPU timestamps] submission interval sum` in `.tmp/repro/nsmbu.log`.
+That number is the summed submission interval per frame.
+It can include queue stalls.
+`unsupported` or `all-zero/emulated timing UNUSABLE` means this device cannot time the GPU.
+
+`NSMBU_VK_GPU_PASS_TIMESTAMPS=1` adds `[vulkan GPU scope N]` lines for the top render-pass and feedback-copy buckets.
+Turn that switch off before a frame-time or bench score.
+The scope queries change the frame time.
+The switch list is "Optional performance diagnostics" in [vulkan.md](vulkan.md).
 
 On macOS, sample the same command with `sample` (1 ms stacks for every thread).
 The "Sort by top of stack" section shows where the CPU time goes.
@@ -102,21 +127,24 @@ Game sampler (built in):
 
 `perf` (external):
 
-- Turn on with `nsmbu perf`.
+- Turn on with `nsmbu profile --cpu`.
 - You get full stacks over every thread.
-- Artifacts land in `.tmp/perf/`.
+- The command prints the top symbols.
+- The full report is `.tmp/perf/report.txt`.
 
-World-map profiles use the debug boot in [automation.md](automation.md).
-`nsmbu scripted` changes present mode and resolution, so it is the wrong boot for a settings-matched map profile.
+World-map frame time is `nsmbu bench overworld` or `nsmbu bench load-overworld`.
+Those runs copy `nsmbu/` settings and leave the window visible.
+Headless boots that set `NSMBU_VK_PRESENT_MODE=immediate` and `NSMBU_RES_SCALE=1` are the wrong path for a settings-matched map profile.
 
-`nsmbu perf` runs the fixed 1-1 scene under `perf record`.
+`nsmbu profile --cpu` runs the fixed 1-1 scene under `perf record`.
 It writes `.tmp/perf/nsmbu.data`, `game.log`, `report.txt`, and `report_flat.txt`.
-Attach to a live session with `nsmbu perf --attach PID --seconds 30`.
+Attach to a live session with `nsmbu profile --cpu --attach PID --seconds 30`.
 It asks for sudo and sets `perf_event_paranoid` to 1 when the kernel refuses sampling (per boot).
 
 ### Read the artifacts
 
-`[gx2] frame N, X swaps/s`, `[gx2] slow swap`, and `[prof]` per-phase ms lines are the first check.
+The printed `[profile]` block is the first check.
+`[gx2] frame N, X swaps/s`, `[gx2] slow swap`, and `[prof]` per-phase ms lines are in the log when that block names a phase to open.
 Steady 60 fps holds ~59.9 swaps/s.
 
 A `[game sample]` report counts `pc - binary_base` of the built `nsmbu` binary (usually `build/debug/nsmbu`), CPU-time sampled.

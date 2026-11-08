@@ -80,7 +80,7 @@ def main():
     if args.wine:
         exe = nsmbu_windows_exe(prefer_release=args.no_debug)
         if not os.path.isfile(exe):
-            sys.exit(f"missing {exe}; run: nsmbu wine")
+            sys.exit(f"missing {exe}; run: python3 tools/build/build_windows.py")
     else:
         exe = nsmbu_exe(prefer_release=args.no_debug)
         if not os.path.isfile(exe):

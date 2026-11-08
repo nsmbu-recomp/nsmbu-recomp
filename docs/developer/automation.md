@@ -1,7 +1,7 @@
 # Automation runs
 
 Issue and release game regressions belong in playtests.
-Use `nsmbu scripted` when you need exit-at-frame dumps or a fixed `NSMBU_PRESS` timeline without a playtest case.
+Exit-at-frame dumps and fixed `NSMBU_PRESS` timelines use `NSMBU_DUMP_FRAMES`, `NSMBU_EXIT_AT_FRAME`, and the boot recipes below with `nsmbu launch` or a direct `build/debug/nsmbu` invocation.
 A recorded course pad log is a playtest (`replay-1-1`, `replay-2-1`).
 `replay-bug-1` checks the intro-skip quit lands on `W201`.
 
@@ -61,47 +61,17 @@ The trace is `.tmp/bench/overworld/trace.json`.
 The run copies `nsmbu/save` and the display settings, and reuses a shader cache under `.tmp/bench/user`.
 It refuses to start while `nsmbu open` or any other `nsmbu` process is up.
 
-## Scripted boots
+## Headless frame dumps
 
-Headless boots use `nsmbu scripted <name>` from the repo root (wraps `tools/run/scripted-run.sh`).
-The script copies `nsmbu/save` into `.tmp/<name>/save`, then starts `build/debug/nsmbu` (or another build dir if present) with that save.
-Frame dumps land in `.tmp/<name>/` as `frame_<n>.png`.
-The repo `nsmbu/save` stays unread by the game.
-
-### Steps
-
-1. Set `NSMBU_EXIT_AT_FRAME`.
-   Set `NSMBU_DUMP_FRAMES` to the frames you will look at.
-   Set `NSMBU_PRESS` and `NSMBU_STICK` when the boot must press buttons.
-   `NSMBU_RES_SCALE` defaults to 1.
-2. Run `nsmbu scripted <name>` from the repo root.
-   The run is done when the process exits and each dumped `frame_<n>.png` is in `.tmp/<name>`.
-3. Read one dumped frame.
-   Continue only when that frame is the scene you mean.
-4. For a shake check, dump the same consecutive frames at scale 1 and at scale 2.
-   Run `python3 tools/frames/flicker.py FIRST LAST .tmp/<name>`.
-   The check is done when both scales have a result and you have looked at one frame from each.
-
-### Environment the script sets
-
-`tools/run/scripted-run.sh` always exports these values:
-
-| Variable | Value | Role |
-| --- | --- | --- |
-| `NSMBU_USER_DIR` | `.tmp/<name>/user` unless already set | Settings and controls are copied from the repo userdata tree; the shader cache starts empty |
-| `NSMBU_HIDDEN_WINDOWS` | `1` | Keeps game windows off screen |
-| `NSMBU_NO_HOST_INPUT` | `1` | Ignores keyboard, mouse, and gamepad; scripted input only |
-| `NSMBU_VK_PRESENT_MODE` | `immediate` | Uncapped present for faster boots |
-| `NSMBU_NO_AUDIO` | `1` | Skips opening an audio output device |
-| `NSMBU_RES_SCALE` | `1` unless already set | Internal resolution scale (0.5–4) |
-
-The binary also receives `--game` set to `game/` and `--save .tmp/<name>/save`.
-That `game/` folder has no `red-pro2.rpx`, so the process exits before the first frame.
-A hidden boot that must draw uses `build/debug/nsmbu --game game/usa-1.3.0`.
+Copy `nsmbu/save` into `.tmp/<name>/save` when the run must not touch the repo save.
+Set `NSMBU_EXIT_AT_FRAME`, `NSMBU_DUMP_FRAMES`, and pad env vars as needed.
+Use `NSMBU_HIDDEN_WINDOWS=1`, `NSMBU_NO_HOST_INPUT=1`, `NSMBU_VK_PRESENT_MODE=immediate`, `NSMBU_NO_AUDIO=1`, and `NSMBU_RES_SCALE=1` for short hidden boots (see boot recipes).
+Run `nsmbu launch` or `./build/debug/nsmbu --game game/usa-1.3.0 --save .tmp/<name>/save`.
+Frame dumps land in the working directory as `frame_<n>.png`.
 
 ### Environment you set
 
-Set these on the command line before the script:
+Set these on the command line before launch:
 
 | Variable | Required | Format / notes |
 | --- | --- | --- |
@@ -111,7 +81,7 @@ Set these on the command line before the script:
 | `NSMBU_STICK` | optional | `from-to:x:y` list; see below |
 | `NSMBU_RSTICK` | optional | Same form as `NSMBU_STICK` for the right stick |
 | `NSMBU_KEYS` | optional | `from-to:key[+key…]` list of host key ids |
-| `NSMBU_RES_SCALE` | optional | Overrides the script default of `1` |
+| `NSMBU_RES_SCALE` | optional | Internal resolution scale (default `1` on hidden boots below) |
 | `NSMBU_MOD_MANAGER_DIR` | when mods must load | Absolute path to userdata that holds `mods/` and `mods.json` |
 
 With `NSMBU_NO_HOST_INPUT` set, the mod manager stays off unless `NSMBU_MOD_MANAGER_DIR` points at a storage tree.
@@ -152,19 +122,23 @@ Values are typically `-1` to `1`.
 `nsmbu/save` is already past the opening cutscene.
 This recipe starts from that save.
 
-```
+```bash
+run=.tmp/w11
+mkdir -p "$run/save" && cp -a nsmbu/save/. "$run/save/"
+NSMBU_HIDDEN_WINDOWS=1 NSMBU_NO_HOST_INPUT=1 NSMBU_VK_PRESENT_MODE=immediate \
+NSMBU_NO_AUDIO=1 NSMBU_RES_SCALE=1 \
 NSMBU_PRESS='1800-1820:8000,2600-2620:8000,3400-3420:8000,4200-4220:8000,5000-5020:8000,6300-6340:8000' \
 NSMBU_STICK='5400-6000:1:0' \
 NSMBU_DUMP_FRAMES=7000 \
 NSMBU_EXIT_AT_FRAME=7100 \
-tools/run/scripted-run.sh w11
+./build/debug/nsmbu --game game/usa-1.3.0 --save "$run/save"
 ```
 
 Frame 7000 is the course.
 The picture is the big tree, the bricks, and Mario on the ground.
 A world-map boot that stops before that last A is in Boot recipes below.
 
-### Compare two scripted runs
+### Compare two scenario runs
 
 `nsmbu scenario OUT [VAR=value …]` is the compare path.
 It boots hidden and muted on a copy of the save, with the user folder, the shader cache, and the states under `OUT`.
@@ -196,7 +170,7 @@ The switch changes no guest state; it only rebases those frame numbers.
 
 ### Mute
 
-The script sets `NSMBU_NO_AUDIO=1` so no output device is opened.
+Hidden boots set `NSMBU_NO_AUDIO=1` so no output device is opened.
 The mix still runs.
 Interactive mute is in the settings overlay (` or F12) > Audio.
 
@@ -210,14 +184,14 @@ Course replay benchmarks stay in [performance.md](performance.md).
 ### World map
 
 Launch `build/debug/nsmbu` yourself when the run must use `nsmbu/settings.ini` (165 fps interpolation, resolution scale, present mode).
-`nsmbu scripted` forces an immediate present, resolution scale 1, hidden windows, and a copy of the save.
+Hidden boots that copy the save into `.tmp/` usually set immediate present, resolution scale 1, and `NSMBU_HIDDEN_WINDOWS=1`.
 
 `NSMBU_USER_DIR` must be the repo `nsmbu/` directory.
 A `portable.txt` beside the binary wins over that variable.
 Without either one, settings and the shader cache come from `~/.config/nsmbu`.
 
 On a 165 Hz debug boot from `nsmbu/save` (file 0 on the Acorn Plains map), 200 frames between pulses is enough.
-The slower 800-frame list in the scripted example above is for walking into a course.
+The slower 800-frame list in the headless example above is for walking into a course.
 
 ```bash
 NSMBU_USER_DIR="$PWD/nsmbu" \
@@ -233,7 +207,7 @@ File select appears around frame 600.
 Course select is up before frame 3000.
 A settled debug map is about 165 swaps/s, acquire 1.00 per frame, about 60 hold frames out of 120, and about 82 logic steps/s.
 Another A after that scene enters the course.
-The stick and final A in the scripted example do that on purpose.
+The stick and final A in the headless example do that on purpose.
 
 `NSMBU_STATE_LOAD_AT` at TV frame 700 does not reach this save.
 The guest thread in the state is not alive yet, and a portable load of `slot1.nsstate` fails its checksum against the current save.
@@ -282,7 +256,7 @@ A menu check should enter `FileSelect` directly instead of waiting out this titl
 
 ## Related test aids
 
-These are separate from `scripted-run.sh` and appear in benches and device checks:
+These appear in benches and device checks:
 
 - Development builds write each pad change as an `[input]` line in the run log.
   Release builds do not.

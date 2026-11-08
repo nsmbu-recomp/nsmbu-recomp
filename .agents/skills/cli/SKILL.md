@@ -1,6 +1,6 @@
 ---
 name: cli
-description: "nsmbu CLI playtests, benches, boots, builds, dumps, and NSMBU_* variables. Use when running nsmbu test, bench, scenario, compare-runs, a scripted boot, a warm build, a dump switch, or a pose or interpolation check."
+description: "nsmbu CLI playtests, benches, boots, builds, dumps, and NSMBU_* variables. Use when running nsmbu test, bench, scenario, compare-runs, a warm build, a dump switch, or a pose or interpolation check."
 ---
 
 # nsmbu CLI
@@ -10,7 +10,8 @@ Run `nsmbu --help` for the command list.
 
 ## Docs
 
-Read `docs/developer/automation.md` for playtests, benches, course replay, `nsmbu scenario` / `compare-runs`, `nsmbu scripted`, and boot recipes.
+Read `docs/developer/automation.md` for playtests, benches, course replay, `nsmbu scenario` / `compare-runs`, and boot recipes.
+Frame time, CPU samples, GPU timestamp intervals, and world-map benches are the `profile` skill.
 Development builds write `[input]` pad lines.
 The line layout is in `docs/developer/replay-format.md`.
 Read `docs/developer/cli.md` for install, build/launch, and live control commands.

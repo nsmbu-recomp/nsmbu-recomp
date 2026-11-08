@@ -4,9 +4,12 @@ import os
 import subprocess
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib"))
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, "..", "lib"))
+sys.path.insert(0, HERE)
 import devdata
 import game_versions as gv
+import prof_digest
 import slot
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -22,28 +25,37 @@ PROFILE_ENV = {
 }
 
 
-def nsmbu_exe(prefer_release=False):
-    debug = os.path.join(ROOT, "build", "debug")
+def nsmbu_exe():
     release = os.path.join(ROOT, "build", "release")
+    debug = os.path.join(ROOT, "build", "debug")
     rel = os.path.join(ROOT, "build", "rel")
     flat = os.path.join(ROOT, "build")
-    preferred = release if prefer_release else debug
-    other = debug if prefer_release else release
-    for base in (preferred, other, rel, flat):
+    for base in (release, debug, rel, flat):
         for name in ("nsmbu", "nsmbu.exe"):
             path = os.path.join(base, name)
             if os.path.isfile(path):
                 return path
-    return os.path.join(preferred, "nsmbu")
+    return os.path.join(release, "nsmbu")
 
 
-def main():
+def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Run a fixed-scene profile of NSMBU.")
+    parser.add_argument("--cpu", action="store_true", help="sample CPU stacks with perf for this scene")
+    parser.add_argument("--seconds", type=int, default=25, help="seconds of CPU samples with --cpu")
+    parser.add_argument("--attach", type=int, help="sample this running game pid instead of starting a scene")
+    parser.add_argument("--no-digest", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--exit-at", type=int, default=EXIT_FRAME, help=f"stop at this TV frame (default {EXIT_FRAME})")
     parser.add_argument("--load-at", type=int, default=LOAD_FRAME, help=f"load the save at this TV frame (default {LOAD_FRAME})")
     parser.add_argument("--log", default=LOG, help=f"log file path (default {LOG})")
     parser.add_argument("run_args", nargs=argparse.REMAINDER)
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def main():
+    args = parse_args()
+    if args.cpu or args.attach is not None:
+        import perf
+        raise SystemExit(perf.run(args))
     slot_num, course_pack, run_args = slot.take_args(args.run_args)
     if course_pack is not None:
         sys.exit("profile needs a save slot, such as 1 (not a course pack like 1-1)")
@@ -73,7 +85,14 @@ def main():
     print(f"[profile] log {args.log}", flush=True)
     print(f"[profile] load slot {slot_num} at TV frame {args.load_at}; exit at {args.exit_at}", flush=True)
     os.chdir(ROOT)
-    raise SystemExit(subprocess.run(cmd, env=env).returncode)
+    code = subprocess.run(cmd, env=env).returncode
+    if not args.no_digest:
+        try:
+            text = open(args.log, errors="replace").read()
+        except OSError:
+            text = ""
+        sys.stdout.write(prof_digest.format_digest(text, args.log))
+    raise SystemExit(code)
 
 
 if __name__ == "__main__":
