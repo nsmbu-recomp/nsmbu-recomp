@@ -23,6 +23,8 @@ constexpr int kPartCount = 10;
 constexpr uint32_t kActive = 0x1A04;
 constexpr uint32_t kCursor = 0xEC8;
 constexpr uint32_t kCursorIndex = 0x250;
+constexpr uint32_t kCursorPrev = 0x254;
+constexpr uint32_t kCursorStep = 0x2C;
 constexpr uint32_t kCursorFocus = 0x25C;
 constexpr uint32_t kDecideAnime = 0x25E;
 constexpr uint32_t kDecideTrig = 0x25F;
@@ -59,6 +61,9 @@ static uint32_t g_prev_pad = 0;
 static bool g_click = false;
 static int g_click_age = 0;
 static int g_settle = 0;
+static bool g_blank = false;
+static bool g_saw_overlay = false;
+static bool g_nav = false;
 constexpr uint32_t kCursorMove = 0x10216958u;
 constexpr uint32_t kMenuIdle = 0x10211B14u;
 constexpr uint32_t kMenuAnim = 0x10211B54u;
@@ -66,6 +71,8 @@ constexpr uint32_t kMpState = 0x18;
 constexpr uint32_t kStateId = 8;
 static int g_force_idx = -1;
 static uint32_t g_force_btn = 0;
+static uint32_t g_show_btn = 0;
+static uint32_t g_leave_btn = 0;
 static int g_guide_from = -1;
 static std::mutex g_hit_mu;
 static float g_win_w = 0, g_win_h = 0, g_ox = 0, g_oy = 0, g_ow = 0, g_oh = 0;
@@ -190,10 +197,15 @@ static void forget(uint32_t self) {
         g_prev_pad = 0;
         g_force_idx = -1;
         g_force_btn = 0;
+        g_show_btn = 0;
+        g_leave_btn = 0;
         g_guide_from = -1;
         g_click = false;
         g_click_age = 0;
         g_settle = 0;
+        g_blank = false;
+        g_saw_overlay = false;
+        g_nav = false;
     }
 }
 
@@ -389,13 +401,13 @@ static void on_pad(uint32_t self) {
     if (!g_enabled.load() || overlay::is_open()) return;
     const uint32_t cursor = self + kCursor;
     const uint32_t pad_at = cursor + kPad;
-    if (ld8(cursor + kCursorFocus) == 0) {
-        g_prev_pad = ld32(pad_at);
+    const uint32_t pad = settings_dir_pad(ld32(pad_at), ld32(self + kMenuPads));
+    if (ld8(cursor + kCursorFocus) == 0 && !settings_move_without_focus(g_nav, g_blank, g_click)) {
+        g_prev_pad = pad;
         g_force_idx = -1;
         g_force_btn = 0;
         return;
     }
-    const uint32_t pad = ld32(pad_at);
     const uint32_t trig = pad & ~g_prev_pad;
     g_prev_pad = pad;
     if (g_settings) g_settings_idx = title_index(cursor, g_settings);
@@ -433,15 +445,62 @@ static void on_pad(uint32_t self) {
         const uint32_t btn = button_at(cursor, idx);
         if (btn) st8(btn + 0x84, settings_decide_byte(true));
     }
-    if (g_force_idx >= 0)
-        st32(pad_at, ld32(pad_at) & ~(kUp | kDown | kLeft | kRight));
+    if (g_force_idx >= 0) {
+        const uint32_t keep = ~(kUp | kDown | kLeft | kRight);
+        st32(pad_at, ld32(pad_at) & keep);
+        st32(self + kMenuPads, ld32(self + kMenuPads) & keep);
+    }
 }
 
 static void apply_choice(uint32_t self) {
     if (!g_enabled.load() || g_force_idx < 0 || !g_force_btn) return;
     const uint32_t cursor = self + kCursor;
-    st32(cursor + kCursorIndex, (uint32_t)g_force_idx);
+    const SettingsCursorPair pair = settings_cursor_pair(g_force_idx);
+    st32(cursor + kCursorIndex, (uint32_t)pair.current);
+    st32(cursor + kCursorPrev, (uint32_t)pair.previous);
+    const uint32_t shown = ld32(cursor + settings_yellow_target());
+    g_leave_btn = settings_release_previous(guest_obj(shown), shown == g_force_btn) ? shown : 0;
+    st32(cursor + settings_yellow_target(), g_force_btn);
     st32(cursor + 0x40, g_force_btn);
+    st32(cursor + kCursorStep, 0);
+    // Focus 0 returns before the cursor state that places the yellow cursor.
+    if (settings_focus_for_move(true)) st8(cursor + kCursorFocus, 1);
+    g_show_btn = g_force_btn;
+}
+
+static void hide_yellow_cursor(bool hide);
+
+// button+0x1C is the vtable. Offset 0x1C clears the old button. Offset 0x14 selects the new one.
+static void call_button(Cpu* c, uint32_t button, uint32_t slot) {
+    if (!guest_obj(button)) return;
+    const uint32_t vt = ld32(button + 0x1C);
+    if (!guest_obj(vt)) return;
+    const uint32_t fn = ld32(vt + slot);
+    if (!guest_obj(fn)) return;
+    guest_call(c, fn, {button});
+}
+
+// SelectCursor::set at 0x024C6744. r3 is the instance, r4 is the button, r5 is the cursor type.
+// A type of 0x18 returns before the layout moves.
+static void place_yellow(Cpu* c, uint32_t self) {
+    const uint32_t leave = g_leave_btn;
+    const uint32_t show = g_show_btn;
+    g_leave_btn = 0;
+    g_show_btn = 0;
+    if (!guest_obj(show)) return;
+    if (settings_release_previous(guest_obj(leave), leave == show)) call_button(c, leave, 0x1C);
+    call_button(c, show, 0x14);
+    c->r[3] = self;
+    const uint32_t cursor = self + kCursor;
+    st32(cursor + settings_yellow_target(), show);
+    st32(cursor + 0x40, show);
+    const uint32_t inst = ld32(0x101D17A8u);
+    if (!guest_obj(inst)) return;
+    uint32_t type = ld32(cursor + 0x258);
+    if (type >= 0x18u) type = 0;
+    guest_call(c, 0x024C6744u, {inst, show, type, 0});
+    c->r[3] = self;
+    hide_yellow_cursor(false);
 }
 
 static void clear_choice() {
@@ -474,8 +533,53 @@ static void finish_settings_click(Cpu* c, uint32_t self) {
     st8(cursor + kDecideAnime, 1);
     g_click = false;
     g_click_age = 0;
+    g_blank = true;
+    g_saw_overlay = false;
     g_settle = 4;
     if (settings_click_end(true).open_overlay) g_open_request.store(true);
+}
+
+static uint8_t g_cursor_draw = 1;
+
+static void hide_yellow_cursor(bool hide); 
+
+void blank_cursor() {
+    if (settings_hide_cursor(g_blank)) hide_yellow_cursor(true);
+}
+
+static void hide_yellow_cursor(bool hide) {
+    const uint32_t inst = ld32(0x101D17A8u);
+    if (!guest_obj(inst)) return;
+    const uint32_t at = inst + 0x2C5F4u;
+    if (hide) {
+        const uint8_t cur = ld8(at);
+        if (cur != 0) g_cursor_draw = cur;
+        st8(at, 0);
+        return;
+    }
+    st8(at, g_cursor_draw != 0 ? g_cursor_draw : 1);
+}
+
+static void restore_settings_menu(Cpu* c, uint32_t self) {
+    const uint32_t cursor = self + kCursor;
+    if (g_settings_idx >= 0) {
+        const uint32_t state_at = cursor + kButtonState + (uint32_t)g_settings_idx * 4;
+        st32(state_at, settings_repair(g_settings_idx, g_settings_idx, true, ld32(state_at)).word);
+    }
+    st8(cursor + kButtonLock, 0);
+    st8(cursor + kDecideTrig, 0);
+    st8(cursor + kTouchByte, 0);
+    clear_confirm(self);
+    guest_call(c, GC(0x029C4AF0u), {cursor + 0x10, GC(settings_cursor_state())});
+    guest_call(c, GC(0x029C4AF0u), {self + 0x10, GC(settings_return_state())});
+    c->r[3] = self;
+    st8(cursor + kCursorFocus, 1);
+    st8(cursor + kDecideAnime, 1);
+    hide_yellow_cursor(false);
+    g_blank = false;
+    g_saw_overlay = false;
+    g_nav = true;
+    g_settle = 4;
 }
 
 static bool anim_finished(Cpu* c, uint32_t self) {
@@ -487,9 +591,14 @@ static bool anim_finished(Cpu* c, uint32_t self) {
 }
 
 static void watch_settings_click(Cpu* c, uint32_t self) {
-    if (overlay::is_open()) {
-        g_click = false;
-        g_click_age = 0;
+    const bool open = overlay::is_open();
+    const SettingsBlank blank = settings_blank(g_blank, g_saw_overlay, open);
+    if (g_blank && open) g_saw_overlay = true;
+    if (blank.restore) {
+        restore_settings_menu(c, self);
+    } else if (blank.hold) {
+        st8(self + kCursor + kDecideAnime, 1);
+        clear_confirm(self);
         return;
     }
     if (!g_enabled.load() || !g_click || g_settings_idx < 0) return;
@@ -510,7 +619,15 @@ static void settle_settings(uint32_t self, bool tick) {
     if (!g_enabled.load() || g_settle <= 0) return;
     st8(self + kCursor + kDecideAnime, 1);
     clear_confirm(self);
-    if (tick) g_settle--;
+    if (!tick) return;
+    g_settle--;
+    // A set gate here blocks Plus and B, so the last settle frame clears it.
+    if (g_settle == 0) st8(self + kCursor + kDecideAnime, 0);
+}
+
+static void release_menu_gate(uint32_t self) {
+    if (!settings_move_without_focus(g_nav, g_blank, g_click)) return;
+    st8(self + kCursor + kDecideAnime, 0);
 }
 
 static uint16_t ru16(const uint8_t* p) {
@@ -995,4 +1112,8 @@ extern "C" void hook_025A4B98(Cpu* c) {
     map_menu::nudge(self);
     map_menu::arm_settings(self);
     map_menu::g_menu.store(self);
+    map_menu::blank_cursor();
+    map_menu::place_yellow(c, self);
+    map_menu::release_menu_gate(self);
+    c->r[3] = self;
 }

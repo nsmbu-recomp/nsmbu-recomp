@@ -89,6 +89,73 @@ inline uint8_t settings_decide_byte(bool pressed) {
     return pressed ? 0 : 1;
 }
 
+// InBtn brings the six buttons back. It runs after the overlay closes.
+constexpr uint32_t kSettingsMenuReturn = 0x10211DF4u;
+
+inline uint32_t settings_return_state() { return kSettingsMenuReturn; }
+
+// The menu pad and the cursor pad both carry directions. Either one can move the cursor.
+inline uint32_t settings_dir_pad(uint32_t cursor_pad, uint32_t menu_pad) {
+    return cursor_pad | menu_pad;
+}
+
+// Hover copies the previous index over the current one, so a move writes both.
+struct SettingsCursorPair {
+    int current = -1;
+    int previous = -1;
+};
+
+inline SettingsCursorPair settings_cursor_pair(int index) {
+    SettingsCursorPair pair;
+    pair.current = index;
+    pair.previous = index;
+    return pair;
+}
+
+// Button-manager step 2 moves the yellow cursor onto the new button.
+inline uint32_t settings_cursor_step() { return 2; }
+
+// The yellow cursor follows the button at this offset, not the manager's current slot at +0x40.
+inline uint32_t settings_yellow_target() { return 0x3C; }
+
+// The previous button keeps its selected look until a different button replaces it.
+inline bool settings_release_previous(bool previous_valid, bool same_button) {
+    return previous_valid && !same_button;
+}
+
+// A clear focus byte returns before that step runs. A move sets focus for that frame.
+inline bool settings_focus_for_move(bool choosing) { return choosing; }
+
+// After the overlay closes, a direction is handled even when the cursor focus is clear.
+// Opening and closing the menu leave that focus clear, so this stays false until the overlay has closed.
+inline bool settings_move_without_focus(bool after_overlay, bool blank, bool clicking) {
+    return after_overlay && !blank && !clicking;
+}
+
+// The yellow cursor stays off the blank page. After the overlay closes it uses the hover state.
+inline bool settings_hide_cursor(bool blank) { return blank; }
+
+constexpr uint32_t kSettingsCursorHover = 0x102169B8u;
+
+inline uint32_t settings_cursor_state() { return kSettingsCursorHover; }
+
+// The buttons stay on the blank frame while the overlay is open.
+struct SettingsBlank {
+    bool hold = false;
+    bool restore = false;
+};
+
+inline SettingsBlank settings_blank(bool waiting, bool saw_overlay, bool overlay_open) {
+    SettingsBlank blank;
+    if (!waiting) return blank;
+    if (saw_overlay && !overlay_open) {
+        blank.restore = true;
+        return blank;
+    }
+    blank.hold = true;
+    return blank;
+}
+
 // The click ends in the button action. Settings stays on this menu and opens the overlay.
 struct SettingsClickEnd {
     bool keep_menu = false;
