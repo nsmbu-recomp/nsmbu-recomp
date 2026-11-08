@@ -40,7 +40,6 @@ Mario and Luigi run in before the logo and the "Press 2!" line.
 Press A when that line is on screen.
 Press A for those 20 frames, then wait.
 A hold across the title confirms the file and skips the menu.
-On a 21:9 boot the title iris still stops at the 16:9 circle, with black on the left and right, until the next scene fills the frame.
 Done when status shows `scene=Menu` and the screenshot is the three save files.
 The popup is done at the first `scene=FileSelect`.
 The title picture is `scene=Title`.

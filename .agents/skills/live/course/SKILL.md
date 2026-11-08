@@ -36,8 +36,6 @@ Done when status shows `scene=CourseSelect` and `map=1`.
 The in-level pause menu is the `pause-menu` skill.
 That menu is not the world-map start menu.
 `nsmbu test replay-1-1` plays the recorded 1-1 pad log and checks the player path.
-That recording is USA.
-On an EU dump the path diverges by the flag.
 A quit from `2-1` stands on `W201`.
 The `world-map` skill covers the camera that can stay on `W2M0`.
 `[prof]` in `.tmp/playtest/replay-1-1/nsmbu.log` is the course measurement.
