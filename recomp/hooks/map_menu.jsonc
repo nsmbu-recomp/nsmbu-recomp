@@ -8,7 +8,7 @@
   ],
   "sites": [
     { "address": "026730C4" }, // AnimLayoutBase::build: add a native Settings button to the world-map start menu
-    { "address": "02AB7040" }, // f_02AB702C: give the Settings button the same open and close curves
+    { "address": "02AB7040" }, // nw::lyt::AnimTransform::SetResource: give the Settings button the same open and close curves
     { "address": "02682674" } // UtilCursorButtonMgr::execute: keep Settings in the right column
   ]
 }

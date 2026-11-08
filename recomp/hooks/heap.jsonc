@@ -2,6 +2,6 @@
 
 {
   "hooks": [
-    { "address": "02ACD218" } // f_02ACD218: wait for the ring at this+0x4A8 on nested grow
+    { "address": "02ACD218" } // FrameAllocator::grow: wait for the ring at this+0x4A8 on nested grow
   ]
 }

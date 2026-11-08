@@ -24,8 +24,8 @@
     { "address": "029D9E2C" }, // SaveMgr::savePersonalSavedata: log personal save write
     { "address": "029D8C48" }, // SaveMgr::startSaveGame: if that snapshot did not move, keep the quick record in main
     { "address": "029D71A4" }, // copyFileSelectCourseFlags_: quick record when that slot path is the caller
-    { "address": "02631BE4" }, // f_02631B50: file-select completion byte, quick path
-    { "address": "0263ADD8" }, // f_0263AD40: file-select completion byte, quick path
-    { "address": "02641A4C" } // f_02641974: file-select completion byte, quick path
+    { "address": "02631BE4" }, // SaveDataSelect::buildQuickSlot: file-select completion byte, quick path
+    { "address": "0263ADD8" }, // SaveDataSelect::buildQuickSlotB: file-select completion byte, quick path
+    { "address": "02641A4C" } // SaveDataSelect::buildCopySlot: file-select completion byte, quick path
   ]
 }

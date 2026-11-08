@@ -5,7 +5,7 @@
     {
       "address": "024D752C",
       "same": true
-      // f_024D752C: drop items whose model pointer at node+0x28 is null
+      // ModelDrawMgr::buildQueues: drop items whose model pointer at node+0x28 is null
     },
     { "address": "024EFE58" }, // ModelFFL::drawOpa: skip while the Mii shader program is null
     { "address": "024F009C" } // ModelFFL::drawXlu: skip while the Mii shader program is null

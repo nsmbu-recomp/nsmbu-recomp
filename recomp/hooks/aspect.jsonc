@@ -4,7 +4,7 @@
   "hooks": [
     { "address": "022A7760" }, // DistantViewMgr::calcView_: keep the distant-view projection on the chosen aspect
     { "address": "029A6170" }, // BgScrollMgr::updateScreen: widen scalar and background X edges with the camera
-    { "address": "029B85C8" }, // f_029B85C8: fader layers cover the wide picture
+    { "address": "029B85C8" }, // SndBgmMgr::updateForLayer: fader layers cover the wide picture
     { "address": "02A06818" }, // sead::OrthoProjection::setTBLR: widen or heighten a 16:9 screen rect
     { "address": "02A061AC" }, // sead::PerspectiveProjection::PerspectiveProjection: replace a baked 16:9 aspect
     { "address": "02A062EC" }, // sead::PerspectiveProjection::set: same replacement on the per-frame setter
