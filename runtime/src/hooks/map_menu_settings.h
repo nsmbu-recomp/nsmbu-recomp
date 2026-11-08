@@ -123,6 +123,9 @@ inline bool settings_release_previous(bool previous_valid, bool same_button) {
     return previous_valid && !same_button;
 }
 
+// The button manager plays this on the new button after a move. +0x98 or +0x7C skips it.
+inline uint32_t settings_cursor_sound() { return 0x02677A38u; }
+
 // A clear focus byte returns before that step runs. A move sets focus for that frame.
 inline bool settings_focus_for_move(bool choosing) { return choosing; }
 

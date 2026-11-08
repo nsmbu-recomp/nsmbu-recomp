@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The yellow selection cursor hides with those buttons, and it can move again after the overlay closes.
 - Left from Settings moves the yellow cursor onto Main Menu after that overlay closes.
 - A start-menu button drops its selected look when the cursor moves to another button.
+- The cursor plays its move sound when it lands on Settings.
 
 ### Removed
 

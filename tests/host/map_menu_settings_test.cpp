@@ -78,6 +78,7 @@ int main() {
     check(settings_release_previous(true, false), "a move clears the previous button");
     check(!settings_release_previous(true, true), "the same button stays selected");
     check(!settings_release_previous(false, false), "a missing button is left alone");
+    check(settings_cursor_sound() == 0x02677A38u, "a move plays the cursor sound");
     check(settings_focus_for_move(true), "a move sets focus so the yellow cursor follows");
     check(!settings_focus_for_move(false), "an idle frame leaves focus to the game");
     check(settings_move_without_focus(true, false, false), "a direction moves after the overlay closes");

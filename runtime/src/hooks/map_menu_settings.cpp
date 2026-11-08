@@ -488,8 +488,10 @@ static void place_yellow(Cpu* c, uint32_t self) {
     g_leave_btn = 0;
     g_show_btn = 0;
     if (!guest_obj(show)) return;
-    if (settings_release_previous(guest_obj(leave), leave == show)) call_button(c, leave, 0x1C);
+    const bool moved = settings_release_previous(guest_obj(leave), leave == show);
+    if (moved) call_button(c, leave, 0x1C);
     call_button(c, show, 0x14);
+    if (moved) guest_call(c, settings_cursor_sound(), {show});
     c->r[3] = self;
     const uint32_t cursor = self + kCursor;
     st32(cursor + settings_yellow_target(), show);
