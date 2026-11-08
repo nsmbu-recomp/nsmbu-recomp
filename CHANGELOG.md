@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- The course pause menu has a Settings button under Change Controller.
+  A or Enter plays the pause click and opens this overlay.
+  The pause buttons stay hidden until the overlay closes.
+  Settings → Debug can turn that button off.
+
 ### Changed
 
 - The New Super Luigi U story-map notice appears again when that add-on is installed.

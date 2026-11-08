@@ -14,6 +14,8 @@ Pass only the pack.
 `nsmbu goto 1-1` loads that pack when a game is already open.
 
 `nsmbu open` uses the repo `nsmbu/` settings and the active dump.
+A `*-base` dump only boots.
+A scene check needs a `*-1.3.0` dump, such as `usa-1.3.0`.
 If open reports a game already running, read `nsmbu status` or run `nsmbu close`, then open again.
 
 ```bash
@@ -25,6 +27,7 @@ nsmbu status
 The log line `[open]` ends with `course up`.
 Done when status shows `scene=CourseTask`, `course=1`, `map=0`, `pack=1-1`, and `player=` is not `none`.
 `entering=` is absent on that line.
+While the loading card is up, status can still show the map, and `entering=` names the pack that is loading.
 Check soon after play starts.
 A long idle in `1-1` lets the Goomba hit Mario.
 
@@ -33,6 +36,10 @@ Done when status shows `scene=CourseSelect` and `map=1`.
 The in-level pause menu is the `pause-menu` skill.
 That menu is not the world-map start menu.
 `nsmbu test replay-1-1` plays the recorded 1-1 pad log and checks the player path.
+That recording is USA.
+On an EU dump the path diverges by the flag.
+A quit from `2-1` stands on `W201`.
+The `world-map` skill covers the camera that can stay on `W2M0`.
 `[prof]` in `.tmp/playtest/replay-1-1/nsmbu.log` is the course measurement.
 Use `nsmbu open 1-1` when the question is the live course.
 

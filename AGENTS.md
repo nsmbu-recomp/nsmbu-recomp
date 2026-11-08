@@ -31,7 +31,3 @@ The new test fails on the old behavior and passes with the change.
 - `python3 -m unittest discover -s tests/py -p "test_*.py"` runs the Python tests.
 - `npm test --prefix tools/cli` runs the Node unit tests.
 - `nsmbu test` runs only the game playtests in `tools/cli/test/playtests.test.ts`.
-
-## Verification
-
-Read the `verify` skill before you finish a change.

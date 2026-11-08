@@ -21,7 +21,10 @@ This boot keeps `nsmbu/settings.ini` (frame cap, resolution, present mode).
 Leave `NSMBU_INTERP_FPS`, `NSMBU_RES_SCALE`, `NSMBU_VK_PRESENT_MODE`, and `NSMBU_HIDDEN_WINDOWS` unset when the check is that session.
 
 `nsmbu open` uses the repo `nsmbu/` settings and the active dump.
+A `*-base` dump only boots.
+A scene check needs a `*-1.3.0` dump, such as `usa-1.3.0`.
 If open reports a game already running, read `nsmbu status` or run `nsmbu close`, then open again.
+`nsmbu bench` and `nsmbu game … --recomp` also refuse while that game is running.
 
 ```bash
 nsmbu open
@@ -35,6 +38,13 @@ The map iris can still be up on that line.
 A picture then misses Map View and Items.
 Wait until those labels are drawn, then save `nsmbu screenshot .tmp/repro/overworld.png`.
 On a 21:9 map the world name reads Acorn Plains.
+A map with no Luigi U add-on can show "Check out New Super Luigi U" and an eShop question.
+No stores that notice in the save.
+It does not mount the add-on.
+
+A quit from course `2-1` stands on `W201` (Stone-Eye Zone).
+The picture can still be the world-2 entrance `W2M0`: the pond, the island, and the stump, with Mario at the right edge.
+Read `name=` for the node.
 
 ## Start menu
 
@@ -50,7 +60,9 @@ Plus during the map iris leaves the map up and the menu closed.
 The five game buttons are Star Coins, Number of Players, and Change Controller on the top row.
 Quick Save and Main Menu sit on the bottom row.
 From Quick Save, Up selects Star Coins and Down selects the button guide.
+Down from Number of Players selects Main Menu.
 From Settings, Up selects Change Controller and Left selects Main Menu.
+Inside Change Controller, Down stays on Switch to GamePad.
 Settings is a sixth tile under Change Controller when Settings, Debug, Settings button on the start menu is on.
 The game builds that tile when the map loads.
 Leave to the title, then come back, before you look for it.

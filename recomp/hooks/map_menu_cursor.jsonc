@@ -3,6 +3,6 @@
 {
   "builds": ["USA", "EU", "NSMBU_NSLU_USA", "NSMBU_NSLU_EU"],
   "sites": [
-    { "address": "025A4C5C" }
+    { "address": "025A4C5C" } // CourseSelectMenu::execute: place the cursor before it animates
   ]
 }

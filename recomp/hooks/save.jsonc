@@ -3,7 +3,7 @@
 {
   "hooks": [
     { "address": "029D9E30" }, // SaveMgr::runState: log which save-thread state is starting (state in r5)
-    { "address": "029D9560" }, // saveSavedata: log write result and host file size
+    { "address": "029D9560" }, // SaveMgr::saveSavedata: log write result and host file size
     { "address": "029D8270" }, // SaveMgr::startReadGame: log when a main save read is requested
     { "address": "029D8304" }, // SaveMgr::startWriteGame: log when a main save write is requested
     { "address": "029D82D4" }, // SaveMgr::startReadPersonalSavedata: log personal read request
@@ -14,18 +14,18 @@
       // continueFirstSave: log empty vs CourseSelect decision
     },
     // Keep these. They record the story without going through the log above.
-    { "address": "029D8478" }, // clear the opened file's quick record: keep that progress in the story record first
+    { "address": "029D8478" }, // SaveMgr::clearQuickAndWrite: keep that progress in the story record first
     { "address": "029D7648" }, // applySaveFile: log which file record is applied
-    { "address": "029D8C10" } // startSaveGame: remember main vs quick before the live snapshot
+    { "address": "029D8C10" } // SaveMgr::startSaveGame: remember main vs quick before the live snapshot
   ],
   "sites": [
-    { "address": "029D94C0" }, // end of loadSavedata: log read result and per-file exists flags
-    { "address": "029D9CB8" }, // end of loadPersonalSavedata: log personal save read
-    { "address": "029D9E2C" }, // end of savePersonalSavedata: log personal save write
-    { "address": "029D8C48" }, // startSaveGame: if that snapshot did not move, keep the quick record in main
-    { "address": "029D71A4" }, // file-select course flags: quick record when that slot path is the caller
-    { "address": "02631BE4" }, // file-select completion byte, quick path (slot builder 0x02631B50)
-    { "address": "0263ADD8" }, // file-select completion byte, quick path (slot builder 0x0263AD40)
-    { "address": "02641A4C" } // file-select completion byte, quick path (slot builder 0x02641974)
+    { "address": "029D94C0" }, // SaveMgr::loadSavedata: log read result and per-file exists flags
+    { "address": "029D9CB8" }, // SaveMgr::loadPersonalSavedata: log personal save read
+    { "address": "029D9E2C" }, // SaveMgr::savePersonalSavedata: log personal save write
+    { "address": "029D8C48" }, // SaveMgr::startSaveGame: if that snapshot did not move, keep the quick record in main
+    { "address": "029D71A4" }, // copyFileSelectCourseFlags_: quick record when that slot path is the caller
+    { "address": "02631BE4" }, // f_02631B50: file-select completion byte, quick path
+    { "address": "0263ADD8" }, // f_0263AD40: file-select completion byte, quick path
+    { "address": "02641A4C" } // f_02641974: file-select completion byte, quick path
   ]
 }

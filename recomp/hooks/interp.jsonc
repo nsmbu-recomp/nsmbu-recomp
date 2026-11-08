@@ -6,37 +6,37 @@
     { "address": "029C52CC" }, // ApplicationFramework::procCalc_: start a frame; an in-between pass skips the task-tree logic
     { "address": "024FBF6C" }, // RenderObjRenderMgr::calcView: bake the in-between camera projection for the draw
     // Course-layer draws. Each one reads the live ortho at RenderInfo+0x18 for this picture, then restores the logic edges.
-    // 024B47A8 and 024B47C8 take that RenderInfo in r6.
-    // The 0269xxxx draws take it in r4, except 0269325C which takes it in r5.
-    // The ground and brick passes are in this layer, not only 0269325C.
-    { "address": "024B47A8" }, // course tiles: in-between ortho for this draw, then the logic edges
-    { "address": "024B47C8" }, // course tiles: the second tile draw
-    { "address": "026904D4" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "026905C0" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "02690680" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "0269083C" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "02691690" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "0269179C" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "026917E4" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "02691868" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "0269196C" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "02691970" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "026919A4" }, // course tile draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "02691A8C" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "02691B74" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "02691DF0" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "02691EAC" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "0269206C" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "026920B0" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "02692194" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "0269222C" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "02692748" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "0269282C" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "026928C4" }, // course-layer draw: capture the live ortho from RenderInfo in r4, then restore the logic edges
-    { "address": "0269325C" }, // ground and brick pass: capture the live ortho from RenderInfo in r5, then restore the logic edges
-    { "address": "0268B70C" }, // Bg grass/flower TexQuad draw: in-between camera and blended deco arrays
+    // f_024B47A8 and f_024B47C8 take that RenderInfo in r6.
+    // The f_0269xxxx draws take it in r4, except f_0269325C which takes it in r5.
+    // The ground and brick passes are in this layer, not only f_0269325C.
+    { "address": "024B47A8" }, // f_024B47A8: in-between ortho for this draw, then the logic edges
+    { "address": "024B47C8" }, // f_024B47C8: the second tile draw
+    { "address": "026904D4" }, // f_026904D4: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "026905C0" }, // f_026905C0: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02690680" }, // f_02690680: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269083C" }, // f_0269083C: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691690" }, // f_02691690: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269179C" }, // f_0269179C: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "026917E4" }, // f_026917E4: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691868" }, // f_02691868: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269196C" }, // f_0269196C: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691970" }, // f_02691970: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "026919A4" }, // f_026919A4: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691A8C" }, // f_02691A8C: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691B74" }, // f_02691B74: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691DF0" }, // f_02691DF0: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691EAC" }, // f_02691EAC: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269206C" }, // f_0269206C: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "026920B0" }, // f_026920B0: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02692194" }, // f_02692194: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269222C" }, // f_0269222C: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02692748" }, // f_02692748: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269282C" }, // f_0269282C: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "026928C4" }, // f_026928C4: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269325C" }, // f_0269325C: capture the live ortho from RenderInfo in r5, then restore the logic edges
+    { "address": "0268B70C" }, // Bg::drawGrassAndFlowers: in-between camera and blended deco arrays
     { "address": "029C4FE4" }, // ApplicationFramework::procDraw_: a 30 fps step draws no frame
-    { "address": "029FD94C" }, // DualScreenMethodTreeMgr::drawBtm: skip the GamePad picture when that screen is hidden
+    { "address": "029FD94C" }, // sead::DualScreenMethodTreeMgr::drawBtm: skip the GamePad picture when that screen is hidden
     { "address": "024F30DC" } // ModelG3d::calcGPU: capture the model world pose and draw the in-between pass blended
   ]
 }

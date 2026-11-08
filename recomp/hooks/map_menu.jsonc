@@ -2,13 +2,13 @@
 
 {
   "hooks": [
-    { "address": "025A4218" }, // CourseSelectMenu destructor: drop the settings button
+    { "address": "025A4218" }, // CourseSelectMenu::~CourseSelectMenu: drop the settings button
     { "address": "025A42CC" }, // CourseSelectMenu::create: move Quick Save and Main Menu into the left and middle columns
     { "address": "025A4B98" } // CourseSelectMenu::execute: keep that grid and open settings from the new button
   ],
   "sites": [
-    { "address": "026730C4" }, // layout build: add a native Settings button to the world-map start menu
-    { "address": "02AB7040" }, // anim parse: give the Settings button the same open and close curves
-    { "address": "02682674" } // cursor hit refresh: keep Settings in the right column
+    { "address": "026730C4" }, // AnimLayoutBase::build: add a native Settings button to the world-map start menu
+    { "address": "02AB7040" }, // f_02AB702C: give the Settings button the same open and close curves
+    { "address": "02682674" } // UtilCursorButtonMgr::execute: keep Settings in the right column
   ]
 }

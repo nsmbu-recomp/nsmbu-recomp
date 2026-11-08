@@ -11,13 +11,20 @@ The title is the next scene.
 One A on the title opens the save-file menu.
 That menu is `MenuScene`, so status reads `scene=Menu`.
 The menu shows three save files.
-One A there confirms file 0 and opens the world map.
+One A there confirms file 0.
+The next screen can be Mario's "Yes! Let's go!" confirm.
+One more A there opens the world map.
 The `world-map` skill owns that map.
+`scene=SaveSelect` is the challenge menu.
+That menu is not the three story files.
 `nsmbu goto file` stops on `scene=FileSelect`.
 That stop is the popup.
 
 `nsmbu open` uses the repo `nsmbu/` settings and the active dump.
+A `*-base` dump only boots.
+A scene check needs a `*-1.3.0` dump, such as `usa-1.3.0`.
 If open reports a game already running, read `nsmbu status` or run `nsmbu close`, then open again.
+`nsmbu bench` and `nsmbu game … --recomp` also refuse while that game is running.
 
 ```bash
 nsmbu open

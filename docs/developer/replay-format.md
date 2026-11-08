@@ -184,7 +184,6 @@ The next logged frame is the first frame the previous hold is no longer down, so
 That pair is `NSMBU_PRESS=100-109:8000` and `NSMBU_STICK=100-109:1:0`.
 
 An agent that cannot produce the input asks a person to do it once on the debug build, copies these lines, and reruns them.
-The steps are in the `verify` skill.
 
 ## Related
 

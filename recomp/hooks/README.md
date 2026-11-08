@@ -5,6 +5,7 @@ Each `.jsonc` file lists guest addresses the recompiler replaces.
 `sites` is an array of single instructions.
 `address` is eight hex digits.
 A `//` comment names that entry.
+The name is the function declared in `vendor/decomp/include`.
 `"same": true` on a hook is a whole-function wrap that was checked on builds that compile the body differently.
 `"builds": ["NAME", ...]` limits the file to those builds.
 
@@ -15,5 +16,6 @@ A `//` comment names that entry.
 - `heap.jsonc` — frame allocator wait
 - `interp.jsonc` — frame interpolation and course-layer camera edges
 - `map_menu.jsonc` — world-map settings button
+- `pause_menu.jsonc` — course pause settings button
 - `map_menu_cursor.jsonc` — world-map cursor placement on 1.3.0 discs (`USA`, `EU`, and the Luigi U combos)
 - `save.jsonc` — save log and quick-record sites

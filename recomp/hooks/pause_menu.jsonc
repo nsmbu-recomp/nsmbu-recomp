@@ -1,0 +1,7 @@
+// Course pause settings button.
+
+{
+  "hooks": [
+    { "address": "025F3834" } // PauseGame::execute: open settings from the new button and keep Continue, Quit, and Change Controller
+  ]
+}

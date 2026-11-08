@@ -1,45 +1,34 @@
 # Agent verification
 
-How agents are expected to check work in this repo: policy, commands, CI mirrors, and gaps.
-
-For day-to-day finish rules, read the `verify` skill (`.agents/skills/verify/SKILL.md`) first.
-This document is the full inventory behind that skill.
+How agents check work in this repo: commands, CI mirrors, and gaps.
 
 ## Policy stack
 
 Three layers apply on most changes.
 
-**`AGENTS.md`** — Before finishing, read the `verify` skill.
-Run every check a command, playtest, boot, or APK install can settle.
-When someone must play through a level, end the turn with explicit player steps.
+**`AGENTS.md`** — The Tests section names the suite for a behavior change.
 
 **Project skills** (`.agents/skills/`) — Routing table:
 
-- **`verify`** — Default host (Linux + `usa-1.3.0`), Android APK when relevant, player-step template.
-- **`nsmbu`** — Builds, dumps, playtests, benches, scripted boots, live look, replay.
-- **`scenes`** — Short boots to map, course, or title (`references/` recipes).
+- **`cli`** — Builds, dumps, playtests, benches, scripted boots, live look, replay.
+- **`file-select`**, **`world-map`**, **`course`** — How to open and operate that place (`.agents/skills/live/`).
 - **`pre-release`** / **`release`** — Full `nsmbu test`, installer, tag workflow.
 - **`decompile`** — Decomp workflow only (no compile-time proof in NSMBU).
 - **`crash`** — Where run, crash, and setup logs are, and what each file contains.
 
 **Docs** — `docs/developer/automation.md`, `docs/developer/cli.md`, `docs/developer/env.md`, boot recipes, issue ↔ test mapping in automation.
 
-### Decision rule (`verify` skill)
+### Checks
 
-If a command can prove pass or fail in this turn, run it.
-Examples: unit test, `nsmbu test`, scene boot, screenshot, `nsmbu apk`.
+Examples that can show a wrong result: unit test, `nsmbu test`, scene boot, screenshot, `nsmbu apk`.
 
-If the missing piece is controller input, ask a person to do it once on the debug build and rerun the `[input]` log.
-The `verify` skill has the steps.
-The line layout is in [replay-format.md](replay-format.md).
+The `[input]` line layout is in [replay-format.md](replay-format.md).
 
 If someone must judge a level, end with Host, Place, Actions, and Pass, and call that part unverified.
 
 ```mermaid
 flowchart TD
-  done[Finishing a change]
-  done --> readVerify[Read verify skill]
-  readVerify --> canCmd{Can a command settle it?}
+  canCmd{Can a command settle it?}
   canCmd -->|yes| runAll[Run all such checks]
   canCmd -->|no| input{Can one play be logged?}
   input -->|yes| relog[Ask, then rerun the input log]
@@ -95,7 +84,7 @@ Logs must contain `[renderer smoke] PASS:` and must not show validation errors (
 ### CLI typecheck
 
 `docs/developer/cli.md` mentions `tsc --noEmit` for the CLI itself.
-That is not wired into the `verify` skill or CI as a single mandatory agent step.
+That is not wired into CI as a single mandatory agent step.
 
 ### Scripted run comparison
 
@@ -116,7 +105,7 @@ It does not run `nsmbu test`.
 
 ## Tier B — Needs `game/` and a debug build
 
-Default dump per `verify`: **`usa-1.3.0`**.
+Default dump: **`usa-1.3.0`**.
 Use `nsmbu game --list` and `nsmbu game usa-1.3.0`.
 Do not run bare `nsmbu game` (TUI).
 
@@ -156,9 +145,9 @@ Issue coverage outside playtests (see `docs/developer/automation.md`):
 - #7 choppy gameplay — no deterministic playtest; shader precompile and Vulkan smoke cover mitigations
 - 0.6.2 mismatched color-target freeze — Vulkan renderer smoke (`mismatched_color_targets`)
 
-### Short scene boots (`scenes` skill)
+### Short boots (`file-select`, `world-map`, `course`)
 
-Recipes in `.agents/skills/scenes/references/*.md`.
+Recipes in `.agents/skills/live/*/SKILL.md`.
 Boot, poll `nsmbu wait` / `nsmbu status`, save `nsmbu screenshot .tmp/repro/…`.
 Checks that must keep passing belong in a `PlayCase`, not a one-off boot.
 
@@ -208,7 +197,7 @@ Not a pass/fail regression harness like `nsmbu test`.
 
 ## Tier C — Android
 
-From `verify`:
+Android checks:
 
 - `nsmbu apk` — build release-style setup APK (no game inside), install via adb
 - `python3 tools/android/apk.py --list-devices`, `--device SERIAL` when multiple devices
@@ -220,7 +209,7 @@ No on-device gameplay in CI.
 
 ## Tier D — Human only
 
-Use the `verify` player-step block: Host, Place, Actions, Pass.
+Player steps name Host, Place, Actions, and Pass.
 Label **unverified** until a person completes those steps.
 
 Examples from docs:
@@ -261,18 +250,16 @@ WWHD’s `vendor/ZeldaWWHDRecomp/tools/verify/` harness is upstream reference, n
 
 **Strong today**
 
-- Finish rule in `AGENTS.md` plus `verify` skill
 - `nsmbu test` as canonical game regression API with docs in `automation.md`
 - Rich Tier A mirror in `linux.yml` that agents can replay locally
 
 **Fragmented or easy to miss**
 
-- `verify` mentions unit tests generically but not `ctest`, Python discovers, or `--renderer-smoke`
 - Playtests never run in CI; agents without `game/usa-1.3.0` cannot fully verify game changes
-- Three short-check paths overlap: `scenes`, live look, `nsmbu scripted` — skill says lasting checks → playtest, nothing enforces it
-- `pre_push` ≠ `verify` ≠ `pre-release` — different command subsets
-- Android verify is install-shaped, not gameplay automation
-- CLI TypeScript has no first-class “run before finish” step in `verify`.
+- Three short-check paths overlap: `file-select` / `world-map` / `course`, live look, `nsmbu scripted` — skill says lasting checks → playtest, nothing enforces it
+- `pre_push` and `pre-release` run different command subsets
+- Android install is not gameplay automation
+- CLI TypeScript has no first-class “run before finish” step.
 
 ## Related docs
 

@@ -16,10 +16,14 @@ Quit leaves the course.
 `nsmbu leave` is that quit.
 Done when status shows `scene=CourseSelect` and `map=1`.
 
-Settings is a fourth row under Change Controller when Settings, Debug, Settings button on the pause menu is on.
-That option starts off.
+Settings is a fourth row under Change Controller.
+That row starts on.
+Press `` ` `` or F12.
+Open Debug.
+Under World map, turn off Settings button on the pause menu to hide it.
 The game builds the menu when the course loads.
 Leave the course and enter it again after you change the option.
+A course that loaded with the switch off keeps the three original rows.
 A or Enter on Settings plays the pause click and opens the port overlay.
 The pause buttons stay hidden while the overlay is open.
 The course stays paused.

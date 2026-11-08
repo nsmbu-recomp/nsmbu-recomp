@@ -1109,8 +1109,11 @@ extern "C" void hook_025A4218(Cpu* c) {
     f_025A4218_orig(c);
 }
 
+extern "C" void pause_menu_site_026730C4(Cpu* c, uint32_t layout);
+
 extern "C" void site_026730C4(Cpu* c) {
     map_menu::install_settings_button(c, c->r[26]);
+    pause_menu_site_026730C4(c, c->r[26]);
 }
 
 extern "C" void site_02AB7040(Cpu* c) {
