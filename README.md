@@ -148,5 +148,7 @@ This repository was forked from the [Wind Waker HD recompilation](https://github
 
 The Collision Viewer is based on the collision viewer from [Tsuru](https://github.com/Zenith-Team/Tsuru).
 
+The headers and the decompilation are from [aboood40091/NSMBU-Headers](https://github.com/aboood40091/NSMBU-Headers).
+
 > [!NOTE]
 > This project is made with the help of AI agents.

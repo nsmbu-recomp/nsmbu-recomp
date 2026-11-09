@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - The README lists more of the port's features.
 - The README lists the game program's command-line options.
+- The README credits [NSMBU-Headers](https://github.com/aboood40091/NSMBU-Headers) for the headers and the decompilation.
 - The New Super Luigi U story-map notice appears again when that add-on is installed.
 
 ### Fixed
