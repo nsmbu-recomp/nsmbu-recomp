@@ -40,6 +40,7 @@
 #include "mods/sdk/nsmbu.h"
 #include "overlay/hostui.h"
 #include "overlay/overlay.h"
+#include "overlay/overlay_click.h"
 #include "core/runtime.h"
 
 namespace agent_ctl {
@@ -205,6 +206,15 @@ std::string handle_ui(int id) {
     v.object["id"] = id;
     v.object["ok"] = true;
     v.object["overlay"] = overlay::is_open();
+    float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+    if (overlay::close_button(x0, y0, x1, y1)) {
+        mods::json::Value box;
+        box["x0"] = (double)x0;
+        box["y0"] = (double)y0;
+        box["x1"] = (double)x1;
+        box["y1"] = (double)y1;
+        v.object["close"] = std::move(box);
+    }
     const char* tab = overlay::settings_tab();
     if (tab && tab[0]) v.object["tab"] = tab;
     map_menu::MenuProbe menu;
@@ -426,6 +436,25 @@ void handle_request(const mods::json::Value& req) {
     if (cmd == "ui") {
         std::lock_guard<std::mutex> lk(g_mu);
         g_jobs.push_back(GuestJob{id, GuestOp::Ui, {}});
+        return;
+    }
+    if (cmd == "click") {
+        if (req.get("target").string() != "close") {
+            queue_line(response_err(id, "missing target"));
+            return;
+        }
+        float x = 0, y = 0;
+        if (!overlay::click_close(x, y)) {
+            queue_line(response_err(id, "close button is not on screen"));
+            return;
+        }
+        mods::json::Value v;
+        v.type = mods::json::Value::Object;
+        v.object["id"] = id;
+        v.object["ok"] = true;
+        v.object["x"] = (double)x;
+        v.object["y"] = (double)y;
+        queue_line(mods::json::dump(v));
         return;
     }
     if (cmd == "actors") {

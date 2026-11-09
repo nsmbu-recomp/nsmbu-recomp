@@ -16,6 +16,7 @@ import {
 } from "../src/dev.ts";
 import {
     cmdActors,
+    cmdClick,
     cmdEval,
     cmdGoto,
     cmdLeave,
@@ -157,6 +158,9 @@ async function main(): Promise<void> {
                 break;
             case "ui":
                 await cmdUi(repo);
+                break;
+            case "click":
+                await cmdClick(repo, rest);
                 break;
             case "actors":
                 await cmdActors(repo, rest);

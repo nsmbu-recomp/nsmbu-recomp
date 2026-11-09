@@ -125,6 +125,7 @@ const COMMANDS: CommandSpec[] = [
     { name: "wait", description: "Wait for frame, step, scene, or cursor", noFiles: true },
     { name: "goto", description: "Open the title, file select, map, or a course", noFiles: true },
     { name: "ui", description: "Menu cursor and settings overlay", noFiles: true },
+    { name: "click", description: "Click the settings close button", noFiles: true },
     { name: "actors", description: "Player power and nearby actors", noFiles: true },
     {
         name: "eval",

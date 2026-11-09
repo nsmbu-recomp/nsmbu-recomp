@@ -32,6 +32,7 @@ Agent control (single game instance):
   nsmbu wait --frame N | --step N | --scene NAME | --cursor NAME [--timeout SEC]
   nsmbu goto <title|file|map|W-C> [--timeout SEC]
   nsmbu ui
+  nsmbu click close
   nsmbu actors [--limit N] [--radius N]
   nsmbu eval --list | <name> [json]
   nsmbu log [--tag a,b] [--lines N]

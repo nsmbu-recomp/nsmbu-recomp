@@ -34,6 +34,9 @@ type AgentResponse = {
     path?: string;
     output?: string;
     overlay?: boolean;
+    close?: { x0: number; y0: number; x1: number; y1: number };
+    x?: number;
+    y?: number;
     tab?: string;
     menu?: boolean;
     cursor?: number;

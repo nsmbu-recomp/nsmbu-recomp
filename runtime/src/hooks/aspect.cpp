@@ -17,6 +17,7 @@
 #include "gx2/gx2_cmd.h"
 #include "core/runtime.h"
 #include "guest_addr.h"
+#include "hooks/pause_menu_settings.h"
 
 #include "core/env.h"
 namespace aspect {
@@ -373,6 +374,7 @@ extern "C" void hook_02ABC054(Cpu* c) {
 extern "C" void hook_02ABCAE8(Cpu* c) {
     using namespace aspect;
     uint32_t pane = c->r[3];
+    if (pause_menu::skip_pane(pane)) return;
     static const uint64_t trace_frame = env::ASPECT_TRACE_FRAME.u64_or(0);
     if (trace_frame && game_frame() == trace_frame) {
         auto trace = [](auto&& self, uint32_t p, int depth) -> void {

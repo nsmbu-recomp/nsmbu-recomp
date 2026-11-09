@@ -73,11 +73,10 @@ inline bool pause_menu_shown(uint8_t word_250, uint8_t word_a90) {
     return word_250 != 0 || word_a90 != 0;
 }
 
-// The Settings row plays its press, then the overlay opens.
-constexpr int kPauseSettingsDelay = 15;
-
-inline bool pause_settings_ready(int age) {
-    return age >= kPauseSettingsDelay;
+// The overlay opens when the whole-menu Out fade has finished.
+// A fixed frame count opens while that fade is still running.
+inline bool pause_settings_ready(bool out_finished) {
+    return out_finished;
 }
 
 // Plus and Back enter the controller window. Decide is the Settings press.
@@ -88,13 +87,233 @@ inline uint32_t pause_settings_idle_pad(uint32_t pad) {
     return pad & ~kControllerEnterBits;
 }
 
+// B closes the settings overlay. That same press must not also leave the pause menu.
+// The pause menu sees B again only after that press is released.
+inline bool pause_settings_blocks_back(bool overlay_open, bool back_held, bool already_blocking) {
+    if (overlay_open) return true;
+    return already_blocking && back_held;
+}
+
+// Plus or Back enters 0x10216DF4 and plays Out. While the overlay's B is still held, undo that leave.
+inline bool pause_settings_cancels_back_out(bool blocking, uint32_t state) {
+    return blocking && state == 0x10216DF4u;
+}
+
+// 0x025F3834 steps the pause object at 0x101D7FE0 after this hook.
+// Strip Back before that step, or the overlay close starts Out and leaves the yellow cursor up.
+inline bool pause_settings_strips_other_back(bool blocking) {
+    return blocking;
+}
+
 // Closing the overlay arms this many frames. The controller window stays shut for all of them.
 constexpr int kPauseSettingsSettle = 8;
 
+// The click sets a flag only while the button-manager step is 0.
+// The press itself plays the click only while the anim frame at button+0x30 is 0.
+// A later A clears the step and that frame, then plays the button again.
+struct PausePress {
+    uint32_t step = 2;
+    uint32_t current = 0;
+    uint8_t decide = 1;
+    float frame = 1.f;
+    bool play = false;
+};
+
+inline PausePress pause_press(uint32_t button, bool play) {
+    PausePress press;
+    if (!play || button == 0) return press;
+    press.step = 0;
+    press.current = button;
+    press.decide = 0;
+    press.frame = 0.f;
+    press.play = true;
+    return press;
+}
+
+// Holding A is one press. A new A after the button is idle plays it again.
+// An open overlay does not take that press.
+inline bool pause_press_again(bool pressed, bool confirm, bool idle_since, bool overlay_open) {
+    return pressed && confirm && idle_since && !overlay_open;
+}
+
+// Closing the overlay plays the pause menu In animation. Showing the draw byte alone pops the menu in.
+inline bool pause_menu_fades_in(bool was_hidden, bool overlay_open) {
+    return was_hidden && !overlay_open;
+}
+
+// A later A leaves button+0x84 set, or leaves the press anim off frame 0.
+// The manager then skips the click, so the click has to be played here.
+// A press after the overlay has closed plays the click even when both are clear.
+inline bool pause_click_missed(uint8_t decide_byte, float frame) {
+    return decide_byte != 0 || frame != 0.f;
+}
+
+// The press virtual plays the click and starts the decide anim only when this frame is 0.
+// Every Settings press uses 0. A different frame plays an anim and leaves the click out.
+inline float pause_replay_frame(bool replay, float current) {
+    (void)replay;
+    (void)current;
+    return 0.f;
+}
+
+// The first confirm and a later confirm are the same press.
+// The game's own press plus a second press plays the click and the anim apart.
+inline bool pause_press_replays_anim(bool played_before) {
+    (void)played_before;
+    return true;
+}
+
+inline bool pause_click_needed(bool again, uint8_t decide_byte, float frame) {
+    return again || pause_click_missed(decide_byte, frame);
+}
+
+// The press call already plays the click. A second click after that call starts late.
+inline bool pause_settings_plays_click(bool settings_press) {
+    (void)settings_press;
+    return false;
+}
+
 // A decided pause button sets +0x1C to 3. The open menu then enters 0x10216DD4.
-// That state plays the controller-window animation. The later states are the same window.
+// Plus or Back enters 0x10216DF4. Both play the layout anim named Out.
+// 0x10216D74 and 0x10216D94 are the controller window after that fade.
+inline bool pause_out_state(uint32_t id) {
+    return id == 0x10216DD4u || id == 0x10216DF4u;
+}
+
 inline bool pause_controller_state(uint32_t id) {
-    return id == 0x10216DD4u || id == 0x10216DF4u || id == 0x10216D74u || id == 0x10216D94u;
+    return id == 0x10216D74u || id == 0x10216D94u;
+}
+
+// The open menu reads the pad only while +0x1C is 0.
+// A word of 2 is left after a press and blocks the next A.
+// A word of 3 is the decide. The next step enters the Out fade. Leave that word.
+inline bool pause_settings_keeps_mode(uint32_t mode) {
+    return mode == 3u;
+}
+
+// A sets +0x1C to 2. The next step stores 3 there and enters Out.
+// A 2 that is still here after that step did not become a decide.
+inline bool pause_settings_clears_mode(uint32_t mode, int seen_frames) {
+    return mode == 2u && seen_frames >= 3;
+}
+
+// Arm when the Settings row is in Out, or when its decide is stored and the next step will enter it.
+// Continue and Quit use that same Out. Arming those rows cancels their leave.
+// Back is 0x10216DF4. That leave stays with the game, including on the Settings row.
+// A confirm while +0x1C is 2 has not started that fade. Arming there clears the pad.
+inline bool pause_settings_arms(uint32_t state, uint32_t mode, bool on_settings) {
+    if (!on_settings || state == 0x10216DF4u) return false;
+    return pause_out_state(state) || pause_controller_state(state) || pause_settings_keeps_mode(mode);
+}
+
+// After the overlay closes, Continue, Quit, and Back are the game's own leaves.
+// Holding the button list through that leave freezes Out and leaves the course paused with no menu.
+inline bool pause_settings_drops_hold(bool page_closed, bool on_settings, uint32_t state) {
+    if (!page_closed) return false;
+    if (state == 0x10216DF4u) return true;
+    if (!pause_out_state(state) && !pause_controller_state(state)) return false;
+    return !on_settings;
+}
+
+// Leaving 0x10216DD4 on its first frame cancels Out.
+// Leave on the frame that wait would enter the controller window.
+struct PauseFade {
+    bool leave = false;
+    bool open_overlay = false;
+    bool block_press = false;
+    bool play_press = false;
+};
+
+// The change-controller window can be open before its type word is 5.
+// A set request or a set draw byte is enough to close it behind Settings.
+inline bool pause_settings_closes_window(uint32_t type, uint8_t request, uint8_t visible) {
+    return type == 5u || request != 0 || visible != 0;
+}
+
+// 0x10216D94 sets the visible bit on the panes at pause +0x25C and +0x260.
+// Those panes are the controller page. Settings keeps that bit clear.
+// Closing the overlay restores the pause items. It does not show this page.
+inline bool pause_settings_controller_pane_visible(bool overlay_open, bool controller_page) {
+    (void)overlay_open;
+    (void)controller_page;
+    return false;
+}
+
+// Out stays on screen so the shrink-and-fade can play.
+// The overlay and the controller-page state hide the pause items.
+// After the overlay closes, those items come back.
+inline bool pause_settings_hides_menu_items(bool overlay_open, bool controller_page, bool playing_out) {
+    return !playing_out && (overlay_open || controller_page);
+}
+
+// The pause step can turn the controller page back on before the draw.
+// A hidden pause layout stays out of that draw.
+inline bool pause_settings_skips_layout_draw(bool items_hidden) {
+    return items_hidden;
+}
+
+// The button list is the pause layout that was on screen before Settings.
+// The layout that appears with the controller page stays skipped after the overlay closes.
+// The button list draws again once those items are no longer hidden.
+inline bool pause_settings_skips_pause_root(bool menu_root, bool page_closed, bool items_hidden) {
+    if (!page_closed) return false;
+    if (!menu_root) return true;
+    return items_hidden;
+}
+
+// The row is forced to Settings only until the cursor has been placed there.
+// After that, Up and Down move the selection.
+inline bool pause_settings_locks_row(bool cursor_placed) {
+    return !cursor_placed;
+}
+
+// 0x025BE1F0 sizes the cursor from the selected button.
+// The rewind frame still has Out's scale. Placing there makes the corners huge.
+// Place on a later hold frame, after that rewind has been applied.
+inline bool pause_settings_places_cursor(bool menu_restored, int held_frames) {
+    return menu_restored && held_frames >= 2;
+}
+
+// After the overlay closes, hold the button list until the next Out starts.
+// Holding through that next Out rewinds the shrink and leaves the cursor broken.
+inline bool pause_settings_holds_menu(bool restore_pending, bool out_now) {
+    return restore_pending && !out_now;
+}
+
+// Playing Out again on a later hold frame steps that anim.
+// The button list then shrinks away and the cursor is left in the middle.
+inline bool pause_settings_restarts_out(bool already_pinned) {
+    return !already_pinned;
+}
+
+// The restored pause menu uses the In anim. Leaving it on Out freezes the buttons.
+// In has to finish before the row can be used. A long In still hands the menu back.
+inline bool pause_settings_hands_back(bool in_finished, int held_frames) {
+    return in_finished || held_frames >= 45;
+}
+
+// Out stays at frame 0 only while that anim is being rewound. The restored menu does not keep it there.
+inline bool pause_settings_pins_out(bool handed_back) {
+    (void)handed_back;
+    return false;
+}
+
+// The press byte stays set after the first Settings confirm.
+// The next A can start Out only after that byte is clear.
+inline bool pause_settings_releases_press(bool menu_restored) {
+    return menu_restored;
+}
+
+inline PauseFade pause_settings_fade(uint32_t state, bool out_finished, bool overlay_open, bool opened, bool pressed) {
+    PauseFade fade;
+    const bool window = pause_controller_state(state);
+    const bool out = pause_out_state(state);
+    const bool done = window || (out && out_finished);
+    fade.leave = done;
+    fade.open_overlay = done && pause_settings_ready(out_finished || window) && !opened && !overlay_open;
+    fade.block_press = pressed || out || window;
+    fade.play_press = (out || window) && !pressed && !overlay_open;
+    return fade;
 }
 
 inline int pause_settings_settle(bool saw_overlay, bool overlay_open) {
@@ -242,5 +461,7 @@ constexpr bool kStartsEnabled = true;
 bool enabled();
 void set_enabled(bool on);
 bool take_open();
+// The pause layout draws after the pause step. Skip that tree while Settings has it hidden.
+bool skip_pane(uint32_t pane);
 
 }

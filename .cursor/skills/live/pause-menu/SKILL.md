@@ -26,10 +26,12 @@ The game builds the menu when the course loads.
 Leave the course and enter it again after you change the option.
 A course that loaded with the switch off keeps the three original rows.
 A or Enter on Settings plays the pause click.
-The press animation finishes, then the port overlay opens.
+The whole menu shrinks and fades, the same as Continue.
+The overlay opens after that fade.
 It does not open the controller menu.
-Closing the overlay returns to this pause menu.
+Closing the overlay fades this pause menu back in.
 It still does not open the controller menu.
 The pause buttons stay hidden while the overlay is open.
 The course stays paused.
 The cursor can move again after the overlay closes.
+`nsmbu click close` clicks the X in the top right of this overlay.

@@ -2,6 +2,7 @@
 
 #include "app_title.h"
 #include "overlay.h"
+#include "overlay_click.h"
 #include "perf_average.h"
 #include "core/env.h"
 #ifdef __ANDROID__
@@ -111,6 +112,11 @@ struct Event {
 };
 std::mutex g_mu;
 std::vector<Event> g_events;
+struct CloseBox {
+    float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+    bool have = false;
+};
+CloseBox g_close;
 std::atomic<int> g_capture_key{-2};
 std::atomic<bool> g_capturing_keys{false};
 
@@ -450,6 +456,10 @@ void read_controller() {
     if (g_wait_release.load()) {
         bool any = false;
         for (int p = 1; p < kPadCount; p++) any |= U.values[p] > 0.3f;
+        // A keyboard Back is not in the controller values. Keep it from reaching the pause menu.
+        bool keys[256];
+        input::held_keys(keys);
+        any |= input_map::keyboard_state(input_map::current(), keys).buttons != 0;
         if (!any) g_wait_release = false;
     }
 }
@@ -2115,11 +2125,23 @@ void perf_window(bool menu_open) {
     (void)menu_open;
 }
 
+static void note_close_button(float x0, float y0, float x1, float y1) {
+    std::lock_guard<std::mutex> lk(g_mu);
+    g_close.x0 = x0;
+    g_close.y0 = y0;
+    g_close.x1 = x1;
+    g_close.y1 = y1;
+    g_close.have = true;
+}
+
 static bool settings_close_button(bool& open, float size) {
     const float pad = ImGui::GetStyle().WindowPadding.x;
     const ImVec2 win = ImGui::GetWindowPos();
     const float lift = ImGui::GetStyle().FramePadding.y * 0.35f;
     const ImVec2 at(win.x + ImGui::GetWindowWidth() - size - pad, ImGui::GetCursorScreenPos().y - lift);
+    const ImVec2 ds = ImGui::GetIO().DisplaySize;
+    if (ds.x > 1.f && ds.y > 1.f)
+        note_close_button(at.x / ds.x, at.y / ds.y, (at.x + size) / ds.x, (at.y + size) / ds.y);
     ImGui::PushClipRect(win, ImVec2(win.x + ImGui::GetWindowWidth(), win.y + ImGui::GetWindowHeight()), false);
     ImGui::SetCursorScreenPos(at);
     ImGui::PushItemFlag(ImGuiItemFlags_NoNav, true);
@@ -2290,7 +2312,11 @@ void set_open(bool open) {
     if (g_open.exchange(open) == open) return;
     for (auto& k : g_held_keys) k = false;
     input::release_keys();
-    if (!open) g_wait_release = true;
+    if (!open) {
+        g_wait_release = true;
+        std::lock_guard<std::mutex> lk(g_mu);
+        g_close.have = false;
+    }
     if (open) {
         mods::mouse_release();
         U.just_opened = true;
@@ -2371,6 +2397,39 @@ bool mouse_move(float nx, float ny, bool touch) {
     push({Event::MousePos, 0, false, nx, ny, 0, touch});
     return true;
 }
+bool close_button(float& x0, float& y0, float& x1, float& y1) {
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (!g_close.have) return false;
+    x0 = g_close.x0;
+    y0 = g_close.y0;
+    x1 = g_close.x1;
+    y1 = g_close.y1;
+    return true;
+}
+
+bool click_close(float& x, float& y) {
+    float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+    if (!is_open() || !close_button(x0, y0, x1, y1)) return false;
+    const OverlayClick hit = overlay_close_click(x0, y0, x1, y1);
+    if (!hit.ok) return false;
+    Event move;
+    move.kind = Event::MousePos;
+    move.x = hit.x;
+    move.y = hit.y;
+    Event down;
+    down.kind = Event::MouseButton;
+    down.code = 0;
+    down.down = true;
+    Event up = down;
+    up.down = false;
+    push(move);
+    push(down);
+    push(up);
+    x = hit.x;
+    y = hit.y;
+    return true;
+}
+
 bool mouse_button(int button, bool down, bool touch) {
     if (button == 0 && down && map_menu::click()) return true;
     if (!captures() || g_no_host) return false;

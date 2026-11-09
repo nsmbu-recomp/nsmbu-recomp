@@ -262,6 +262,12 @@ function num(n: number): string {
 function printUi(r: AgentResponse): void {
     const parts = [`overlay=${r.overlay ? 1 : 0}`];
     if (r.tab) parts.push(`tab=${r.tab}`);
+    if (r.close) {
+        const c = r.close;
+        parts.push(
+            `close=${c.x0.toFixed(3)},${c.y0.toFixed(3)} ${c.x1.toFixed(3)},${c.y1.toFixed(3)}`,
+        );
+    }
     parts.push(`menu=${r.menu ? 1 : 0}`);
     if (r.cursor !== undefined) parts.push(`cursor=${r.cursor}`);
     console.log(parts.join(" "));
@@ -271,6 +277,21 @@ function printUi(r: AgentResponse): void {
                 ? ` rect=${b.x0.toFixed(0)},${b.y0.toFixed(0)} ${b.x1.toFixed(0)},${b.y1.toFixed(0)}`
                 : "";
         console.log(`${b.index} name=${b.name} selected=${b.selected ? 1 : 0}${rect}`);
+    }
+}
+
+export async function cmdClick(repo: string, argv: string[]): Promise<void> {
+    const { positional } = parseArgv(argv, []);
+    if (positional[0] !== "close" || positional.length !== 1) {
+        throw new Error("usage: nsmbu click close");
+    }
+    const client = new AgentClient(repo);
+    try {
+        const r = await client.request({ cmd: "click", target: "close" });
+        if (!r.ok) throw new Error(r.error ?? "click failed");
+        console.log(`close ${r.x ?? "?"} ${r.y ?? "?"}`);
+    } finally {
+        client.close();
     }
 }
 
