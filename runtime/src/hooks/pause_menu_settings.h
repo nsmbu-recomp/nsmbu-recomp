@@ -173,6 +173,19 @@ inline bool pause_settings_plays_click(bool settings_press) {
     return false;
 }
 
+// The game press sets this speed below -0.5 and plays the click with it.
+// Calling the press virtual again rewinds that anim and plays the click again.
+inline bool pause_settings_replays_press(float speed) {
+    return !(speed < -0.5f);
+}
+
+// Out leaves layout anim 0 finished. In clears that bit while it runs.
+// A finished bit that never cleared is still Out, so the fade-in has not played.
+inline bool pause_settings_fade_in_done(bool saw_running, bool finished, int held_frames) {
+    if (held_frames >= 45) return true;
+    return saw_running && finished;
+}
+
 // A decided pause button sets +0x1C to 3. The open menu then enters 0x10216DD4.
 // Plus or Back enters 0x10216DF4. Both play the layout anim named Out.
 // 0x10216D74 and 0x10216D94 are the controller window after that fade.
@@ -182,6 +195,13 @@ inline bool pause_out_state(uint32_t id) {
 
 inline bool pause_controller_state(uint32_t id) {
     return id == 0x10216D74u || id == 0x10216D94u;
+}
+
+// Out and the controller window clear those draw bytes while the pause is still up.
+// Treat that as gone only once those states are gone too.
+inline bool pause_settings_treat_menu_gone(uint8_t word_250, uint8_t word_a90, uint32_t state) {
+    if (pause_menu_shown(word_250, word_a90)) return false;
+    return !pause_out_state(state) && !pause_controller_state(state);
 }
 
 // The open menu reads the pad only while +0x1C is 0.
@@ -204,6 +224,72 @@ inline bool pause_settings_clears_mode(uint32_t mode, int seen_frames) {
 inline bool pause_settings_arms(uint32_t state, uint32_t mode, bool on_settings) {
     if (!on_settings || state == 0x10216DF4u) return false;
     return pause_out_state(state) || pause_controller_state(state) || pause_settings_keeps_mode(mode);
+}
+
+// The controller window checks whether layout anim 0 has finished. Clear that bit before a real leave.
+inline bool pause_settings_clears_leave_anim(uint32_t flags) {
+    return (flags & 1u) != 0;
+}
+
+// D94 snaps back to the open menu when that bit is set. A real leave clears it each frame there.
+inline bool pause_settings_blocks_controller_rewind(bool real_leave, uint32_t state) {
+    return real_leave && pause_controller_state(state);
+}
+
+// Continue after Settings skips the controller page and uses the same unpause call as the game.
+inline bool pause_settings_skips_controller_window(bool real_leave, uint32_t state) {
+    return real_leave && (pause_out_state(state) || pause_controller_state(state));
+}
+
+// 0x026446D4 shows the switch-controller screen and leaves it up.
+// Continue hides that screen. Settings does not, until Continue is chosen.
+inline bool pause_settings_hides_switch_screen(bool course_resumed) {
+    return course_resumed;
+}
+
+// 0x025FE554(pause, 0) clears the course node. The menu nodes at +0x258 are a different set.
+inline bool pause_settings_course_pause_node(uint32_t offset) {
+    return offset == 0x234u || offset == 0x23Cu || offset == 0x254u || offset == 0x264u || offset == 0x298u ||
+           offset == 0x29Cu;
+}
+
+// The pause menu keeps a list of method-tree nodes at +0x234. The count is at +0x1AA8.
+// Continue clears the pause bit on each of those nodes.
+inline int pause_settings_pause_node_count(int stored) {
+    if (stored < 1) return 0;
+    return stored > 17 ? 17 : stored;
+}
+
+// AreaTask at 0x101D1598 steps the course only while +0x730 is 0.
+// Opening this menu sets that word to 1. The frame tail writes 3 when +0x74D is set.
+// Continue puts the word back to 0. Quit still leaves the course.
+inline uint32_t pause_settings_course_out_kind(bool resume, bool quit_row = false) {
+    if (!resume || quit_row) return 1u;
+    return 0u;
+}
+
+// The other pause object steps after the resume call and draws the switch page again.
+// Hold the resume across that step.
+inline int pause_settings_resume_hold(bool resumed, int frames_left) {
+    if (resumed) return 8;
+    return frames_left > 0 ? frames_left - 1 : 0;
+}
+
+// The controller execute draws the switch page. 0x02676E74 only resets button anims.
+// 0x025FBA74(pause, 0) clears the course pause flags. That runs once Out has finished.
+// Quit uses the same window and still leaves the course. Out itself keeps playing.
+inline bool pause_settings_direct_unpause(bool real_leave, uint32_t state, bool menu_hidden = false,
+                                          bool quit_row = false) {
+    if (!real_leave || quit_row || pause_out_state(state) || state == 0x10216DB4u) return false;
+    return pause_controller_state(state) || menu_hidden;
+}
+
+// The virtual state id can stay on the open menu while the state object is already Out.
+// Continue has to watch the state object, or the course never gets the resume call.
+inline uint32_t pause_settings_watched_state(uint32_t state_id, uint32_t virtual_id) {
+    if (pause_out_state(state_id) || pause_controller_state(state_id)) return state_id;
+    if (pause_out_state(virtual_id) || pause_controller_state(virtual_id)) return virtual_id;
+    return state_id != 0 ? state_id : virtual_id;
 }
 
 // After the overlay closes, Continue, Quit, and Back are the game's own leaves.
@@ -250,6 +336,11 @@ inline bool pause_settings_hides_menu_items(bool overlay_open, bool controller_p
 // A hidden pause layout stays out of that draw.
 inline bool pause_settings_skips_layout_draw(bool items_hidden) {
     return items_hidden;
+}
+
+// Continue leaves the controller page in the pause layout. Skip that draw while the course is resumed.
+inline bool pause_settings_skips_pause_draw(bool resume_hold, bool pause_root) {
+    return resume_hold && pause_root;
 }
 
 // The button list is the pause layout that was on screen before Settings.

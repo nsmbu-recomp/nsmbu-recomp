@@ -55,6 +55,21 @@ constexpr uint32_t kGetAnim = 0x02671AF4u;
 constexpr uint32_t kMgrStep = 0x8;
 constexpr uint32_t kMgrButton = 0x18;
 constexpr uint32_t kWindowMgr = 0x101D15E8u;
+constexpr uint32_t kOtherPause = 0x101D7FE0u;
+constexpr uint32_t kSwitchScreen = 0x101D9AB0u;
+constexpr uint32_t kCloseSwitch = 0x0264474Cu;
+constexpr uint32_t kReleaseCourse = 0x025FE554u;
+constexpr uint32_t kAreaTask = 0x101D1598u;
+constexpr uint32_t kCourseOutKind = 0x730;
+constexpr uint32_t kCourseOutFlag = 0x74D;
+constexpr uint32_t kCourseOutResume = 0x748;
+constexpr uint32_t kClearPauseBit = 0x025113B8u;
+constexpr uint32_t kPauseBitObj = 0x101D2E00u;
+constexpr uint32_t kClearPauseByte = 0x0202B008u;
+constexpr uint32_t kCourseStepObj = 0x101D2DF8u;
+constexpr uint32_t kCourseStepSkip = 0x56D;
+constexpr uint32_t kLayoutScene = 0x280;
+constexpr uint32_t kLayoutHold = 0x594;
 constexpr uint32_t kLayoutObj = 0x10;
 constexpr uint32_t kRootPane = 0x0C;
 constexpr uint32_t kPaneFlags = 0x44;
@@ -88,6 +103,10 @@ static bool g_restore_menu = false;
 static bool g_cursor_placed = false;
 static bool g_handed = false;
 static bool g_in_started = false;
+static bool g_in_clear = false;
+static bool g_real_leave = false;
+static int g_resume_frames = 0;
+static bool g_switch_closed = false;
 static int g_held_frames = 0;
 static int g_mode_seen = 0;
 static bool g_quit_dim = false;
@@ -150,6 +169,7 @@ static void undo_back_out(Cpu* c, uint32_t self) {
     g_held_frames = 0;
     g_handed = false;
     g_in_started = false;
+    g_in_clear = false;
     g_restore_menu = true;
     g_left = false;
 }
@@ -165,6 +185,7 @@ static void play_menu_in(Cpu* c, uint32_t self) {
 
 static void set_pane_visible(uint32_t pane, bool visible);
 static uint32_t layout_root(uint32_t self);
+static bool anim_out_finished(Cpu* c, uint32_t self);
 
 // Out ends with the button list shrunk away. Frame 0 of that anim is the list.
 // Hold that frame after the overlay closes so the controller page does not stay up.
@@ -308,6 +329,7 @@ bool skip_pane(uint32_t pane) {
         top = parent;
     }
     if (!pause_layout_root(top)) return false;
+    if (pause_settings_skips_pause_draw(g_resume_frames > 0, true)) return true;
     if (g_menu_root == 0) g_menu_root = top;
     const bool menu_root = top == g_menu_root;
     // The button list is on screen until the overlay hides this layout.
@@ -335,6 +357,7 @@ static void hide_for_overlay(Cpu* c, uint32_t self, bool playing_out, bool contr
         if (!g_in_started && !pause_settings_pins_out(g_handed)) {
             play_menu_in(c, self);
             g_in_started = true;
+            g_in_clear = !anim_out_finished(c, self);
         }
         restore_pause_tree();
         g_restore_panes = true;
@@ -492,6 +515,7 @@ static void release_settings_press(uint32_t self) {
 // The press virtual leaves the decide anim at its last frame with speed -1.
 // A later call does not rewind it, so put that anim back and step one frame before the draw.
 static void restart_decide(Cpu* c, uint32_t button) {
+    (void)c;
     const uint32_t decide = ld32(button + kDecideAnim);
     if (!guest_obj(decide)) return;
     guest_call(c, GC(kShowAnim), {button, decide});
@@ -504,10 +528,8 @@ static void restart_decide(Cpu* c, uint32_t button) {
     stf32(decide + kAnimSpeed, -1.0);
     st8(decide + kAnimEnable, 1);
     st32(decide + kAnimFlags, ld32(decide + kAnimFlags) & ~7u);
-    const uint32_t vt = ld32(decide + kAnimVt);
-    if (!guest_obj(vt)) return;
-    const uint32_t step = ld32(vt + kAnimUpdate);
-    if (guest_obj(step)) guest_call(c, step, {decide});
+    // 0x02AB8920 stores speed 0 when one step lands on the end.
+    // The pause step advances this anim. Stepping it here eats the squash before the draw.
 }
 
 static void play_press(Cpu* c, uint32_t self) {
@@ -516,6 +538,14 @@ static void play_press(Cpu* c, uint32_t self) {
     const uint32_t button = ld32(arr + (uint32_t)g_index * 4u);
     const PausePress press = pause_press(button, guest_obj(button));
     if (!press.play) return;
+    const uint32_t decide_now = ld32(button + kDecideAnim);
+    float started = 0.f;
+    if (guest_obj(decide_now)) started = (float)ldf32(decide_now + kAnimSpeed);
+    if (!pause_settings_replays_press(started)) {
+        st8(button + kPressByte, 1);
+        LOG("[pause] Settings press already playing %.2f", started);
+        return;
+    }
     const uint32_t anim = ld32(button + kPressAnim);
     if (guest_obj(anim)) {
         const float frame = pause_replay_frame(pause_press_replays_anim(false), (float)ldf32(anim + kAnimFrame));
@@ -610,12 +640,158 @@ static void follow_settings_fade(Cpu* c, uint32_t self) {
 
 static void disarm();
 
-static void release_leave() {
+// The overlay fade-in can leave anim 0 finished. Continue's controller window waits on that anim.
+// D94 changes back to the open menu when anim 0 is finished. Clear that after the overlay fade-in.
+static void block_controller_rewind(Cpu* c, uint32_t self) {
+    if (!g_real_leave) return;
+    const uint32_t layout = ld32(self);
+    if (!guest_obj(layout)) return;
+    const uint32_t anim = guest_call(c, GC(kGetAnim), {layout, 0});
+    if (!guest_obj(anim)) return;
+    const uint32_t flags = ld32(anim + kAnimFlags);
+    if (!pause_settings_clears_leave_anim(flags)) return;
+    st32(anim + kAnimFlags, flags & ~1u);
+}
+
+static bool quit_row(uint32_t self) {
+    const int idx = (int)ld32(self + kIndex);
+    const uint32_t arr = ld32(self + kButtons);
+    if (!guest_obj(arr) || idx < 0 || idx > 40) return false;
+    return button_name_is(ld32(arr + (uint32_t)idx * 4u), "Pa_Exit_00");
+}
+
+static void stop_menu_anim(Cpu* c, uint32_t self) {
+    const uint32_t layout = ld32(self);
+    if (!guest_obj(layout)) return;
+    const uint32_t slots[] = {0u, 3u};
+    for (uint32_t slot : slots) {
+        const uint32_t anim = guest_call(c, GC(kGetAnim), {layout, slot});
+        if (!guest_obj(anim)) continue;
+        stf32(anim + kAnimSpeed, 0.f);
+        st8(anim + kAnimEnable, 0);
+        st32(anim + kAnimFlags, ld32(anim + kAnimFlags) & ~1u);
+    }
+}
+
+static void hide_tree(uint32_t root) {
+    if (!guest_obj(root)) return;
+    set_pane_visible(root, false);
+    uint32_t stack[48];
+    int n = 0;
+    if (wwatch::readable(root + 0x14, 4)) stack[n++] = ld32(root + 0x14);
+    for (int step = 0; step < 160 && n > 0; step++) {
+        const uint32_t pane = stack[--n];
+        if (!guest_obj(pane) || pane == root + 0x14) continue;
+        set_pane_visible(pane, false);
+        if (wwatch::readable(pane + 0x14, 4)) {
+            const uint32_t child = ld32(pane + 0x14);
+            if (guest_obj(child) && child != pane + 0x14 && n < 48) stack[n++] = child;
+        }
+        if (!wwatch::readable(pane, 4)) continue;
+        const uint32_t next = ld32(pane);
+        if (guest_obj(next) && next != pane && n < 48) stack[n++] = next;
+    }
+}
+
+// 0x026446D4 plays this screen once and sets +0xED8. 0x0264474C plays its close anim.
+static void hide_switch_screen(Cpu* c) {
+    if (g_switch_closed || !pause_settings_hides_switch_screen(true)) return;
+    const uint32_t screen = ld32(kSwitchScreen);
+    if (!guest_obj(screen) || ld8(screen + 0xED8) == 0) return;
+    g_switch_closed = true;
+    guest_call(c, GC(kCloseSwitch), {screen});
+}
+
+static void clear_pause_node(uint32_t node) {
+    if (!guest_obj(node) || !wwatch::readable(node + 0x44, 4)) return;
+    // The menu writes bit 0 of the byte at +0x44. The method tree tests bit 0 of the word.
+    st8(node + 0x44, (uint8_t)(ld8(node + 0x44) & ~1u));
+    st8(node + 0x47, (uint8_t)(ld8(node + 0x47) & ~1u));
+}
+
+// 0x025FCC34 clears bit 0 on each node in the array at pause+0x234.
+static void clear_pause_list(uint32_t self) {
+    const int count = pause_settings_pause_node_count((int)ld32(self + 0x1AA8));
+    for (int i = 0; i < count; i++) clear_pause_node(ld32(self + 0x234 + (uint32_t)i * 4u));
+}
+
+// 0x025FBA74(pause, 0) clears +0x278 and +0x27C, then calls a button virtual at buttons+0x64.
+// That slot is empty on this menu and the virtual crashes. Clear the pause nodes directly.
+// The open path can also set the node at +0x258. The other pause step then draws the switch page.
+// 0x024B7B00 runs the course update only when AreaTask+0x730 is 0.
+// The pause open path stores 1 there. The tail at 0x024B7EA4 stores 3 when +0x74D is set,
+// and that tail also sets the byte that makes 0x024B6E68 return before the timer.
+static void release_course_step(Cpu* c, bool quit) {
+    if (pause_settings_course_out_kind(true, quit) != 0u) return;
+    const uint32_t area = ld32(kAreaTask);
+    if (guest_obj(area)) {
+        st32(area + kCourseOutKind, 0);
+        st8(area + kCourseOutFlag, 0);
+        st8(area + kCourseOutResume, 1);
+    }
+    const uint32_t step = ld32(kCourseStepObj);
+    if (guest_obj(step)) st8(step + kCourseStepSkip, 0);
+    const uint32_t bits = ld32(kPauseBitObj);
+    if (guest_obj(bits)) guest_call(c, GC(kClearPauseBit), {bits, 1u, 0u});
+    guest_call(c, GC(kClearPauseByte), {});
+}
+
+static void resume_course(Cpu* c, uint32_t self) {
+    if (self == ld32(kPause)) release_course_step(c, quit_row(self));
+    st8(self + 0xA92, 0);
+    clear_pause_node(ld32(self + 0x258));
+    clear_pause_node(ld32(self + 0x278));
+    clear_pause_node(ld32(self + 0x27C));
+    clear_pause_list(self);
+    const uint32_t course_nodes[] = {0x234u, 0x23Cu, 0x254u, 0x264u, 0x298u, 0x29Cu};
+    for (uint32_t off : course_nodes) {
+        if (pause_settings_course_pause_node(off)) clear_pause_node(ld32(self + off));
+    }
+    if (self == ld32(kPause)) guest_call(c, GC(kReleaseCourse), {self, 0u});
+    hide_controller_panes(self);
+    hide_tree(layout_root(self));
+    hide_switch_screen(c);
+    stop_menu_anim(c, self);
+    st8(self + kDraw, 0);
+    st8(self + kActive, 0);
+    st8(self + kShown, 0);
+}
+
+static bool resume_if_controller(Cpu* c, uint32_t self, bool allow_hidden) {
+    if (!guest_obj(self)) return false;
+    const uint32_t id = pause_state_id(c, self);
+    const uint32_t shown = current_state(c, self);
+    const bool hidden = allow_hidden && ld8(self + kActive) == 0 && ld8(self + kShown) == 0;
+    const bool quit = quit_row(self);
+    if (!pause_settings_direct_unpause(true, id, hidden, quit) &&
+        !pause_settings_direct_unpause(true, shown, hidden, quit))
+        return false;
+    block_controller_rewind(c, self);
+    resume_course(c, self);
+    return true;
+}
+
+static void skip_controller_unpause(Cpu* c, uint32_t self) {
+    if (!g_real_leave) return;
+    bool resumed = resume_if_controller(c, self, true);
+    const uint32_t other = ld32(kOtherPause);
+    if (other != self) resumed = resume_if_controller(c, other, false) || resumed;
+    if (!resumed) return;
+    g_real_leave = false;
+    g_resume_frames = pause_settings_resume_hold(true, g_resume_frames);
+    LOG("[pause] Continue resumes the course");
+}
+
+static void release_leave(Cpu* c, uint32_t self) {
+    if (!g_real_leave) LOG("[pause] Continue leave state %08x", pause_state_id(c, self));
+    g_real_leave = true;
+    g_switch_closed = false;
     g_page_closed = false;
     g_restore_menu = false;
     g_cursor_placed = false;
     g_handed = false;
     g_in_started = false;
+    g_in_clear = false;
     g_held_frames = 0;
     g_block_back = false;
     if (g_armed) disarm();
@@ -650,14 +826,19 @@ static void intercept_course_pause(Cpu* c) {
     if (pause_settings_cancels_back_out(g_block_back, current_state(c, self))) undo_back_out(c, self);
     // The controller layout stays skipped after the overlay closes, until this pause menu goes away.
     // Closing the overlay writes the draw bytes to 0. That is not the pause menu leaving.
-    if (!g_blank && !open && !pause_menu_shown(ld8(self + kActive), ld8(self + kShown))) {
+    const uint32_t now = pause_settings_watched_state(pause_state_id(c, self), current_state(c, self));
+    if (g_resume_frames > 0 && now == kMenuState && pause_menu_shown(ld8(self + kActive), ld8(self + kShown)))
+        g_resume_frames = 0;
+    if (!g_blank && !open && pause_settings_treat_menu_gone(ld8(self + kActive), ld8(self + kShown), now)) {
         if (g_page_closed || g_armed) hide_cursor(true);
+        g_real_leave = false;
         g_page_closed = false;
         g_menu_root = 0;
         g_restore_menu = false;
         g_cursor_placed = false;
         g_handed = false;
         g_in_started = false;
+        g_in_clear = false;
         g_held_frames = 0;
         g_block_back = false;
         g_quit_dim = false;
@@ -674,23 +855,24 @@ static void intercept_course_pause(Cpu* c) {
         playing_out = pause_out_state(id) && !anim_out_finished(c, self);
         controller_page = pause_controller_state(id);
     }
+    skip_controller_unpause(c, self);
     hide_for_overlay(c, self, playing_out, controller_page);
     // The step can already be in Out before this hook arms. Do not rewind that shrink.
     // Pending and saved ids stay on Out after the fade has returned.
     // Only the current state may drop the pin. A one-frame drop lets the shrink run away.
-    const uint32_t now = current_state(c, self);
     const bool out_now = pause_out_state(now);
     // Continue, Quit, and Back after the overlay must run their own leave.
     // Treating that Out as Settings hides the menu and leaves the course paused.
     if (pause_settings_drops_hold(g_page_closed, settings_row(self), now)) {
-        release_leave();
-        return;
+        release_leave(c, self);
+        skip_controller_unpause(c, self);
     }
     if (out_now) {
         g_restore_menu = false;
         g_cursor_placed = false;
         g_handed = false;
         g_in_started = false;
+        g_in_clear = false;
         g_held_frames = 0;
         hide_cursor(true);
     } else if (!g_handed && g_page_closed && !open && !g_opened) g_restore_menu = true;
@@ -701,6 +883,7 @@ static void intercept_course_pause(Cpu* c) {
         if (!g_in_started && !pause_settings_pins_out(g_handed)) {
             play_menu_in(c, self);
             g_in_started = true;
+            g_in_clear = !anim_out_finished(c, self);
             g_held_frames = 0;
         }
         restore_quit(c, self);
@@ -724,7 +907,9 @@ static void intercept_course_pause(Cpu* c) {
         }
         if (ld32(self + kMode) == 0u) release_settings_press(self);
         g_held_frames++;
-        if (!g_cursor_placed && pause_settings_hands_back(anim_out_finished(c, self), g_held_frames)) {
+        const bool in_finished = anim_out_finished(c, self);
+        if (g_in_started && !in_finished) g_in_clear = true;
+        if (!g_cursor_placed && pause_settings_fade_in_done(g_in_clear, in_finished, g_held_frames)) {
             place_menu_cursor(c, self);
             st32(self + kCursorIndex, (uint32_t)g_index);
             hide_cursor(false);
@@ -757,10 +942,12 @@ static void intercept_course_pause(Cpu* c) {
     g_shown = ld8(self + kShown);
     if (g_shown == 0) g_shown = 1;
     g_armed = true;
+    g_real_leave = false;
     g_page_closed = true;
     g_cursor_placed = false;
     g_handed = false;
     g_in_started = false;
+    g_in_clear = false;
     hide_cursor(true);
     const uint32_t button = find_settings_button(self);
     const uint8_t byte = guest_obj(button) ? ld8(button + kPressByte) : 0xff;
@@ -852,10 +1039,20 @@ void strip_other_back(uint32_t other) {
 void finish_pause_frame(Cpu* c, uint32_t other) {
     if (guest_obj(other) && pause_settings_cancels_back_out(g_block_back, current_state(c, other)))
         undo_back_out(c, other);
+    if (g_resume_frames > 0) {
+        const uint32_t course = ld32(kPause);
+        if (guest_obj(course)) resume_course(c, course);
+        if (guest_obj(other) && other != course) resume_course(c, other);
+        const uint32_t id = guest_obj(course) ? pause_state_id(c, course) : 0;
+        // The controller state stays current after its step is skipped. Keep the page hidden.
+        if (!pause_controller_state(id)) g_resume_frames = pause_settings_resume_hold(false, g_resume_frames);
+    }
     if (!g_enabled.load() || !g_page_closed) return;
-    if (guest_obj(other) && pause_settings_drops_hold(true, settings_row(other), current_state(c, other))) {
-        release_leave();
-        return;
+    if (guest_obj(other)) {
+        const uint32_t other_state = current_state(c, other);
+        const uint32_t other_id = pause_settings_watched_state(pause_state_id(c, other), other_state);
+        if (pause_settings_drops_hold(g_page_closed, settings_row(other), other_id)) release_leave(c, other);
+        if (g_real_leave) skip_controller_unpause(c, other);
     }
     const uint32_t self = ld32(kPause);
     if (!guest_obj(self)) return;

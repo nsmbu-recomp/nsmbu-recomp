@@ -225,6 +225,11 @@ int main() {
     check(pause_click_needed(true, 0, 0.f), "A after the overlay closes plays the click");
     check(!pause_click_needed(false, 0, 0.f), "a clear decide byte is not itself a second click");
     check(!pause_settings_plays_click(true), "the Settings click is not a second sound after the anim");
+    check(!pause_settings_replays_press(-1.f), "a press that already started is not played again");
+    check(pause_settings_replays_press(0.f), "a skipped press still plays the click and the anim");
+    check(!pause_settings_fade_in_done(false, true, 2), "a finished Out bit does not skip the fade-in");
+    check(pause_settings_fade_in_done(true, true, 2), "a finished In hands the pause menu back");
+    check(pause_settings_fade_in_done(false, false, 45), "a long fade still hands the pause menu back");
     check(pause_replay_frame(false, 3.f) == 0.f, "the first Settings press starts from frame 0 with the click");
     check(pause_replay_frame(true, 3.f) == 0.f, "a later Settings press starts from frame 0 with the click");
     check(pause_press_replays_anim(false), "the first Settings press uses the same anim and click");
@@ -260,6 +265,45 @@ int main() {
     check(pause_settings_drops_hold(true, true, 0x10216DF4u), "Back after the overlay leaves the pause menu");
     check(!pause_settings_drops_hold(true, true, 0x10216DD4u), "Settings still owns its own fade");
     check(!pause_settings_drops_hold(false, false, 0x10216DD4u), "Continue before a Settings visit is left alone");
+    check(!pause_settings_treat_menu_gone(0, 0, 0x10216DD4u), "Out still owns the pause menu");
+    check(!pause_settings_treat_menu_gone(0, 0, 0x10216D94u), "the controller window still owns the pause");
+    check(pause_settings_treat_menu_gone(0, 0, 0x10216DB4u), "a hidden open menu is gone");
+    check(pause_settings_clears_leave_anim(1u), "Continue clears a finished overlay fade-in anim");
+    check(!pause_settings_clears_leave_anim(0u), "an unfinished anim stays as-is until then");
+    check(pause_settings_blocks_controller_rewind(true, 0x10216D94u),
+          "Continue through the controller window does not snap back to the open menu");
+    check(!pause_settings_blocks_controller_rewind(false, 0x10216D94u), "Settings still owns that snap");
+    check(pause_settings_skips_controller_window(true, 0x10216DD4u),
+          "Continue after Settings unpause through Out");
+    check(pause_settings_skips_controller_window(true, 0x10216D94u),
+          "Continue after Settings unpause through the controller window");
+    check(!pause_settings_skips_controller_window(true, 0x10216DB4u), "the open menu still handles Settings");
+    check(pause_settings_direct_unpause(true, 0x10216D94u),
+          "Continue after Settings unpauses without running the controller window");
+    check(!pause_settings_direct_unpause(false, 0x10216D94u), "Settings does not unpause the course");
+    check(!pause_settings_direct_unpause(true, 0x10216DD4u), "Out finishes before the course resumes");
+    check(!pause_settings_direct_unpause(true, 0x10216D94u, false, true), "Quit still leaves the course");
+    check(pause_settings_direct_unpause(true, 0u, true, false),
+          "a hidden menu after Continue resumes the course");
+    check(!pause_settings_direct_unpause(true, 0x10216DB4u, true, false),
+          "the open pause menu stays paused");
+    check(pause_settings_watched_state(0x10216DD4u, 0x10216DB4u) == 0x10216DD4u,
+          "Continue watches the Out state when the virtual id is still the open menu");
+    check(pause_settings_course_pause_node(0x234u), "Continue releases the course node");
+    check(!pause_settings_course_pause_node(0x258u), "the stored menu node is not the course node");
+    check(pause_settings_pause_node_count(4) == 4, "Continue clears every paused course node");
+    check(pause_settings_pause_node_count(40) == 17, "a long pause list stays inside the menu array");
+    check(pause_settings_pause_node_count(0) == 0, "an empty pause list stays empty");
+    check(pause_settings_skips_pause_draw(true, true), "Continue hides the pause layout");
+    check(!pause_settings_skips_pause_draw(false, true), "the pause layout draws while the menu is open");
+    check(pause_settings_hides_switch_screen(true), "Continue hides the switch-controller screen");
+    check(!pause_settings_hides_switch_screen(false), "the switch screen stays up until Continue");
+    check(pause_settings_course_out_kind(true) == 0u, "Continue lets the course step");
+    check(pause_settings_course_out_kind(true, true) == 1u, "Quit does not resume the course step");
+    check(pause_settings_course_out_kind(false) == 1u, "the pause menu keeps the course stepped out");
+    check(pause_settings_resume_hold(true, 0) == 8,
+          "Continue keeps the course resumed after the other pause step");
+    check(pause_settings_resume_hold(false, 0) == 0, "a finished resume does not run again");
     check(pause_out_state(0x10216DD4u) && pause_out_state(0x10216DF4u), "Settings uses the same Out fade as Continue");
     check(!pause_controller_state(0x10216DD4u), "the Out fade is not the controller window");
     check(pause_controller_state(0x10216D74u) && pause_controller_state(0x10216D94u),
