@@ -21,18 +21,18 @@ constexpr uint32_t kPad = 0x50;
 constexpr uint32_t kDraw = 0x8;
 constexpr uint32_t kActive = 0x250;
 constexpr uint32_t kShown = 0xA90;
-constexpr uint32_t kPause = 0x101D830Cu;
-constexpr uint32_t kHideCursor = 0x024C67B4u;
-constexpr uint32_t kCursorInst = 0x101D17A8u;
+const uint32_t kPause = GD(0x101D830Cu);
+const uint32_t kHideCursor = GC(0x024C67B4u);
+const uint32_t kCursorInst = GD(0x101D17A8u);
 constexpr uint32_t kCursorDraw = 0x2C5F4u;
 constexpr uint32_t kMin = 0x204;
 constexpr uint32_t kMax = 0x208;
 constexpr uint32_t kName = 0x54;
 constexpr uint32_t kState = 0x220;
-constexpr uint32_t kChangeState = 0x029C4AF0u;
-constexpr uint32_t kPlaceCursor = 0x025BE1F0u;
-constexpr uint32_t kSelectButton = 0x02682990u;
-constexpr uint32_t kMenuState = 0x10216DB4u;
+const uint32_t kChangeState = GC(0x029C4AF0u);
+const uint32_t kPlaceCursor = GC(0x025BE1F0u);
+const uint32_t kSelectButton = GC(0x02682990u);
+const uint32_t kMenuState = GD(0x10216DB4u);
 constexpr uint32_t kMode = 0x1C;
 constexpr uint32_t kPressByte = 0x84;
 constexpr uint32_t kPressAnim = 0x30;
@@ -43,30 +43,30 @@ constexpr uint32_t kAnimVt = 0x14;
 constexpr uint32_t kAnimSpeed = 0x24;
 constexpr uint32_t kAnimFlags = 0x2C;
 constexpr uint32_t kAnimUpdate = 0x1C;
-constexpr uint32_t kShowAnim = 0x02676C24u;
-constexpr uint32_t kBindAnim = 0x02AB62ECu;
+const uint32_t kShowAnim = GC(0x02676C24u);
+const uint32_t kBindAnim = GC(0x02AB62ECu);
 constexpr uint32_t kPressMute = 0x98;
 constexpr uint32_t kButtonVt = 0x1C;
 constexpr uint32_t kPressSlot = 0x24;
-constexpr uint32_t kLayoutAnim = 0x02671680u;
-constexpr uint32_t kAnimPlay = 0x02672A4Cu;
-constexpr uint32_t kInAnim = 0x10216E14u;
-constexpr uint32_t kGetAnim = 0x02671AF4u;
+const uint32_t kLayoutAnim = GC(0x02671680u);
+const uint32_t kAnimPlay = GC(0x02672A4Cu);
+const uint32_t kInAnim = GD(0x10216E14u);
+const uint32_t kGetAnim = GC(0x02671AF4u);
 constexpr uint32_t kMgrStep = 0x8;
 constexpr uint32_t kMgrButton = 0x18;
-constexpr uint32_t kWindowMgr = 0x101D15E8u;
-constexpr uint32_t kOtherPause = 0x101D7FE0u;
-constexpr uint32_t kSwitchScreen = 0x101D9AB0u;
-constexpr uint32_t kCloseSwitch = 0x0264474Cu;
-constexpr uint32_t kReleaseCourse = 0x025FE554u;
-constexpr uint32_t kAreaTask = 0x101D1598u;
+const uint32_t kWindowMgr = GD(0x101D15E8u);
+const uint32_t kOtherPause = GD(0x101D7FE0u);
+const uint32_t kSwitchScreen = GD(0x101D9AB0u);
+const uint32_t kCloseSwitch = GC(0x0264474Cu);
+const uint32_t kReleaseCourse = GC(0x025FE554u);
+const uint32_t kAreaTask = GD(0x101D1598u);
 constexpr uint32_t kCourseOutKind = 0x730;
 constexpr uint32_t kCourseOutFlag = 0x74D;
 constexpr uint32_t kCourseOutResume = 0x748;
-constexpr uint32_t kClearPauseBit = 0x025113B8u;
-constexpr uint32_t kPauseBitObj = 0x101D2E00u;
-constexpr uint32_t kClearPauseByte = 0x0202B008u;
-constexpr uint32_t kCourseStepObj = 0x101D2DF8u;
+const uint32_t kClearPauseBit = GC(0x025113B8u);
+const uint32_t kPauseBitObj = GD(0x101D2E00u);
+const uint32_t kClearPauseByte = GC(0x0202B008u);
+const uint32_t kCourseStepObj = GD(0x101D2DF8u);
 constexpr uint32_t kCourseStepSkip = 0x56D;
 constexpr uint32_t kLayoutScene = 0x280;
 constexpr uint32_t kLayoutHold = 0x594;
@@ -155,12 +155,12 @@ static void hide_pause_cursor(Cpu* c) {
     hide_cursor(true);
     const uint32_t inst = ld32(kCursorInst);
     if (!guest_obj(inst)) return;
-    guest_call(c, GC(kHideCursor), {inst, 2});
+    guest_call(c, kHideCursor, {inst, 2});
 }
 
 static void undo_back_out(Cpu* c, uint32_t self) {
     st32(self + kMode, 0);
-    guest_call(c, GC(kChangeState), {self + kState, kMenuState});
+    guest_call(c, kChangeState, {self + kState, kMenuState});
     st8(self + kDraw, g_draw ? g_draw : 1);
     st8(self + kActive, g_active ? g_active : 1);
     st8(self + kShown, g_shown ? g_shown : 1);
@@ -179,8 +179,8 @@ static void play_menu_in(Cpu* c, uint32_t self) {
     if (!guest_obj(layout)) return;
     // r4 = 0 plays the anim named In. That is the fade used when the pause menu opens.
     // animPlay applies the first frame before the draw, so the menu does not pop in.
-    guest_call(c, GC(kLayoutAnim), {layout, 0, kInAnim, 0});
-    guest_call(c, GC(kAnimPlay), {layout, 0xE, 0});
+    guest_call(c, kLayoutAnim, {layout, 0, kInAnim, 0});
+    guest_call(c, kAnimPlay, {layout, 0xE, 0});
 }
 
 static void set_pane_visible(uint32_t pane, bool visible);
@@ -193,12 +193,12 @@ static bool anim_out_finished(Cpu* c, uint32_t self);
 // 0x025BE1F0 aims the cursor at that row. 0x02682990 selects the button.
 static void place_menu_cursor(Cpu* c, uint32_t self) {
     st32(self + kIndex, (uint32_t)g_index);
-    guest_call(c, GC(kPlaceCursor), {self});
+    guest_call(c, kPlaceCursor, {self});
     const uint32_t arr = ld32(self + kButtons);
     if (!guest_obj(arr)) return;
     const uint32_t button = ld32(arr + (uint32_t)g_index * 4u);
     if (!guest_obj(button)) return;
-    guest_call(c, GC(kSelectButton), {self + kMgr, button});
+    guest_call(c, kSelectButton, {self + kMgr, button});
 }
 
 static void remember_menu(uint32_t self) {
@@ -518,8 +518,8 @@ static void restart_decide(Cpu* c, uint32_t button) {
     (void)c;
     const uint32_t decide = ld32(button + kDecideAnim);
     if (!guest_obj(decide)) return;
-    guest_call(c, GC(kShowAnim), {button, decide});
-    guest_call(c, GC(kBindAnim), {button, decide});
+    guest_call(c, kShowAnim, {button, decide});
+    guest_call(c, kBindAnim, {button, decide});
     const uint32_t res = ld32(decide + 8);
     if (guest_obj(res)) {
         const uint16_t count = ld16(res + 8);
@@ -620,7 +620,7 @@ static void follow_settings_fade(Cpu* c, uint32_t self) {
     if (fade.leave && !g_left) {
         g_left = true;
         st32(self + kMode, 0);
-        guest_call(c, GC(kChangeState), {self + kState, kMenuState});
+        guest_call(c, kChangeState, {self + kState, kMenuState});
         // The open-menu enter places the cursor on Continue while Out is still scaled.
         // Putting it on Settings here makes the corners huge. Place after the list is back.
         // That enter also enables Quit. Put the dim row back before the draw.
@@ -646,7 +646,7 @@ static void block_controller_rewind(Cpu* c, uint32_t self) {
     if (!g_real_leave) return;
     const uint32_t layout = ld32(self);
     if (!guest_obj(layout)) return;
-    const uint32_t anim = guest_call(c, GC(kGetAnim), {layout, 0});
+    const uint32_t anim = guest_call(c, kGetAnim, {layout, 0});
     if (!guest_obj(anim)) return;
     const uint32_t flags = ld32(anim + kAnimFlags);
     if (!pause_settings_clears_leave_anim(flags)) return;
@@ -665,7 +665,7 @@ static void stop_menu_anim(Cpu* c, uint32_t self) {
     if (!guest_obj(layout)) return;
     const uint32_t slots[] = {0u, 3u};
     for (uint32_t slot : slots) {
-        const uint32_t anim = guest_call(c, GC(kGetAnim), {layout, slot});
+        const uint32_t anim = guest_call(c, kGetAnim, {layout, slot});
         if (!guest_obj(anim)) continue;
         stf32(anim + kAnimSpeed, 0.f);
         st8(anim + kAnimEnable, 0);
@@ -699,7 +699,7 @@ static void hide_switch_screen(Cpu* c) {
     const uint32_t screen = ld32(kSwitchScreen);
     if (!guest_obj(screen) || ld8(screen + 0xED8) == 0) return;
     g_switch_closed = true;
-    guest_call(c, GC(kCloseSwitch), {screen});
+    guest_call(c, kCloseSwitch, {screen});
 }
 
 static void clear_pause_node(uint32_t node) {
@@ -732,8 +732,8 @@ static void release_course_step(Cpu* c, bool quit) {
     const uint32_t step = ld32(kCourseStepObj);
     if (guest_obj(step)) st8(step + kCourseStepSkip, 0);
     const uint32_t bits = ld32(kPauseBitObj);
-    if (guest_obj(bits)) guest_call(c, GC(kClearPauseBit), {bits, 1u, 0u});
-    guest_call(c, GC(kClearPauseByte), {});
+    if (guest_obj(bits)) guest_call(c, kClearPauseBit, {bits, 1u, 0u});
+    guest_call(c, kClearPauseByte, {});
 }
 
 static void resume_course(Cpu* c, uint32_t self) {
@@ -747,7 +747,7 @@ static void resume_course(Cpu* c, uint32_t self) {
     for (uint32_t off : course_nodes) {
         if (pause_settings_course_pause_node(off)) clear_pause_node(ld32(self + off));
     }
-    if (self == ld32(kPause)) guest_call(c, GC(kReleaseCourse), {self, 0u});
+    if (self == ld32(kPause)) guest_call(c, kReleaseCourse, {self, 0u});
     hide_controller_panes(self);
     hide_tree(layout_root(self));
     hide_switch_screen(c);

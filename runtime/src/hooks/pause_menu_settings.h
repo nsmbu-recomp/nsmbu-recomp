@@ -1,5 +1,7 @@
 #pragma once
 
+#include "guest_addr.h"
+
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -96,7 +98,7 @@ inline bool pause_settings_blocks_back(bool overlay_open, bool back_held, bool a
 
 // Plus or Back enters 0x10216DF4 and plays Out. While the overlay's B is still held, undo that leave.
 inline bool pause_settings_cancels_back_out(bool blocking, uint32_t state) {
-    return blocking && state == 0x10216DF4u;
+    return blocking && state == GD(0x10216DF4u);
 }
 
 // 0x025F3834 steps the pause object at 0x101D7FE0 after this hook.
@@ -190,11 +192,11 @@ inline bool pause_settings_fade_in_done(bool saw_running, bool finished, int hel
 // Plus or Back enters 0x10216DF4. Both play the layout anim named Out.
 // 0x10216D74 and 0x10216D94 are the controller window after that fade.
 inline bool pause_out_state(uint32_t id) {
-    return id == 0x10216DD4u || id == 0x10216DF4u;
+    return id == GD(0x10216DD4u) || id == GD(0x10216DF4u);
 }
 
 inline bool pause_controller_state(uint32_t id) {
-    return id == 0x10216D74u || id == 0x10216D94u;
+    return id == GD(0x10216D74u) || id == GD(0x10216D94u);
 }
 
 // Out and the controller window clear those draw bytes while the pause is still up.
@@ -222,7 +224,7 @@ inline bool pause_settings_clears_mode(uint32_t mode, int seen_frames) {
 // Back is 0x10216DF4. That leave stays with the game, including on the Settings row.
 // A confirm while +0x1C is 2 has not started that fade. Arming there clears the pad.
 inline bool pause_settings_arms(uint32_t state, uint32_t mode, bool on_settings) {
-    if (!on_settings || state == 0x10216DF4u) return false;
+    if (!on_settings || state == GD(0x10216DF4u)) return false;
     return pause_out_state(state) || pause_controller_state(state) || pause_settings_keeps_mode(mode);
 }
 
@@ -280,7 +282,7 @@ inline int pause_settings_resume_hold(bool resumed, int frames_left) {
 // Quit uses the same window and still leaves the course. Out itself keeps playing.
 inline bool pause_settings_direct_unpause(bool real_leave, uint32_t state, bool menu_hidden = false,
                                           bool quit_row = false) {
-    if (!real_leave || quit_row || pause_out_state(state) || state == 0x10216DB4u) return false;
+    if (!real_leave || quit_row || pause_out_state(state) || state == GD(0x10216DB4u)) return false;
     return pause_controller_state(state) || menu_hidden;
 }
 
@@ -296,7 +298,7 @@ inline uint32_t pause_settings_watched_state(uint32_t state_id, uint32_t virtual
 // Holding the button list through that leave freezes Out and leaves the course paused with no menu.
 inline bool pause_settings_drops_hold(bool page_closed, bool on_settings, uint32_t state) {
     if (!page_closed) return false;
-    if (state == 0x10216DF4u) return true;
+    if (state == GD(0x10216DF4u)) return true;
     if (!pause_out_state(state) && !pause_controller_state(state)) return false;
     return !on_settings;
 }
