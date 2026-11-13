@@ -26,7 +26,7 @@ export async function cmdTest(repo: string, rest: string[]): Promise<void> {
     const { list, show, names } = parseTestArgs(rest);
     if (list && names.length === 0) {
         for (const c of CASES) {
-            const tag = c.skip ? "\t(skipped)" : "";
+            const tag = c.skip ? "\t(skipped)" : c.manual ? "\t(manual)" : "";
             console.log(`${c.name}${tag}\t${c.summary}`);
         }
         return;

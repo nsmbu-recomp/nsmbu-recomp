@@ -111,6 +111,8 @@ static std::vector<uint8_t> pause_file() {
     auto cont = part("Pa_Continue_00", 155.f);
     auto quit = part("Pa_Exit_00", 14.f);
     auto play = part("Pa_PlayStyle_00", -149.f);
+    play[8] = 1;
+    play[0xA] = 0xFF;
     append_text_box(play);
 
     std::vector<uint8_t> file(0x14, 0);
@@ -154,17 +156,20 @@ int main() {
           "another layout is not the pause menu");
 
     auto file = pause_file();
-    check(patch_pause_flyt(file), "Change Controller becomes Settings");
+    check(patch_pause_flyt(file), "the pause menu gains a Settings button");
     const uint8_t* play = find_part(file, "Pa_PlayStyle_00");
+    const uint8_t* set = find_part(file, "Pa_SetBtn_00");
     const uint8_t* win = find_part(file, "Pa_Win_00");
     const uint8_t* cont = find_part(file, "Pa_Continue_00");
     const uint8_t* quit = find_part(file, "Pa_Exit_00");
-    check(!find_part(file, "Pa_SetBtn_00"), "the menu does not gain a fourth button");
-    check(play && win && cont && quit, "the patched file still has the pause panes");
-    if (play && win && cont && quit) {
+    check(play && set && win && cont && quit, "the patched file still has the pause panes");
+    if (play && set && win && cont && quit) {
         check(near(rf32(cont + 0x30), kContinueY), "Continue stays on its row");
         check(near(rf32(quit + 0x30), kQuitY), "Quit stays on its row");
-        check(near(rf32(play + 0x30), kSettingsY), "Settings keeps the Change Controller row");
+        check(near(rf32(set + 0x30), kSettingsY), "Settings sits on the Change Controller row");
+        check(near(rf32(play + 0x30), kSettingsY), "the hidden button stays on that row");
+        check((play[8] & 1) == 0 && play[0xA] == 0, "Change Controller is hidden");
+        check((set[8] & 1) != 0 && set[0xA] == 0xFF, "the injected button stays visible");
         check(near(rf32(win + 0x50), kWinH), "the pause window keeps its height");
         check(near(rf32(win + 0xB0 + 44), 500.f), "the blue frame keeps its height");
         const uint8_t* untouched = find_part(file, "Pa_Win_01");
@@ -172,21 +177,50 @@ int main() {
               "the two-button pause window stays the same");
         const uint8_t word[] = {
             0x00, 'S', 0x00, 'e', 0x00, 't', 0x00, 't', 0x00, 'i', 0x00, 'n', 0x00, 'g', 0x00, 's', 0x00, 0x00};
-        bool labeled = false;
-        const uint32_t sz = ((uint32_t)play[4] << 24) | ((uint32_t)play[5] << 16) | ((uint32_t)play[6] << 8) | play[7];
-        for (uint32_t i = 0; i + 0x56 <= sz; i++) {
-            if (std::memcmp(play + i, "txt1", 4) != 0) continue;
-            const uint16_t buf = (uint16_t)((play[i + 0x54] << 8) | play[i + 0x55]);
-            const uint32_t off = ((uint32_t)play[i + 0x64] << 24) | ((uint32_t)play[i + 0x65] << 16) |
-                                 ((uint32_t)play[i + 0x66] << 8) | play[i + 0x67];
-            if (buf == 18 && i + off + sizeof word <= sz && std::memcmp(play + i + off, word, sizeof word) == 0)
-                labeled = true;
-        }
-        check(labeled, "the button says Settings");
+        auto says_settings = [&](const uint8_t* pane) {
+            const uint32_t sz = ((uint32_t)pane[4] << 24) | ((uint32_t)pane[5] << 16) | ((uint32_t)pane[6] << 8) | pane[7];
+            for (uint32_t i = 0; i + 0x56 <= sz; i++) {
+                if (std::memcmp(pane + i, "txt1", 4) != 0) continue;
+                const uint16_t buf = (uint16_t)((pane[i + 0x54] << 8) | pane[i + 0x55]);
+                const uint32_t off = ((uint32_t)pane[i + 0x64] << 24) | ((uint32_t)pane[i + 0x65] << 16) |
+                                     ((uint32_t)pane[i + 0x66] << 8) | pane[i + 0x67];
+                if (buf == 18 && i + off + sizeof word <= sz && std::memcmp(pane + i + off, word, sizeof word) == 0)
+                    return true;
+            }
+            return false;
+        };
+        check(says_settings(set), "the injected button says Settings");
+        check(!says_settings(play), "Change Controller keeps its own label");
     }
     const auto once = file;
     check(!patch_pause_flyt(file), "a second patch does nothing");
     check(file == once, "the patched bytes stay as they were");
+
+    std::vector<uint8_t> flan(0x14, 0);
+    std::memcpy(flan.data(), "FLAN", 4);
+    std::vector<uint8_t> pai(0x18 + 28 + 4, 0);
+    std::memcpy(pai.data(), "pai1", 4);
+    pause_menu::wu32(pai.data() + 4, (uint32_t)pai.size());
+    pai[0x0E] = 0;
+    pai[0x0F] = 1;
+    pause_menu::wu32(pai.data() + 0x10, 0x14);
+    pause_menu::wu32(pai.data() + 0x14, 0x18);
+    std::memcpy(pai.data() + 0x18, "Pa_PlayStyle_00", 16);
+    std::memcpy(pai.data() + 0x18 + 28, "CURV", 4);
+    flan.insert(flan.end(), pai.begin(), pai.end());
+    pause_menu::wu32(flan.data() + 0xC, (uint32_t)flan.size());
+    flan[0x11] = 1;
+    const PauseFlanPatch anim = patch_pause_flan(flan, 0x14);
+    check(anim.patched && anim.focus_patched && anim.entries == 2, "the pause animation gains the Settings button");
+    check(std::memcmp(flan.data() + 0x14 + 0x0E, "\x00\x02", 2) == 0, "the animation entry count is two");
+    bool named = false;
+    for (uint32_t i = 0; i + 13 <= flan.size(); i++) {
+        if (std::memcmp(flan.data() + i, "Pa_SetBtn_00", 12) == 0 && flan[i + 12] == 0) named = true;
+    }
+    check(named, "the copied curve is named Pa_SetBtn_00");
+    const auto anim_once = flan;
+    const PauseFlanPatch anim_again = patch_pause_flan(flan, 0x14);
+    check(!anim_again.patched && flan == anim_once, "a second animation patch does nothing");
 
     check(kStartsEnabled, "the pause Settings button starts on");
 
@@ -201,7 +235,8 @@ int main() {
     check(settings_confirm_pad(1u << 11), "Enter is Plus and confirms Settings");
     check(settings_confirm_pad(1u << 13), "A is Decide and confirms Settings");
     check(!settings_confirm_pad(1u << 14), "B stays Back and does not confirm Settings");
-    check(settings_button_name("Pa_PlayStyle_00"), "the story Change Controller row is Settings");
+    check(settings_button_name("Pa_SetBtn_00"), "the injected pause row is Settings");
+    check(!settings_button_name("Pa_PlayStyle_00"), "Change Controller keeps its own confirm");
     check(!settings_button_name("Pa_ChallengePlayStyle_00"), "a challenge row keeps its own confirm");
     check(pause_menu_shown(0, 1), "the course pause stays open when +0xA90 is set");
     check(!pause_menu_shown(0, 0), "a clear +0x250 and +0xA90 leaves the pause menu closed");
@@ -281,7 +316,24 @@ int main() {
     check(pause_settings_direct_unpause(true, 0x10216D94u),
           "Continue after Settings unpauses without running the controller window");
     check(!pause_settings_direct_unpause(false, 0x10216D94u), "Settings does not unpause the course");
-    check(!pause_settings_direct_unpause(true, 0x10216DD4u), "Out finishes before the course resumes");
+    check(pause_settings_blocks_continue_step(true, false, false, 2u, 0, 0x10216DB4u),
+          "Continue after Settings does not run the pause step");
+    check(!pause_settings_blocks_continue_step(true, true, false, 2u, 0, 0x10216DB4u),
+          "Settings still runs its own step");
+    check(!pause_settings_blocks_continue_step(true, false, true, 2u, 0, 0x10216DB4u),
+          "Quit still runs its own step");
+    check(!pause_settings_blocks_continue_step(false, false, false, 2u, 0, 0x10216DB4u),
+          "Continue before Settings keeps the game step");
+    check(pause_settings_direct_unpause(true, 0x10216DD4u),
+          "Continue leaves Out before the controller window opens");
+    check(!pause_settings_direct_unpause(true, 0x10216DF4u), "Back still uses the game's own leave");
+    check(!pause_settings_hold_follows_state(0x10216D94u),
+          "a skipped controller step does not keep the next pause blank");
+    check(pause_settings_resume_still_held(8, 0x10216DB4u, true),
+          "the open menu does not end Continue's resume hold");
+    check(!pause_settings_resume_still_held(0, 0x10216DB4u, true), "the resume hold still ends");
+    check(pause_settings_hides_sealed_pause(true, false), "Continue stays hidden until the next Plus");
+    check(!pause_settings_hides_sealed_pause(true, true), "the next Plus shows the pause menu");
     check(!pause_settings_direct_unpause(true, 0x10216D94u, false, true), "Quit still leaves the course");
     check(pause_settings_direct_unpause(true, 0u, true, false),
           "a hidden menu after Continue resumes the course");

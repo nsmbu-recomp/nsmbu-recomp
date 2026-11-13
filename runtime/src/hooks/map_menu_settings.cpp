@@ -1116,8 +1116,11 @@ extern "C" void site_026730C4(Cpu* c) {
     pause_menu_site_026730C4(c, c->r[26]);
 }
 
+extern "C" void pause_menu_site_02AB7040(Cpu* c);
+
 extern "C" void site_02AB7040(Cpu* c) {
     map_menu::install_settings_anim(c);
+    pause_menu_site_02AB7040(c);
 }
 
 extern "C" void site_02682674(Cpu* c) {

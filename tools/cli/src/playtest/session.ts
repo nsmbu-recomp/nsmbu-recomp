@@ -341,6 +341,17 @@ export class Session {
         await this.wait((s) => (s.step ?? 0) >= target, timeoutSec);
     }
 
+    async ui(): Promise<{ overlay: boolean }> {
+        const r = await withTimeout(this.live().request({ cmd: "ui" }), 20_000, "ui");
+        if (!r.ok) throw new Error(r.error ?? "ui failed");
+        return { overlay: r.overlay === true };
+    }
+
+    async clickClose(): Promise<void> {
+        const r = await withTimeout(this.live().request({ cmd: "click", target: "close" }), 20_000, "click");
+        if (!r.ok) throw new Error(r.error ?? "click failed");
+    }
+
     async stop(): Promise<void> {
         const client = this.client;
         this.client = null;

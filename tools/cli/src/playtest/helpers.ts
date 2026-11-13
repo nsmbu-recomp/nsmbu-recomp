@@ -6,6 +6,8 @@ export type PlayCase = {
     name: string;
     summary: string;
     skip?: string;
+    // A manual case stays out of a bare `nsmbu test`. `nsmbu test <name>` still runs it.
+    manual?: boolean;
     run: (session: Session) => Promise<void>;
 };
 

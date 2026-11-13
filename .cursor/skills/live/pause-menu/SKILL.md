@@ -11,7 +11,8 @@ The `world-map` skill owns that start menu.
 The `course` skill gets a course on screen.
 
 The story rows are Continue, Quit, and Settings.
-Settings replaces Change Controller.
+Settings is a new button injected on the Change Controller row.
+Change Controller stays in the layout and is hidden.
 The blue panel keeps its original height.
 Continue returns to the course.
 Quit leaves the course.
@@ -35,3 +36,20 @@ The pause buttons stay hidden while the overlay is open.
 The course stays paused.
 The cursor can move again after the overlay closes.
 `nsmbu click close` clicks the X in the top right of this overlay.
+
+## Visual check
+
+`nsmbu test pause-settings --show` loads save slot 1.
+It opens Settings, closes that overlay, then presses Continue.
+It opens the pause menu again.
+Close a live game first.
+`nsmbu test` refuses while that game is up.
+The shots stay in `.tmp/playtest/pause-settings/`.
+`04-after-close.png` is the pause menu after the overlay closes.
+`06-continue-a-window.png` is the screen just after Continue.
+`08-pause-again.png` is the next pause menu.
+Done when `08-pause-again.png` shows Continue, Quit, and Settings.
+A course with no pause menu in that shot is the broken second pause.
+`06-continue-a-window.png` stays on the course.
+The controller page and the broken cursor stay out of that shot.
+A bare `nsmbu test` does not run this case.

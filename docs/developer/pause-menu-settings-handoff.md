@@ -117,9 +117,11 @@ Correct it in `vendor/decomp/include` when the behavior change lands.
 ## Checks that stay
 
 The story rows stay Continue, Quit, and Settings.
-Settings stays on `Pa_PlayStyle_00`.
+Settings is the injected pane `Pa_SetBtn_00`.
+It sits on the Change Controller row.
+`Pa_PlayStyle_00` stays in the file and is hidden.
 The blue panel keeps its original height.
-There is no fourth row.
+There is no fourth visible row.
 Challenge layouts and `PaCommonWindow` stay unchanged.
 The world-map Settings button stays opt-in.
 Pause Settings stays on unless the debug checkbox turns it off.

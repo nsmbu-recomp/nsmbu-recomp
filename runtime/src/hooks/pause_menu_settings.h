@@ -8,7 +8,7 @@
 
 namespace pause_menu {
 
-// Story pause rows stay where the game drew them. Change Controller becomes Settings.
+// Story pause rows stay where the game drew them. Settings is a new button on the Change Controller row.
 constexpr float kContinueY = 155.f;
 constexpr float kQuitY = 14.f;
 constexpr float kSettingsY = -149.f;
@@ -64,9 +64,9 @@ inline bool story_settings_confirm(int mn, int mx, int idx, bool decide) {
     return story_settings_row(mn, mx, idx) && decide;
 }
 
-// Pa_PlayStyle_00 is the story Change Controller row. Challenge rows keep their own names.
+// Pa_SetBtn_00 is the injected Settings row. The hidden Change Controller pane keeps its own name.
 inline bool settings_button_name(const char* name) {
-    return name && std::strcmp(name, "Pa_PlayStyle_00") == 0;
+    return name && std::strcmp(name, "Pa_SetBtn_00") == 0;
 }
 
 // The course pause object at 0x101D830C is on screen when +0xA90 is set.
@@ -243,6 +243,9 @@ inline bool pause_settings_skips_controller_window(bool real_leave, uint32_t sta
     return real_leave && (pause_out_state(state) || pause_controller_state(state));
 }
 
+// Continue's Out is the fade that enters the controller window.
+// Unpause on that fade so the window never opens.
+// Back is the other Out. That leave stays with the game.
 // 0x026446D4 shows the switch-controller screen and leaves it up.
 // Continue hides that screen. Settings does not, until Continue is chosen.
 inline bool pause_settings_hides_switch_screen(bool course_resumed) {
@@ -277,12 +280,46 @@ inline int pause_settings_resume_hold(bool resumed, int frames_left) {
     return frames_left > 0 ? frames_left - 1 : 0;
 }
 
+// The controller step is skipped while its draw byte stays 0, so that state never advances.
+// The hold still ends. Waiting on that state keeps the next pause blank.
+inline bool pause_settings_hold_follows_state(uint32_t state) {
+    (void)state;
+    return false;
+}
+
+// Parking Continue on the open menu does not mean the player opened the pause menu.
+// The hold runs out on its own. Ending it early leaves the controller page on screen.
+inline bool pause_settings_resume_still_held(int frames_left, uint32_t state, bool shown) {
+    (void)state;
+    (void)shown;
+    return frames_left > 0;
+}
+
+// After that hold, the pause stays hidden until a later frame finds it shown.
+// That later frame is the next Plus. Hiding it there leaves the menu blank.
+inline bool pause_settings_hides_sealed_pause(bool sealed, bool opened_since_seal) {
+    return sealed && !opened_since_seal;
+}
+
+// After Settings, Continue's decide must not run the pause step.
+// That step's Out execute opens the controller window on the same frame.
+// Settings and Quit keep their own steps. Continue before Settings does too.
+inline bool pause_settings_blocks_continue_step(bool page_closed, bool settings_row, bool quit_row, uint32_t mode,
+                                                uint32_t pad, uint32_t state) {
+    if (!page_closed || settings_row || quit_row) return false;
+    if (state == GD(0x10216DD4u) || pause_controller_state(state)) return true;
+    if (state != GD(0x10216DB4u) && state != 0) return false;
+    if (mode == 2u || mode == 3u) return true;
+    return (pad & (1u << 13)) != 0;
+}
+
 // The controller execute draws the switch page. 0x02676E74 only resets button anims.
 // 0x025FBA74(pause, 0) clears the course pause flags. That runs once Out has finished.
 // Quit uses the same window and still leaves the course. Out itself keeps playing.
 inline bool pause_settings_direct_unpause(bool real_leave, uint32_t state, bool menu_hidden = false,
                                           bool quit_row = false) {
-    if (!real_leave || quit_row || pause_out_state(state) || state == GD(0x10216DB4u)) return false;
+    if (!real_leave || quit_row || state == GD(0x10216DB4u) || state == GD(0x10216DF4u)) return false;
+    if (state == GD(0x10216DD4u)) return true;
     return pause_controller_state(state) || menu_hidden;
 }
 
@@ -515,25 +552,52 @@ inline bool write_settings_label(std::vector<uint8_t>& part) {
     return true;
 }
 
-// Writes Settings onto Pa_PlayStyle_00. The blue panel and the other rows stay as they are.
-// Returns false when the file is not the story pause menu or the label is already Settings.
+inline void hide_pause_part(uint8_t* pane) {
+    pane[8] = (uint8_t)(pane[8] & ~1u);
+    pane[0xA] = 0;
+}
+
+// Copies Pa_PlayStyle_00 into Pa_SetBtn_00 on the same row and hides the original.
+// The blue panel and the other rows stay as they are.
+// Returns false when the file is not the story pause menu or the button is already there.
 inline bool patch_pause_flyt(std::vector<uint8_t>& file) {
     if (file.size() < 0x20 || std::memcmp(file.data(), "FLYT", 4) != 0) return false;
     if (!pause_menu_flyt(file.data(), (uint32_t)file.size())) return false;
+    if (contains_cstr(file.data(), (uint32_t)file.size(), "Pa_SetBtn_00")) return false;
     std::vector<uint8_t> out(file.begin(), file.begin() + 0x14);
-    bool labeled = false;
+    bool inserted = false;
     uint32_t off = 0x14;
     while (off + 8 <= file.size()) {
         const uint32_t sz = ru32(file.data() + off + 4);
         if (sz < 8 || off + sz > file.size()) return false;
         std::vector<uint8_t> sec(file.begin() + off, file.begin() + off + sz);
-        if (!labeled && std::memcmp(sec.data(), "prt1", 4) == 0 &&
-            pane_named(sec.data(), (uint32_t)sec.size(), "Pa_PlayStyle_00"))
-            labeled = write_settings_label(sec);
+        if (std::memcmp(sec.data(), "grp1", 4) == 0 && sec.size() >= 0x24) {
+            char group[25] = {};
+            std::memcpy(group, sec.data() + 8, 24);
+            if (std::strcmp(group, "G_InOut_00") == 0) {
+                const uint16_t kids = ru16(sec.data() + 0x20);
+                if (0x24u + (uint32_t)kids * 24u == sec.size()) {
+                    sec.resize(sec.size() + 24, 0);
+                    std::memcpy(sec.data() + sec.size() - 24, "Pa_SetBtn_00", 12);
+                    wu16(sec.data() + 0x20, (uint16_t)(kids + 1));
+                    wu32(sec.data() + 4, (uint32_t)sec.size());
+                }
+            }
+        }
         out.insert(out.end(), sec.begin(), sec.end());
+        if (!inserted && std::memcmp(sec.data(), "prt1", 4) == 0 &&
+            pane_named(sec.data(), (uint32_t)sec.size(), "Pa_PlayStyle_00")) {
+            std::vector<uint8_t> copy = sec;
+            std::memset(copy.data() + 0xC, 0, 24);
+            std::memcpy(copy.data() + 0xC, "Pa_SetBtn_00", 12);
+            if (!write_settings_label(copy)) return false;
+            hide_pause_part(out.data() + out.size() - sec.size());
+            out.insert(out.end(), copy.begin(), copy.end());
+            inserted = true;
+        }
         off += sz;
     }
-    if (!labeled || off != file.size()) return false;
+    if (!inserted || off != file.size()) return false;
     uint32_t count = 0;
     for (uint32_t at = 0x14; at + 8 <= out.size();) {
         const uint32_t sz = ru32(out.data() + at + 4);
@@ -546,6 +610,90 @@ inline bool patch_pause_flyt(std::vector<uint8_t>& file) {
     out[0x11] = (uint8_t)count;
     file.swap(out);
     return true;
+}
+
+// One animation entry is the pane name plus the curves copied from Change Controller.
+struct PauseFlanPatch {
+    bool patched = false;
+    uint32_t shift = 0;
+    bool focus_patched = false;
+    uint16_t entries = 0;
+};
+
+inline bool patch_pause_pai(std::vector<uint8_t>& file, uint32_t pai, uint16_t* entries_out) {
+    const char* play = "Pa_PlayStyle_00";
+    const char* set = "Pa_SetBtn_00";
+    if (pai + 0x18 > file.size() || std::memcmp(file.data() + pai, "pai1", 4) != 0) return false;
+    const uint32_t pai_sz = ru32(file.data() + pai + 4);
+    if (pai_sz < 0x18 || pai + pai_sz > file.size()) return false;
+    const uint16_t entries = ru16(file.data() + pai + 0x0E);
+    const uint32_t table = ru32(file.data() + pai + 0x10);
+    if (entries == 0 || entries > 64 || table + (uint32_t)entries * 4u > pai_sz) return false;
+    const uint8_t* sec = file.data() + pai;
+    int play_i = -1;
+    for (uint16_t i = 0; i < entries; i++) {
+        const uint32_t o = ru32(sec + table + (uint32_t)i * 4u);
+        if (o + 28 > pai_sz) return false;
+        if (std::memcmp(sec + o, set, 12) == 0 && sec[o + 12] == 0) return false;
+        if (std::memcmp(sec + o, play, 16) == 0 && sec[o + 16] == 0) play_i = (int)i;
+    }
+    if (play_i < 0) return false;
+    const uint32_t start = ru32(sec + table + (uint32_t)play_i * 4u);
+    uint32_t end = pai_sz;
+    for (uint16_t i = 0; i < entries; i++) {
+        const uint32_t o = ru32(sec + table + (uint32_t)i * 4u);
+        if (o > start && o < end) end = o;
+    }
+    if (end <= start + 28) return false;
+    std::vector<uint8_t> chunk(sec + start, sec + end);
+    std::memset(chunk.data(), 0, 28);
+    std::memcpy(chunk.data(), set, 12);
+    const uint32_t table_end = table + (uint32_t)entries * 4u;
+    std::vector<uint8_t> neu;
+    neu.reserve(file.size() + 4 + chunk.size());
+    neu.insert(neu.end(), file.begin(), file.begin() + pai + table_end);
+    neu.insert(neu.end(), 4, 0);
+    neu.insert(neu.end(), file.begin() + pai + table_end, file.begin() + pai + pai_sz);
+    neu.insert(neu.end(), chunk.begin(), chunk.end());
+    neu.insert(neu.end(), file.begin() + pai + pai_sz, file.end());
+    for (uint16_t i = 0; i < entries; i++) {
+        uint8_t* slot = neu.data() + pai + table + (uint32_t)i * 4u;
+        wu32(slot, ru32(slot) + 4u);
+    }
+    wu32(neu.data() + pai + table + (uint32_t)entries * 4u, pai_sz + 4u);
+    wu16(neu.data() + pai + 0x0E, (uint16_t)(entries + 1));
+    wu32(neu.data() + pai + 4, pai_sz + 4u + (uint32_t)chunk.size());
+    wu32(neu.data() + 0xC, (uint32_t)neu.size());
+    if (entries_out) *entries_out = (uint16_t)(entries + 1);
+    file.swap(neu);
+    return true;
+}
+
+// Copies each Change Controller curve onto Pa_SetBtn_00. focus is the pai1 being bound.
+inline PauseFlanPatch patch_pause_flan(std::vector<uint8_t>& file, uint32_t focus) {
+    PauseFlanPatch out;
+    if (file.size() < 0x20 || std::memcmp(file.data(), "FLAN", 4) != 0) return out;
+    std::vector<uint32_t> pais;
+    for (uint32_t off = 0x14; off + 8 <= file.size();) {
+        const uint32_t sz = ru32(file.data() + off + 4);
+        if (sz < 8 || off + sz > file.size()) return out;
+        if (std::memcmp(file.data() + off, "pai1", 4) == 0) pais.push_back(off);
+        off += sz;
+    }
+    for (int i = (int)pais.size() - 1; i >= 0; --i) {
+        const uint32_t pai = pais[(size_t)i];
+        const uint32_t before = (uint32_t)file.size();
+        uint16_t entries = 0;
+        const bool did = patch_pause_pai(file, pai, &entries);
+        const uint32_t grew = (uint32_t)file.size() - before;
+        if (pai < focus) out.shift += grew;
+        if (pai == focus && did) {
+            out.focus_patched = true;
+            out.entries = entries;
+        }
+        if (did) out.patched = true;
+    }
+    return out;
 }
 
 // On until Settings, Debug turns the pause Settings button off.

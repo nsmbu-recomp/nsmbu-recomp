@@ -12,7 +12,7 @@ const runCase = process.env.NSMBU_REPO ? test : test.skip;
 
 function casesToRun() {
     const raw = process.env.NSMBU_TEST_NAMES?.trim();
-    if (!raw) return CASES;
+    if (!raw) return CASES.filter((c) => !c.manual);
     const names = new Set(raw.split(",").filter(Boolean));
     return CASES.filter((c) => names.has(c.name));
 }
