@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { BUTTON_NAMES } from "./agent/buttons.ts";
+import { settingKeys } from "./settings.ts";
 
 type CommandSpec = {
     name: string;
@@ -57,6 +58,12 @@ const COMMANDS: CommandSpec[] = [
         name: "save",
         description: "Convert save data to JSON and back",
         flags: [{ name: "output", description: "Write to PATH", takesFile: true }],
+    },
+    {
+        name: "settings",
+        description: "Read or write settings.ini",
+        noFiles: true,
+        flags: [{ name: "file", description: "Settings file", takesFile: true }],
     },
     {
         name: "profile",
@@ -220,6 +227,11 @@ function fishCompletionScript(): string {
         "complete -c nsmbu -n '__nsmbu_seen picture' -l rect -r -f -d 'TV rectangle x,y,w,h'",
         "",
         "complete -c nsmbu -n '__nsmbu_seen save' -r -F",
+        "",
+        "complete -c nsmbu -n '__nsmbu_seen settings; and not __nsmbu_seen list; and not __nsmbu_seen get; and not __nsmbu_seen set; and not __nsmbu_seen unset' -a 'list get set unset' -d 'Settings command'",
+        `complete -c nsmbu -n '__nsmbu_seen settings; and __nsmbu_seen get' -f -a '${settingKeys().map((key) => fishEscape(key)).join(" ")}' -d 'Setting'`,
+        `complete -c nsmbu -n '__nsmbu_seen settings; and __nsmbu_seen set' -f -a '${settingKeys().map((key) => fishEscape(key)).join(" ")}' -d 'Setting'`,
+        `complete -c nsmbu -n '__nsmbu_seen settings; and __nsmbu_seen unset' -f -a '${settingKeys().map((key) => fishEscape(key)).join(" ")}' -d 'Setting'`,
         "",
         "complete -c nsmbu -n '__nsmbu_seen screenshot' -r -F",
         "",

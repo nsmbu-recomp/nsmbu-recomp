@@ -81,6 +81,7 @@ The CLI exports `NSMBU_CLI=1` and `NSMBU_USER_DIR=<repo>/nsmbu` on every dev com
 | `nsmbu run` / `run --release` | build then launch |
 | `nsmbu extract` | `tools/disc/extract.py` |
 | `nsmbu save <save.dat\|save.json> [output] [--output PATH]` | convert `rp_savedata.dat` to JSON and back |
+| `nsmbu settings [list\|get\|set\|unset] [--file PATH]` | read and write `settings.ini` without the settings overlay |
 | `nsmbu profile [slot] [--cpu] [--seconds N] [--attach PID]` | slot-1 scene `[prof]` digest; `--cpu` adds a Linux `perf` sample. `NSMBU_VK_GPU_TIMESTAMPS=1` adds GPU submission intervals. World-map scores stay on `nsmbu bench` |
 | `nsmbu installer [--version VERSION] [--no-open]` | builds this Linux host's GitHub Release folder (the zip contents) at `build/installer` with the pinned zig toolchain, SDL3, and Vulkan-Headers from the tree, then opens that folder's setup window; `--no-open` returns after the package is ready; does not publish |
 | `nsmbu apk` | builds the same setup APK as a release: Python, the compiler and the extractor are inside, and the game code is not. Installs it on a USB device (`adb`). `--build-only` skips adb. `--install-only` installs the last APK. |
@@ -107,6 +108,32 @@ The JSON keeps every unknown and padding byte.
 Challenge `replayCrc` values in JSON are read for inspection only; they are recomputed when writing the `.dat` file.
 No block CRC32 fields appear in the JSON; those trailers are recomputed when writing the `.dat` file so the game still accepts it.
 Non-finite `f32` values (star coin coordinates) are written as `0x`-prefixed 32-bit hex.
+
+### Settings
+
+`nsmbu settings` reads and writes the same `settings.ini` the overlay writes.
+The default file is `nsmbu/settings.ini` under `NSMBU_USER_DIR`.
+`--file` selects another file.
+The game loads the file on the next start.
+A running game keeps the settings it already loaded, and its next save replaces the file.
+An `NSMBU_*` variable that the game treats as an override still wins for that start.
+
+```
+nsmbu settings
+nsmbu settings get fps
+nsmbu settings set fps 165
+nsmbu settings set audioMute on
+nsmbu settings set resScale 1440p
+nsmbu settings unset gpu
+```
+
+`list` prints each known key, the saved value or `-`, and the accepted values.
+`fps` writes `fps60`, `fpsUnlocked`, `fpsCustom`, and `interpFps` together.
+`30`, `60`, `120`, `144`, `165`, and `240` are the listed rates.
+Any other integer from 60 to 1000 is a custom cap.
+`unlocked` draws as fast as the machine can.
+`vkPresentMode` also sets `vkPresentChosen=1`, which is what makes `fifo` stick.
+A key the catalog does not name is stored as written when it matches `name` or `name.part`.
 
 ## Compile
 

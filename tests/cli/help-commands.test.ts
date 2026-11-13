@@ -7,4 +7,5 @@ test("removed CLI commands stay out of help", () => {
     assert.doesNotMatch(HELP, /\bnsmbu scripted\b/);
     assert.doesNotMatch(HELP, /\bnsmbu perf\b/);
     assert.match(HELP, /nsmbu profile \[slot\] \[--cpu\]/);
+    assert.match(HELP, /nsmbu settings \[list\|get KEY\|set KEY VALUE\|unset KEY\]/);
 });

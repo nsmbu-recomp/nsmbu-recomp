@@ -34,6 +34,7 @@ import {
 } from "../src/agent/commands.ts";
 import { cmdCompletion } from "../src/completion.ts";
 import { cmdSave } from "../src/save.ts";
+import { cmdSettings } from "../src/settings.ts";
 import { cmdBench } from "../src/bench/cmd.ts";
 import { cmdTest } from "../src/playtest/cmd.ts";
 import { cmdCompareRuns } from "../src/gametest/compare-runs.ts";
@@ -92,6 +93,9 @@ async function main(): Promise<void> {
                 break;
             case "game":
                 await cmdGame(repo, rest);
+                break;
+            case "settings":
+                cmdSettings(repo, rest);
                 break;
             case "save": {
                 const { flags, positional } = parseArgv(rest, ["output"], ["output"]);

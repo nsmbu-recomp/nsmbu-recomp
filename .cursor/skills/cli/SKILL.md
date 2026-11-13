@@ -1,6 +1,6 @@
 ---
 name: cli
-description: "nsmbu CLI playtests, benches, boots, builds, dumps, and NSMBU_* variables. Use when running nsmbu test, bench, scenario, compare-runs, a warm build, a dump switch, or a pose or interpolation check."
+description: "nsmbu CLI playtests, benches, boots, builds, dumps, settings.ini, and NSMBU_* variables. Use when running nsmbu test, bench, scenario, compare-runs, a warm build, a dump switch, a pose or interpolation check, or nsmbu settings."
 ---
 
 # nsmbu CLI
@@ -14,11 +14,19 @@ Read `docs/developer/automation.md` for playtests, benches, course replay, `nsmb
 Frame time, CPU samples, GPU timestamp intervals, and world-map benches are the `profile` skill.
 Development builds write `[input]` pad lines.
 The line layout is in `docs/developer/replay-format.md`.
-Read `docs/developer/cli.md` for install, build/launch, and live control commands.
+Read `docs/developer/cli.md` for install, build/launch, live control, and `nsmbu settings`.
 Read `docs/developer/env.md` when you add, rename, or read an `NSMBU_*` variable.
 Read Frame interpolation in `docs/developer/env.md` before changing a model pose, a camera picture, or interpolation.
 The `file-select`, `world-map`, and `course` skills own a short boot to that place.
 Read `game/README.md` for dump folder layout.
+
+## Settings
+
+`nsmbu settings` changes `nsmbu/settings.ini`.
+The next start loads that file.
+Close a running game first.
+That process keeps the settings it already loaded, and its next save replaces the file.
+`nsmbu settings` prints the keys and the accepted values.
 
 ## Dump
 

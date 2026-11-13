@@ -11,6 +11,7 @@ Usage:
   nsmbu game --create ID
   nsmbu extract
   nsmbu save <save.dat|save.json> [output] [--output PATH]
+  nsmbu settings [list|get KEY|set KEY VALUE|unset KEY] [--file PATH]
   nsmbu profile [slot] [--cpu] [--seconds N] [--attach PID]
   nsmbu installer [--version VERSION] [--no-open]
   nsmbu apk [--abi arm64-v8a|x86_64] [--device SERIAL] [--build-only] [--install-only] [--yes]
