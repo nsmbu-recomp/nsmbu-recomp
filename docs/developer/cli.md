@@ -54,6 +54,8 @@ Unix domain socket on Linux and macOS; named pipe on Windows.
 The default session keeps its socket and pid under `.tmp/agent/`.
 `nsmbu -s <id>` uses `.tmp/agent/<id>/` for that socket and pid.
 `NSMBU_USER_DIR` for that session is `.tmp/agent/<id>/user`, so the save, settings, and log stay off the shared `nsmbu/` folder.
+A game started with that socket does not take the foreground.
+Later agent commands leave the window where it is.
 The game opens the listener when started through `nsmbu open` (or `launch --agent`).
 Protocol: newline-delimited JSON request/response.
 No HTTP server.

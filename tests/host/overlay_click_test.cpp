@@ -19,6 +19,9 @@ int main() {
     check(!overlay_close_click(0.f, 0.f, 0.f, 0.f).ok, "a missing close button has no click");
     check(!overlay_close_click(0.2f, 0.2f, 0.1f, 0.3f).ok, "an empty close button has no click");
     check(!overlay_close_click(-0.1f, 0.04f, 0.1f, 0.08f).ok, "a close button off the display has no click");
+    request_agent_close();
+    check(take_agent_close(), "an agent close is a request, not a pointer click");
+    check(!take_agent_close(), "the agent close request is used once");
     if (fails) {
         std::fprintf(stderr, "%d failed\n", fails);
         return 1;

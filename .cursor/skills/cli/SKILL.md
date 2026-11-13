@@ -60,6 +60,8 @@ A runtime-only edit compiles the changed `.cpp` and links.
 `nsmbu -s <id>` names the live game this command talks to.
 Use the same id on `open`, `status`, `press`, and `close`.
 A different id is a different game, socket, save, and settings under `.tmp/agent/<id>/`.
+An agent game stays in the background.
+Press, click, and screenshot do not bring its window forward.
 Omit `-s` for the default session, which is still one game under `.tmp/agent/`.
 `NSMBU_SESSION` sets the id when `-s` is absent.
 If `nsmbu open` refuses because that session is already running, run `nsmbu status` with the same id.

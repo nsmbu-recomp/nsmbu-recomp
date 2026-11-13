@@ -2213,12 +2213,10 @@ void settings_window() {
     ImGui::SetNextWindowPos(ImVec2(ds.x * 0.5f, ds.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(size, ImGuiCond_Always);
     ImGuiWindowFlags fl = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
-                          ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar;
+                          ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar |
+                          ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus;
     bool open = true;
-    if (U.just_opened) {
-        ImGui::SetNextWindowFocus();
-        U.just_opened = false;
-    }
+    if (U.just_opened) U.just_opened = false;
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
     const bool begun = ImGui::Begin(app_title::kSettings, &open, fl);
     ImGui::PopStyleVar();
@@ -2227,6 +2225,7 @@ void settings_window() {
         const float close_sz = ImGui::GetFrameHeight();
         const float top = ImGui::GetCursorPosY();
         settings_close_button(open, close_sz);
+        if (take_agent_close()) open = false;
         ImGui::SetCursorPos(ImVec2(pad, top));
         ImGui::PushItemWidth(ImGui::GetWindowWidth() - close_sz - pad * 3.0f);
         if (U.cap_action < 0 && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId)) {
@@ -2412,19 +2411,7 @@ bool click_close(float& x, float& y) {
     if (!is_open() || !close_button(x0, y0, x1, y1)) return false;
     const OverlayClick hit = overlay_close_click(x0, y0, x1, y1);
     if (!hit.ok) return false;
-    Event move;
-    move.kind = Event::MousePos;
-    move.x = hit.x;
-    move.y = hit.y;
-    Event down;
-    down.kind = Event::MouseButton;
-    down.code = 0;
-    down.down = true;
-    Event up = down;
-    up.down = false;
-    push(move);
-    push(down);
-    push(up);
+    request_agent_close();
     x = hit.x;
     y = hit.y;
     return true;
