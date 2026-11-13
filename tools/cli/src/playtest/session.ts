@@ -3,8 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { AgentClient } from "../agent/client.ts";
 import { parseButtonBits } from "../agent/buttons.ts";
-import { agentSocketPath } from "../agent/paths.ts";
-import { isPidAlive, readAgentPid } from "../agent/process.ts";
+import { closeLiveAgent, formatLiveAgent, isPidAlive, liveAgents } from "../agent/process.ts";
 import { canConnectSocket, waitForSocket } from "../agent/socket.ts";
 import { spawnPython } from "../run.ts";
 
@@ -74,14 +73,11 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 }
 
 export async function ensureLiveAgentIdle(repo: string): Promise<void> {
-    const sock = agentSocketPath(repo);
-    if (await canConnectSocket(sock)) {
-        throw new Error("agent game already running (control socket is active); nsmbu close first");
-    }
-    const pid = readAgentPid(repo);
-    if (pid !== null && isPidAlive(pid)) {
-        throw new Error(`agent game already running (pid ${pid}); nsmbu close first`);
-    }
+    const live = await liveAgents(repo);
+    if (live.length === 0) return;
+    const detail = live.map(formatLiveAgent).join("; ");
+    const close = live.map(closeLiveAgent).join(" or ");
+    throw new Error(`${detail}; ${close} first`);
 }
 
 export class Session {

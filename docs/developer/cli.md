@@ -10,8 +10,9 @@ Short live control (`status`, `press`, `stick`, `screenshot`, `wait`, `quit`) is
 Course pad logs live under `tools/cli/src/playtest/replays/` and run as `nsmbu test replay-1-1` and `replay-2-1`.
 `replay-bug-1` checks the intro-skip quit.
 
-Only one game instance is supported.
-The process is too heavy to run more than one, so there is no `--session` flag and no multi-instance control.
+Each `-s` id is one game.
+Omit `-s` and the command uses the default session, which is still one game.
+`NSMBU_SESSION` is that id when the flag is absent.
 
 ## Install
 
@@ -50,7 +51,9 @@ flowchart LR
 ### Transport
 
 Unix domain socket on Linux and macOS; named pipe on Windows.
-Fixed path under `.tmp/agent/` (socket, pid, optional log) for the single running instance.
+The default session keeps its socket and pid under `.tmp/agent/`.
+`nsmbu -s <id>` uses `.tmp/agent/<id>/` for that socket and pid.
+`NSMBU_USER_DIR` for that session is `.tmp/agent/<id>/user`, so the save, settings, and log stay off the shared `nsmbu/` folder.
 The game opens the listener when started through `nsmbu open` (or `launch --agent`).
 Protocol: newline-delimited JSON request/response.
 No HTTP server.
@@ -204,13 +207,15 @@ The run log is `nsmbu/logs/nsmbu.log`.
 
 ## Live look
 
-Commands talk to the single running game over the fixed control socket.
+Commands talk to one session's game over that session's control socket.
+Pass the same `-s <id>` on every command for that game, or export `NSMBU_SESSION`.
 Use them for a short look while writing a playtest case; lasting coverage stays in `tools/cli/src/playtest/cases/` and `nsmbu test`.
 
 - `nsmbu open [slot|course|course-file] […]` — ensure a debug binary, spawn the game with agent control enabled, wait until the socket accepts.
   Release builds ignore `NSMBU_AGENT_SOCK`.
   A course file is a `course_res_pack` archive, such as `game/content/Common/course_res_pack/1-27.szs`, and starts that course the same way as `1-27`.
-  Refuse if a game is already running.
+  Refuse if that session already has a game.
+  Another `-s` id can be open at the same time.
 - `nsmbu status` — one line from the guest thread: frame, logic step, pid, scene name, whether the world map or a course task is alive, course pack, entering pack when it differs, save file, map checkpoint, map node and world, and the player snapshot or `player=none`.
   On the world map the line also has the node name, the node position, and the map player position.
   `area=1` means a course area is running.
@@ -245,7 +250,7 @@ Use them for a short look while writing a playtest case; lasting coverage stays 
   The rectangle is in 1280×720 TV pixels.
   Omit it to use the whole frame.
 - `nsmbu restart` — remember the course pack, world map, title, or file select, quit, rebuild `build/debug/nsmbu` when a runtime source is newer, then open that place again.
-- `nsmbu quit` / `close` — graceful quit and tear down control files under `.tmp/agent/`.
+- `nsmbu quit` / `close` — graceful quit and tear down that session's control files under `.tmp/agent/` (or `.tmp/agent/<id>/`).
 
 These commands block until their work is done: `open` waits for the socket, `leave` waits for the guest thread to quit the course, `press` / `stick` hold for their frames, `screenshot` and `picture` wait for the PNGs, `status`, `ui`, `actors`, and `eval <name>` wait for the guest thread, `eval --list` answers from the listen thread, `goto` waits until that place is current, and `wait` polls until the frame, step, scene, or cursor bound.
 Use `wait --step N` or `wait --scene NAME` when the next action needs guest progress.
@@ -276,6 +281,8 @@ Complex input stays on `record` / `replay`.
 
 The CLI shells out to existing Python tools for build, launch, and profile; do not reimplement CMake in TypeScript.
 TypeScript: erasable syntax only (`erasableSyntaxOnly` in `tools/cli/tsconfig.json`); imports use `.ts` extensions.
-Control state for the one instance lives under `.tmp/agent/` (gitignored via existing `.tmp/`).
+Control state for the default session lives under `.tmp/agent/` (gitignored via existing `.tmp/`).
+A named session lives under `.tmp/agent/<id>/`.
 Global install is `npm link` from `tools/cli/`; do not add a repo-root wrapper script.
-No `--session` and no multi-game support.
+`-s` / `--session` selects the id.
+The default session stays one game.

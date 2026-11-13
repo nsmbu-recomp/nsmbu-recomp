@@ -3,7 +3,7 @@ import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "n
 import { isAbsolute, join } from "node:path";
 import { parseButtonBits } from "./buttons.ts";
 import { AgentClient, type AgentResponse } from "./client.ts";
-import { agentDir, agentPidPath, agentSocketPath } from "./paths.ts";
+import { agentDir, agentPidPath, agentSession, agentSocketPath, agentUserDir } from "./paths.ts";
 import { isPidAlive, readAgentPid, removeAgentArtifacts } from "./process.ts";
 import { arrived, cursorSelected, decodePng, delta, fnv, newerThan, placeKind, sample, tvRect, type Rect } from "./probe.ts";
 import { evalBody } from "./eval.ts";
@@ -11,14 +11,20 @@ import { canConnectSocket, waitForSocket } from "./socket.ts";
 import { spawnPython } from "../run.ts";
 import { flagNumber, flagString, hasFlag, parseArgv } from "../parse.ts";
 
+function sessionLabel(): string {
+    const id = agentSession();
+    return id ? `session ${id}, ` : "";
+}
+
 async function ensureNotRunning(repo: string): Promise<void> {
+    const where = sessionLabel();
     const sock = agentSocketPath(repo);
     if (await canConnectSocket(sock)) {
-        throw new Error("agent game already running (control socket is active)");
+        throw new Error(`agent game already running (${where}control socket is active)`);
     }
     const pid = readAgentPid(repo);
     if (pid !== null && isPidAlive(pid)) {
-        throw new Error(`agent game already running (pid ${pid})`);
+        throw new Error(`agent game already running (${where}pid ${pid})`);
     }
     removeAgentArtifacts(repo);
 }
@@ -27,10 +33,16 @@ export async function cmdOpen(repo: string, rest: string[]): Promise<void> {
     await ensureNotRunning(repo);
     mkdirSync(agentDir(repo), { recursive: true });
     const sock = agentSocketPath(repo);
+    const extraEnv: Record<string, string> = { NSMBU_AGENT_SOCK: sock };
+    const user = agentUserDir(repo);
+    if (user) {
+        mkdirSync(user, { recursive: true });
+        extraEnv.NSMBU_USER_DIR = user;
+    }
     const child = spawnPython(repo, "tools/run/launch.py", rest, {
         detached: true,
         stdio: "ignore",
-        extraEnv: { NSMBU_AGENT_SOCK: sock },
+        extraEnv,
     });
     child.unref();
     if (child.pid === undefined) {
@@ -38,7 +50,9 @@ export async function cmdOpen(repo: string, rest: string[]): Promise<void> {
     }
     writeFileSync(agentPidPath(repo), String(child.pid));
     await waitForSocket(sock, 60_000);
-    console.log(`ready (pid ${child.pid}, socket ${sock})`);
+    const label = agentSession();
+    const named = label ? `, session ${label}` : "";
+    console.log(`ready (pid ${child.pid}, socket ${sock}${named})`);
 }
 
 function formatStatus(r: Awaited<ReturnType<AgentClient["status"]>>): string {

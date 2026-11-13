@@ -39,9 +39,17 @@ import { cmdBench } from "../src/bench/cmd.ts";
 import { cmdTest } from "../src/playtest/cmd.ts";
 import { cmdCompareRuns } from "../src/gametest/compare-runs.ts";
 import { cmdScenario } from "../src/gametest/scenario.ts";
+import { applySession } from "../src/agent/session.ts";
 
 async function main(): Promise<void> {
-    const argv = process.argv.slice(2);
+    let argv: string[];
+    try {
+        argv = applySession(process.argv.slice(2));
+    } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error(msg);
+        process.exit(1);
+    }
     if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
         console.log(HELP.trimEnd());
         return;

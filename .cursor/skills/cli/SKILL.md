@@ -55,10 +55,15 @@ Hooks live in `build/gen`.
 Regenerate the stubs only when a `recomp/hooks/*.jsonc` file or `recomp/recomp.py` changed.
 A runtime-only edit compiles the changed `.cpp` and links.
 
-## One live game
+## Sessions
 
-`nsmbu open` and the live look commands share one control socket.
-If `nsmbu open` refuses because a game is already running, run `nsmbu status` or `nsmbu close`.
-`nsmbu test` refuses to start while that live agent is up.
+`nsmbu -s <id>` names the live game this command talks to.
+Use the same id on `open`, `status`, `press`, and `close`.
+A different id is a different game, socket, save, and settings under `.tmp/agent/<id>/`.
+Omit `-s` for the default session, which is still one game under `.tmp/agent/`.
+`NSMBU_SESSION` sets the id when `-s` is absent.
+If `nsmbu open` refuses because that session is already running, run `nsmbu status` with the same id.
+`nsmbu close` with that id stops it.
+`nsmbu test` refuses to start while any live agent session is up.
 Playtest cases use their own sockets and may run several games at once.
-Finish the test or close the game before `nsmbu game … --recomp` or a `game/active` switch.
+Finish the test or close the games before `nsmbu game … --recomp` or a `game/active` switch.

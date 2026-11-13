@@ -14,9 +14,13 @@ Pass only the pack.
 `nsmbu goto 1-1` loads that pack when a game is already open.
 
 `nsmbu open` uses the repo `nsmbu/` settings and the active dump.
+That is the default session.
+`nsmbu -s <id>` uses `.tmp/agent/<id>/user` instead.
 A `*-base` dump only boots.
 A scene check needs a `*-1.3.0` dump, such as `usa-1.3.0`.
-If open reports a game already running, read `nsmbu status` or run `nsmbu close`, then open again.
+If open reports a game already running, that session is taken.
+`nsmbu -s <id> open` starts another game.
+Use that same id on `status` and `close`.
 
 ```bash
 nsmbu open 1-1

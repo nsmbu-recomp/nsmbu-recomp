@@ -154,8 +154,9 @@ Checks that must keep passing belong in a `PlayCase`, not a one-off boot.
 ### Live look (while writing a case)
 
 `nsmbu open`, `status`, `press`, `stick`, `wait`, `screenshot`, `close`.
-One game, one socket under `.tmp/agent/`.
-`nsmbu test` refuses to start while the live agent is up.
+The default session is one game and one socket under `.tmp/agent/`.
+`nsmbu -s <id>` is a second game with its own socket, save, and settings under `.tmp/agent/<id>/`.
+`nsmbu test` refuses to start while any of those live agents is up.
 
 ### Headless frame dumps
 

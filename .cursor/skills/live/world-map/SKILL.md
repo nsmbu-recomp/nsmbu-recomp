@@ -21,9 +21,13 @@ This boot keeps `nsmbu/settings.ini` (frame cap, resolution, present mode).
 Leave `NSMBU_INTERP_FPS`, `NSMBU_RES_SCALE`, `NSMBU_VK_PRESENT_MODE`, and `NSMBU_HIDDEN_WINDOWS` unset when the check is that session.
 
 `nsmbu open` uses the repo `nsmbu/` settings and the active dump.
+That is the default session.
+`nsmbu -s <id>` uses `.tmp/agent/<id>/user` instead.
 A `*-base` dump only boots.
 A scene check needs a `*-1.3.0` dump, such as `usa-1.3.0`.
-If open reports a game already running, read `nsmbu status` or run `nsmbu close`, then open again.
+If open reports a game already running, that session is taken.
+`nsmbu -s <id> open` starts another game.
+Use that same id on `status` and `close`.
 `nsmbu bench` and `nsmbu game … --recomp` also refuse while that game is running.
 
 ```bash

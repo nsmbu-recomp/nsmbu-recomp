@@ -1,6 +1,7 @@
 export const HELP = `nsmbu — NSMBU developer and agent CLI
 
 Usage:
+  nsmbu [-s ID] <command> …
   nsmbu build [--release] [--sanitizer] [cmake args…]
   nsmbu launch [--no-debug] [--trace] [--gdb] [--lldb] [slot|course] […]
   nsmbu crash
@@ -22,7 +23,7 @@ Usage:
   nsmbu bench [name…] [--list]
   nsmbu completion fish [--install]
 
-Agent control (single game instance):
+Agent control (one game per session; -s ID, --session ID, or NSMBU_SESSION):
   nsmbu open [slot|course|course-file] […]
   nsmbu status
   nsmbu leave
