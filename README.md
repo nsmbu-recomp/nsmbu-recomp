@@ -10,13 +10,11 @@ The release includes the runtime, build tools, and installer.
 
 ## Features
 
-- Windows, macOS, Linux, Android, and iOS.
-- **Up to four players**, each with a controller.
-- **[Save states](docs/user/portable-save-states.md)**.
+- **Windows, macOS, Linux, Android,** and **iOS**.
+- **[Save states](docs/user/portable-save-states.md)** F1-5.
 - **[Mods](docs/modding/README.md)** for Cemu graphics packs and shader packs.
 - **GamePad screen** in its own window, over the TV picture, or hidden.
 - **On-screen controls** on Android and iOS.
-- **Screenshots** of the TV picture.
 - **Console language**, volume, and the TV or GamePad sound mix.
 
 Experimental:
@@ -65,7 +63,7 @@ Combo packs are title version 0 and have no separate update folder.
 | Europe base disc | `00050000-10101e00` | 0 | Supported |
 | USA (NSMBU + NSLU) | `00050000-1014b700` | 0 | Supported |
 | Europe (NSMBU + NSLU) | `00050000-1014b800` | 0 | Supported |
-| Japan | `00050000-10101c00` | — | Not supported yet |
+| Japan | `00050000-10101c00` | — | Unsupported |
 
 ## Install
 
