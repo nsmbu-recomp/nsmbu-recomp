@@ -4,8 +4,8 @@
   "name": "New Super Mario Bros. U",
   "repo": "nsmbu-recomp/nsmbu-recomp",
   "game": {
-    "kind": "iso",
-    "label": "Your copy of New Super Mario Bros. U for Wii U. A Cemu archive (.wua) needs no keys. A disc image (.wud or .wux) needs its disc key file next to it (IMAGE.key) and the Wii U common key (common.key next to the image, or in WIIU_COMMON_KEY)."
+    "kind": "iso_or_folder",
+    "label": "Your copy of New Super Mario Bros. U for Wii U: a Cemu archive (.wua, no keys), a disc image (.wud or .wux, needs its disc key file next to it as IMAGE.key and the Wii U common key: common.key beside the image, or in WIIU_COMMON_KEY), or the extracted game folder (code, content, meta)."
   },
   "prepare": {
     "program": ["NSMBU.exe", "installer/recomplauncher-prepare.sh"],
