@@ -224,6 +224,14 @@ class Protocol:
 
 GUI = None
 
+LAUNCHER = False            # --launcher-progress: RecompLauncher's prepare step reads stdout
+LAUNCHER_STEP = {"n": 0, "total": 0}
+
+def launcher_progress(frac, text):
+    """One 'progress 0.42 Text' line (RecompLauncher's prepare format); frac runs from 0 to 1."""
+    print("progress %.2f %s" % (min(max(frac, 0.0), 1.0), plain_text(text)), flush=True)
+    LOG.write("  progress %.2f %s" % (frac, text))
+
 def say(text=""):
     text = plain_text(text)
     if GUI:
@@ -233,8 +241,13 @@ def say(text=""):
     LOG.write(text)
 
 def step(n, total, text, sid=""):
+    LAUNCHER_STEP["n"], LAUNCHER_STEP["total"] = n, total
     if GUI:
         GUI.emit({"event": "step", "n": n, "total": total, "title": text, "id": sid})
+        LOG.write("[%d/%d] %s" % (n, total, text))
+        return
+    if LAUNCHER:
+        launcher_progress((n - 1) / total if total else 0.0, text)
         LOG.write("[%d/%d] %s" % (n, total, text))
         return
     say("")
@@ -257,6 +270,11 @@ class Progress:
         self.last = now
         if GUI:
             GUI.emit({"event": "progress", "label": self.label, "done": done, "total": total, "detail": detail})
+        elif LAUNCHER:
+            st = LAUNCHER_STEP
+            sub = done / total if total else 1.0
+            frac = (st["n"] - 1 + sub) / st["total"] if st["total"] else sub
+            launcher_progress(frac, "%s: %s" % (self.label, detail) if detail else self.label)
         elif self.tty:
             bar = "#" * (pct // 4) + "." * (25 - pct // 4)
             line = "  %s [%s] %3d%% %s" % (self.label, bar, pct, detail)
@@ -2159,7 +2177,11 @@ def main():
     ap.add_argument("--keep-work", action="store_true", help="keep the generated code and objects")
     ap.add_argument("--gui-protocol", action="store_true",
                     help="machine interface for the graphical installer (JSON lines; see installer/README.md)")
+    ap.add_argument("--launcher-progress", action="store_true",
+                    help="machine progress for RecompLauncher's setup step: 'progress 0.42 Text' lines on stdout")
     args = ap.parse_args()
+    global LAUNCHER
+    LAUNCHER = bool(args.launcher_progress)
     try:
         sys.stdout.reconfigure(errors="replace")
     except AttributeError:
@@ -2179,6 +2201,8 @@ def main():
     except KeyboardInterrupt:
         say("\nSetup cancelled. Run it again to continue; nothing that was finished is lost.")
         rc = 130
+    if LAUNCHER and rc == 0:
+        launcher_progress(1.0, "Done")
     if interactive and (IS_WIN or IS_MAC):
         try:
             input("\nPress Enter to close this window.")
