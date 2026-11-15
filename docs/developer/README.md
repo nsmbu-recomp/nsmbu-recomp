@@ -12,6 +12,7 @@ Notes for building, profiling, and changing the port.
 | Regional build maps | [builds.md](builds.md) |
 | Function names and hook addresses | [names.md](names.md) |
 | Vulkan renderer | [vulkan.md](vulkan.md) |
+| RecompLauncher support | [recomplauncher.md](recomplauncher.md) |
 | Performance measurements | [performance.md](performance.md) |
 | Replay file format | [replay-format.md](replay-format.md) |
 | Agent verification inventory | [verification.md](verification.md) |
