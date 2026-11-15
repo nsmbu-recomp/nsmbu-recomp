@@ -111,7 +111,8 @@ Every default was taken from the runtime code, not guessed.
 
 - `saves` covers `{install}/data/nsmbu/save` and `settings.ini`.
 - The `saves`, `logs` and `data` actions open those folders;
-  `logs` follows the same portable/config split as the settings file.
+  `logs` follows the same portable/config split as the settings file,
+  and "Clear shader cache" empties `shadercache` in the same place.
 - `exit_codes` maps the game's exit code 1 (a fatal error, see `user_error.cpp`)
   to a message that points at the Setup button and the Logs folder.
 

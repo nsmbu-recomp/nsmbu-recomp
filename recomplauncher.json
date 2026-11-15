@@ -145,11 +145,16 @@
       { "path": "{install}/data/nsmbu/logs", "if": "{install}/data/bin/portable.txt" },
       { "path": "{config}/nsmbu/logs" }
     ],
+    "cache": [
+      { "path": "{install}/data/nsmbu/shadercache", "if": "{install}/data/bin/portable.txt" },
+      { "path": "{config}/nsmbu/shadercache" }
+    ],
     "data": [{ "path": "{install}/data" }]
   },
   "actions": [
     { "id": "saves", "label": "Saves", "help": "Your save data.", "open": "saves" },
-    { "id": "logs", "label": "Logs", "help": "The game's log from the last run.", "open": "logs" }
+    { "id": "logs", "label": "Logs", "help": "The game's log from the last run.", "open": "logs" },
+    { "id": "cache", "label": "Clear shader cache", "help": "Shaders the game has built, so later play doesn't stutter. Clearing only helps if graphics look wrong after an update.", "clear": "cache" }
   ],
   "exit_codes": {
     "1": "The game closed unexpectedly: usually it could not find or read the game files. Press Setup on the game's page to pick your copy again. The log is in the Logs folder."
