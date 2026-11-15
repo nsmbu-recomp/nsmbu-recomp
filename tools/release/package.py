@@ -51,6 +51,7 @@ TOOL_FILES = [
 INSTALLER_FILES = [
     "installer/setup.py",
     "installer/toolchains.json",
+    "installer/recomplauncher-prepare.sh",
     "installer/README.md",
 ]
 SETUP_APP = "NSMBU"
@@ -378,6 +379,10 @@ def main():
                             runtime_files)
     with open(os.path.join(pkg, "sdk", "manifest.json"), "w") as f:
         json.dump(manifest, f, indent=1)
+
+    # RecompLauncher support (recomplauncher.json at the top of the release; the AppImage keeps
+    # a copy at its root, since appimage.py copies the whole folder).
+    copy(os.path.join(ROOT, "recomplauncher.json"), os.path.join(pkg, "recomplauncher.json"))
 
     for rel in TOOL_FILES + INSTALLER_FILES:
         copy(os.path.join(ROOT, rel), os.path.join(pkg, rel))

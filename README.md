@@ -1,5 +1,7 @@
 # New Super Mario Bros. U: Native Port / Recompilation
 
+<a href="https://recomplauncher.com/game/nsmbu-recomp"><picture><source media="(prefers-color-scheme: dark)" srcset="https://recomplauncher.com/assets/press/launcher/badge-light.svg"><img alt="Get it on RecompLauncher" src="https://recomplauncher.com/assets/press/launcher/badge-dark.svg" height="48"></picture></a>
+
 This project compiles your copy of New Super Mario Bros. U into a native program.
 The release includes the runtime, build tools, and installer.
 

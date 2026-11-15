@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- RecompLauncher support: a `recomplauncher.json` in every release.
+  The launcher checks the player's copy, runs the setup once without a window
+  (extracting the game files and building the game code from them), shows the
+  port's settings on the game's page, and starts the game directly.
+  The setup prints `progress` lines for the launcher's setup screen
+  (`installer/setup.py --launcher-progress`, also used with `--console-setup`
+  on Windows and `installer/recomplauncher-prepare.sh` on macOS and Linux).
+- The README links to the game's page on RecompLauncher.
 - On the course pause menu, Change Controller is Settings.
   A or Enter plays the pause click and the button press, then opens this overlay.
   The pause buttons stay hidden until the overlay closes.
