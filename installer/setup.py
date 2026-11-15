@@ -2223,10 +2223,12 @@ def run(args, ui):
         source = ("gen", os.path.abspath(args.gen_dir))
     elif args.archive or (args.image and args.image.lower().endswith(".wua")):
         source = ("archive", os.path.abspath(args.archive or args.image))
+    elif args.game_dir or (args.image and os.path.isdir(args.image)):
+        # A folder counts as the extracted game whatever flag carried it (--game-dir, or --image,
+        # which RecompLauncher passes for a copy the player picked as a folder).
+        source = ("folder", os.path.abspath(args.game_dir or args.image))
     elif args.image:
         source = ("image", os.path.abspath(args.image))
-    elif args.game_dir:
-        source = ("folder", os.path.abspath(args.game_dir))
     elif args.repair:
         if not valid_game_folder(game_dir):
             raise SetupError("no installed game files to repair from; run setup with your disc image")
