@@ -24,8 +24,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Settings opens again after that overlay closes, and again from the next pause menu.
 - After Settings, Continue returns to the course without the controller page or the broken cursor.
-  The next pause menu shows again.
+  The yellow cursor stays the size of the selected button, and the stick moves that cursor.
+  The player stays still while the pause menu is open.
+  Closing that menu and opening it again shows one panel with Continue, Quit, and Settings.
 - Back closes the pause-menu settings overlay and leaves that pause menu up.
   The yellow cursor does not stay on the course.
   Up and Down move the selection again after that close.

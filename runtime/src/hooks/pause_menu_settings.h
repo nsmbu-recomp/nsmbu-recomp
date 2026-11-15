@@ -181,6 +181,18 @@ inline bool pause_settings_replays_press(float speed) {
     return !(speed < -0.5f);
 }
 
+// The fade-in puts this pause back to the open menu from before Settings.
+// Continue, Quit, and the cursor then belong to the game again.
+inline bool pause_settings_restores_fresh_pause(bool fade_in_done, bool overlay_open) {
+    return fade_in_done && !overlay_open;
+}
+
+// Settings hides the yellow cursor while its own Out shrinks the button.
+// Continue after that restore keeps the cursor, the same as before Settings.
+inline bool pause_settings_hides_continue_cursor(bool page_closed) {
+    return page_closed;
+}
+
 // Out leaves layout anim 0 finished. In clears that bit while it runs.
 // A finished bit that never cleared is still Out, so the fade-in has not played.
 inline bool pause_settings_fade_in_done(bool saw_running, bool finished, int held_frames) {
@@ -299,6 +311,52 @@ inline bool pause_settings_resume_still_held(int frames_left, uint32_t state, bo
 // That later frame is the next Plus. Hiding it there leaves the menu blank.
 inline bool pause_settings_hides_sealed_pause(bool sealed, bool opened_since_seal) {
     return sealed && !opened_since_seal;
+}
+
+// N_SetUp_00 is the controller page, one row off the story list.
+// The story pause keeps that group hidden. Change Controller stays on that row as Settings.
+inline bool pause_settings_hides_setup_group(bool enabled, bool setup_group) {
+    return enabled && setup_group;
+}
+
+// The opening Plus is held. Mode 0 is the open menu. Mode 1 fires the selected button.
+// Plus and Back stay out of the pad until Plus is up, so that press is not Back.
+struct PauseReopen {
+    uint32_t mode = 0;
+    int hold_left = 0;
+};
+
+inline PauseReopen pause_settings_reopen(int hold_left, bool plus_held) {
+    PauseReopen out;
+    if (hold_left <= 0) return out;
+    if (!plus_held && hold_left == 1) return out;
+    out.mode = 0u;
+    out.hold_left = plus_held && hold_left == 1 ? 1 : hold_left - 1;
+    return out;
+}
+
+inline uint32_t pause_settings_reopen_pad(uint32_t pad, bool plus_held) {
+    if (!plus_held) return pad;
+    return pad & ~0x4800u;
+}
+
+// Mode 2 is the press. Mode 3 enters Out. Clearing either one drops the Settings press.
+inline uint32_t pause_settings_reopen_mode(uint32_t mode) {
+    if (mode == 2u || mode == 3u) return mode;
+    return 0u;
+}
+
+// Continue stores 0 at AreaTask+0x730, so the course runs again.
+// The next Plus shows the menu. While that menu is shown, the course pause stays on.
+inline bool pause_settings_stops_player(bool reopened, bool menu_shown) {
+    return reopened && menu_shown;
+}
+
+// Plus pauses the course with PauseGame_setCourseCalcPause. The reopened menu uses that call.
+// Storing the actor position is not that pause, and it leaves the stick on Mario.
+inline bool pause_settings_pins_player(bool menu_shown) {
+    (void)menu_shown;
+    return false;
 }
 
 // After Settings, Continue's decide must not run the pause step.
@@ -432,6 +490,11 @@ inline bool pause_settings_pins_out(bool handed_back) {
 // The next A can start Out only after that byte is clear.
 inline bool pause_settings_releases_press(bool menu_restored) {
     return menu_restored;
+}
+
+// The first press leaves the decide anim at speed -1. A later A then does not start Out.
+inline bool pause_settings_resets_decide(bool menu_restored, float speed) {
+    return menu_restored && speed < -0.5f;
 }
 
 inline PauseFade pause_settings_fade(uint32_t state, bool out_finished, bool overlay_open, bool opened, bool pressed) {

@@ -19,6 +19,7 @@ The `nsmbu` target compiles with `-Wall`.
 ## Decomp
 
 When decompiling a function, call the Task tool with `subagent_type` `decompile`.
+When working with hooks make sure you understand the underlying code.
 The prompt is the address, the symbol, or both.
 
 ## Tests

@@ -100,6 +100,61 @@ function centerWhite(path: string): number {
     return Number(probe.stdout.trim());
 }
 
+function stackedMenu(path: string): boolean {
+    const probe = spawnSync(
+        "python3",
+        [
+            "-c",
+            "import sys\n" +
+                "from PIL import Image\n" +
+                "im=Image.open(sys.argv[1]).convert('RGB'); w,h=im.size; px=im.load()\n" +
+                "def light(p):\n" +
+                " r,g,b=p\n" +
+                " return min(r,g,b)>175 and r>200 and abs(r-g)<35\n" +
+                "best=-1; bx=w//2\n" +
+                "y_lo=int(h*0.08); y_hi=int(h*0.95)\n" +
+                "for x in range(int(w*0.35), int(w*0.85), 4):\n" +
+                " n=sum(1 for y in range(y_lo, y_hi, 2) if light(px[x,y]))\n" +
+                " if n>best: best=n; bx=x\n" +
+                "runs=[]; on=False; s=0\n" +
+                "for y in range(y_lo, y_hi):\n" +
+                " if light(px[bx,y]):\n" +
+                "  if not on: on=True; s=y\n" +
+                " elif on:\n" +
+                "  on=False\n" +
+                "  if y-s>40: runs.append(y-s)\n" +
+                "if on and y_hi-s>40: runs.append(y_hi-s)\n" +
+                "tall=[n for n in runs if n>70]\n" +
+                "print('stacked' if len(tall)>=2 and max(tall)>min(tall)*1.45 else 'ok')\n",
+            path,
+        ],
+        { encoding: "utf8" },
+    );
+    if (probe.status !== 0) throw new Error(probe.stderr || `could not read ${path}`);
+    return probe.stdout.trim() === "stacked";
+}
+
+function menuCursor(path: string): number {
+    const probe = spawnSync(
+        "python3",
+        [
+            "-c",
+            "import sys\n" +
+                "from PIL import Image\n" +
+                "im=Image.open(sys.argv[1]).convert('RGB'); w,h=im.size; px=im.load(); n=0\n" +
+                "for y in range(int(h*0.08), int(h*0.9)):\n" +
+                " for x in range(int(w*0.25), int(w*0.75)):\n" +
+                "  r,g,b=px[x,y]\n" +
+                "  n += r>240 and 140<g<230 and b<40\n" +
+                "print(n)\n",
+            path,
+        ],
+        { encoding: "utf8" },
+    );
+    if (probe.status !== 0) throw new Error(probe.stderr || `could not read ${path}`);
+    return Number(probe.stdout.trim());
+}
+
 function upperPixel(path: string): [number, number, number] {
     const probe = spawnSync(
         "python3",
@@ -161,6 +216,13 @@ export const pauseSettings: PlayCase = {
             await session.advance(80, 20);
         }
         await session.screenshot(join(session.workDir, "04-after-close.png"));
+        // The cursor is still on Settings. A must open the overlay again.
+        await session.press("A", 1, true);
+        const settingsAgain = await waitOverlay(session, true, 12);
+        if (!settingsAgain) throw new Error("Settings did not open again after the overlay closed");
+        await closeOverlay(session);
+        await waitOverlay(session, false, 8);
+        await session.advance(80, 20);
         // One Up returns to Continue. Quit is dim, so it is not a stop.
         await session.press("Up", 1, true);
         await session.advance(25, 20);
@@ -176,6 +238,22 @@ export const pauseSettings: PlayCase = {
         await session.press("Plus", 12);
         await session.advance(45, 20);
         await session.screenshot(join(session.workDir, "08-pause-again.png"));
+        // Quit is dim. One Down lands on Settings. That press must open the overlay.
+        await session.press("Down", 1, true);
+        await session.advance(25, 20);
+        await session.press("A", 1, true);
+        const pauseAgain = await waitOverlay(session, true, 12);
+        if (!pauseAgain) throw new Error("Settings did not open from the next pause menu");
+        await closeOverlay(session);
+        await waitOverlay(session, false, 8);
+        await session.advance(40, 20);
+        const held = await session.status();
+        const x0 = held.player?.x ?? 0;
+        await session.press("Right", 30);
+        await session.advance(8, 15);
+        const moved = await session.status();
+        const x1 = moved.player?.x ?? 0;
+        if (Math.abs(x1 - x0) > 2) throw new Error(`the player moved during the second pause (${x0} to ${x1})`);
         const secondWindowError = session.show ? captureWindow(join(session.workDir, "08-pause-again-window.png")) : null;
         const secondWindow = session.show && secondWindowError === null;
         const second = false;
@@ -206,6 +284,19 @@ export const pauseSettings: PlayCase = {
             if (glitch > 12000) throw new Error(`Continue showed the controller page (${glitch} white pixels)`);
         }
         if (again < 4000) throw new Error(`the next pause menu did not show (${again} white pixels)`);
+        if (stackedMenu(join(session.workDir, "08-pause-again.png")))
+            throw new Error("the next pause menu is more than one panel");
+        if (stackedMenu(join(session.workDir, "04-after-close.png")))
+            throw new Error("the pause menu after the overlay closes is more than one panel");
+        const cursorClose = menuCursor(join(session.workDir, "04-after-close.png"));
+        const cursorContinue = menuCursor(join(session.workDir, "05-continue-row.png"));
+        const cursorAgain = menuCursor(join(session.workDir, "08-pause-again.png"));
+        if (cursorClose < 400) throw new Error(`the yellow cursor is missing after Settings closes (${cursorClose})`);
+        if (cursorContinue < 400) throw new Error(`the yellow cursor is missing on Continue (${cursorContinue})`);
+        if (cursorAgain < 400) throw new Error(`the yellow cursor is missing on the next pause (${cursorAgain})`);
+        if (cursorClose > 6000) throw new Error(`the yellow cursor is too large after Settings closes (${cursorClose})`);
+        if (cursorContinue > 6000) throw new Error(`the yellow cursor is too large on Continue (${cursorContinue})`);
+        if (cursorAgain > 6000) throw new Error(`the yellow cursor is too large on the next pause (${cursorAgain})`);
         // The button list is dark blue here. The controller page is cyan, and the course sky is pale.
         if (ag > 160 || ar > 80) throw new Error(`the next pause is not the button list (${ar},${ag},${ab})`);
     },

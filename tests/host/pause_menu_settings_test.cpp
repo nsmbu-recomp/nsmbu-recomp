@@ -316,6 +316,20 @@ int main() {
     check(pause_settings_direct_unpause(true, 0x10216D94u),
           "Continue after Settings unpauses without running the controller window");
     check(!pause_settings_direct_unpause(false, 0x10216D94u), "Settings does not unpause the course");
+    const PauseReopen held = pause_settings_reopen(1, true);
+    const PauseReopen released = pause_settings_reopen(1, false);
+    check(held.mode == 0u && held.hold_left == 1, "a held Plus stays on the open menu");
+    check(released.mode == 0u && released.hold_left == 0, "Plus up lets the reopened menu read the pad");
+    check(pause_settings_reopen_pad(0x4800u, true) == 0u, "a held Plus is not read as Back");
+    check(pause_settings_reopen_pad(0x4800u, false) == 0x4800u, "Plus up reaches the reopened menu");
+    check(pause_settings_reopen_mode(3u) == 3u, "Settings decide stays on the reopened menu");
+    check(pause_settings_reopen_mode(2u) == 2u, "a Settings press stays on the reopened menu");
+    check(pause_settings_reopen_mode(1u) == 0u, "a stuck hold returns to the open menu");
+    check(!pause_settings_pins_player(true), "the open menu does not pin the player");
+    check(!pause_settings_pins_player(false), "a hidden menu does not pin the player");
+    check(pause_settings_stops_player(true, true), "the reopened pause menu stops the player");
+    check(!pause_settings_stops_player(true, false), "a closed menu lets the player move");
+    check(!pause_settings_stops_player(false, true), "the first pause uses the game's own stop");
     check(pause_settings_blocks_continue_step(true, false, false, 2u, 0, 0x10216DB4u),
           "Continue after Settings does not run the pause step");
     check(!pause_settings_blocks_continue_step(true, true, false, 2u, 0, 0x10216DB4u),
@@ -334,6 +348,15 @@ int main() {
     check(!pause_settings_resume_still_held(0, 0x10216DB4u, true), "the resume hold still ends");
     check(pause_settings_hides_sealed_pause(true, false), "Continue stays hidden until the next Plus");
     check(!pause_settings_hides_sealed_pause(true, true), "the next Plus shows the pause menu");
+    check(pause_settings_restores_fresh_pause(true, false),
+          "a finished fade-in gives back the pause from before Settings");
+    check(!pause_settings_restores_fresh_pause(true, true), "an open overlay does not give that pause back");
+    check(!pause_settings_restores_fresh_pause(false, false), "the fade-in finishes before that pause comes back");
+    check(!pause_settings_hides_continue_cursor(false), "Continue keeps the yellow cursor");
+    check(pause_settings_hides_continue_cursor(true), "Settings hides the cursor while its fade runs");
+    check(pause_settings_hides_setup_group(true, true), "the controller group stays off the story pause");
+    check(!pause_settings_hides_setup_group(false, true), "the original pause can show the controller group");
+    check(!pause_settings_hides_setup_group(true, false), "the story button list still draws");
     check(!pause_settings_direct_unpause(true, 0x10216D94u, false, true), "Quit still leaves the course");
     check(pause_settings_direct_unpause(true, 0u, true, false),
           "a hidden menu after Continue resumes the course");
@@ -407,6 +430,9 @@ int main() {
           "a restored menu lets the next A start Out");
     check(!pause_settings_releases_press(false),
           "the Settings press stays blocked until the menu is back");
+    check(pause_settings_resets_decide(true, -1.f), "a finished Settings press can start again");
+    check(!pause_settings_resets_decide(true, 0.f), "an idle Settings button stays idle");
+    check(!pause_settings_resets_decide(false, -1.f), "the Settings press keeps playing until the menu is back");
 
     if (fails) {
         std::fprintf(stderr, "%d checks failed\n", fails);

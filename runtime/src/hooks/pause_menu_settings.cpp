@@ -51,6 +51,7 @@ constexpr uint32_t kButtonVt = 0x1C;
 constexpr uint32_t kPressSlot = 0x24;
 const uint32_t kLayoutAnim = GC(0x02671680u);
 const uint32_t kAnimPlay = GC(0x02672A4Cu);
+const uint32_t kAnimEnd = GC(0x02671B5Cu);
 const uint32_t kInAnim = GD(0x10216E14u);
 const uint32_t kGetAnim = GC(0x02671AF4u);
 constexpr uint32_t kMgrStep = 0x8;
@@ -68,6 +69,7 @@ const uint32_t kClearPauseBit = GC(0x025113B8u);
 const uint32_t kPauseBitObj = GD(0x101D2E00u);
 const uint32_t kClearPauseByte = GC(0x0202B008u);
 const uint32_t kCourseStepObj = GD(0x101D2DF8u);
+const uint32_t kCoursePauseSlot = GD(0x101D4264u);
 constexpr uint32_t kCourseStepSkip = 0x56D;
 constexpr uint32_t kLayoutScene = 0x280;
 constexpr uint32_t kLayoutHold = 0x594;
@@ -109,6 +111,7 @@ static bool g_real_leave = false;
 static int g_resume_frames = 0;
 static bool g_sealed = false;
 static int g_hold_open = 0;
+static bool g_stop_player = false;
 static bool g_forced_closed = false;
 static int g_seal_left = 0;
 static bool g_seal_saved = false;
@@ -186,11 +189,23 @@ static void play_menu_in(Cpu* c, uint32_t self) {
     if (!guest_obj(layout)) return;
     // r4 = 0 plays the anim named In. That is the fade used when the pause menu opens.
     // animPlay applies the first frame before the draw, so the menu does not pop in.
+    // The other pause layout does not have this anim. Starting it there closes the game.
     guest_call(c, kLayoutAnim, {layout, 0, kInAnim, 0});
     guest_call(c, kAnimPlay, {layout, 0xE, 0});
 }
 
+// The next Plus has to land on the open pose. Leaving In at frame 0 keeps the list faded.
+static void show_menu_open(Cpu* c, uint32_t self) {
+    const uint32_t layout = ld32(self);
+    if (!guest_obj(layout)) return;
+    guest_call(c, kLayoutAnim, {layout, 0, kInAnim, 0});
+    guest_call(c, kAnimEnd, {layout, 0u});
+    guest_call(c, kAnimPlay, {layout, 0xE, 0});
+}
+
 static void set_pane_visible(uint32_t pane, bool visible);
+static bool pane_name_is(uint32_t pane, const char* prefix);
+static bool extra_pause_group(uint32_t pane);
 static uint32_t layout_root(uint32_t self);
 static bool anim_out_finished(Cpu* c, uint32_t self);
 
@@ -278,9 +293,23 @@ static void restore_pause_tree() {
         if (warned++ == 0) LOG("[pause] no saved pause items");
         return;
     }
+    bool settings = false;
+    for (int i = 0; i < g_saved_count; i++) {
+        if (pane_name_is(g_saved_panes[i].pane, "Pa_SetBtn")) settings = true;
+    }
     for (int i = 0; i < g_saved_count; i++) {
         const uint32_t pane = g_saved_panes[i].pane;
         if (!guest_obj(pane) || !wwatch::readable(pane + kPaneFlags, 1)) continue;
+        // The saved flags can show Change Controller again. Settings owns that row.
+        if (settings && pane_name_is(pane, "Pa_PlayStyle")) {
+            set_pane_visible(pane, false);
+            continue;
+        }
+        // Saved flags turn the controller page and the movie pause back on.
+        if (extra_pause_group(pane) || pane_name_is(pane, "Pa_SetUp") || pane_name_is(pane, "Pa_Movie")) {
+            set_pane_visible(pane, false);
+            continue;
+        }
         st8(pane + kPaneFlags, g_saved_panes[i].flags);
     }
 }
@@ -334,8 +363,92 @@ static bool pause_layout_root(uint32_t root) {
     return hit;
 }
 
+static uint32_t g_setup_panes[96];
+static int g_setup_n = 0;
+
+static void remember_setup_pane(uint32_t pane) {
+    if (!guest_obj(pane) || g_setup_n >= (int)(sizeof g_setup_panes / sizeof g_setup_panes[0])) return;
+    for (int i = 0; i < g_setup_n; i++)
+        if (g_setup_panes[i] == pane) return;
+    g_setup_panes[g_setup_n++] = pane;
+}
+
+static bool setup_pane(uint32_t pane) {
+    for (int i = 0; i < g_setup_n; i++)
+        if (g_setup_panes[i] == pane) return true;
+    return false;
+}
+
+static bool extra_pause_group(uint32_t pane) {
+    return pane_name_is(pane, "N_SetUp") || pane_name_is(pane, "N_Movie") || pane_name_is(pane, "N_PauseMovie") ||
+           pane_name_is(pane, "N_PauseChallenge") || pane_name_is(pane, "N_PauseGame2");
+}
+
+// The story list is N_PauseGame_00. The other groups are the controller page and the movie pause.
+// Those groups stay in the same layout and draw on top of the story list after Continue.
+static void collect_setup_group(uint32_t root) {
+    g_setup_n = 0;
+    if (!pause_settings_hides_setup_group(g_enabled.load(), guest_obj(root))) return;
+    uint32_t stack[64];
+    uint32_t seen[128];
+    int n = 0;
+    int seen_n = 0;
+    stack[n++] = root;
+    for (int step = 0; step < 160 && n > 0; step++) {
+        const uint32_t pane = stack[--n];
+        if (!guest_obj(pane)) continue;
+        bool again = false;
+        for (int i = 0; i < seen_n; i++)
+            if (seen[i] == pane) again = true;
+        if (again) continue;
+        if (seen_n < 128) seen[seen_n++] = pane;
+        if (extra_pause_group(pane)) {
+            remember_setup_pane(pane);
+            set_pane_visible(pane, false);
+            uint32_t kids[64];
+            int kn = 0;
+            if (wwatch::readable(pane + 0x14, 4)) {
+                const uint32_t child = ld32(pane + 0x14);
+                if (guest_obj(child) && child != pane + 0x14) kids[kn++] = child;
+            }
+            for (int k = 0; k < 120 && kn > 0; k++) {
+                const uint32_t cur = kids[--kn];
+                if (!guest_obj(cur) || setup_pane(cur)) continue;
+                remember_setup_pane(cur);
+                set_pane_visible(cur, false);
+                if (wwatch::readable(cur + 0x14, 4)) {
+                    const uint32_t child = ld32(cur + 0x14);
+                    if (guest_obj(child) && child != cur + 0x14 && kn < 64) kids[kn++] = child;
+                }
+                if (!wwatch::readable(cur, 4)) continue;
+                const uint32_t next = ld32(cur);
+                if (guest_obj(next) && next != cur && kn < 64) kids[kn++] = next;
+            }
+            continue;
+        }
+        if (wwatch::readable(pane + 0x14, 4)) {
+            const uint32_t child = ld32(pane + 0x14);
+            if (guest_obj(child) && child != pane + 0x14 && n < 64) stack[n++] = child;
+        }
+        if (!wwatch::readable(pane, 4)) continue;
+        const uint32_t next = ld32(pane);
+        if (guest_obj(next) && next != pane && n < 64) stack[n++] = next;
+    }
+    static bool logged = false;
+    if (!logged && g_setup_n > 0) {
+        logged = true;
+        LOG("[pause] controller group hidden (%d panes)", g_setup_n);
+    }
+}
+
 bool skip_pane(uint32_t pane) {
     if (!guest_obj(pane)) return false;
+    const bool extra = setup_pane(pane) || extra_pause_group(pane) || pane_name_is(pane, "Pa_SetUp") ||
+                       pane_name_is(pane, "Pa_Movie");
+    if (pause_settings_hides_setup_group(g_enabled.load(), extra)) {
+        set_pane_visible(pane, false);
+        return true;
+    }
     uint32_t top = pane;
     for (int i = 0; i < 24 && guest_obj(top); i++) {
         if (!wwatch::readable(top + kRootPane, 4)) break;
@@ -525,6 +638,11 @@ static void release_settings_press(uint32_t self) {
     st8(button + kPressByte, 0);
     const uint32_t anim = ld32(button + kPressAnim);
     if (guest_obj(anim)) stf32(anim + kAnimFrame, 0.f);
+    const uint32_t decide = ld32(button + kDecideAnim);
+    if (!guest_obj(decide)) return;
+    if (!pause_settings_resets_decide(true, (float)ldf32(decide + kAnimSpeed))) return;
+    stf32(decide + kAnimSpeed, 0.f);
+    st8(decide + kAnimEnable, 0);
 }
 
 // The press virtual leaves the decide anim at its last frame with speed -1.
@@ -704,6 +822,51 @@ static void clear_pause_node(uint32_t node) {
     st8(node + 0x47, (uint8_t)(ld8(node + 0x47) & ~1u));
 }
 
+static void set_node_pause_bit(uint32_t node, bool paused) {
+    if (!guest_obj(node) || !wwatch::readable(node + 0x44, 1)) return;
+    // 0x0253C30C stores the flag in the byte at +0x44. The method tree tests the low bit of the
+    // word, which is +0x47. Setting that bit skips the pause task itself.
+    const uint8_t flags = ld8(node + 0x44);
+    st8(node + 0x44, (uint8_t)((flags & ~1u) | (paused ? 1u : 0u)));
+}
+
+// 0x0255E794 pauses the course node at slot+0x40. 0x0255E988 then clears the pad nodes
+// at +0x4C and +0x50 so the open menu can read the stick, and pauses course calc when +0x2D69 is set.
+static void pause_course_slot(Cpu* c, bool paused) {
+    const uint32_t slot = ld32(kCoursePauseSlot);
+    if (!guest_obj(slot)) return;
+    set_node_pause_bit(ld32(slot + 0x40), paused);
+    if (!paused) return;
+    set_node_pause_bit(ld32(slot + 0x4C), false);
+    set_node_pause_bit(ld32(slot + 0x50), false);
+    if (ld8(slot + 0x2D69) == 0) return;
+    const uint32_t pause = ld32(kPause);
+    if (guest_obj(pause)) guest_call(c, kReleaseCourse, {pause, 1u});
+}
+
+static void keep_course_paused() {
+    // 0x024B7B00 runs the player when AreaTask+0x730 is 0.
+    // Value 1 is the branch that calls PauseGame::executeCourse and leaves the player alone.
+    // The object at +0x73C posts an unpause when +0x2C is set and +0x30 is 1.
+    const uint32_t area = ld32(kAreaTask);
+    if (!guest_obj(area)) return;
+    if (ld32(area + kCourseOutKind) != 1u) st32(area + kCourseOutKind, 1u);
+    const uint32_t slot = ld32(area + 0x73C);
+    if (!guest_obj(slot)) return;
+    st8(slot + 0x2C, 0);
+    st32(slot + 0x30, 0);
+}
+
+static void hold_player(Cpu* c, uint32_t self) {
+    keep_course_paused();
+    pause_course_slot(c, true);
+    // A live pause sets +0x44 on the node at +0x234 and the node at +0x278.
+    // The other four nodes stay clear. +0x47 is the method-tree bit and stays clear.
+    set_node_pause_bit(ld32(self + 0x234), true);
+    set_node_pause_bit(ld32(self + 0x278), true);
+    (void)c;
+}
+
 // 0x025FCC34 clears bit 0 on each node in the array at pause+0x234.
 static void clear_pause_list(uint32_t self) {
     const int count = pause_settings_pause_node_count((int)ld32(self + 0x1AA8));
@@ -740,11 +903,13 @@ static void resume_course(Cpu* c, uint32_t self) {
     clear_pause_node(ld32(self + 0x278));
     clear_pause_node(ld32(self + 0x27C));
     clear_pause_list(self);
-    const uint32_t course_nodes[] = {0x234u, 0x23Cu, 0x254u, 0x264u, 0x298u, 0x29Cu};
+    const uint32_t course_nodes[] = {0x224u, 0x228u, 0x22Cu, 0x230u, 0x234u, 0x23Cu, 0x254u, 0x264u, 0x298u, 0x29Cu};
     for (uint32_t off : course_nodes) {
-        if (pause_settings_course_pause_node(off)) clear_pause_node(ld32(self + off));
+        if (off <= 0x234u || pause_settings_course_pause_node(off)) clear_pause_node(ld32(self + off));
     }
     if (self == ld32(kPause)) guest_call(c, kReleaseCourse, {self, 0u});
+    const uint32_t slot = ld32(kCoursePauseSlot);
+    if (guest_obj(slot)) set_node_pause_bit(ld32(slot + 0x40), false);
     hide_switch_screen(c);
     park_closed_pause(c, self);
 }
@@ -900,7 +1065,8 @@ static void intercept_course_pause(Cpu* c) {
         g_in_started = false;
         g_in_clear = false;
         g_held_frames = 0;
-        hide_cursor(true);
+        // Continue after the restore keeps the yellow cursor. Settings still hides it during Out.
+        if (pause_settings_hides_continue_cursor(g_page_closed)) hide_cursor(true);
     } else if (!g_handed && g_page_closed && !open && !g_opened) g_restore_menu = true;
     else if (!g_handed && g_saw_overlay && !open) g_restore_menu = true;
     // Out scales the cursor with the button. Hide it until the button list is full size again.
@@ -1120,7 +1286,9 @@ void finish_pause_frame(Cpu* c, uint32_t other) {
     if (g_handed) return;
     const bool hold = pause_settings_holds_menu(g_restore_menu, out_now || other_out) && !open && !g_block_back;
     if (!hold || pause_settings_locks_row(g_cursor_placed)) {
-        hide_pause_cursor(c);
+        // The draw byte hides the cursor during Settings. hide(2) clears the pause slot,
+        // so the yellow corners never come back when Continue is pressed.
+        hide_cursor(true);
         return;
     }
     hide_cursor(false);
@@ -1144,7 +1312,13 @@ static void hide_open_layouts(Cpu* c, uint32_t self) {
 // Stop that step before it runs, and keep the panes hidden until the next Plus.
 bool course_step_sealed(Cpu* c, uint32_t self) {
     if (!g_enabled.load() || !guest_obj(self) || self != ld32(kPause)) return false;
+    // 0x025BE214 copies +0x4C onto the row when mode is 0, then sizes the cursor from that button.
+    if (ld8(self + kShown) != 0 && ld32(self + kMode) == 0 && ld32(self + kCursorIndex) == 0 &&
+        ld32(self + kIndex) != 0)
+        st32(self + kCursorIndex, ld32(self + kIndex));
+    collect_setup_group(layout_root(self));
     if (g_sealed && ld8(self + kShown) != 0) {
+        // The other pause object stays hidden. Turning it back on draws the old list behind this one.
         restore_pause_tree();
         g_sealed = false;
         g_seal_saved = false;
@@ -1152,14 +1326,41 @@ bool course_step_sealed(Cpu* c, uint32_t self) {
         g_block_controller = false;
         g_seal_left = 0;
         g_hold_open = 16;
+        g_handed = true;
+        g_cursor_placed = true;
+        g_restore_menu = false;
+        g_stop_player = true;
         st8(self + kDraw, g_draw ? g_draw : 1);
         st8(self + kActive, g_active ? g_active : 1);
+        // Restore puts the controller page back. Hide it again before In draws.
+        collect_setup_group(layout_root(self));
+        show_menu_open(c, self);
+        // In is at its end, so the button is full size. 0x025BE1F0 then draws a normal cursor.
+        g_index = 0;
+        st32(self + kIndex, 0);
+        st32(self + kCursorIndex, 0);
+        place_menu_cursor(c, self);
+        hide_cursor(false);
         LOG("[pause] next Plus shows the pause menu");
     }
-    // A held Plus is what opened the menu. Mode 0 would read that Plus as Back and close it.
+    // Continue cleared the course pause. This menu puts that pause back while it is shown.
+    if (pause_settings_stops_player(g_stop_player, ld8(self + kShown) != 0)) {
+        hold_player(c, self);
+        // Mode 2 and 3 are the Settings press. Mode 0 lets the stick move the cursor.
+        if (g_hold_open == 0) {
+            const uint32_t mode = ld32(self + kMode);
+            st32(self + kMode, pause_settings_reopen_mode(mode));
+        }
+    }
+    // A held Plus opened this menu. Mode 1 would press the selected button.
+    // Plus and Back stay out of the pad until Plus is up. Mode 0 lets the stick move the cursor.
     if (g_hold_open > 0) {
-        st32(self + kMode, 1u);
-        g_hold_open--;
+        const uint32_t pad = ld32(self + kPad);
+        const bool plus = (pad & 0x4800u) != 0;
+        const PauseReopen reopen = pause_settings_reopen(g_hold_open, plus);
+        st32(self + kMode, reopen.mode);
+        st32(self + kPad, pause_settings_reopen_pad(pad, plus));
+        g_hold_open = reopen.hold_left;
         if (!g_sealed) return false;
     }
     const uint32_t id = pause_state_id(c, self);
@@ -1174,10 +1375,12 @@ bool course_step_sealed(Cpu* c, uint32_t self) {
     if (guest_obj(other) && other != self) {
         st8(other + kActive, 0);
         st8(other + kShown, 0);
+        st8(other + kDraw, 0);
         st32(other + kMode, 0);
     }
     if (!g_sealed) {
         g_sealed = true;
+        g_stop_player = false;
         g_block_controller = true;
         g_seal_left = 45;
         hide_open_layouts(c, self);
@@ -1233,6 +1436,22 @@ static void install_settings_anim(Cpu* c) {
     }
 }
 
+void hide_extra_pause_groups(uint32_t self) {
+    if (!g_enabled.load() || !guest_obj(self)) return;
+    collect_setup_group(layout_root(self));
+}
+
+void rehold_player(Cpu* c, uint32_t self) {
+    (void)self;
+    if (!g_enabled.load()) return;
+    const uint32_t course = ld32(kPause);
+    if (!guest_obj(course)) return;
+    if (!pause_settings_stops_player(g_stop_player, ld8(course + kShown) != 0)) return;
+    keep_course_paused();
+    hold_player(c, course);
+    if (ld32(course + kMode) == 0) hide_cursor(false);
+}
+
 }
 
 // This step already draws the pause layout onto the TV before PauseGame::execute.
@@ -1241,7 +1460,10 @@ extern "C" void hook_025FD500(Cpu* c) {
     const uint32_t self = c->r[3];
     pause_menu::course_step_sealed(c, self);
     c->r[3] = self;
+    pause_menu::hide_extra_pause_groups(self);
     f_025FD500_orig(c);
+    c->r[3] = self;
+    pause_menu::rehold_player(c, self);
 }
 
 extern "C" void hook_025F3834(Cpu* c) {
@@ -1255,6 +1477,7 @@ extern "C" void hook_025F3834(Cpu* c) {
     f_025F3834_orig(c);
     c->r[3] = self;
     pause_menu::finish_pause_frame(c, self);
+    pause_menu::rehold_player(c, c->r[3]);
 }
 
 // The layout site is shared with the world-map button. This file owns the pause half.

@@ -48,8 +48,10 @@ The shots stay in `.tmp/playtest/pause-settings/`.
 `04-after-close.png` is the pause menu after the overlay closes.
 `06-continue-a-window.png` is the screen just after Continue.
 `08-pause-again.png` is the next pause menu.
-Done when `08-pause-again.png` shows Continue, Quit, and Settings.
+Done when `08-pause-again.png` shows one panel with Continue, Quit, and Settings.
+The yellow cursor is on the selected row in `04-after-close.png`, `05-continue-row.png`, and `08-pause-again.png`.
 A course with no pause menu in that shot is the broken second pause.
+A second copy of that panel is the broken menu.
 `06-continue-a-window.png` stays on the course.
 The controller page and the broken cursor stay out of that shot.
 A bare `nsmbu test` does not run this case.
