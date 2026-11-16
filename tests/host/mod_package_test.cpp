@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
     std::ofstream(migrate/"manifest.json")<<R"({"format_version":1,"id":"content.migrate","name":"Migrate","version":"1.0.0","game_id":"nsmbu-usa","kind":"content","content_dir":"content"})";
     initialize();
     std::string error;
-    {auto v=view("content.migrate");assert(!v.compatible&&v.reason.find("Content mods are not supported")!=std::string::npos);
+    {auto v=view("content.migrate");assert(v.compatible&&v.kind=="content"&&v.restart_required&&!v.active);
         std::ifstream mf(migrate/"manifest.json");std::string text{std::istreambuf_iterator<char>(mf),{}};
         assert(text.find("\"kind\":\"content\"")!=std::string::npos);}
     assert(remove("content.migrate",error));
@@ -81,8 +81,7 @@ int main(int argc, char** argv) {
             {"native","Native mods are not supported"},
             {"guest","Guest mods are not supported"},
             {"settings","Settings mods are not supported"},
-            {"lua","Unsupported mod kind"},
-            {"content","Content mods are not supported"}}){
+            {"lua","Unsupported mod kind"}}){
         auto rejected_kind=root/(std::string("rejected-")+kind);fs::create_directories(rejected_kind);
         std::ofstream(rejected_kind/"manifest.json")<<"{\"format_version\":1,\"id\":\"rejected-"<<kind<<"\",\"name\":\"Rejected\",\"version\":\"1.0.0\",\"game_id\":\"nsmbu-usa\",\"kind\":\""<<kind<<"\"}";
         assert(!install(rejected_kind.string(),error));
@@ -141,21 +140,43 @@ int main(int argc, char** argv) {
     assert(!enable(list().at(0).id,true,error));assert(remove(list().at(0).id,error));
     auto legacy=root/"LegacyModel";fs::create_directories(legacy/"content"/"Object");
     std::ofstream(legacy/"content"/"Object"/"test.arc")<<"synthetic model archive";
-    assert(!install(legacy.string(),error));
-    assert(error.find("Only Cemu graphics packs can be installed")!=std::string::npos);
+    assert(install(legacy.string(),error));auto imported=list().at(0);
+    assert(imported.id=="content.legacymodel"&&imported.kind=="content"&&imported.restart_required&&!imported.active);
+    assert(enable(imported.id,true,error));frame(50);assert(!list().at(0).active&&list().at(0).pending_restart);
+    assert(enable(imported.id,false,error));assert(remove(imported.id,error));
     auto loose=root/"loose.pack";std::ofstream(loose)<<"SARCsynthetic-fixture";
     assert(!install(loose.string(),error));
+    auto known=root/"permanent_3d.pack";std::ofstream(known)<<"SARCsynthetic-fixture";
+    assert(install(known.string(),error));assert(list().at(0).id=="content.permanent_3d"&&list().at(0).kind=="content");
+    assert(remove("content.permanent_3d",error));
     auto invalid=root/"CodeMod";fs::create_directories(invalid/"content");std::ofstream(invalid/"content"/"dummy")<<"fixture";std::ofstream(invalid/"patches.txt")<<"code";
     assert(!install(invalid.string(),error));
-    assert(error.find("Only Cemu graphics packs can be installed")!=std::string::npos);
+    assert(error.find("unsupported code patches")!=std::string::npos);
 
     auto cloudy=root/"storage"/"mods"/"Cloudy Level Pack";
     fs::create_directories(cloudy/"content"/"Common"/"Course");
     std::ofstream(cloudy/"content"/"Common"/"Course"/"1-1.szs")<<"level";
     std::ofstream(cloudy/"rules.txt")<<"[Definition]\nname = Cloudy Level Pack\ntitleIds = 0005000010101C00,0005000010101D00\ndescription = Test level pack\nversion = 6\n";
     assert(refresh(error));
-    {auto v=view("Cloudy Level Pack");assert(!v.compatible);assert(v.reason.find("Only Cemu graphics packs can be installed")!=std::string::npos);}
-    fs::remove_all(cloudy);
+    {auto v=view("content.cloudy-level-pack");assert(v.compatible&&v.kind=="content"&&v.name=="Cloudy Level Pack"&&v.version=="1.0.0"&&v.restart_required&&!v.active);}
+    assert(enable("content.cloudy-level-pack",true,error));frame(60);
+    assert(!view("content.cloudy-level-pack").active&&view("content.cloudy-level-pack").pending_restart);
+    assert(enable("content.cloudy-level-pack",false,error));assert(remove("content.cloudy-level-pack",error));
+    auto content_with_deps=root/"content-deps";fs::create_directories(content_with_deps/"content"/"Common");
+    std::ofstream(content_with_deps/"content"/"Common"/"a.bin")<<"a";
+    std::ofstream(content_with_deps/"manifest.json")<<R"({"format_version":2,"id":"content-deps","name":"Deps","version":"1.0.0","game_id":"nsmbu-usa","kind":"content","content_dir":"content","dependencies":[{"id":"other"}]})";
+    assert(!install(content_with_deps.string(),error));
+    assert(error.find("Content packages do not support dependencies or runtime options yet")!=std::string::npos);
+    auto content_a=root/"content.a";fs::create_directories(content_a/"content"/"Common");
+    std::ofstream(content_a/"content"/"Common"/"a.bin")<<"a";
+    std::ofstream(content_a/"manifest.json")<<R"({"format_version":2,"id":"content.a","name":"A","version":"1.0.0","game_id":"nsmbu-usa","kind":"content","content_dir":"content"})";
+    auto content_b=root/"content.b";fs::create_directories(content_b/"content"/"Common");
+    std::ofstream(content_b/"content"/"Common"/"a.bin")<<"b";
+    std::ofstream(content_b/"manifest.json")<<R"({"format_version":2,"id":"content.b","name":"B","version":"1.0.0","game_id":"nsmbu-usa","kind":"content","content_dir":"content"})";
+    assert(install(content_a.string(),error));assert(install(content_b.string(),error));
+    assert(enable("content.a",true,error));assert(!enable("content.b",true,error));
+    assert(error.find("Content file conflict")!=std::string::npos);
+    assert(enable("content.a",false,error));assert(remove("content.a",error));assert(remove("content.b",error));
 
     auto large_dir=root/"LargeFile";fs::create_directories(large_dir/"content");
     auto large=large_dir/"content"/"big.bin";

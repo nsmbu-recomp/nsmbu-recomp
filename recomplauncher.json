@@ -9,31 +9,50 @@
   },
   "prepare": {
     "program": ["NSMBU.exe", "installer/recomplauncher-prepare.sh"],
-    "args": ["--console-setup",
-             "--launcher-progress", "--yes", "--no-launch", "--no-shortcuts",
-             "--data-dir", "{install}/data",
-             "--image", "{game}"],
+    "args": [
+      "--console-setup",
+      "--launcher-progress",
+      "--yes",
+      "--no-launch",
+      "--no-shortcuts",
+      "--data-dir",
+      "{install}/data",
+      "--image",
+      "{game}"
+    ],
     "label": "Extracts your copy and builds the game from it (the longest step: a few minutes)",
     "timeout": 3600,
-    "done": ["{install}/data/install.json", "{install}/data/game/code/red-pro2.rpx"]
+    "done": [
+      "{install}/data/install.json",
+      "{install}/data/game/code/red-pro2.rpx"
+    ]
   },
   "start": {
     "program": ["data/bin/nsmbu.exe", "data/bin/nsmbu"],
-    "args": ["--game", "{install}/data/game", "--save", "{install}/data/nsmbu/save"]
+    "args": [
+      "--game",
+      "{install}/data/game",
+      "--save",
+      "{install}/data/nsmbu/save"
+    ]
   },
   "config": [
     {
       "id": "main",
       "format": "ini",
       "file": [
-        { "path": "{install}/data/nsmbu/settings.ini", "if": "{install}/data/bin/portable.txt" },
+        {
+          "path": "{install}/data/nsmbu/settings.ini",
+          "if": "{install}/data/bin/portable.txt"
+        },
         { "path": "{config}/nsmbu/settings.ini" }
       ]
     }
   ],
   "settings": [
     {
-      "id": "window", "label": "Window",
+      "id": "window",
+      "label": "Window",
       "help": "Fullscreen fills your screen. Windowed keeps a resizable window.",
       "choices": [
         { "label": "Fullscreen", "set": { "tvFullScreen": "1" } },
@@ -42,7 +61,8 @@
       "defaults": { "tvFullScreen": "0" }
     },
     {
-      "id": "resolution", "label": "Resolution",
+      "id": "resolution",
+      "label": "Resolution",
       "help": "What the game draws at. 720p is the console's own; 1440p and 4K are sharper and need a faster graphics card.",
       "choices": [
         { "label": "720p", "set": { "resScale": "1" } },
@@ -52,7 +72,8 @@
       "defaults": { "resScale": "1" }
     },
     {
-      "id": "aspect", "label": "Aspect ratio",
+      "id": "aspect",
+      "label": "Aspect ratio(Experimental)",
       "help": "The shape of the picture. 16:9 is the console's own; the wider ones show more on the sides.",
       "choices": [
         { "label": "16:9 (console)", "set": { "aspect": "16:9" } },
@@ -64,27 +85,53 @@
       "defaults": { "aspect": "16:9" }
     },
     {
-      "id": "frame_rate", "label": "Frame rate",
+      "id": "frame_rate",
+      "label": "Frame rate",
       "help": "The game runs at 60 as on the Wii U. 120 fps interpolates frames (a 120 Hz screen shows them all). Uncapped draws as fast as your PC can; the game logic stays at 60.",
       "choices": [
-        { "label": "60 fps (console)", "set": { "fps60": "0", "fpsCustom": "0", "fpsUnlocked": "0" } },
-        { "label": "120 fps", "set": { "fps60": "1", "fpsCustom": "1", "interpFps": "120", "fpsUnlocked": "0" } },
-        { "label": "Uncapped", "set": { "fps60": "0", "fpsCustom": "0", "fpsUnlocked": "1" } }
+        {
+          "label": "60 fps (console)",
+          "set": { "fps60": "0", "fpsCustom": "0", "fpsUnlocked": "0" }
+        },
+        {
+          "label": "120 fps",
+          "set": {
+            "fps60": "1",
+            "fpsCustom": "1",
+            "interpFps": "120",
+            "fpsUnlocked": "0"
+          }
+        },
+        {
+          "label": "Uncapped",
+          "set": { "fps60": "0", "fpsCustom": "0", "fpsUnlocked": "1" }
+        }
       ],
       "defaults": { "fps60": "0", "fpsCustom": "0", "fpsUnlocked": "0" }
     },
     {
-      "id": "vsync", "label": "V-Sync",
+      "id": "vsync",
+      "label": "V-Sync",
       "help": "On waits for the screen's refresh (no tearing). Low latency shows each frame the moment it is ready. Off can tear.",
       "choices": [
-        { "label": "On", "set": { "vkPresentMode": "0", "vkPresentChosen": "1" } },
-        { "label": "Low latency", "set": { "vkPresentMode": "1", "vkPresentChosen": "1" } },
-        { "label": "Off", "set": { "vkPresentMode": "2", "vkPresentChosen": "1" } }
+        {
+          "label": "On",
+          "set": { "vkPresentMode": "0", "vkPresentChosen": "1" }
+        },
+        {
+          "label": "Low latency",
+          "set": { "vkPresentMode": "1", "vkPresentChosen": "1" }
+        },
+        {
+          "label": "Off",
+          "set": { "vkPresentMode": "2", "vkPresentChosen": "1" }
+        }
       ],
       "defaults": { "vkPresentMode": "0", "vkPresentChosen": "1" }
     },
     {
-      "id": "fxaa", "label": "Anti-aliasing",
+      "id": "fxaa",
+      "label": "Anti-aliasing",
       "help": "FXAA smooths the edges at almost no cost.",
       "choices": [
         { "label": "Off", "set": { "fxaa": "0" } },
@@ -93,7 +140,8 @@
       "defaults": { "fxaa": "0" }
     },
     {
-      "id": "aniso", "label": "Texture filtering",
+      "id": "aniso",
+      "label": "Texture filtering",
       "help": "Anisotropic filtering keeps textures sharp at shallow angles. Costs next to nothing.",
       "choices": [
         { "label": "Off", "set": { "aniso": "0" } },
@@ -102,7 +150,8 @@
       "defaults": { "aniso": "0" }
     },
     {
-      "id": "drc", "label": "GamePad screen",
+      "id": "drc",
+      "label": "GamePad screen",
       "help": "The Wii U GamePad's screen: a second window, or a picture-in-picture in the corner.",
       "choices": [
         { "label": "Off", "set": { "drcMode": "off" } },
@@ -113,7 +162,8 @@
       "defaults": { "drcMode": "off" }
     },
     {
-      "id": "language", "label": "Language",
+      "id": "language",
+      "label": "Language",
       "help": "The game's language, as on the console.",
       "choices": [
         { "label": "Japanese", "set": { "language": "0" } },
@@ -132,9 +182,16 @@
       "defaults": { "language": "1" }
     },
     {
-      "id": "volume", "label": "Volume",
+      "id": "volume",
+      "label": "Volume",
       "help": "The game's sound level, before your system's.",
-      "slider": { "key": "audioVolume", "min": 0, "max": 1, "step": 0.05, "format": "%.2f" },
+      "slider": {
+        "key": "audioVolume",
+        "min": 0,
+        "max": 1,
+        "step": 0.05,
+        "format": "%.2f"
+      },
       "defaults": { "audioVolume": "1" }
     }
   ],
@@ -142,19 +199,40 @@
   "folders": {
     "saves": [{ "path": "{install}/data/nsmbu/save" }],
     "logs": [
-      { "path": "{install}/data/nsmbu/logs", "if": "{install}/data/bin/portable.txt" },
+      {
+        "path": "{install}/data/nsmbu/logs",
+        "if": "{install}/data/bin/portable.txt"
+      },
       { "path": "{config}/nsmbu/logs" }
     ],
     "cache": [
-      { "path": "{install}/data/nsmbu/shadercache", "if": "{install}/data/bin/portable.txt" },
+      {
+        "path": "{install}/data/nsmbu/shadercache",
+        "if": "{install}/data/bin/portable.txt"
+      },
       { "path": "{config}/nsmbu/shadercache" }
     ],
     "data": [{ "path": "{install}/data" }]
   },
   "actions": [
-    { "id": "saves", "label": "Saves", "help": "Your save data.", "open": "saves" },
-    { "id": "logs", "label": "Logs", "help": "The game's log from the last run.", "open": "logs" },
-    { "id": "cache", "label": "Clear shader cache", "help": "Shaders the game has built, so later play doesn't stutter. Clearing only helps if graphics look wrong after an update.", "clear": "cache" }
+    {
+      "id": "saves",
+      "label": "Saves",
+      "help": "Your save data.",
+      "open": "saves"
+    },
+    {
+      "id": "logs",
+      "label": "Logs",
+      "help": "The game's log from the last run.",
+      "open": "logs"
+    },
+    {
+      "id": "cache",
+      "label": "Clear shader cache",
+      "help": "Shaders the game has built, so later play doesn't stutter. Clearing only helps if graphics look wrong after an update.",
+      "clear": "cache"
+    }
   ],
   "exit_codes": {
     "1": "The game closed unexpectedly: usually it could not find or read the game files. Press Setup on the game's page to pick your copy again. The log is in the Logs folder."

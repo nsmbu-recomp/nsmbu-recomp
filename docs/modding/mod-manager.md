@@ -11,12 +11,11 @@ Manager version **1.0.0**.
 
 | Kind | Status | Doc |
 | --- | --- | --- |
+| `content` | Live | [content.md](content.md) |
 | `cemu` | Live | [cemu.md](cemu.md) |
-| `content` | Rejected | [content.md](content.md) |
 
-The only package the manager installs is a Cemu graphics or shader pack.
+The manager installs Cemu graphics and shader packs, and content file-replacement packages.
 Any other kind is rejected.
-File-only Cemu level packs are rejected the same way.
 
 ## Player workflow
 

@@ -10,7 +10,7 @@ This folder is the modding documentation for NSMBU recomp.
 | [cemu.md](cemu.md) | `kind: cemu` graphics and shader packs |
 | `vendor/decomp/include/game/CommonWindowMgr.h`, `layout/CommonWindow.h`, `layout_sys/AnimLayout.h`, `layout/CourseSelectMenu.h` | Pause, `Multi2D`, and the world-map start menu |
 
-The Mods tab installs Cemu graphics and shader packs only.
+The Mods tab installs Cemu graphics and shader packs, and content file-replacement packages.
 Any other package kind is rejected.
 
 ## Investigation
