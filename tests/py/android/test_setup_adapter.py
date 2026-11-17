@@ -532,10 +532,16 @@ class LinkTests(unittest.TestCase):
         prepared = self.prepare()
         library = self.link(prepared)
         loaded = ctypes.CDLL(str(library))
-        self.assertEqual(loaded.synthetic_check(), 0)
-        self.assertFalse(library.stat().st_mode & 0o222)
-        def unexpected(*args, **kwargs): self.fail("completed link must be reused")
-        self.assertEqual(library, self.link(prepared, native=unexpected))
+        try:
+            self.assertEqual(loaded.synthetic_check(), 0)
+            self.assertFalse(library.stat().st_mode & 0o222)
+            def unexpected(*args, **kwargs): self.fail("completed link must be reused")
+            self.assertEqual(library, self.link(prepared, native=unexpected))
+        finally:
+            # Windows keeps a loaded library locked, and a read-only file cannot be deleted.
+            if sys.platform in ("win32", "cygwin") or sys.platform.startswith("msys"):
+                ctypes.windll.kernel32.FreeLibrary(loaded._handle)
+                library.chmod(0o600)
 
     def test_pause_cancels_active_link_preserves_previous_library_and_retries(self):
         prepared = self.prepare()
