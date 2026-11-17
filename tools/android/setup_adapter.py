@@ -43,6 +43,15 @@ def inventory(root, checkpoint=lambda: None):
             for path in sorted(root.rglob("*")) if path.is_file()}
 
 
+def sync_file(path):
+    """Flush file contents. A read-only descriptor cannot be synced on Windows."""
+    fd = os.open(path, os.O_RDWR)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 def sync_directory(path):
     """Flush a directory entry. MSYS can refuse to open or sync a directory."""
     unsupported = {errno.EACCES, errno.EPERM, errno.EBADF, errno.EINVAL}
@@ -272,9 +281,7 @@ class Adapter:
                 if path.is_dir():
                     sync_directory(path)
                     continue
-                fd = os.open(path, os.O_RDONLY)
-                try: os.fsync(fd)
-                finally: os.close(fd)
+                sync_file(path)
             if game.exists():
                 shutil.rmtree(game)
             os.replace(ready, game)
@@ -546,8 +553,7 @@ class Adapter:
                     return SimpleNamespace(returncode=code, stdout=output)
                 if not pending.is_file() or pending.stat().st_size == 0:
                     raise RuntimeError("compiler produced no object")
-                with pending.open("rb") as stream:
-                    os.fsync(stream.fileno())
+                sync_file(pending)
                 os.replace(pending, destination)
                 atomic_json(marker, {"identity": identity, "sha256": self.hash_file(destination)})
                 completed("compiled", source)
@@ -629,8 +635,7 @@ class Adapter:
                     self.setup.link_game(toolchain, manifest, objects, str(pending), str(candidate))
             if candidate.stat().st_size == 0:
                 raise RuntimeError("linker produced an empty library")
-            with candidate.open("rb") as stream:
-                os.fsync(stream.fileno())
+            sync_file(candidate)
             candidate.chmod(0o400)
             os.replace(candidate, library)
             atomic_json(marker, {"identity": identity, "sha256": self.hash_file(library)})

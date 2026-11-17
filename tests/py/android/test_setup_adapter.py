@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
 
-from setup_adapter import Adapter, Paused, atomic_json, digest, inventory
+from setup_adapter import Adapter, Paused, atomic_json, digest, inventory, sync_file
 
 PACKAGE = Path(__file__).resolve().parents[3]
 spec = importlib.util.spec_from_file_location("android_fixture", PACKAGE / "recomp/android_fixture.py")
@@ -106,6 +106,23 @@ class AtomicRecordTests(unittest.TestCase):
             with patch("setup_adapter.os.fsync", side_effect=sync):
                 atomic_json(marker, {"generation": "kept"})
             self.assertEqual(marker.read_text(), '{"generation": "kept"}')
+
+    def test_file_sync_opens_the_file_writable(self):
+        import os
+        flags = []
+        real_open = os.open
+
+        def record(path, mode, *args, **kwargs):
+            flags.append(mode)
+            return real_open(path, mode, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "object.o"
+            path.write_bytes(b"object")
+            with patch("setup_adapter.os.open", side_effect=record):
+                sync_file(path)
+        self.assertTrue(flags)
+        self.assertTrue(all(mode & os.O_RDWR for mode in flags))
 
 
 class TranslationTests(unittest.TestCase):
