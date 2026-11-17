@@ -8,7 +8,8 @@ ENV_H = ROOT / "runtime" / "src" / "core" / "env.h"
 DOCS = ROOT / "docs"
 NAME = re.compile(r"NSMBU_[A-Z0-9_]+")
 DECLARED = re.compile(r'ENV\([A-Z0-9_]+,\s*"(NSMBU_[A-Z0-9_]+)"\)')
-# Not runtime getenv names. Recompiler passes, build ids, decomp symbols, and the CMake renderer switch.
+# Not runtime getenv names. Recompiler passes, build ids, decomp symbols, the CMake renderer switch,
+# and the nsmbu CLI session id.
 PREFIX_OK = ("NSMBU_RECOMP_", "NSMBU_NSLU_", "NSMBU_ADDR_")
 EXACT_OK = {
     "NSMBU_RENDERER",
@@ -19,6 +20,7 @@ EXACT_OK = {
     "NSMBU_GAME_SAMPLE",
     "NSMBU_VULKAN_PRESENT_MODE",
     "NSMBU_TEST_TRUST_NATIVE_MODS",
+    "NSMBU_SESSION",
 }
 
 
