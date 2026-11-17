@@ -40,12 +40,12 @@ test("a missing or repeated session id is rejected", () => {
 test("a named session has its own socket and user dir", () => {
     setAgentSession(null);
     try {
-        assert.equal(agentDir("/repo"), "/repo/.tmp/agent");
+        assert.equal(agentDir("/repo"), join("/repo", ".tmp", "agent"));
         assert.equal(agentUserDir("/repo"), null);
         setAgentSession("alpha");
-        assert.equal(agentDir("/repo"), "/repo/.tmp/agent/alpha");
-        assert.equal(agentUserDir("/repo"), "/repo/.tmp/agent/alpha/user");
-        assert.equal(agentDir("/repo", null), "/repo/.tmp/agent");
+        assert.equal(agentDir("/repo"), join("/repo", ".tmp", "agent", "alpha"));
+        assert.equal(agentUserDir("/repo"), join("/repo", ".tmp", "agent", "alpha", "user"));
+        assert.equal(agentDir("/repo", null), join("/repo", ".tmp", "agent"));
         if (process.platform !== "win32") {
             assert.equal(agentSocketPath("/repo"), "/repo/.tmp/agent/alpha/ctl.sock");
             assert.equal(agentSocketPath("/repo", null), "/repo/.tmp/agent/ctl.sock");
