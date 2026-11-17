@@ -539,9 +539,17 @@ class LinkTests(unittest.TestCase):
             self.assertEqual(library, self.link(prepared, native=unexpected))
         finally:
             # Windows keeps a loaded library locked, and a read-only file cannot be deleted.
+            # The default ctypes argument is 32-bit, so a 64-bit module handle overflows.
             if sys.platform in ("win32", "cygwin") or sys.platform.startswith("msys"):
-                ctypes.windll.kernel32.FreeLibrary(loaded._handle)
-                library.chmod(0o600)
+                try:
+                    handle = loaded._handle
+                    loaded._handle = None
+                    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+                    kernel32.FreeLibrary.argtypes = [ctypes.c_void_p]
+                    kernel32.FreeLibrary.restype = ctypes.c_int
+                    kernel32.FreeLibrary(handle)
+                finally:
+                    library.chmod(0o600)
 
     def test_pause_cancels_active_link_preserves_previous_library_and_retries(self):
         prepared = self.prepare()
