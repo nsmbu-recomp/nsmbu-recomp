@@ -2,9 +2,13 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools" / "android"))
 """Real shared translation/host compilation through the durable job runner."""
+import unittest
+try:
+    import fcntl
+except ImportError:
+    raise unittest.SkipTest("on-device setup flock is Linux-only")
 from debug_fixture_build import register as register_fixture_build
 import ctypes
-import fcntl
 import importlib.util
 import json
 from pathlib import Path
@@ -12,7 +16,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import unittest
 
 from ondevice_setup import run, process_resources
 from setup_adapter import Adapter

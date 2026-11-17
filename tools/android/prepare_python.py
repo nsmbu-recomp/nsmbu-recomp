@@ -6,6 +6,7 @@ Gradle to include them. No compiler/recompiler other than our existing pipeline
 is downloaded by this script; the NDK only builds the small embedding bridge.
 """
 import argparse
+import errno
 import hashlib
 import importlib.util
 import json
@@ -54,9 +55,7 @@ def verified_download(url, archive, expected):
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, archive)
-        directory = os.open(archive.parent, os.O_RDONLY)
-        try: os.fsync(directory)
-        finally: os.close(directory)
+        sync_directory(archive.parent)
         return archive
     finally:
         temporary.unlink(missing_ok=True)
@@ -88,10 +87,32 @@ def source_files(root, test_fixtures=False):
     return list(dict.fromkeys(source_paths))
 
 
+def sync_directory(path):
+    """Flush a directory entry. MSYS can refuse to open or sync a directory."""
+    unsupported = {errno.EACCES, errno.EPERM, errno.EBADF, errno.EINVAL}
+    if hasattr(errno, "ENOTSUP"):
+        unsupported.add(errno.ENOTSUP)
+    try:
+        directory = os.open(path, os.O_RDONLY)
+    except OSError as error:
+        if error.errno in unsupported:
+            return
+        raise
+    try:
+        try:
+            os.fsync(directory)
+        except OSError as error:
+            if error.errno in unsupported:
+                return
+            raise
+    finally:
+        os.close(directory)
+
+
 def runtime_fixture_source(directory):
     directory = Path(directory)
-    header = (directory / "funcs.h").read_bytes().replace(b"#pragma once\n", b"")
-    source = (directory / "code_000.c").read_bytes().replace(b'#include "funcs.h"\n', b"")
+    header = (directory / "funcs.h").read_bytes().replace(b"\r\n", b"\n").replace(b"#pragma once\n", b"")
+    source = (directory / "code_000.c").read_bytes().replace(b"\r\n", b"\n").replace(b'#include "funcs.h"\n', b"")
     return header + source
 
 

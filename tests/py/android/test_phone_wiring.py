@@ -11,7 +11,7 @@ JAVA = APP / "java/org/nsmbrecomp/nsmbu"
 
 
 def text(path):
-    return (ROOT / path).read_text()
+    return (ROOT / path).read_text(encoding="utf-8")
 
 
 class PhoneWiring(unittest.TestCase):

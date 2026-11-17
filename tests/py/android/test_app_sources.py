@@ -38,7 +38,7 @@ def platform_jar():
 def resource_class(sources):
     used = {}
     for source in sources:
-        for kind, name in re.findall(r"(?<![\w.])R\.(\w+)\.(\w+)", source.read_text()):
+        for kind, name in re.findall(r"(?<![\w.])R\.(\w+)\.(\w+)", source.read_text(encoding="utf-8")):
             used.setdefault(kind, set()).add(name)
     text = "package org.nsmbrecomp.nsmbu;\npublic final class R {\n"
     for kind, names in sorted(used.items()):
@@ -52,7 +52,8 @@ def resource_class(sources):
 class AppSources(unittest.TestCase):
     def test_strings_used_by_the_app_exist(self):
         used, _ = resource_class(sorted((MAIN / "java").rglob("*.java")))
-        strings = set(re.findall(r'<string name="(\w+)"', (MAIN / "res/values/strings.xml").read_text()))
+        strings = set(re.findall(r'<string name="(\w+)"',
+                                 (MAIN / "res/values/strings.xml").read_text(encoding="utf-8")))
         self.assertEqual(sorted(used.get("string", set()) - strings), [])
 
     def test_java_sources_compile_against_the_platform(self):

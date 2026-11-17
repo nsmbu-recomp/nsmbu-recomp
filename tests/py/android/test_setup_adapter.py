@@ -75,6 +75,38 @@ class AtomicRecordTests(unittest.TestCase):
             atomic_json(marker, {"generation": "replacement"})
             self.assertNotEqual(marker.read_bytes(), previous)
 
+    def test_record_is_kept_when_the_directory_cannot_be_synced(self):
+        import os
+        with tempfile.TemporaryDirectory() as directory:
+            marker = Path(directory) / "complete.json"
+            real_open = os.open
+
+            def open_files_only(path, flags, *args, **kwargs):
+                if Path(path).is_dir():
+                    raise PermissionError(13, "Permission denied")
+                return real_open(path, flags, *args, **kwargs)
+
+            with patch("setup_adapter.os.open", side_effect=open_files_only):
+                atomic_json(marker, {"generation": "kept"})
+            self.assertEqual(marker.read_text(), '{"generation": "kept"}')
+
+    def test_record_is_kept_when_directory_sync_is_rejected(self):
+        import errno
+        import os
+        import stat
+        with tempfile.TemporaryDirectory() as directory:
+            marker = Path(directory) / "complete.json"
+            real_sync = os.fsync
+
+            def sync(fd):
+                if stat.S_ISDIR(os.fstat(fd).st_mode):
+                    raise OSError(errno.EBADF, "Bad file descriptor")
+                return real_sync(fd)
+
+            with patch("setup_adapter.os.fsync", side_effect=sync):
+                atomic_json(marker, {"generation": "kept"})
+            self.assertEqual(marker.read_text(), '{"generation": "kept"}')
+
 
 class TranslationTests(unittest.TestCase):
     def setUp(self):

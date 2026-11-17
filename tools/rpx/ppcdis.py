@@ -20,7 +20,6 @@ import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 from rpx import Rpx, R_PPC_REL24
-import capstone
 
 _LOAD_STORE = {
     32: "lwz", 33: "lwzu", 34: "lbz", 35: "lbzu",
@@ -69,6 +68,7 @@ def load(path=None):
     return _rpx
 
 def dis(addr, count=32, path=None):
+    import capstone
     r = load(path)
     t = r.by_name[".text"]
     md = capstone.Cs(capstone.CS_ARCH_PPC, capstone.CS_MODE_32 | capstone.CS_MODE_BIG_ENDIAN | capstone.CS_MODE_PS)

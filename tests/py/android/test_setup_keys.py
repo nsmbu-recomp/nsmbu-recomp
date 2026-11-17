@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools" / "android"))
 """Read-only Android key descriptor handling (authored keys, no game files)."""
+import ast
 import os
 import tempfile
 import unittest
@@ -10,6 +11,17 @@ from ondevice_setup import image_keys, main, read_key_descriptors
 
 
 class KeyDescriptors(unittest.TestCase):
+    def test_module_imports_without_fcntl(self):
+        source = Path(__file__).resolve().parents[3] / "tools/android/ondevice_setup.py"
+        tree = ast.parse(source.read_text())
+        for node in tree.body:
+            names = []
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                names = [node.module or ""]
+            self.assertNotIn("fcntl", names)
+
     def test_regular_file_and_pipe_stay_in_memory_and_original_fds_stay_open(self):
         payload = b'# authored keys\n' + b'01' * 16 + b' # synthetic\n' + b'02' * 16 + b'\n'
         with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryFile() as file:

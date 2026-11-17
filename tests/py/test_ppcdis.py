@@ -1,4 +1,5 @@
 """ppcdis queries that replace one-off scans of .text."""
+import ast
 import sys
 import unittest
 from pathlib import Path
@@ -87,3 +88,15 @@ class Xref(unittest.TestCase):
         addi = dform(14, 3, 3, 0x20)
         sites = ppcdis.lis_sites([lis] + gap + [addi], 0x7000, {0x10000020})
         self.assertEqual(sites, [])
+
+
+class Import(unittest.TestCase):
+    def test_queries_load_without_capstone(self):
+        tree = ast.parse(Path(ppcdis.__file__).read_text())
+        for node in tree.body:
+            names = []
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                names = [node.module or ""]
+            self.assertNotIn("capstone", names)

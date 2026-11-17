@@ -5,6 +5,7 @@ execution and the Android service/UI are supplied separately; this module never
 selects a desktop toolchain and never invokes the installer's destructive install().
 """
 from contextlib import contextmanager, redirect_stdout, redirect_stderr
+import errno
 import hashlib
 import importlib.util
 import io
@@ -42,6 +43,28 @@ def inventory(root, checkpoint=lambda: None):
             for path in sorted(root.rglob("*")) if path.is_file()}
 
 
+def sync_directory(path):
+    """Flush a directory entry. MSYS can refuse to open or sync a directory."""
+    unsupported = {errno.EACCES, errno.EPERM, errno.EBADF, errno.EINVAL}
+    if hasattr(errno, "ENOTSUP"):
+        unsupported.add(errno.ENOTSUP)
+    try:
+        directory = os.open(path, os.O_RDONLY)
+    except OSError as error:
+        if error.errno in unsupported:
+            return
+        raise
+    try:
+        try:
+            os.fsync(directory)
+        except OSError as error:
+            if error.errno in unsupported:
+                return
+            raise
+    finally:
+        os.close(directory)
+
+
 def atomic_json(path, value):
     temporary = path.with_suffix(".tmp")
     try:
@@ -50,11 +73,7 @@ def atomic_json(path, value):
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, path)
-        directory = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+        sync_directory(path.parent)
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -250,6 +269,9 @@ class Adapter:
                 raise RuntimeError("extraction produced no files")
             for path in sorted(ready.rglob("*"), reverse=True) + [ready]:
                 self.boundary()
+                if path.is_dir():
+                    sync_directory(path)
+                    continue
                 fd = os.open(path, os.O_RDONLY)
                 try: os.fsync(fd)
                 finally: os.close(fd)

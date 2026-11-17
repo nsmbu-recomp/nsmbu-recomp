@@ -135,6 +135,30 @@ class DownloadTests(unittest.TestCase):
         self.fetch()
         self.assertEqual(self.archive.read_bytes(), self.content)
 
+    def test_archive_is_kept_when_the_directory_cannot_be_synced(self):
+        import os
+        real_open = os.open
+
+        def open_files_only(path, flags, *args, **kwargs):
+            if Path(path).is_dir():
+                raise PermissionError(13, "Permission denied")
+            return real_open(path, flags, *args, **kwargs)
+
+        with patch("prepare_python.os.open", side_effect=open_files_only):
+            self.fetch()
+        self.assertEqual(self.archive.read_bytes(), self.content)
+
+    def test_crlf_stub_drops_the_hook_header_include(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "funcs.h").write_bytes(b"#pragma once\r\nstatic int hook;\r\n")
+            (root / "code_000.c").write_bytes(b'#include "funcs.h"\r\nint main(void){return hook;}\r\n')
+            source = runtime_fixture_source(root)
+        self.assertNotIn(b"#pragma once", source)
+        self.assertNotIn(b'#include "funcs.h"', source)
+        self.assertIn(b"static int hook;", source)
+        self.assertIn(b"int main(void){return hook;}", source)
+
 
 if __name__ == "__main__":
     unittest.main()

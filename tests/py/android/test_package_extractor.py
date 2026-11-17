@@ -57,6 +57,8 @@ class ExtractorPackageTests(unittest.TestCase):
         self.rejected("pinned bundled zstd")
 
     def test_packages_bundled_build(self):
+        if sys.platform in ("win32", "cygwin") or sys.platform.startswith("msys"):
+            self.skipTest("the llvm-strip stand-in is a shell script")
         (self.build / "nsmbu-zstd.txt").write_text("bundled zstd\n")
         (self.build / "nsmbu-extract").write_bytes(elf())
         (self.build / "_deps/zstd-src").mkdir(parents=True)
