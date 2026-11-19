@@ -11,6 +11,7 @@
 #include <vector>
 
 namespace env {
+struct Var;
 namespace detail {
 
 struct Slot {
@@ -19,7 +20,7 @@ struct Slot {
 };
 
 struct State {
-    std::map<std::string, const struct Var*> catalog;
+    std::map<std::string, const env::Var*> catalog;
     std::unordered_map<std::string, Slot> values;
 };
 
@@ -56,7 +57,7 @@ inline std::string flag_of(const std::string& key) {
     return s;
 }
 
-inline const struct Var* find_flag(const std::string& name) {
+inline const env::Var* find_flag(const std::string& name) {
     for (const auto& entry : state().catalog) {
         if (flag_of(entry.first) == name) return entry.second;
     }
