@@ -12,7 +12,8 @@ static void check(bool ok, const char* what) {
     }
 }
 
-int main() {
+int main(int argc, char** argv) {
+    env::apply_flags(argc, argv);
     using namespace script_frame;
 
     check(!enabled_value(nullptr), "null is off");

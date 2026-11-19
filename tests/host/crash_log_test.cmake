@@ -1,11 +1,12 @@
 # CTest crash_log_module: the crash log names the module that holds a host crash address.
-# Runs the game executable with NSMBU_TEST_HOST_CRASH=1 (main.cpp: strlen of a bad pointer, right
+# Runs the game executable with --test-host-crash (main.cpp: strlen of a bad pointer, right
 # after the crash handler is installed; no game files needed) and checks nsmbu/logs/crash-*.log.
 # cmake -DNSMBU=<nsmbu executable> -DWORK=<empty work folder> -P crash_log_test.cmake
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}")
 set(USER_DIR "${WORK}/nsmbu")
-execute_process(COMMAND "${CMAKE_COMMAND}" -E env NSMBU_TEST_HOST_CRASH=1 NSMBU_NO_AUDIO=1 NSMBU_HIDDEN_WINDOWS=1 "NSMBU_USER_DIR=${USER_DIR}" "NSMBU_TEST_CONTEXT_PATH=$ENV{HOME}/crash-test" "${NSMBU}"
+execute_process(COMMAND "${NSMBU}" --test-host-crash --no-audio --hidden-windows
+                        "--user-dir=${USER_DIR}"
                 WORKING_DIRECTORY "${WORK}" RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
 if(rc EQUAL 0)
   message(FATAL_ERROR "the executable did not crash:\n${out}\n${err}")
@@ -52,7 +53,7 @@ expect("--- last log lines ---\n.*NSMBU_TEST_HOST_CRASH" "the last log lines")
 message(STATUS "crash address in ${module}: ok")
 
 expect("--- crash context [(]startup[)] ---" "startup settings context")
-expect("NSMBU_TEST_CONTEXT_PATH=~/crash-test" "redacted environment path")
+expect("NSMBU_USER_DIR=~/" "redacted user folder")
 if(NOT "$ENV{HOME}" STREQUAL "")
   string(FIND "${log}" "$ENV{HOME}" home_pos)
   if(NOT home_pos EQUAL -1)

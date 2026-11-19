@@ -375,8 +375,7 @@ add_executable(script_frame_test ${CMAKE_CURRENT_SOURCE_DIR}/host/script_frame_t
 target_include_directories(script_frame_test PRIVATE ${CMAKE_SOURCE_DIR}/runtime/src)
 target_compile_options(script_frame_test PRIVATE -UNDEBUG)
 add_test(NAME script_frame COMMAND script_frame_test)
-add_test(NAME script_frame_fixed_seed COMMAND script_frame_test)
-set_tests_properties(script_frame_fixed_seed PROPERTIES ENVIRONMENT "NSMBU_TEST_FIXED_SEED=1")
+add_test(NAME script_frame_fixed_seed COMMAND script_frame_test --test-fixed-seed)
 add_test(NAME user_folder_isolation COMMAND ${CMAKE_COMMAND} -DPROBE=$<TARGET_FILE:user_folder_probe>
          -DWORK=${CMAKE_BINARY_DIR}/user_folder_isolation_work -P ${CMAKE_CURRENT_SOURCE_DIR}/host/user_folder_isolation_test.cmake)
 
