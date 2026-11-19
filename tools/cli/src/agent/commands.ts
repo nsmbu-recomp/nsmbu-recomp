@@ -30,16 +30,23 @@ async function ensureNotRunning(repo: string): Promise<void> {
     removeAgentArtifacts(repo);
 }
 
+export function agentLaunchEnv(repo: string): Record<string, string> {
+    const env: Record<string, string> = {
+        NSMBU_AGENT_SOCK: agentSocketPath(repo),
+        NSMBU_NO_AUDIO: "1",
+    };
+    const user = agentUserDir(repo);
+    if (user) env.NSMBU_USER_DIR = user;
+    return env;
+}
+
 export async function cmdOpen(repo: string, rest: string[]): Promise<void> {
     await ensureNotRunning(repo);
     mkdirSync(agentDir(repo), { recursive: true });
     const sock = agentSocketPath(repo);
-    const extraEnv: Record<string, string> = { NSMBU_AGENT_SOCK: sock };
-    const user = agentUserDir(repo);
-    if (user) {
-        mkdirSync(user, { recursive: true });
-        extraEnv.NSMBU_USER_DIR = user;
-    }
+    const extraEnv = agentLaunchEnv(repo);
+    const user = extraEnv.NSMBU_USER_DIR;
+    if (user) mkdirSync(user, { recursive: true });
     const child = spawnPython(repo, "tools/run/launch.py", rest, {
         detached: true,
         stdio: "ignore",

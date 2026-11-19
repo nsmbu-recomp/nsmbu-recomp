@@ -214,6 +214,7 @@ Pass the same `-s <id>` on every command for that game, or export `NSMBU_SESSION
 Use them for a short look while writing a playtest case; lasting coverage stays in `tools/cli/src/playtest/cases/` and `nsmbu test`.
 
 - `nsmbu open [slot|course|course-file] […]` — ensure a debug binary, spawn the game with agent control enabled, wait until the socket accepts.
+  The game starts with the sound off.
   Release builds ignore `NSMBU_AGENT_SOCK`.
   A course file is a `course_res_pack` archive, such as `game/content/Common/course_res_pack/1-27.szs`, and starts that course the same way as `1-27`.
   Refuse if that session already has a game.

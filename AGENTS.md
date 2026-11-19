@@ -4,6 +4,7 @@
 
 - Never commit any game files to the repo they must always be gitignored.
 - Always `nsmbu close` the running game session once finished.
+- Always start nsmbu muted.
 
 ## Changelog
 
@@ -22,13 +23,3 @@ The `nsmbu` target compiles with `-Wall`.
 When decompiling a function, call the Task tool with `subagent_type` `decompile`.
 When working with hooks make sure you understand the underlying code.
 The prompt is the address, the symbol, or both.
-
-## Tests
-
-Add one test for every behavior change, in the suite that owns that behavior.
-The new test fails on the old behavior and passes with the change.
-
-- `ctest --test-dir build/linux --output-on-failure` runs the host tests.
-- `python3 -m unittest discover -s tests/py -p "test_*.py"` runs the Python tests.
-- `npm test --prefix tools/cli` runs the Node unit tests.
-- `nsmbu test` runs only the game playtests in `tools/cli/test/playtests.test.ts`.

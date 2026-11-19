@@ -78,7 +78,10 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(
             sorted((site, canon) for site, canon, *_ in entries),
             sorted(
-            [(False, 0x02ACD218), (False, 0x024D752C), (True, 0x022A79C4), (False, 0x022A7760),
+            [(False, 0x02ACD218), (False, 0x024D752C), (True, 0x022674E8), (True, 0x02267C48),
+             (True, 0x02267C4C), (True, 0x02267C70), (True, 0x0228E0CC), (True, 0x0228E228),
+             (True, 0x0228E234), (True, 0x024DE2D0),
+             (True, 0x022A79C4), (False, 0x022A7760),
              (False, 0x029A6170), (False, 0x029B85C8), (False, 0x02A06818), (False, 0x02A061AC),
              (False, 0x02A062EC), (False, 0x02994164), (False, 0x029CBBB4), (False, 0x024BD86C),
              (True, 0x024B814C), (True, 0x024B8324), (False, 0x0226FBC4), (True, 0x0226FD14), (True, 0x0226FECC),
@@ -133,6 +136,7 @@ class CoverageTests(unittest.TestCase):
     def test_death_course_out_seeds_the_directed_map(self):
         hooks = (ROOT / "recomp/hooks/course.jsonc").read_text(encoding="utf-8")
         self.assertIn('"024B814C"', hooks)
+        self.assertIn('"02267C48"', hooks)
         source = (ROOT / "runtime/src/hooks/cs_probe.cpp").read_text(encoding="utf-8")
         start = source.index("void site_024B814C")
         end = source.index("void site_024B8324")
@@ -140,6 +144,39 @@ class CoverageTests(unittest.TestCase):
         self.assertIn("g_have_pack", body)
         self.assertIn("nsmbu_mark_course_left", body)
         self.assertIn("seed_map_return_pose", body)
+        sync = source[source.index("void sync_directed_controller() {"):source.index("static void release_directed_map(uint32_t task) {")]
+        self.assertIn("kDrcOff", sync)
+        self.assertIn("game + 0x14u, 0", sync)
+        self.assertNotIn("set_pro_controller", sync)
+        self.assertIn("sync_directed_controller", source[source.index("void nsmbu_mark_course_left"):source.index("void site_024B814C")])
+        save = (ROOT / "runtime/src/mods/sdk/nsmbu.cpp").read_text(encoding="utf-8")
+        apply = save[save.index("bool apply_save_file"):save.index("bool leave_course_impl")]
+        self.assertIn("pro_controller() ? 0 : 1", apply)
+        self.assertNotIn("kDrcOff", apply)
+        self.assertNotIn("drc = 0", apply)
+        start = source.index("void site_02267C48")
+        end = source.index("void site_02267C4C")
+        iris = source[start:end]
+        self.assertIn("g_map_return_open", iris)
+        self.assertIn("release_directed_map", iris)
+        self.assertIn("GD(0x101FD3A4)", iris)
+        flags = source[source.index("void release_directed_map"):source.index("void nsmbu_mark_course_left")]
+        self.assertIn("0xDC8u, 0", flags)
+        self.assertIn("0xDC9u, 0", flags)
+        self.assertIn("0xDCBu, 1", flags)
+        self.assertIn("0xDCDu, 0", flags)
+        self.assertIn("0xDCEu, 0", flags)
+        model = source[source.index("void site_022674E8"):source.index("void site_02267C70")]
+        self.assertIn("release_directed_map", model)
+        stick = source[source.index("void site_0228E228"):source.index("void site_0228E234")]
+        self.assertIn("r[26] = 0", stick)
+        gate = source[source.index("void site_0228E234"):source.index("void site_024DE2D0")]
+        self.assertIn("0x623u, 1", gate)
+        mesh = source[source.index("void site_024DE2D0"):source.index("void site_022674E8")]
+        self.assertIn("r[6] = 0", mesh)
+        hold = source[source.index("void site_02267C70"):]
+        self.assertIn("0xDCAu, 1", hold)
+        self.assertIn("0xDCDu, 0", hold)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

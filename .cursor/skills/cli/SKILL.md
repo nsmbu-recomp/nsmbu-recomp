@@ -62,6 +62,7 @@ A runtime-only edit compiles the changed `.cpp` and links.
 Use the same id on `open`, `status`, `press`, and `close`.
 A different id is a different game, socket, save, and settings under `.tmp/agent/<id>/`.
 An agent game stays in the background.
+`nsmbu open` starts it with the sound off.
 Press, click, and screenshot do not bring its window forward.
 If `nsmbu -s <id> open` refuses because that session is already running, run `nsmbu -s <id> status`.
 `nsmbu -s <id> close` stops that game.

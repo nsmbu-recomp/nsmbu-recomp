@@ -608,7 +608,10 @@ bool apply_save_file(uint32_t file, int32_t world, int32_t course, bool entry, s
         err = "file not ready";
         return false;
     }
-    if (!guest::write_u8(game + kSinglePlayerDrc, input::pro_controller() ? 0 : 1, err)) return false;
+    // The course treats controller id 0 as the player only while this flag is set.
+    // The GamePad host is that controller. Clearing the flag here makes nsmbu run 1-1 ignore the stick.
+    const uint8_t drc = input::pro_controller() ? 0 : 1;
+    if (!guest::write_u8(game + kSinglePlayerDrc, drc, err)) return false;
     return true;
 }
 

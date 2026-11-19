@@ -336,6 +336,28 @@ The map camera copies its focus node at `0x0227CCF4` and `0x0227E2A8` from the p
 Those sites replace that node with the opened course before the pose and position stores.
 They stay out of the opening cinematic and out of loading a save from the file select.
 Both of those set a course-exit type without going through course-out, and the map keeps its own camera until it gives you control.
+`apply_save` writes `MainGame.mIsSinglePlayerDRC` (`+0x14`) from the host controller.
+The course treats controller id 0 as the player only while that flag is set.
+A GamePad host sets the flag, so `nsmbu run 1-1` reads that pad.
+Clearing the flag while the GamePad screen is off makes that course ignore the stick.
+A map opened from the save leaves that flag clear, so Mario is drawn on the TV.
+The GamePad flag leaves the TV on the GamePad ghost and selects the GamePad map update.
+Course-out still clears the flag when the GamePad screen is off.
+The host pad stays on its current controller.
+The pose seed leaves the course-out demo latched.
+That demo stores `CourseSelectTask+0xDC8` (scripted move) and `+0xDCD` (gaussian model) and never sends the second pulse that would clear them.
+`+0xDC9` alone is the map-calc lock.
+Clearing it leaves the white model and a player that ignores the stick.
+The arm at `0x02267C48` drops `+0xDC8`, `+0xDC9`, `+0xDCA`, and `+0xDCD`, sets `+0xDCB` to 1, and stays in state `0x101FD3A4`.
+The player update at `0x0228E0CC` clears those bytes again before the stick read.
+A demo event id still skips that stick read.
+`0x0228E228` clears that skip for a directed return.
+The model build at `0x024DE2D0` keeps the gaussian argument clear, so the first mesh is the normal one.
+The stick read also needs `CourseSelectPlayer+0x623`.
+`0x0228E234` sets that byte.
+The hold execute at `0x02267C70` sends the stock unlock pulse (`+0xDCA` 1, `+0xDCB` 1, `+0xDCD` 0) when a directed return is still inside that state.
+The override lasts a few seconds of map time.
+A later course enter from the map uses the normal iris.
 See [course-open.md](../developer/nsmbu/course-open.md).
 
 ### Normal enter path
