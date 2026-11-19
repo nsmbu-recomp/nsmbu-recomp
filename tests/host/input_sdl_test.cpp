@@ -86,6 +86,8 @@ int main(){
  assert(input::development_input_log());
  SDL_SetHint(SDL_HINT_VIDEO_DRIVER,"dummy");
  assert(SDL_Init(SDL_INIT_EVENTS|SDL_INIT_VIDEO));
+ set_env(env::NO_CONTROLLERS,"1");
+ assert(SDL_InitSubSystem(SDL_INIT_GAMEPAD));
  input::init();input_map::set_current(input_map::Mapping::defaults(),false);
  auto key=[](SDL_Scancode code,bool down){SDL_Event e{};e.type=down?SDL_EVENT_KEY_DOWN:SDL_EVENT_KEY_UP;e.key.scancode=code;input::handle_event(e);};
  key(SDL_SCANCODE_K,true);assert(input::read().buttons&input::kA);
