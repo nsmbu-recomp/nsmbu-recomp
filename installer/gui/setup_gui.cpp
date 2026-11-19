@@ -2092,10 +2092,12 @@ static std::string with_trailing_sep(std::string p) {
     return p;
 }
 
+static std::string g_pkg_path;
+
 static PackageSearch find_package() {
     PackageSearch r;
-    if (const char* e = SDL_getenv("NSMBU_SETUP_PKG")) {
-        r.pkg = with_trailing_sep(e);
+    if (!g_pkg_path.empty()) {
+        r.pkg = with_trailing_sep(g_pkg_path);
         r.start = r.pkg;
         r.checked = r.pkg + "installer/setup.py";
         return r;
@@ -2464,6 +2466,7 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; i++) {
         std::string a = argv[i];
         if (a == "--automate" && i + 1 < argc) automate = argv[++i];
+        else if (a == "--pkg" && i + 1 < argc) g_pkg_path = argv[++i];
         else if (a == "--screenshots" && i + 1 < argc) A.shots_dir = argv[++i];
         else if (a == "--self-test") A.self_test = true;
         else if (a == "--setup") want_setup = true;

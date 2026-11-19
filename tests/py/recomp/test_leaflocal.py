@@ -9,12 +9,8 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "recomp"))
 import leaflocal
-
-_SWITCHES = (
-    "NSMBU_RECOMP_NONLEAF_LIVE",
-    "NSMBU_RECOMP_PLAIN",
-    "NSMBU_RECOMP_LEAF_POISON",
-)
+import ppc2c
+import switches
 
 
 def gpr_reloads(text):
@@ -28,13 +24,10 @@ def fpr_reloads(text):
 
 class Nonleaf(unittest.TestCase):
     def setUp(self):
-        self._env = dict(os.environ)
-        for key in _SWITCHES:
-            os.environ.pop(key, None)
+        switches.S.reset()
 
     def tearDown(self):
-        os.environ.clear()
-        os.environ.update(self._env)
+        switches.S.reset()
 
     def nonleaf(self, stmts, addrs=None):
         if addrs is None:
@@ -42,6 +35,12 @@ class Nonleaf(unittest.TestCase):
         done = leaflocal.transform_nonleaf(stmts, addrs)
         self.assertIsNotNone(done)
         return done
+
+    def test_env_ignored(self):
+        os.environ["NSMBU_RECOMP_PLAIN"] = "1"
+        os.environ["NSMBU_RECOMP_LEAF_POISON"] = "1"
+        self.assertTrue(ppc2c.pass_on("NSMBU_RECOMP_CRLIVE"))
+        self.assertFalse(bool(leaflocal.POISON))
 
     def test_straight_line_skips_overwritten_registers(self):
         _, out, _ = self.nonleaf([
@@ -121,7 +120,7 @@ class Nonleaf(unittest.TestCase):
         self.assertIn("r0 = c->r[0];", post)
 
     def test_poison_fills_a_dead_local_after_the_call(self):
-        os.environ["NSMBU_RECOMP_LEAF_POISON"] = "1"
+        switches.S.checks.add("leaf_poison")
         _, out, _ = self.nonleaf([
             "c->r[0] = 1; c->r[3] = 2; c->r[4] = 3; f_02000000(c); c->r[5] = c->r[4] + c->r[0];",
         ])
@@ -133,14 +132,16 @@ class Nonleaf(unittest.TestCase):
 
     def test_live_switch_and_plain(self):
         stmts = ["c->r[3] = 1; f_02000000(c); c->r[3] = 2;"]
-        os.environ["NSMBU_RECOMP_NONLEAF_LIVE"] = "0"
+        switches.S.force_off.add("nonleaf_live")
         _, out, _ = self.nonleaf(stmts)
         self.assertEqual(gpr_reloads(out[0]), {3})
-        os.environ.pop("NSMBU_RECOMP_NONLEAF_LIVE")
-        os.environ["NSMBU_RECOMP_PLAIN"] = "1"
+        switches.S.reset()
+        switches.S.plain = True
         _, out, _ = self.nonleaf(stmts)
         self.assertEqual(gpr_reloads(out[0]), {3})
-        os.environ["NSMBU_RECOMP_NONLEAF_LIVE"] = "1"
+        switches.S.reset()
+        switches.S.plain = True
+        switches.S.force_on.add("nonleaf_live")
         _, out, _ = self.nonleaf(stmts)
         self.assertEqual(gpr_reloads(out[0]), set())
 
@@ -150,7 +151,7 @@ class Nonleaf(unittest.TestCase):
         self.assertNotIn("r3 = c->r[3];", out[0])
 
     def test_one_float_half_does_not_kill_the_other(self):
-        os.environ["NSMBU_RECOMP_LEAF_POISON"] = "1"
+        switches.S.checks.add("leaf_poison")
         _, out, _ = self.nonleaf([
             "f_02000000(c);",
             "c->f[1].ps0 = c->f[2].ps0;",
@@ -197,3 +198,6 @@ class Nonleaf(unittest.TestCase):
         self.assertNotIn("c->ctr--;", text)
         self.assertIn("c->ctr = ctr;", text)
 
+
+if __name__ == "__main__":
+    unittest.main()

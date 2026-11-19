@@ -1,6 +1,6 @@
 ---
 name: cli
-description: "nsmbu CLI playtests, benches, boots, builds, dumps, settings.ini, and NSMBU_* variables. Use when running nsmbu test, bench, scenario, compare-runs, a warm build, a dump switch, a pose or interpolation check, nsmbu settings, nsmbu status, or nsmbu log."
+description: "nsmbu CLI playtests, benches, boots, builds, dumps, settings.ini, and game command-line flags. Use when running nsmbu test, bench, scenario, compare-runs, a warm build, a dump switch, a pose or interpolation check, nsmbu settings, nsmbu status, or nsmbu log."
 ---
 
 # nsmbu CLI
@@ -16,8 +16,9 @@ Frame time, CPU samples, GPU timestamp intervals, and world-map benches are the 
 Development builds write `[input]` pad lines.
 The line layout is in `docs/developer/replay-format.md`.
 Read `docs/developer/cli.md` for install, build/launch, live control, and `nsmbu settings`.
-Read `docs/developer/env.md` when you add, rename, or read an `NSMBU_*` variable.
-Read Frame interpolation in `docs/developer/env.md` before changing a model pose, a camera picture, or interpolation.
+Read `docs/developer/flags.md` when you add, rename, or pass a game setting flag.
+A new setting is one `ENV` line in `runtime/src/core/env.h`, passed as a `--flag` on the game binary.
+Read Frame interpolation in `docs/developer/flags.md` before changing a model pose, a camera picture, or interpolation.
 The `file-select`, `world-map`, and `course` skills own a short boot to that place.
 Read `game/README.md` for dump folder layout.
 
@@ -66,6 +67,7 @@ An agent game stays in the background.
 Press, click, and screenshot do not bring its window forward.
 If `nsmbu -s <id> open` refuses because that session is already running, run `nsmbu -s <id> status`.
 `nsmbu -s <id> close` stops that game.
+There is no environment fallback for the session id.
 `nsmbu test` refuses to start while any live agent session is up.
 Playtest cases use their own sockets and may run several games at once.
 Finish the test or close the games before `nsmbu game … --recomp` or a `game/active` switch.

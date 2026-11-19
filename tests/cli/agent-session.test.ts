@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { agentLaunchEnv } from "../../tools/cli/src/agent/commands.ts";
+import { agentLaunchArgs } from "../../tools/cli/src/agent/commands.ts";
 import { agentDir, agentSession, agentSocketPath, agentUserDir, setAgentSession } from "../../tools/cli/src/agent/paths.ts";
 import { liveAgents } from "../../tools/cli/src/agent/process.ts";
 import { applySession, takeSessionFlag } from "../../tools/cli/src/agent/session.ts";
@@ -41,14 +41,14 @@ test("a missing or repeated session id is rejected", () => {
 test("an agent game starts with the sound off", () => {
     setAgentSession(null);
     try {
-        const env = agentLaunchEnv("/repo");
-        assert.equal(env.NSMBU_NO_AUDIO, "1");
-        assert.ok(env.NSMBU_AGENT_SOCK);
-        assert.equal(env.NSMBU_USER_DIR, undefined);
+        const args = agentLaunchArgs("/repo");
+        assert.ok(args.includes("--no-audio"));
+        assert.ok(args.includes("--agent-sock"));
+        assert.equal(args.some((arg) => arg.startsWith("--user-dir=")), false);
         setAgentSession("fix");
-        const named = agentLaunchEnv("/repo");
-        assert.equal(named.NSMBU_NO_AUDIO, "1");
-        assert.equal(named.NSMBU_USER_DIR, join("/repo", ".tmp", "agent", "fix", "user"));
+        const named = agentLaunchArgs("/repo");
+        assert.ok(named.includes("--no-audio"));
+        assert.ok(named.includes(`--user-dir=${join("/repo", ".tmp", "agent", "fix", "user")}`));
     } finally {
         setAgentSession(null);
     }
@@ -76,12 +76,12 @@ test("a named session has its own socket and user dir", () => {
     }
 });
 
-test("NSMBU_SESSION applies when -s is absent and the flag wins", () => {
+test("NSMBU_SESSION is ignored when -s is absent and the flag wins", () => {
     const prev = process.env.NSMBU_SESSION;
     try {
         process.env.NSMBU_SESSION = "from-env";
         assert.deepEqual(applySession(["status"]), ["status"]);
-        assert.equal(agentSession(), "from-env");
+        assert.equal(agentSession(), null);
         assert.deepEqual(applySession(["-s", "flag", "open"]), ["open"]);
         assert.equal(agentSession(), "flag");
     } finally {

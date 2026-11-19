@@ -30,27 +30,23 @@ async function ensureNotRunning(repo: string): Promise<void> {
     removeAgentArtifacts(repo);
 }
 
-export function agentLaunchEnv(repo: string): Record<string, string> {
-    const env: Record<string, string> = {
-        NSMBU_AGENT_SOCK: agentSocketPath(repo),
-        NSMBU_NO_AUDIO: "1",
-    };
+export function agentLaunchArgs(repo: string): string[] {
+    const args = ["--agent-sock", agentSocketPath(repo), "--no-audio"];
     const user = agentUserDir(repo);
-    if (user) env.NSMBU_USER_DIR = user;
-    return env;
+    if (user) args.push(`--user-dir=${user}`);
+    return args;
 }
 
 export async function cmdOpen(repo: string, rest: string[]): Promise<void> {
     await ensureNotRunning(repo);
     mkdirSync(agentDir(repo), { recursive: true });
     const sock = agentSocketPath(repo);
-    const extraEnv = agentLaunchEnv(repo);
-    const user = extraEnv.NSMBU_USER_DIR;
+    const user = agentUserDir(repo);
     if (user) mkdirSync(user, { recursive: true });
-    const child = spawnPython(repo, "tools/run/launch.py", rest, {
+    const launchArgs = [...agentLaunchArgs(repo), ...rest];
+    const child = spawnPython(repo, "tools/run/launch.py", launchArgs, {
         detached: true,
         stdio: "ignore",
-        extraEnv,
     });
     child.unref();
     if (child.pid === undefined) {

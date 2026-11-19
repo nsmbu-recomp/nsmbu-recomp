@@ -36,8 +36,14 @@ class ReleaseWorkflow(unittest.TestCase):
                                 "nsmbuPythonDir", "nsmbuToolchainDir", "nsmbuExtractorDir"})
         for name in used:
             self.assertIn("gradleProperty('%s')" % name, GRADLE)
-        for name in re.findall(r"^\s+(NSMBU_\w+): \$\{\{ secrets", job("android"), re.M):
-            self.assertIn("'%s'" % name, GRADLE)
+        self.assertIn("signing('nsmbuKeystore')", GRADLE)
+        self.assertIn("signing('nsmbuKeystorePassword')", GRADLE)
+        self.assertIn("signing('nsmbuKeyAlias')", GRADLE)
+        self.assertIn("signing('nsmbuKeyPassword')", GRADLE)
+        self.assertNotIn("NSMBU_KEYSTORE", GRADLE)
+        android = job("android")
+        self.assertIn("ORG_GRADLE_PROJECT_nsmbuKeystorePassword", android)
+        self.assertNotIn("NSMBU_KEYSTORE_PASSWORD:", android)
 
     def test_publish_ships_the_apks(self):
         publish = job("publish")

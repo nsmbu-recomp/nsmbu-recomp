@@ -1,12 +1,9 @@
-if(NOT DEFINED ENV{NSMBU_USER_DIR} OR "$ENV{NSMBU_USER_DIR}" STREQUAL "")
-  message(FATAL_ERROR "ctest gave this test no user folder (NSMBU_USER_DIR)")
-endif()
-set(user "$ENV{NSMBU_USER_DIR}")
+set(user "${WORK}/user")
 file(REMOVE_RECURSE "${WORK}" "${user}")
 file(MAKE_DIRECTORY "${WORK}/home")
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env "HOME=${WORK}/home" "APPDATA=${WORK}/home/AppData"
                         "XDG_CONFIG_HOME=${WORK}/home/.config"
-                        "${PROBE}"
+                        "${PROBE}" --user-dir "${user}"
                 WORKING_DIRECTORY "${WORK}" RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
 if(NOT rc EQUAL 0)
   message(FATAL_ERROR "user_folder_probe failed (${rc}): ${out}${err}")

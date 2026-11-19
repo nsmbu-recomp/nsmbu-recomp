@@ -129,7 +129,12 @@ When it finishes, start the app again to play.
 These options belong to the game program.
 A release keeps that program in `data/bin/nsmbu` (`nsmbu.exe` on Windows).
 On macOS the same program is `NSMBU.app/Contents/MacOS/nsmbu`.
-`-h` or `--help` prints this list and exits.
+`-h` or `--help` prints the full list of flags and exits.
+
+Each game setting has one name in `runtime/src/core/env.h`.
+Drop the `NSMBU_` prefix, lowercase the rest, and join words with hyphens (`NSMBU_NO_AUDIO` → `--no-audio`).
+Boolean settings use `--name` without a value; values use `--name=value` or a separate argument when `--help` says so.
+Run the binary with `--help` for every flag (~265 settings); this section keeps only the structural options players need first.
 
 - `--game DIR` sets the folder that holds `code`, `content`, and `meta`.
   The default folder is `game`.

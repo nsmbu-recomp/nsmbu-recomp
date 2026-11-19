@@ -16,7 +16,7 @@ Three layers apply on most changes.
 - **`decompile`** — Decomp workflow only (no compile-time proof in NSMBU).
 - **`crash`** — Where run, crash, and setup logs are, and what each file contains.
 
-**Docs** — `docs/developer/automation.md`, `docs/developer/cli.md`, `docs/developer/env.md`, boot recipes, issue ↔ test mapping in automation.
+**Docs** — `docs/developer/automation.md`, `docs/developer/cli.md`, `docs/developer/flags.md`, boot recipes, issue ↔ test mapping in automation.
 
 ### Checks
 
@@ -116,7 +116,7 @@ nsmbu test --list
 nsmbu test [--show] [name…]
 ```
 
-Cases run in parallel (default 2 jobs; override with `NSMBU_TEST_JOBS`).
+Cases run in parallel (default 2 jobs; override with `nsmbu test --jobs N`).
 Add cases under `tools/cli/src/playtest/cases/` and register in `cases/index.ts`.
 Helpers live in `tools/cli/src/playtest/helpers.ts`.
 
@@ -187,7 +187,7 @@ Not a pass/fail regression harness like `nsmbu test`.
 | --- | --- |
 | Runtime-only C++ change | `nsmbu build` |
 | Hooks / recomp / version switch | `nsmbu game <id> --recomp` then `nsmbu build` |
-| Interp pose / camera | `interp_picture_test` (ctest) plus env flow in `docs/developer/env.md`; playtest `pose-direction-120` |
+| Interp pose / camera | `interp_picture_test` (ctest) plus the flag flow in `docs/developer/flags.md`; playtest `pose-direction-120` |
 
 ### Special runtime checks
 
@@ -264,4 +264,4 @@ WWHD’s `vendor/ZeldaWWHDRecomp/tools/verify/` harness is upstream reference, n
 
 - [automation.md](automation.md) — playtests, headless dumps, gametest compare
 - [cli.md](cli.md) — full `nsmbu` command list
-- [env.md](env.md) — `NSMBU_*` variables and interpolation checks
+- [flags.md](flags.md) — game flags and interpolation checks

@@ -1,17 +1,11 @@
 #include "mods/packages.h"
 #include "mods/content.h"
+#include "core/env.h"
 #include <cassert>
-#include <cstdlib>
 #include <string>
 
 namespace {
-void env(const char* key, const char* value) {
-#ifdef _WIN32
-    _putenv_s(key, value ? value : "");
-#else
-    if (value) setenv(key,value,1); else unsetenv(key);
-#endif
-}
+void set_env(const char* key, const char* value) { env::set_named(key, value); }
 }
 #include "mods/cemu_pack.h"
 #include <filesystem>
@@ -32,7 +26,7 @@ int main(int argc, char** argv) {
         std::ofstream(pack/"rules.txt")<<"[Definition]\nname=Test\ntitleIds=0005000010101d00\nversion=4\n[Preset]\nname=Normal\n$scale=1\n[Preset]\nname=Double\n$scale=2\n[TextureRedefine]\nwidth=1280\nheight=720\noverwriteWidth=1280*$scale\n";
         std::ofstream(storage/"mods.json")<<R"({"format_version":1,"enabled":{"cemu.test":true},"config":{"cemu.test":{"preset-0":"Double"}}})";
         if(backend)std::ofstream(pack/"0000000000000001_0000000000000002_ps.txt")<<"#version 420\nvoid main(){}\n";
-        env("NSMBU_NO_HOST_INPUT","1");env("NSMBU_MOD_MANAGER_DIR",storage.string().c_str());initialize();
+        set_env("NSMBU_NO_HOST_INPUT","1");set_env("NSMBU_MOD_MANAGER_DIR",storage.string().c_str());initialize();
         if(backend){
             for(const auto& view:list())if(view.id=="cemu.test")assert(!view.active&&!view.compatible&&view.enabled);
             std::string error;assert(enable("cemu.test",false,error));assert(remove("cemu.test",error));
@@ -51,8 +45,8 @@ int main(int argc, char** argv) {
     auto root=fs::path(argv[1])/std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
     assert(!fs::exists(root));
     fs::create_directories(root);
-    env("NSMBU_NO_HOST_INPUT","1");
-    env("NSMBU_MOD_MANAGER_DIR",(root/"storage").string().c_str());
+    set_env("NSMBU_NO_HOST_INPUT","1");
+    set_env("NSMBU_MOD_MANAGER_DIR",(root/"storage").string().c_str());
     fs::create_directories(root/"storage");
     std::ofstream(root/"storage"/"profiles.json")<<R"({"format_version":1,"active":"Default","profiles":{"Default":{"enabled":{},"config":{},"builtins":{"direct-camera":true},"builtin_options":{"direct-camera.speed":1.5}}}})";
     auto migrate=root/"storage"/"mods"/"content.migrate";fs::create_directories(migrate/"content"/"Common");

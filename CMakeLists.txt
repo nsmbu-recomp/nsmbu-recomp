@@ -289,7 +289,9 @@ function(nsmbu_isolate_test_user_folders)
   foreach(test IN LISTS tests)
     get_test_property(${test} ENVIRONMENT environment)
     if(NOT environment MATCHES "(^|;)NSMBU_USER_DIR=")
-      set_property(TEST ${test} APPEND PROPERTY ENVIRONMENT "NSMBU_USER_DIR=${CMAKE_BINARY_DIR}/test-users/${test}")
+      set_property(TEST ${test} APPEND PROPERTY ENVIRONMENT
+        "XDG_CONFIG_HOME=${CMAKE_BINARY_DIR}/test-users/${test}"
+        "APPDATA=${CMAKE_BINARY_DIR}/test-users/${test}")
     endif()
   endforeach()
 endfunction()

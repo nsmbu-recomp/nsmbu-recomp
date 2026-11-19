@@ -4,13 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-static void put_env(const char* name, const char* value) {
-#ifdef _WIN32
-    _putenv_s(name, value);
-#else
-    setenv(name, value, 1);
-#endif
-}
+static void put_env(const char* name, const char* value) { env::set_named(name, value); }
 
 static int failures = 0;
 

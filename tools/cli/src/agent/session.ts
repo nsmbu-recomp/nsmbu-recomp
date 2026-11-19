@@ -30,11 +30,6 @@ export function takeSessionFlag(argv: string[]): { session: string | null; rest:
 
 export function applySession(argv: string[]): string[] {
     const taken = takeSessionFlag(argv);
-    let id = taken.session;
-    if (id === null) {
-        const fromEnv = process.env.NSMBU_SESSION;
-        if (fromEnv !== undefined && fromEnv.length > 0) id = validateSessionId(fromEnv);
-    }
-    setAgentSession(id);
+    setAgentSession(taken.session);
     return taken.rest;
 }

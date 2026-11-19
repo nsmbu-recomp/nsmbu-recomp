@@ -1,3 +1,4 @@
+import { launchArgs, runBuildArgs } from "./launch_plan.ts";
 import { flagString, hasFlag, parseArgv } from "./parse.ts";
 import { runPython, runPythonCapture, runPythonChecked } from "./run.ts";
 import { clack, confirm, selectOption, textInput } from "./select.ts";
@@ -15,13 +16,16 @@ function runPythonInherit(repo: string, script: string, args: string[], extraEnv
     }
 }
 
-export function cmdBuild(repo: string, release: boolean, sanitizer: boolean, rest: string[]): void {
+export function cmdBuild(repo: string, release: boolean, sanitizer: boolean, verbose: boolean, rest: string[]): void {
     const args: string[] = [];
     if (release) {
         args.push("--release");
     }
     if (sanitizer) {
         args.push("--sanitizer");
+    }
+    if (verbose) {
+        args.push("--verbose");
     }
     args.push(...rest);
     runPython(repo, "tools/build/build.py", args);
@@ -31,40 +35,17 @@ export function cmdLaunch(
     repo: string,
     opts: { noDebug: boolean; trace: boolean; gdb: boolean; lldb: boolean; wine?: boolean },
     rest: string[],
-    extraEnv: Record<string, string> = {},
 ): void {
-    const args: string[] = [];
-    if (opts.noDebug) {
-        args.push("--no-debug");
-    }
-    if (opts.trace) {
-        args.push("--trace");
-    }
-    if (opts.gdb) {
-        args.push("--gdb");
-    }
-    if (opts.lldb) {
-        args.push("--lldb");
-    }
-    if (opts.wine) {
-        args.push("--wine");
-    }
-    args.push(...rest);
-    runPython(repo, "tools/run/launch.py", args, extraEnv);
+    runPython(repo, "tools/run/launch.py", launchArgs(opts, rest));
 }
 
 export function cmdCrash(repo: string): void {
-    cmdLaunch(repo, { noDebug: false, trace: false, gdb: false, lldb: false }, [], {
-        NSMBU_TEST_HOST_CRASH: "1",
-    });
+    cmdLaunch(repo, { noDebug: false, trace: false, gdb: false, lldb: false }, ["--test-host-crash"]);
 }
 
 export function cmdRun(repo: string, release: boolean, rest: string[]): void {
-    const buildArgs: string[] = release ? ["--release"] : [];
-    buildArgs.push(...rest);
-    runPythonInherit(repo, "tools/build/build.py", buildArgs);
-    const launchArgs = [...rest];
-    cmdLaunch(repo, { noDebug: release, trace: false, gdb: false, lldb: false }, launchArgs);
+    runPythonInherit(repo, "tools/build/build.py", runBuildArgs(release));
+    cmdLaunch(repo, { noDebug: release, trace: false, gdb: false, lldb: false }, rest);
 }
 
 export function cmdExtract(repo: string, rest: string[]): void {
@@ -183,7 +164,7 @@ function keysHint(state: GameListState): string[] {
     const lines = [
         "Keys: game/keys.txt (Cemu format — common= and title-id lines).",
         "Disc images stay under game/: New Super Mario Bros. U (USA).wux / (Europe).wux.",
-        "Optional: WIIU_COMMON_KEY for the common key only.",
+        "Common key: --common-key FILE, game/common.key, or common= in game/keys.txt.",
     ];
     if (state.has_common_key) {
         lines.push(`Common key found (${state.common_key_src}).`);

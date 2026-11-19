@@ -8,7 +8,7 @@ A recorded course pad log is a playtest (`replay-1-1`, `replay-2-1`).
 ## Playtests
 
 `nsmbu test` boots a debug game per case and checks issue and release regressions.
-Selected cases run in parallel (default 2 at a time; set `NSMBU_TEST_JOBS` to change).
+Selected cases run in parallel (default 2 at a time; `nsmbu test --jobs N` changes that).
 Each case starts in fast forward (`NSMBU_UNCAPPED=1`) so logic steps are not held to 60 per second.
 `course-enter`, `course-enter-120`, `map-shadow-120`, `logic-rate-120`, and `pose-direction-120` set `NSMBU_UNCAPPED=0` because they check a frame rate.
 Add or extend a case under `tools/cli/src/playtest/cases/` and register it in `cases/index.ts`.
@@ -130,13 +130,13 @@ This recipe starts from that save.
 ```bash
 run=.tmp/w11
 mkdir -p "$run/save" && cp -a nsmbu/save/. "$run/save/"
-NSMBU_HIDDEN_WINDOWS=1 NSMBU_NO_HOST_INPUT=1 NSMBU_VK_PRESENT_MODE=immediate \
-NSMBU_NO_AUDIO=1 NSMBU_RES_SCALE=1 \
-NSMBU_PRESS='1800-1820:8000,2600-2620:8000,3400-3420:8000,4200-4220:8000,5000-5020:8000,6300-6340:8000' \
-NSMBU_STICK='5400-6000:1:0' \
-NSMBU_DUMP_FRAMES=7000 \
-NSMBU_EXIT_AT_FRAME=7100 \
-./build/debug/nsmbu --game game/usa-1.3.0 --save "$run/save"
+./build/debug/nsmbu --game game/usa-1.3.0 --save "$run/save" \
+  --hidden-windows --no-host-input --vk-present-mode=immediate \
+  --no-audio --res-scale=1 \
+  --press='1800-1820:8000,2600-2620:8000,3400-3420:8000,4200-4220:8000,5000-5020:8000,6300-6340:8000' \
+  --stick='5400-6000:1:0' \
+  --dump-frames=7000 \
+  --exit-at-frame=7100
 ```
 
 Frame 7000 is the course.
@@ -150,7 +150,7 @@ It boots hidden and muted on a copy of the save, with the user folder, the shade
 It waits for the first logic step of scene `ALIGN` (default `Title`; others are `Map` and `CourseTask`), then records `STEPS` more logic steps (default 300).
 A boot that never reaches the scene is retried (`BOOT_TRIES`, default 3) and its log stays next to `OUT` as `OUT.bootfailN.log`.
 
-Environment: `NSMBU_BIN`, `GAME`, `SAVE`, `ALIGN`, `STEPS`, `FIXED_SEED` (default 1), `SHADER_CACHE`, `BOOT_TRIES`, `BOOT_LIMIT`, `RUN_LIMIT` (same roles as before).
+Flags: `nsmbu scenario OUT --bin PATH --game DIR --save DIR --align SCENE --steps N --fixed-seed --shader-cache DIR --boot-tries N --boot-limit N --run-limit N` (same roles as before).
 
 `OUT/status.txt` has one line per logic step: step, scene, map, course, pack, and player x, y, z.
 `-` marks a value the game does not have yet.
@@ -161,8 +161,8 @@ It prints the first differing step.
 The exit status is 0 for identical runs, 1 for a difference, and 2 when a run never reached the scene.
 
 ```
-ALIGN=CourseTask nsmbu scenario .tmp/runs/a NSMBU_PRESS='1800-1820:8000'
-ALIGN=CourseTask nsmbu scenario .tmp/runs/b NSMBU_PRESS='1800-1820:8000'
+nsmbu scenario .tmp/runs/a --align CourseTask --press='1800-1820:8000'
+nsmbu scenario .tmp/runs/b --align CourseTask --press='1800-1820:8000'
 nsmbu compare-runs .tmp/runs/a .tmp/runs/b --scene CourseTask
 ```
 
@@ -185,7 +185,7 @@ The game keeps that choice in `audioMute`.
 
 Add a recipe here when a boot, pad timeline, or profile command works a second time.
 Each entry is the command, the log line that shows it worked, and what a later press would do.
-Full variable lists stay in [env.md](env.md).
+The flag contract stays in [flags.md](flags.md).
 Course replay benchmarks stay in [performance.md](performance.md).
 
 ### World map
@@ -201,12 +201,12 @@ On a 165 Hz debug boot from `nsmbu/save` (file 0 on the Acorn Plains map), 200 f
 The slower 800-frame list in the headless example above is for walking into a course.
 
 ```bash
-NSMBU_USER_DIR="$PWD/nsmbu" \
-NSMBU_LOG_FILE="$PWD/.tmp/repro/map.log" \
-NSMBU_PRESS='600-620:8000,800-820:8000,1000-1020:8000,1200-1220:8000,1400-1420:8000,1600-1620:8000,1800-1820:8000,2000-2020:8000,2200-2220:8000,2400-2420:8000' \
-NSMBU_EXIT_AT_FRAME=5600 \
-NSMBU_PROFILE=1 NSMBU_VK_STATS=1 NSMBU_NO_AUDIO=1 NSMBU_INTERP_PASS_STATS=1 \
-./build/debug/nsmbu --game "$PWD/game/usa-1.3.0" --save "$PWD/nsmbu/save"
+./build/debug/nsmbu --game "$PWD/game/usa-1.3.0" --save "$PWD/nsmbu/save" \
+  --user-dir="$PWD/nsmbu" \
+  --log-file="$PWD/.tmp/repro/map.log" \
+  --press='600-620:8000,800-820:8000,1000-1020:8000,1200-1220:8000,1400-1420:8000,1600-1620:8000,1800-1820:8000,2000-2020:8000,2200-2220:8000,2400-2420:8000' \
+  --exit-at-frame=5600 \
+  --profile --vk-stats --no-audio --interp-pass-stats
 ```
 
 Done when the log contains `[scene] CourseSelect from save` and later `[prof]` lines are the map.
@@ -238,12 +238,12 @@ The title picture is up by frame 480.
 One A at frames 860–880 (`8000`) opens the file select by frame 1000.
 
 ```bash
-NSMBU_USER_DIR="$PWD/nsmbu" \
-NSMBU_HIDDEN_WINDOWS=1 NSMBU_NO_HOST_INPUT=1 NSMBU_VK_PRESENT_MODE=immediate \
-NSMBU_NO_AUDIO=1 NSMBU_RES_SCALE=1 NSMBU_ASPECT=21:9 \
-NSMBU_PRESS='860-880:8000' \
-NSMBU_DUMP_FRAMES=1000 NSMBU_EXIT_AT_FRAME=1040 \
-./build/debug/nsmbu --game "$PWD/game/usa-1.3.0" --save "$PWD/.tmp/file-select/save"
+./build/debug/nsmbu --game "$PWD/game/usa-1.3.0" --save "$PWD/.tmp/file-select/save" \
+  --user-dir="$PWD/nsmbu" \
+  --hidden-windows --no-host-input --vk-present-mode=immediate \
+  --no-audio --res-scale=1 --aspect=21:9 \
+  --press='860-880:8000' \
+  --dump-frames=1000 --exit-at-frame=1040
 ```
 
 Copy `nsmbu/save` into `.tmp/file-select/save` first.

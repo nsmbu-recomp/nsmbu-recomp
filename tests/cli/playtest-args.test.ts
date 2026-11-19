@@ -7,11 +7,21 @@ test("names and the show flag", () => {
         list: false,
         show: true,
         names: ["replay-1-1"],
+        jobs: 2,
     });
 });
 
 test("list stays a flag", () => {
-    assert.deepEqual(parseTestArgs(["--list"]), { list: true, show: false, names: [] });
+    assert.deepEqual(parseTestArgs(["--list"]), { list: true, show: false, names: [], jobs: 2 });
+});
+
+test("--jobs is parsed", () => {
+    assert.deepEqual(parseTestArgs(["--jobs", "4", "replay-1-1"]), {
+        list: false,
+        show: false,
+        names: ["replay-1-1"],
+        jobs: 4,
+    });
 });
 
 test("unknown flags are rejected", () => {

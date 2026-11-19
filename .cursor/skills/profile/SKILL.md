@@ -32,13 +32,12 @@ Draw phases in that digest are render-thread CPU.
 A GPU load percentage is the Android performance report (`GPU busy`).
 Desktop and macOS use Vulkan timestamp queries.
 
-Run the course scene again with the timestamp switch already in the environment:
+Run the course scene again with the timestamp flag:
 
 ```sh
-NSMBU_VK_GPU_TIMESTAMPS=1 nsmbu profile
+nsmbu profile --vk-gpu-timestamps
 ```
 
-`nsmbu profile` keeps a `NSMBU_*` value that is already set.
 Read `[vulkan GPU timestamps] submission interval sum` in `.tmp/repro/nsmbu.log`.
 That number is the summed submission interval per frame.
 It can include queue stalls.
@@ -46,7 +45,7 @@ It can include queue stalls.
 Done when that submission-interval line is in the log, or the log says the queries are unsupported or unusable.
 
 Name a pass only after that line is usable.
-Set `NSMBU_VK_GPU_PASS_TIMESTAMPS=1` as well and run `nsmbu profile` again.
+Pass `--vk-gpu-pass-timestamps` as well and run `nsmbu profile` again.
 Read `[vulkan GPU scope N]` for the top format and extent buckets.
 Turn the pass switch off before a frame-time or bench score.
 The scope queries change the frame time.

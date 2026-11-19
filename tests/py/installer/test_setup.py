@@ -161,8 +161,7 @@ class KeyFiles(unittest.TestCase):
     def test_discovery(self):
         if any(os.path.isfile(os.path.join(setup.PKG, n)) for n in ("common.key", "keys.txt")):
             self.skipTest("a key file is in the release folder")
-        with tempfile.TemporaryDirectory() as d, mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("WIIU_COMMON_KEY", None)
+        with tempfile.TemporaryDirectory() as d:
             image = os.path.join(d, "game.wux")
             open(image, "wb").close()
             p = self.write(d, ("disc = %s\n%s\n" % (OTHER_HEX, KEY_HEX)).encode())
@@ -924,10 +923,9 @@ class LongPaths(unittest.TestCase):
         pins = {"toolchains": {"test-mingw": {"kind": "llvm-mingw", "url": "https://example.invalid/llvm-mingw-test.zip",
                                               "sha256": sha, "size": os.path.getsize(arc), "dir": "llvm-mingw-test",
                                               "triple": "aarch64-w64-mingw32"}}}
-        env = {k: v for k, v in os.environ.items() if k != "NSMBU_TOOLCHAIN_DIR"}
         fetch = lambda url, dst, *a, **k: shutil.copyfile(arc, dst)
         with mock.patch.object(setup, "load_toolchains", return_value=pins), mock.patch.object(setup, "download", fetch), \
-                mock.patch.dict(os.environ, env, clear=True), mock.patch.object(setup, "say"):
+                mock.patch.object(setup, "say"):
             tc = setup.get_toolchain("test-mingw", data, setup.UI(False))
         root = os.path.join(data, "toolchain")
         deep = os.path.join(root, *member.split("/"))
@@ -948,11 +946,16 @@ class LongPaths(unittest.TestCase):
         tcs = setup.load_toolchains()["toolchains"]
         self.assertEqual(tcs["llvm-mingw-20260922-aarch64"]["triple"], "aarch64-w64-mingw32")
         self.assertNotIn("triple", tcs["llvm-mingw-20260922"])
-        with tempfile.TemporaryDirectory() as d, mock.patch.dict(os.environ, {"NSMBU_TOOLCHAIN_DIR": d}):
-            tc = setup.get_toolchain("llvm-mingw-20260922-aarch64", d, setup.UI(False))
-            self.assertEqual(os.path.basename(tc.cc[0]), "aarch64-w64-mingw32-clang.exe")
-            tc = setup.get_toolchain("llvm-mingw-20260922", d, setup.UI(False))
-            self.assertEqual(os.path.basename(tc.cxx[0]), "x86_64-w64-mingw32-clang++.exe")
+        with tempfile.TemporaryDirectory() as d:
+            prev = setup.TOOLCHAIN_DIR
+            setup.TOOLCHAIN_DIR = d
+            try:
+                tc = setup.get_toolchain("llvm-mingw-20260922-aarch64", d, setup.UI(False))
+                self.assertEqual(os.path.basename(tc.cc[0]), "aarch64-w64-mingw32-clang.exe")
+                tc = setup.get_toolchain("llvm-mingw-20260922", d, setup.UI(False))
+                self.assertEqual(os.path.basename(tc.cxx[0]), "x86_64-w64-mingw32-clang++.exe")
+            finally:
+                setup.TOOLCHAIN_DIR = prev
 
 class TranslationHooks(unittest.TestCase):
     """Setup translates the game by running recomp.py. A refused hook makes that process exit,

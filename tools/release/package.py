@@ -40,6 +40,7 @@ TOOL_FILES = [
     "tools/rpx/rpx.py",
     "tools/check_content.py",
     "recomp/recomp.py",
+    "recomp/switches.py",
     "recomp/analyze.py",
     "recomp/ppc2c.py",
     "recomp/crlive.py",

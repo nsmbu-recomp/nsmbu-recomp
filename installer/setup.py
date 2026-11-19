@@ -23,7 +23,7 @@ Non-interactive use (tests, scripts):
   setup.py --yes --game-dir EXTRACTED_GAME [...]
   setup.py --yes --gen-dir GENERATED_C --no-launch   (build check with placeholder code, no game)
 
-Keys can also come from the WIIU_COMMON_KEY environment variable / IMAGE.key next to the image.
+Keys can also come from `common.key` or `keys.txt` next to the image, or `--common-key FILE`.
 A key file holds 16 raw bytes, one line of 32 hex digits, or the common/disc line of a Cemu keys.txt
 (UTF-8 or UTF-16, with a byte order mark or without).
 Keys are never printed, logged or stored.
@@ -60,6 +60,8 @@ IS_MAC = sys.platform == "darwin"
 IS_WIN = sys.platform.startswith("win")
 IS_LINUX = not IS_MAC and not IS_WIN
 EXE_SUFFIX = ".exe" if IS_WIN else ""
+TOOLCHAIN_DIR = None
+NO_DIALOGS = False
 
 LONGPATH_PREFIX = "\\\\?\\"
 WINDOWS_MAX_PATH = 259
@@ -383,7 +385,7 @@ def clean_path(s):
     return os.path.abspath(os.path.expanduser(s)) if s else ""
 
 def native_dialog(title, folder, filetypes):
-    if os.environ.get("NSMBU_SETUP_NO_DIALOGS"):
+    if NO_DIALOGS:
         return None
     try:
         if IS_MAC:
@@ -768,8 +770,8 @@ def get_toolchain(name, data_dir, ui):
     os.makedirs(root, exist_ok=True)
     tdir = os.path.join(root, tc["dir"])
     marker = os.path.join(tdir, ".nsmbu-toolchain")
-    if os.environ.get("NSMBU_TOOLCHAIN_DIR"):
-        tdir = os.environ["NSMBU_TOOLCHAIN_DIR"]
+    if TOOLCHAIN_DIR:
+        tdir = TOOLCHAIN_DIR
     elif not (os.path.isfile(marker) and open(marker).read().strip() == tc["sha256"]):
         need = tc.get("size", 0) * 6
         if free_space(root) < need:
@@ -1264,11 +1266,6 @@ def get_disc_keys(image, ui, args):
         keys.common = read_key_file(args.common_key, "common")
         if not keys.common:
             raise SetupError("%s: %s" % (args.common_key, key_file_problem(args.common_key, "common")))
-    elif os.environ.get("WIIU_COMMON_KEY"):
-        keys.common = parse_key(os.environ["WIIU_COMMON_KEY"])
-        if not keys.common:
-            raise SetupError("WIIU_COMMON_KEY is not 32 hex digits")
-        say("  Common key: from WIIU_COMMON_KEY")
     else:
         src, keys.common = find_common_key(image)
         if keys.common:
@@ -1412,7 +1409,7 @@ def recompile(game_dir, gen_dir):
     shutil.rmtree(gen_dir, ignore_errors=True)
     rpx = os.path.join(game_dir, "code", "red-pro2.rpx")
     cmd = [sys.executable, os.path.join(PKG, "recomp", "recomp.py"), rpx, gen_dir, "--progress"]
-    env = dict(os.environ, NSMBU_RECOMP_MOD_HOOKS="0", PYTHONDONTWRITEBYTECODE="1")
+    env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
     LOG.write("$ " + " ".join(cmd))
     pr = Progress("translating")
     pr.update(0, 1, "starting", force=True)
@@ -2163,7 +2160,9 @@ def main():
     ap.add_argument("--image", help="disc image (.wux or .wud; a .wua is taken as --archive)")
     ap.add_argument("--archive", help="Cemu Wii U archive (.wua): no keys needed")
     ap.add_argument("--disc-key", help="disc key file (default: IMAGE.key)")
-    ap.add_argument("--common-key", help="Wii U common key file (or WIIU_COMMON_KEY)")
+    ap.add_argument("--common-key", help="Wii U common key file")
+    ap.add_argument("--toolchain-dir", help="use this compiler unpack dir (tests)")
+    ap.add_argument("--no-dialogs", action="store_true", help="skip native file/folder dialogs")
     ap.add_argument("--update-dir", help="optional 1.3.0 update folder for that disc (code/, content/, meta/); "
                     "default: update/ next to the disc image if present")
     ap.add_argument("--dlc-dir", help="optional New Super Luigi U folder (content/0010, or a decrypted title folder); "
@@ -2174,7 +2173,7 @@ def main():
     ap.add_argument("--app-dir", help="macOS: where the app goes (default: ~/Applications)")
     ap.add_argument("--repair", action="store_true", help="rebuild the game code from the installed game files")
     ap.add_argument("--jobs", type=int, help="parallel compiler processes")
-    ap.add_argument("--yes", action="store_true", help="non-interactive (also NSMBU_SETUP_NONINTERACTIVE=1)")
+    ap.add_argument("--yes", action="store_true", help="non-interactive; do not prompt")
     ap.add_argument("--no-launch", action="store_true", help="do not start the game at the end")
     ap.add_argument("--no-shortcuts", action="store_true", help="no app bundle / menu entries")
     ap.add_argument("--shortcuts", action="store_true",
@@ -2185,6 +2184,9 @@ def main():
     ap.add_argument("--launcher-progress", action="store_true",
                     help="machine progress for RecompLauncher's setup step: 'progress 0.42 Text' lines on stdout")
     args = ap.parse_args()
+    global TOOLCHAIN_DIR, NO_DIALOGS
+    TOOLCHAIN_DIR = args.toolchain_dir
+    NO_DIALOGS = args.no_dialogs
     set_launcher_progress(args.launcher_progress)
     try:
         sys.stdout.reconfigure(errors="replace")
@@ -2192,7 +2194,7 @@ def main():
         pass
     if args.gui_protocol:
         return gui_main(args)
-    interactive = not (args.yes or os.environ.get("NSMBU_SETUP_NONINTERACTIVE")) and sys.stdin.isatty()
+    interactive = not args.yes and sys.stdin.isatty()
     ui = UI(interactive)
     try:
         rc = run(args, ui)
@@ -2397,17 +2399,12 @@ def precompile_shaders(exe, game_dir, data_dir):
     say("  Shader precompile finished (%d shaders compiled)." % compiled)
 
 def run_shader_warm(exe, game_dir, save_dir, stop_file, on_progress):
-    env = os.environ.copy()
-    for key in ("NSMBU_USER_DIR", "NSMBU_SHADER_CACHE", "NSMBU_VK_SHADER_CACHE",
-                "NSMBU_VK_PIPELINE_CACHE", "NSMBU_HEADSTART", "NSMBU_EXIT_AT_FRAME"):
-        env.pop(key, None)
-    env["NSMBU_SHADER_WARM"] = stop_file
-    env["NSMBU_HIDDEN_WINDOWS"] = "1"
-    env["NSMBU_NO_AUDIO"] = "1"
-    env["NSMBU_NO_HOST_INPUT"] = "1"
-    env["NSMBU_VK_PRESENT_MODE"] = "immediate"
+    env = {k: v for k, v in os.environ.items() if not k.startswith("NSMBU_")}
+    cmd = [exe, "--game", game_dir, "--save", save_dir,
+           "--shader-warm=" + stop_file, "--hidden-windows", "--no-audio",
+           "--no-host-input", "--vk-present-mode=immediate"]
     proc = subprocess.Popen(
-        [exe, "--game", game_dir, "--save", save_dir],
+        cmd,
         cwd=os.path.dirname(exe) or None,
         env=env,
         stdin=subprocess.DEVNULL,
@@ -2467,8 +2464,6 @@ def find_sidecar_disc_key(image):
     return side if os.path.isfile(side) and read_key_file(side, "disc") else None
 
 def find_common_key(image):
-    if os.environ.get("WIIU_COMMON_KEY") and parse_key(os.environ["WIIU_COMMON_KEY"]):
-        return "WIIU_COMMON_KEY", parse_key(os.environ["WIIU_COMMON_KEY"])
     for d in (os.path.dirname(image), PKG):
         p = os.path.join(d, "common.key")
         k = read_key_file(p, "common") if os.path.isfile(p) else None

@@ -1,4 +1,5 @@
 #include "crash/crash_context.h"
+#include "core/env.h"
 #include "crash/crash_redact.h"
 #include "gfx/renderer.h"
 #include "input/input.h"
@@ -29,28 +30,7 @@ void publish(const std::string& text) {
     length.store(unsigned(size), std::memory_order_seq_cst);
     revision.fetch_add(1, std::memory_order_seq_cst);
 }
-void environment(std::ostringstream& out) {
-#ifdef __APPLE__
-    char** env = *_NSGetEnviron();
-#elif defined(_WIN32)
-    char** env = _environ;
-#else
-    char** env = environ;
-#endif
-    for (char** e = env; e && *e; ++e) {
-        std::string_view line(*e);
-        if (!line.starts_with("NSMBU_")) continue;
-        auto equal = line.find('=');
-        auto key = line.substr(0, equal);
-
-        if (key.find("KEY") != key.npos || key.find("TOKEN") != key.npos || key.find("SECRET") != key.npos || key.find("PASSWORD") != key.npos)
-            out << key << "=<redacted>\n";
-        else {
-            for (char c : line) out << (c == '\n' || c == '\r' ? ' ' : c);
-            out << '\n';
-        }
-    }
-}
+void environment(std::ostringstream& out) { out << env::assignments(); }
 }
 void initialize() {
     const char* home = getenv("HOME");

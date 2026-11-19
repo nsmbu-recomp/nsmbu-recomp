@@ -3,28 +3,27 @@
 
 usage: recomp.py game/code/red-pro2.rpx OUTDIR [--insns-per-file N] [--build NAME] [--jobs N]
 
---jobs N (default: the CPU count) translates in that many processes. 0 and NSMBU_RECOMP_JOBS select
-the same count. 1 stays on one process. Windows, and NSMBU_RECOMP_SPAWN=1, start fresh workers;
-other systems share the loaded game.
+--jobs N (default: the CPU count) translates in that many processes. 0 selects the same count.
+1 stays on one process. Windows, and --spawn, start fresh workers; other systems share the loaded
+game. Old NSMBU_RECOMP_* environment variables are ignored.
 
 The rpx is identified by its SHA-256 (recomp/builds.py). Functions are named by their
 *canonical* (USA) address, so the runtime refers to the same f_XXXXXXXX whichever build of the game
 it was translated from; the dispatch table maps this build's real addresses to them.
 
-Code-quality passes (each on by default; the variable set to 0 when generating turns it off):
-  NSMBU_RECOMP_CRLIVE       condition-register liveness: compares store only the CR bits read later (crlive.py)
-  NSMBU_RECOMP_LEAF         leaf functions keep guest registers and CR bits in C locals (leaflocal.py)
-  NSMBU_RECOMP_NONLEAF      functions with calls keep guest registers in C locals between calls (leaflocal.py)
-  NSMBU_RECOMP_NONLEAF_LIVE after each call, reload only registers a later read still needs (leaflocal.py)
-  NSMBU_RECOMP_SINGLE       round25 left out for multiplier operands known to be single precision (ppc2c.py)
-  NSMBU_RECOMP_SINGLE_IP    ... with entry states and return summaries across functions (singleflow.py)
-  NSMBU_RECOMP_GQR          paired-single loads/stores through GQRs the game never writes skip the GQR check
-NSMBU_RECOMP_PLAIN=1 turns them all off: the output is then the same as without these passes (the
-plain c->r[N] form).
-Checking builds (set to 1): NSMBU_RECOMP_CR_CHECK (a dropped CR bit that is read aborts),
-NSMBU_RECOMP_LEAF_POISON (scratch registers get garbage at returns, and locals that were not
-reloaded after a call), NSMBU_RECOMP_SINGLE_CHECK (an operand left unrounded that round25 would
-change is logged).
+Code-quality passes (each on by default; --no-<pass> turns it off):
+  --crlive / --no-crlive       condition-register liveness: compares store only the CR bits read later (crlive.py)
+  --leaf / --no-leaf           leaf functions keep guest registers and CR bits in C locals (leaflocal.py)
+  --nonleaf / --no-nonleaf     functions with calls keep guest registers in C locals between calls (leaflocal.py)
+  --nonleaf-live / --no-nonleaf-live  after each call, reload only registers a later read still needs (leaflocal.py)
+  --single / --no-single       round25 left out for multiplier operands known to be single precision (ppc2c.py)
+  --single-ip / --no-single-ip ... with entry states and return summaries across functions (singleflow.py)
+  --gqr / --no-gqr             paired-single loads/stores through GQRs the game never writes skip the GQR check
+--plain turns them all off: the output is then the same as without these passes (the plain c->r[N]
+form).
+Checking builds (off by default): --cr-check (a dropped CR bit that is read aborts),
+--leaf-poison (scratch registers get garbage at returns, and locals that were not reloaded after a
+call), --single-check (an operand left unrounded that round25 would change is logged).
 Hooked functions and functions with instruction-level sites keep the plain c->r[N] form: hook_X /
 site_X read and change the Cpu mid-function.
 
@@ -58,6 +57,7 @@ import singleflow
 import crlive
 import leaflocal
 import names
+import switches
 
 def _generated_banner(path):
     """First line of a file emitted from the game, so tools/check_content.py can refuse it."""
@@ -91,11 +91,11 @@ class _Output(io.StringIO):
                     f.write(text)
         return super().__exit__(*exc)
 
-CRLIVE = ppc2c.pass_on("NSMBU_RECOMP_CRLIVE")
-CR_CHECK = os.environ.get("NSMBU_RECOMP_CR_CHECK", "0") == "1"
-LEAF = ppc2c.pass_on("NSMBU_RECOMP_LEAF")
-NONLEAF = ppc2c.pass_on("NSMBU_RECOMP_NONLEAF")
-GQR_STATIC = ppc2c.pass_on("NSMBU_RECOMP_GQR")
+CRLIVE = switches.Live("crlive")
+CR_CHECK = switches.Live("cr_check", check=True)
+LEAF = switches.Live("leaf")
+NONLEAF = switches.Live("nonleaf")
+GQR_STATIC = switches.Live("gqr")
 _SAVED_SET_RE = re.compile(r"c->r\[(1[4-9]|2\d|3[01])\]\s*(=(?!=)|\|=)|c->f\[(1[4-9]|2\d|3[01])\]\.ps[01]\s*=(?!=)"
                            r"|psq_load\(c, (1[4-9]|2\d|3[01]),")
 _TAIL_RE = re.compile(r"MUSTTAIL return f_([0-9A-F]{8})\(c\)")
@@ -103,15 +103,7 @@ _RC = None
 
 
 def _job_count(requested):
-    if requested is None:
-        raw = os.environ.get("NSMBU_RECOMP_JOBS")
-        if raw is None or raw == "":
-            return os.cpu_count() or 1
-        try:
-            requested = int(raw)
-        except ValueError:
-            raise SystemExit("NSMBU_RECOMP_JOBS must be an integer, not %r" % raw)
-    if requested == 0:
+    if requested is None or requested == 0:
         return os.cpu_count() or 1
     if requested < 0:
         raise SystemExit("--jobs must be >= 0")
@@ -128,7 +120,7 @@ def _import_mp():
 
 
 def _fork_ok():
-    if os.environ.get("NSMBU_RECOMP_SPAWN") == "1" or sys.platform == "win32":
+    if switches.S.spawn or sys.platform == "win32":
         return False
     try:
         mp = _import_mp()
@@ -172,6 +164,11 @@ def _load_rc(path):
         _RC = pickle.load(f)
 
 
+def _init_worker(rc_path, switch_state):
+    _load_rc(rc_path)
+    switches.S.load_state(switch_state)
+
+
 def _open_pool(jobs, rc):
     global _RC
     _RC = rc
@@ -192,7 +189,7 @@ def _open_pool(jobs, rc):
         path = _dump_rc(rc)
         try:
             ctx = mp.get_context("spawn")
-            return ctx.Pool(jobs, initializer=_load_rc, initargs=(path,)), path
+            return ctx.Pool(jobs, initializer=_init_worker, initargs=(path, switches.S.state())), path
         except Exception:
             os.remove(path)
             raise
@@ -908,6 +905,13 @@ if __name__ == "__main__":
                     help="print 'progress DONE TOTAL detail' lines for the installer")
     ap.add_argument("--build", help="which build the rpx is, when it should not be identified by "
                                     "its SHA-256 (%s)" % ", ".join(b.name for b in game_builds.all_builds()))
+    ap.add_argument("--plain", action="store_true", help="turn all code-quality passes off")
+    ap.add_argument("--spawn", action="store_true", help="start fresh worker processes")
+    for name in ("crlive", "leaf", "nonleaf", "nonleaf_live", "single", "single_ip", "gqr"):
+        ap.add_argument("--" + name.replace("_", "-"), action="store_true", dest=name)
+        ap.add_argument("--no-" + name.replace("_", "-"), action="store_true", dest="no_" + name)
+    for name in ("cr_check", "leaf_poison", "single_check"):
+        ap.add_argument("--" + name.replace("_", "-"), action="store_true", dest=name)
     a = ap.parse_args()
     build = None
     if a.build:
@@ -921,4 +925,5 @@ if __name__ == "__main__":
 
     if a.progress:
         print("progress 0 1 reading game code", flush=True)
+    switches.apply_args(a)
     Recompiler(a.rpx, build).run(a.outdir, a.insns_per_file, on_progress=on_progress, jobs=_job_count(a.jobs))

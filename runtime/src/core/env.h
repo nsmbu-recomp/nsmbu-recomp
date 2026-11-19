@@ -1,40 +1,185 @@
 #pragma once
 
+#include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace env {
+struct Var;
+namespace detail {
+
+struct Slot {
+    std::string value;
+    int rank;
+};
+
+struct State {
+    std::map<std::string, const env::Var*> catalog;
+    std::unordered_map<std::string, Slot> values;
+};
+
+inline State& state() {
+    static State s;
+    return s;
+}
+
+inline const char* lookup(const char* key) {
+    auto it = state().values.find(key);
+    if (it == state().values.end()) return nullptr;
+    return it->second.value.c_str();
+}
+
+inline void put(const char* key, const char* value, int rank) {
+    if (!key) return;
+    if (!value) {
+        state().values.erase(key);
+        return;
+    }
+    auto& values = state().values;
+    auto it = values.find(key);
+    if (it != values.end() && it->second.rank > rank) return;
+    values[key] = Slot{value, rank};
+}
+
+inline std::string flag_of(const std::string& key) {
+    std::string s = key;
+    if (s.rfind("NSMBU_", 0) == 0) s.erase(0, 6);
+    for (char& c : s) {
+        if (c == '_') c = '-';
+        else if (c >= 'A' && c <= 'Z') c = char(c - 'A' + 'a');
+    }
+    return s;
+}
+
+inline const env::Var* find_flag(const std::string& name) {
+    for (const auto& entry : state().catalog) {
+        if (flag_of(entry.first) == name) return entry.second;
+    }
+    return nullptr;
+}
+
+} // namespace detail
 
 struct Var {
     const char* key;
-    const char* operator()() const { return std::getenv(key); }
+    explicit Var(const char* k) : key(k) {
+        if (k) detail::state().catalog.emplace(k, this);
+    }
+    const char* operator()() const { return detail::lookup(key); }
     const char* name() const { return key; }
-    bool present() const { return std::getenv(key) != nullptr; }
+    bool present() const { return detail::lookup(key) != nullptr; }
     bool on() const {
-        const char* e = std::getenv(key);
+        const char* e = detail::lookup(key);
         return e && *e && std::strcmp(e, "0") != 0;
     }
     bool enabled() const {
-        const char* e = std::getenv(key);
+        const char* e = detail::lookup(key);
         return e && std::atoi(e) != 0;
     }
     int integer_or(int fallback) const {
-        const char* e = std::getenv(key);
+        const char* e = detail::lookup(key);
         return e ? std::atoi(e) : fallback;
     }
     double real_or(double fallback) const {
-        const char* e = std::getenv(key);
+        const char* e = detail::lookup(key);
         return e ? std::atof(e) : fallback;
     }
     unsigned long long u64_or(unsigned long long fallback) const {
-        const char* e = std::getenv(key);
+        const char* e = detail::lookup(key);
         return e ? std::strtoull(e, nullptr, 10) : fallback;
     }
     unsigned long ul_or(unsigned long fallback, int base) const {
-        const char* e = std::getenv(key);
+        const char* e = detail::lookup(key);
         return e ? std::strtoul(e, nullptr, base) : fallback;
     }
 };
+
+// argv (rank 2) wins over env.txt (rank 1), which wins over in-process defaults (rank 0).
+inline void set(const Var& var, const char* value) { detail::put(var.key, value, 2); }
+inline void set_new(const Var& var, const char* value) { detail::put(var.key, value, 0); }
+inline void set_named(const char* key, const char* value) { detail::put(key, value, 2); }
+inline void unset(const Var& var) { detail::put(var.key, nullptr, 2); }
+
+inline void apply_flags(int argc, char** argv) {
+    for (int i = 1; i < argc; i++) {
+        const char* a = argv[i];
+        if (!a || a[0] != '-' || a[1] != '-') continue;
+        if (a[2] == '\0') break;
+        const char* eq = std::strchr(a + 2, '=');
+        std::string name;
+        const char* value = "1";
+        if (eq) {
+            name.assign(a + 2, eq);
+            value = eq + 1;
+        } else {
+            name = a + 2;
+            if (i + 1 < argc && argv[i + 1] && argv[i + 1][0] != '-') {
+                if (detail::find_flag(name)) value = argv[++i];
+            }
+        }
+        if (const Var* var = detail::find_flag(name)) detail::put(var->key, value, 2);
+    }
+}
+
+inline void apply_file_line(const char* line) {
+    if (!line) return;
+    while (*line == ' ' || *line == '\t') line++;
+    if (*line == '\0' || *line == '#' || *line == '\n' || *line == '\r') return;
+    std::string text = line;
+    while (!text.empty() && (text.back() == '\n' || text.back() == '\r' || text.back() == ' ' || text.back() == '\t'))
+        text.pop_back();
+    if (text.rfind("--", 0) != 0) return;
+    const auto eq = text.find('=');
+    const auto sp = text.find(' ');
+    std::string name;
+    const char* value = "1";
+    std::string stored;
+    if (eq != std::string::npos && (sp == std::string::npos || eq < sp)) {
+        name = text.substr(2, eq - 2);
+        stored = text.substr(eq + 1);
+        value = stored.c_str();
+    } else if (sp != std::string::npos) {
+        name = text.substr(2, sp - 2);
+        stored = text.substr(sp + 1);
+        value = stored.c_str();
+    } else {
+        name = text.substr(2);
+    }
+    if (const Var* var = detail::find_flag(name)) detail::put(var->key, value, 1);
+}
+
+inline std::string assignments() {
+    std::vector<std::pair<std::string, std::string>> rows;
+    rows.reserve(detail::state().values.size());
+    for (const auto& entry : detail::state().values) rows.emplace_back(entry.first, entry.second.value);
+    std::sort(rows.begin(), rows.end());
+    std::string out;
+    for (const auto& row : rows) {
+        bool hide = row.first.find("KEY") != std::string::npos || row.first.find("TOKEN") != std::string::npos ||
+            row.first.find("SECRET") != std::string::npos || row.first.find("PASSWORD") != std::string::npos;
+        std::string value = row.second;
+        for (char& c : value) {
+            if (c == '\n' || c == '\r') c = ' ';
+        }
+        out += row.first + "=" + (hide ? "<redacted>" : value) + "\n";
+    }
+    return out;
+}
+
+inline void print_flags(std::FILE* out) {
+    std::vector<std::pair<std::string, std::string>> rows;
+    for (const auto& entry : detail::state().catalog) rows.emplace_back(detail::flag_of(entry.first), entry.first);
+    std::sort(rows.begin(), rows.end());
+    std::fprintf(out, "\nSettings (a bare flag sets 1; --name=value sets a value):\n");
+    for (const auto& row : rows)
+        std::fprintf(out, "  --%-32s %s\n", row.first.c_str(), row.second.c_str());
+}
 
 const char* expand_path(const char* path);
 const char* path(const Var& var);
@@ -333,7 +478,5 @@ ENV(TEST_TOUCH, "NSMBU_TEST_TOUCH")
 
 inline constexpr int vulkan_cpu_path_count = 15;
 extern const Var vulkan_cpu_paths[vulkan_cpu_path_count];
-
-void unset(const Var& var);
 
 }

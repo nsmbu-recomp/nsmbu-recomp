@@ -28,7 +28,7 @@ def android_local_icon_ready(root=None):
     return os.path.isdir(os.path.join(root or ROOT, "runtime", "android", "app", "local-res"))
 
 
-def refresh_android_local_icon(root=None):
+def refresh_android_local_icon(root=None, verbose=False):
     """Write runtime/android/app/local-res from the active dump when not in CI. Returns True on success."""
     root = root or ROOT
     if running_in_ci():
@@ -46,7 +46,7 @@ def refresh_android_local_icon(root=None):
         text=True,
     )
     if r.returncode != 0:
-        if os.environ.get("NSMBU_VERBOSE_BUILD") == "1":
+        if verbose:
             sys.stderr.write((r.stderr or r.stdout or "make_icon failed") + "\n")
         return False
     return android_local_icon_ready(root)
