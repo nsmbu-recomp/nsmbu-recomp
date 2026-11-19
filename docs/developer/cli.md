@@ -218,10 +218,26 @@ Use them for a short look while writing a playtest case; lasting coverage stays 
   A course file is a `course_res_pack` archive, such as `game/content/Common/course_res_pack/1-27.szs`, and starts that course the same way as `1-27`.
   Refuse if that session already has a game.
   Another `-s` id can be open at the same time.
-- `nsmbu status` — one line from the guest thread: frame, logic step, pid, scene name, whether the world map or a course task is alive, course pack, entering pack when it differs, save file, map checkpoint, map node and world, and the player snapshot or `player=none`.
+- `nsmbu status` — one line from the guest thread: frame, logic step, pid, scene name, whether the world map or a course task is alive, course pack, entering pack when it differs, save file, map checkpoint, map node and world, the player snapshot or `player=none`, and `screen=` for the picture that is drawn.
   On the world map the line also has the node name, the node position, and the map player position.
   `area=1` means a course area is running.
   Fields that are not ready are omitted.
+  The picture is the `screen=` field.
+  When that field is absent, run `nsmbu status` again.
+  `scene=` is the scene name.
+  `player=` is the player snapshot.
+  `screen=course` is a course even when `scene=` still says `Map`.
+  `screen=gamepad` is the GamePad popup.
+  `screen=saves` is the three save files.
+  `screen=title` is the title.
+  `screen=world-map` is the world map.
+  `screen=world-map-iris` is that map while the iris still covers it.
+  `screen=start-menu` names the selected start-menu button.
+  `screen=pause` names the selected pause row.
+  `screen=controller` is the Change Controller page.
+  `screen=settings` is this port's overlay.
+  `behind=` names the page under that overlay.
+  `screen=loading` is the loading card.
 - `nsmbu leave` — quit the live course through `requestCourseOut_Normal` on the guest thread.
   The command returns an error when no course is running.
 - `nsmbu press A` / `press 8000` — short pulse (configurable frames).
@@ -234,7 +250,7 @@ Use them for a short look while writing a playtest case; lasting coverage stays 
 - `nsmbu goto <title|file|map|W-C>` — ask the guest thread to open that place, then wait until status shows it.
   `map` opens the first save on the world map.
   `1-1` is a course pack.
-- `nsmbu ui` — settings overlay open flag and tab, and the world-map start menu cursor, button names, and rectangles.
+- `nsmbu ui` — settings overlay open flag and tab, the world-map start menu cursor, button names, and rectangles, and the course pause row or controller page when that page is up.
 - `nsmbu actors [--limit N] [--radius N]` — the player power-up, then the nearest course actors with profile id, position, and velocity.
 - `nsmbu eval --list` — one JSON object naming every probe compiled into the debug game.
   Each entry has `name`, `kind` (`call` or `read`), `help`, and `observe`.
@@ -246,8 +262,37 @@ Use them for a short look while writing a playtest case; lasting coverage stays 
   `map.menu` returns the world-map start menu.
   `map.win_w` returns the window width used for that menu.
   A missing name, bad JSON, or a null address is an error.
-- `nsmbu log [--tag a,b] [--lines N]` — recent lines from the in-process log ring.
+- `nsmbu log [--tag a,b] [--around] [--lines N]` — recent lines from the in-process log ring.
   `--tag menu,scene` keeps lines that contain `[menu]` or `[scene]`.
+  The word inside the brackets is the tag.
+  `--around` prints the status line, then keeps the tags for that picture.
+  A bracket word outside that list stays in the log file and out of this output.
+  `[vulkan]` and `[prof]` stay out until `--tag` names `vulkan` or `prof`.
+  A course keeps `[open]`, `[scene]`, `[pause]`, and `[input]`.
+  A pause menu keeps `[pause]`, `[overlay]`, `[menu]`, and `[input]`.
+  The latest `[scene]` line stays in that list.
+
+Tags an agent filters:
+
+- `input` — a pad change.
+  `down=` and `up=` name the buttons.
+  `lstick=` and `rstick=` name a stick that moved.
+  A course line starts with the step.
+  Any other place starts with `frame` and the TV frame.
+  The same tag also carries controller connect lines and replay progress.
+- `scene` — the scene changed.
+- `open` — a course is opening.
+  The line ends with `course up` when play can start.
+- `menu` — the world-map start menu.
+- `pause` — the course pause menu.
+- `overlay` — this port's settings overlay opened or closed.
+- `screenshot` — a picture was saved.
+- `boot` — the process started and names the game version.
+- `agent` — the control socket.
+- `gfx` — a frame dump or the title picture.
+- `prof` — a frame-time sample.
+- `vulkan` — a Vulkan line.
+
 - `nsmbu picture [--frames N] [--rect x,y,w,h]` — capture a few TV frames and print a hash plus the mean and max channel change inside the rectangle.
   The rectangle is in 1280×720 TV pixels.
   Omit it to use the whole frame.
@@ -276,7 +321,7 @@ No change to the replay file format or `NSMBU_PRESS` start-only tables except co
 ## Docs and agent skills
 
 `CONTRIBUTING.md`, `docs/developer/nsmbu/port.md`, `docs/developer/automation.md`, and `AGENTS.md` use `nsmbu …` for CLI invocations.
-`.agents/skills/cli/SKILL.md` steers agents to playtest cases first, with live look commands for short checks.
+`.cursor/skills/cli/SKILL.md` steers agents to playtest cases first, with live look commands for short checks.
 Complex input stays on `record` / `replay`.
 
 ## Implementation notes

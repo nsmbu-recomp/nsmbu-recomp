@@ -1,6 +1,7 @@
 #include "hooks/map_menu_settings.h"
 
 #include "agent/agent_eval.h"
+#include "core/env.h"
 #include "core/runtime.h"
 #include "guest_addr.h"
 #include "overlay/game_rect.h"
@@ -80,6 +81,10 @@ static float g_win_w = 0, g_win_h = 0, g_ox = 0, g_oy = 0, g_ow = 0, g_oh = 0;
 static bool g_hit_ok = false;
 static float g_nx = -1, g_ny = -1;
 
+static bool button_on() {
+    return start_menu_settings(g_enabled.load(), env::INGAME_SETTINGS.enabled());
+}
+
 bool enabled() { return g_enabled.load(); }
 
 void set_enabled(bool on) { g_enabled.store(on); }
@@ -139,7 +144,7 @@ static bool is_left(uint32_t pane) {
 }
 
 static void nudge(uint32_t self) {
-    if (!g_enabled.load() || !g_settings) return;
+    if (!button_on() || !g_settings) return;
     const uint32_t parts = self + kParts;
     if (g_translate < 0) {
         for (int i = 0; i < kPartCount && g_translate < 0; i++) {
@@ -235,7 +240,7 @@ static void write_rect(uint32_t btn, float cx, float cy, float hw, float hh) {
 }
 
 static void arm_settings(uint32_t self) {
-    if (!g_enabled.load() || !g_settings || g_translate < 0) return;
+    if (!button_on() || !g_settings || g_translate < 0) return;
     const uint32_t cursor = self + kCursor;
     g_settings_idx = title_index(cursor, g_settings);
     if (g_settings_idx < 0) return;
@@ -291,7 +296,7 @@ static void copy_x(uint32_t dst, uint32_t src) {
 }
 
 void fit_settings_hit(uint32_t mgr, uint32_t point) {
-    if (!g_enabled.load() || !g_settings || !guest_obj(mgr)) return;
+    if (!button_on() || !g_settings || !guest_obj(mgr)) return;
     const uint32_t sentinel = mgr + 0x10;
     uint32_t node = ld32(sentinel);
     uint32_t settings_btn = 0;
@@ -399,7 +404,7 @@ static int middle_index(uint32_t cursor) {
 }
 
 static void on_pad(uint32_t self) {
-    if (!g_enabled.load() || overlay::is_open()) return;
+    if (!button_on() || overlay::is_open()) return;
     const uint32_t cursor = self + kCursor;
     const uint32_t pad_at = cursor + kPad;
     const uint32_t pad = settings_dir_pad(ld32(pad_at), ld32(self + kMenuPads));
@@ -454,7 +459,7 @@ static void on_pad(uint32_t self) {
 }
 
 static void apply_choice(uint32_t self) {
-    if (!g_enabled.load() || g_force_idx < 0 || !g_force_btn) return;
+    if (!button_on() || g_force_idx < 0 || !g_force_btn) return;
     const uint32_t cursor = self + kCursor;
     const SettingsCursorPair pair = settings_cursor_pair(g_force_idx);
     st32(cursor + kCursorIndex, (uint32_t)pair.current);
@@ -604,7 +609,7 @@ static void watch_settings_click(Cpu* c, uint32_t self) {
         clear_confirm(self);
         return;
     }
-    if (!g_enabled.load() || !g_click || g_settings_idx < 0) return;
+    if (!button_on() || !g_click || g_settings_idx < 0) return;
     g_click_age++;
     const int idx = (int)ld32(self + kCursor + kCursorIndex);
     if (idx != g_settings_idx) {
@@ -619,7 +624,7 @@ static void watch_settings_click(Cpu* c, uint32_t self) {
 }
 
 static void settle_settings(uint32_t self, bool tick) {
-    if (!g_enabled.load() || g_settle <= 0) return;
+    if (!button_on() || g_settle <= 0) return;
     st8(self + kCursor + kDecideAnime, 1);
     clear_confirm(self);
     if (!tick) return;
@@ -837,7 +842,7 @@ static void restore_build_regs(Cpu* c, const uint32_t* saved, uint32_t resource)
 }
 
 static void install_settings_button(Cpu* c, uint32_t layout) {
-    if (!g_enabled.load()) return;
+    if (!button_on()) return;
     const uint32_t saved[11] = {c->r[0], c->r[3], c->r[4], c->r[5], c->r[6], c->r[7], c->r[8], c->r[9], c->r[10], c->r[11], c->r[12]};
     const uint32_t resource = c->r[3];
     uint32_t slot = 0;
@@ -890,7 +895,7 @@ static void install_settings_button(Cpu* c, uint32_t layout) {
 }
 
 static void install_settings_anim(Cpu* c) {
-    if (!g_enabled.load()) return;
+    if (!button_on()) return;
     const uint32_t pai = c->r[4];
     if (!guest_obj(pai) || ld32(pai) != 0x70616931u) return;
     uint32_t flan = 0;
@@ -935,7 +940,7 @@ static void install_settings_anim(Cpu* c) {
 }
 
 static void bind_settings(Cpu* c, uint32_t self) {
-    if (!g_enabled.load() || g_settings) return;
+    if (!button_on() || g_settings) return;
     static uint32_t name_ea = 0;
     static uint32_t safe_ea = 0;
     if (!name_ea) {
@@ -1043,7 +1048,7 @@ static bool over_tile_locked() {
 }
 
 bool pointer(float nx, float ny) {
-    if (!g_enabled.load()) return false;
+    if (!button_on()) return false;
     std::lock_guard<std::mutex> lock(g_hit_mu);
     g_nx = nx;
     g_ny = ny;
@@ -1051,7 +1056,7 @@ bool pointer(float nx, float ny) {
 }
 
 bool click() {
-    if (!g_enabled.load()) return false;
+    if (!button_on()) return false;
     std::lock_guard<std::mutex> lock(g_hit_mu);
     if (!over_tile_locked()) return false;
     g_open_request.store(true);

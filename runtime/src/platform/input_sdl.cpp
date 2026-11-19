@@ -914,6 +914,25 @@ static std::string buttons_text(uint32_t buttons) {
     return text;
 }
 
+static std::string stick_text(float x, float y) {
+    char buf[64];
+    snprintf(buf, sizeof buf, "%.9g,%.9g", x, y);
+    return buf;
+}
+
+// Names the buttons and sticks that changed. The replay fields stay in front of this note.
+static std::string pad_note(const PadState& prev, const PadState& now) {
+    std::string note;
+    const uint32_t down = now.buttons & ~prev.buttons;
+    const uint32_t up = prev.buttons & ~now.buttons;
+    if (down) note += " down=" + buttons_text(down);
+    if (up) note += " up=" + buttons_text(up);
+    if (now.lx != prev.lx || now.ly != prev.ly) note += " lstick=" + stick_text(now.lx, now.ly);
+    if (now.rx != prev.rx || now.ry != prev.ry) note += " rstick=" + stick_text(now.rx, now.ry);
+    if (now.touch != prev.touch) note += now.touch ? " touch=1" : " touch=0";
+    return note;
+}
+
 #ifndef NDEBUG
 static bool pad_idle(const PadState& s) {
     return !s.buttons && s.lx == 0 && s.ly == 0 && s.rx == 0 && s.ry == 0 && !s.touch;
@@ -947,8 +966,6 @@ static void log_dev_pad(const PadState& s) {
             origin = now;
         }
         if (have && pad_same(prev, s)) return;
-        prev = s;
-        have = true;
         if (!header) {
             header = true;
             LOG("[input] version=1");
@@ -966,17 +983,21 @@ static void log_dev_pad(const PadState& s) {
             }
         }
         const std::string buttons = buttons_text(s.buttons);
-        LOG("[input] %llu %s %.9g %.9g %.9g %.9g %d %.9g %.9g", (unsigned long long)(now - origin), buttons.c_str(),
-            s.lx, s.ly, s.rx, s.ry, s.touch ? 1 : 0, s.tx, s.ty);
+        const std::string note = pad_note(have ? prev : PadState{}, s);
+        prev = s;
+        have = true;
+        LOG("[input] %llu %s %.9g %.9g %.9g %.9g %d %.9g %.9g%s", (unsigned long long)(now - origin), buttons.c_str(),
+            s.lx, s.ly, s.rx, s.ry, s.touch ? 1 : 0, s.tx, s.ty, note.c_str());
         return;
     }
     if (!have && pad_idle(s)) return;
     if (have && pad_same(prev, s)) return;
+    const std::string buttons = buttons_text(s.buttons);
+    const std::string note = pad_note(have ? prev : PadState{}, s);
     prev = s;
     have = true;
-    const std::string buttons = buttons_text(s.buttons);
-    LOG("[input] frame %llu %s %.9g %.9g %.9g %.9g %d %.9g %.9g", (unsigned long long)render::frame_count(),
-        buttons.c_str(), s.lx, s.ly, s.rx, s.ry, s.touch ? 1 : 0, s.tx, s.ty);
+    LOG("[input] frame %llu %s %.9g %.9g %.9g %.9g %d %.9g %.9g%s", (unsigned long long)render::frame_count(),
+        buttons.c_str(), s.lx, s.ly, s.rx, s.ry, s.touch ? 1 : 0, s.tx, s.ty, note.c_str());
 }
 #endif
 
@@ -1490,7 +1511,9 @@ PadState read(int player) {
         static const bool log_buttons = env::LOG_BUTTONS() != nullptr;
         static uint32_t last_buttons = 0;
         if (log_buttons && s.buttons != last_buttons) {
-            LOG("[input] frame %llu buttons %04X", (unsigned long long)render::frame_count(), s.buttons);
+            const std::string note = pad_note(PadState{last_buttons, 0, 0, 0, 0, false, 0, 0}, PadState{s.buttons, 0, 0, 0, 0, false, 0, 0});
+            LOG("[input] frame %llu buttons %s%s", (unsigned long long)render::frame_count(), buttons_text(s.buttons).c_str(),
+                note.c_str());
             last_buttons = s.buttons;
         }
     }

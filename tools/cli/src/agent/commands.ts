@@ -6,6 +6,7 @@ import { AgentClient, type AgentResponse } from "./client.ts";
 import { agentDir, agentPidPath, agentSession, agentSocketPath, agentUserDir } from "./paths.ts";
 import { isPidAlive, readAgentPid, removeAgentArtifacts } from "./process.ts";
 import { arrived, cursorSelected, decodePng, delta, fnv, newerThan, placeKind, sample, tvRect, type Rect } from "./probe.ts";
+import { factsFrom, filterLog, formatScreen, logTags, pauseRowLabel, screenKind } from "./screen.ts";
 import { evalBody } from "./eval.ts";
 import { canConnectSocket, waitForSocket } from "./socket.ts";
 import { spawnPython } from "../run.ts";
@@ -55,7 +56,7 @@ export async function cmdOpen(repo: string, rest: string[]): Promise<void> {
     console.log(`ready (pid ${child.pid}, socket ${sock}${named})`);
 }
 
-function formatStatus(r: Awaited<ReturnType<AgentClient["status"]>>): string {
+export function formatStatus(r: Awaited<ReturnType<AgentClient["status"]>>): string {
     const parts = [`frame=${r.frame ?? "?"}`, `step=${r.step ?? "?"}`];
     if (r.pid !== undefined) {
         parts.push(`pid=${r.pid}`);
@@ -104,6 +105,7 @@ function formatStatus(r: Awaited<ReturnType<AgentClient["status"]>>): string {
     } else {
         parts.push("player=none");
     }
+    parts.push(formatScreen(factsFrom(r, r)));
     return parts.join(" ");
 }
 
@@ -283,6 +285,10 @@ function printUi(r: AgentResponse): void {
         );
     }
     parts.push(`menu=${r.menu ? 1 : 0}`);
+    if (r.pause) parts.push("pause=1");
+    const row = pauseRowLabel(r.pause_row, r.pause_index);
+    if (r.pause && row) parts.push(`row=${row}`);
+    if (r.controller) parts.push("controller=1");
     if (r.cursor !== undefined) parts.push(`cursor=${r.cursor}`);
     console.log(parts.join(" "));
     for (const b of r.buttons ?? []) {
@@ -357,17 +363,28 @@ export async function cmdEval(repo: string, argv: string[]): Promise<void> {
 }
 
 export async function cmdLog(repo: string, argv: string[]): Promise<void> {
-    const { flags } = parseArgv(argv, ["tag", "lines"]);
+    const { flags } = parseArgv(argv, ["tag", "lines", "around"], ["tag", "lines"]);
+    const around = hasFlag(flags, "around");
     const body: Record<string, unknown> = { cmd: "log" };
     const tag = flagString(flags, "tag");
-    if (tag) body.tag = tag;
+    if (tag && !around) body.tag = tag;
     const client = new AgentClient(repo);
     try {
+        let screen = "";
+        let tags: string[] | null = null;
+        if (around) {
+            const status = await client.status();
+            const facts = factsFrom(status, status);
+            screen = formatStatus(status);
+            tags = tag ? tag.split(",").map((t) => t.trim()).filter((t) => t.length > 0) : logTags(screenKind(facts));
+        }
         const r = await client.request(body);
         if (!r.ok) throw new Error(r.error ?? "log failed");
         const lines = r.lines ?? [];
         const n = hasFlag(flags, "lines") ? flagNumber(flags, "lines", 40) : 40;
-        for (const line of lines.slice(-n)) console.log(line);
+        const shown = tags ? filterLog(lines, tags, n) : lines.slice(-n);
+        if (screen) console.log(screen);
+        for (const line of shown) console.log(line);
     } finally {
         client.close();
     }

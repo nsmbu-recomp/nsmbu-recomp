@@ -322,7 +322,11 @@ A direct open can show a blank green number and the save's world name.
 
 The same skip means `FieldGameData::setCheckPoint` never runs before the course.
 Quitting back to `CourseSelectTask` then has `mCheckPoint.index == -1` and `MainGame` map pose `+0x19C/+0x1A0/+0x1A4` cleared, so `CourseSelectPlayer` fails to spawn on the opened node.
-The runtime seeds that checkpoint and pose from `CourseInfo` world/course when the checkpoint is still missing (course-out site `0x024B8324`, CourseSelectPlayer setup `0x0226FBC4` / `0x0226FD14`).
+The runtime seeds that checkpoint and pose from the opened pack when the checkpoint is still missing.
+Quit uses course-out site `0x024B8324`.
+A death uses `AreaTask::setCourseOut` (`0x024B814C`) and does not pass through that quit site.
+That entry seeds the same pose when the course came from a directed open.
+`CourseSelectPlayer` setup (`0x0226FBC4` / `0x0226FD14`) seeds again when the map player is created.
 Node lookup uses `CourseSelectMgr` path entries by name (`W101` for pack `1-1`).
 Path node `+0x50/+0x54` are not a reliable world/course pair (many nodes share `0,0`), so name match is required.
 Live `CourseSelectPlayer+0x110` is a pointer after spawn.

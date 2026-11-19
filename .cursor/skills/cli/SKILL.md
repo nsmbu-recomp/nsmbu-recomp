@@ -1,6 +1,6 @@
 ---
 name: cli
-description: "nsmbu CLI playtests, benches, boots, builds, dumps, settings.ini, and NSMBU_* variables. Use when running nsmbu test, bench, scenario, compare-runs, a warm build, a dump switch, a pose or interpolation check, or nsmbu settings."
+description: "nsmbu CLI playtests, benches, boots, builds, dumps, settings.ini, and NSMBU_* variables. Use when running nsmbu test, bench, scenario, compare-runs, a warm build, a dump switch, a pose or interpolation check, nsmbu settings, nsmbu status, or nsmbu log."
 ---
 
 # nsmbu CLI
@@ -69,3 +69,53 @@ If `nsmbu open` refuses because that session is already running, run `nsmbu stat
 `nsmbu test` refuses to start while any live agent session is up.
 Playtest cases use their own sockets and may run several games at once.
 Finish the test or close the games before `nsmbu game … --recomp` or a `game/active` switch.
+
+## Screen
+
+The picture is the `screen=` word on the `nsmbu status` line.
+Read that word before you read a screenshot.
+When the line has no `screen=`, run `nsmbu status` again and read the new line.
+`scene=` is the scene name.
+`player=` is the player snapshot.
+`scene=` can still name the previous place after the picture has changed.
+`screen=course` is the course.
+`screen=gamepad` is the GamePad popup.
+`screen=saves` is the three save files.
+`screen=title` is the title.
+`screen=world-map` is the world map.
+`screen=world-map-iris` is that map while the iris still covers it.
+`screen=start-menu` names the selected start-menu button.
+`screen=pause` names the selected pause row.
+`screen=controller` is the Change Controller page.
+`screen=settings` is this port's overlay.
+`behind=` names the page under that overlay.
+`screen=loading` is the loading card.
+
+## Log
+
+`nsmbu log --around` prints the status line, then the log lines for that picture.
+`--lines N` sets how many of those lines to keep.
+The default is 40.
+`--tag a,b` keeps lines whose brackets contain one of those words.
+`--around` keeps the tags for that picture.
+A bracket word outside that list stays in the log file and out of this output.
+`[vulkan]` and `[prof]` stay out until `--tag` names `vulkan` or `prof`.
+The latest `[scene]` line stays in an `--around` list.
+
+`input` is a pad change.
+`down=` and `up=` name the buttons that changed.
+`lstick=` and `rstick=` name a stick that moved.
+A course line starts with the step.
+Any other place starts with `frame`.
+`scene` is a scene change.
+`open` is a course opening.
+`menu` is the world-map start menu.
+`pause` is the course pause menu.
+`overlay` is this port's settings overlay.
+`screenshot` is a saved picture.
+`boot` is process start.
+`agent` is the control socket.
+`gfx` is a frame dump or the title picture.
+`prof` is a frame-time sample.
+`vulkan` is a Vulkan line.
+`docs/developer/cli.md` has the same list.

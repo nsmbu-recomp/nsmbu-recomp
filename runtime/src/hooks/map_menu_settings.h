@@ -218,6 +218,12 @@ struct MenuProbe {
 
 void probe(MenuProbe& out);
 
+// The start-menu Settings button needs NSMBU_INGAME_SETTINGS and the debug checkbox.
+// Unset and 0 keep the button off.
+inline bool start_menu_settings(bool wanted, bool fade_flag) {
+    return wanted && fade_flag;
+}
+
 bool enabled();
 void set_enabled(bool on);
 

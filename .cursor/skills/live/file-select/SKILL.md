@@ -6,8 +6,12 @@ description: "Open the save-file menu and tell the GamePad popup from the three 
 # File select
 
 Boot order is `Boot`, then `Flow`, then `FileSelect`, then `Title`.
-`scene=FileSelect` is the GamePad popup.
+`nsmbu status` includes `screen=gamepad` for the GamePad popup.
+That popup is `scene=FileSelect`.
 The title is the next scene.
+`screen=title` is the title.
+`screen=saves` is the three save files.
+That menu is `scene=Menu`.
 One A on the title opens the save-file menu.
 That menu is `MenuScene`, so status reads `scene=Menu`.
 The menu shows three save files.

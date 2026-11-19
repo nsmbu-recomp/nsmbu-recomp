@@ -231,6 +231,8 @@ function fishCompletionScript(): string {
         "complete -c nsmbu -n '__nsmbu_seen actors' -l limit -r -f -d 'How many actors'",
         "complete -c nsmbu -n '__nsmbu_seen actors' -l radius -r -f -d 'Keep actors inside this distance'",
         "complete -c nsmbu -n '__nsmbu_seen log' -l tag -r -f -d 'Comma-separated log tags'",
+        "complete -c nsmbu -n '__nsmbu_seen log; and __fish_seen_argument -l tag' -f -a 'input scene open menu pause overlay screenshot boot agent gfx prof vulkan' -d 'Log tag'",
+        "complete -c nsmbu -n '__nsmbu_seen log' -l around -f -d 'Keep lines for the current screen'",
         "complete -c nsmbu -n '__nsmbu_seen log' -l lines -r -f -d 'How many lines'",
         "complete -c nsmbu -n '__nsmbu_seen picture' -l frames -r -f -d 'How many TV frames'",
         "complete -c nsmbu -n '__nsmbu_seen picture' -l rect -r -f -d 'TV rectangle x,y,w,h'",

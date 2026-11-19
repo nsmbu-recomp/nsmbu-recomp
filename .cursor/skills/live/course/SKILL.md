@@ -29,7 +29,9 @@ nsmbu status
 ```
 
 The log line `[open]` ends with `course up`.
+`nsmbu status` includes `screen=course` for that picture.
 Done when status shows `scene=CourseTask`, `course=1`, `map=0`, `pack=1-1`, and `player=` is not `none`.
+When `scene=` is still `Map` and `screen=course`, the course is the picture.
 `entering=` is absent on that line.
 While the loading card is up, status can still show the map, and `entering=` names the pack that is loading.
 Check soon after play starts.

@@ -22,6 +22,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   A or Enter plays the pause click and the button press, then opens this overlay.
   The pause buttons stay hidden until the overlay closes.
   Closing the overlay returns to the pause menu.
+  Start the game with `NSMBU_INGAME_SETTINGS=1` and that press hides the pause menu.
+  Closing the overlay shows the pause menu again, including its buttons.
+  Continue from that menu returns to the course, and Settings opens this overlay again.
   The blue panel keeps its original height.
   Settings → Debug can turn that button off.
 
@@ -34,6 +37,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Dying in a course opened with `nsmbu run 1-1` returns you to that course on the world map.
+  Mario stands on that course, the same way as when you enter the course from the map and then die.
 - Settings opens again after that overlay closes, and again from the next pause menu.
 - After Settings, Continue returns to the course without the controller page or the broken cursor.
   The yellow cursor stays the size of the selected button, and the stick moves that cursor.
@@ -52,6 +57,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Closing that overlay fades the pause menu back in.
 - The installer save screen imports an NSMBU save folder that contains `rp_personal_savedata.dat`.
 - Settings → Debug → **Settings button on the start menu** adds that button under Change Controller when the world map loads.
+  The button stays off unless the game is started with `NSMBU_INGAME_SETTINGS=1`.
+- With that same option, the course pause Settings button opens this overlay and hides the pause menu.
+  That press does not open the controller menu.
+  Closing the overlay shows the pause menu again, and the course stays paused.
+  Continue from that menu returns to the course.
+  Settings opens this overlay again.
 - The world-map start menu still moves after you select that Settings button.
 - The world-map Settings button shows its label without the Main Menu icon.
 - Pressing that Settings button plays the same click as the other buttons, then opens the overlay.

@@ -1741,7 +1741,7 @@ void tab_debug() {
         map_menu::set_enabled(v);
         hostui::post([v] { hostui::set("mapMenuSettings", v ? "1" : "0"); });
     }
-    help("Off until you turn it on. The button is added when the world map loads, so leave to the title and come back after a change. A or Enter on Settings opens this overlay. A restart restores the original menu.");
+    help("Off until you turn it on. NSMBU_INGAME_SETTINGS=1 is also required, and that variable is off when it is unset. The button is added when the world map loads, so leave to the title and come back after a change. A or Enter on Settings opens this overlay. A restart restores the original menu.");
     if (check("Settings button on the pause menu", pause_menu::enabled(), &v)) {
         pause_menu::set_enabled(v);
         hostui::post([v] { hostui::set("pauseMenuSettings", v ? "1" : "0"); });

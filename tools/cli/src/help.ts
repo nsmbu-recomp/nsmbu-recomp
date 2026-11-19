@@ -37,7 +37,7 @@ Agent control (one game per session; -s ID, --session ID, or NSMBU_SESSION):
   nsmbu click close
   nsmbu actors [--limit N] [--radius N]
   nsmbu eval --list | <name> [json]
-  nsmbu log [--tag a,b] [--lines N]
+  nsmbu log [--tag a,b] [--around] [--lines N]
   nsmbu picture [--frames N] [--rect x,y,w,h]
   nsmbu restart
   nsmbu quit | close

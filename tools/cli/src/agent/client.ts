@@ -39,6 +39,11 @@ type AgentResponse = {
     y?: number;
     tab?: string;
     menu?: boolean;
+    cursor_name?: string;
+    pause?: boolean;
+    pause_index?: number;
+    pause_row?: string;
+    controller?: boolean;
     cursor?: number;
     buttons?: { index: number; name: string; selected: boolean; x0?: number; y0?: number; x1?: number; y1?: number }[];
     power?: number;

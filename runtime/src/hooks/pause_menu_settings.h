@@ -46,6 +46,32 @@ inline SettingsClickEnd settings_click_end(bool settings_button) {
     return end;
 }
 
+// NSMBU_INGAME_SETTINGS: A on Settings opens the overlay and closes this menu.
+// Mode 2 is that decide. Mode 3 would open the controller window. Plus is not this press.
+inline bool ingame_settings_press(bool env_on, bool menu_shown, bool on_settings, uint32_t mode, bool overlay_open) {
+    if (!env_on || !menu_shown || !on_settings || overlay_open) return false;
+    return mode == 2u || mode == 3u;
+}
+
+// The overlay close shows this pause menu again. It does not resume the course.
+// While the overlay is open the course stays paused and the menu stays hidden.
+inline bool ingame_settings_returns_menu(bool holding, bool overlay_waiting) {
+    return holding && !overlay_waiting;
+}
+
+// The returned menu guards Continue. That guard skips the step that opens the controller window.
+inline bool ingame_settings_guards_continue(bool menu_returned) {
+    return menu_returned;
+}
+
+// The returned menu stays paused until Continue, Quit, or Back.
+// Settings keeps the pause. Continue must be free to store the unpause.
+inline bool ingame_settings_keeps_paused(bool menu_back, bool on_settings, uint32_t mode, bool back) {
+    if (!menu_back || back) return false;
+    if ((mode == 2u || mode == 3u) && !on_settings) return false;
+    return true;
+}
+
 // The story pause uses indexes 0 through 2. Index 2 is the Settings row.
 inline bool story_settings_row(int mn, int mx, int idx) {
     return mn == 0 && mx == 2 && idx == mx;
@@ -209,6 +235,14 @@ inline bool pause_out_state(uint32_t id) {
 
 inline bool pause_controller_state(uint32_t id) {
     return id == GD(0x10216D74u) || id == GD(0x10216D94u);
+}
+
+// The controller page is the picture when its state id, a visible controller pane, or the switch window is set.
+inline bool pause_face_controller(uint32_t pending, uint32_t inside, uint32_t obj, uint8_t pane0, uint8_t pane1,
+                                  uint8_t window) {
+    if (pause_controller_state(pending) || pause_controller_state(inside) || pause_controller_state(obj)) return true;
+    if ((pane0 & 1u) != 0 || (pane1 & 1u) != 0) return true;
+    return window != 0;
 }
 
 // Out and the controller window clear those draw bytes while the pause is still up.
@@ -405,6 +439,8 @@ struct PauseFade {
     bool open_overlay = false;
     bool block_press = false;
     bool play_press = false;
+    // NSMBU_INGAME_SETTINGS parks on the controller window instead of entering the open menu.
+    bool park = false;
 };
 
 // The change-controller window can be open before its type word is 5.
@@ -438,6 +474,12 @@ inline bool pause_settings_skips_layout_draw(bool items_hidden) {
 // Continue leaves the controller page in the pause layout. Skip that draw while the course is resumed.
 inline bool pause_settings_skips_pause_draw(bool resume_hold, bool pause_root) {
     return resume_hold && pause_root;
+}
+
+// Pa_SetUp is the controller page. The story list is the layout that has Continue.
+// After Settings, that list stays in the draw. The controller page does not.
+inline bool pause_settings_story_menu(bool has_continue) {
+    return has_continue;
 }
 
 // The button list is the pause layout that was on screen before Settings.
@@ -497,13 +539,21 @@ inline bool pause_settings_resets_decide(bool menu_restored, float speed) {
     return menu_restored && speed < -0.5f;
 }
 
-inline PauseFade pause_settings_fade(uint32_t state, bool out_finished, bool overlay_open, bool opened, bool pressed) {
+// whole_fade is NSMBU_INGAME_SETTINGS. Unset and 0 keep the old path.
+// That path opens the overlay when Out finishes and enters the open menu.
+// The flag lets Out finish. The overlay opens on the controller-window state.
+// That path does not enter the open menu.
+inline PauseFade pause_settings_fade(uint32_t state, bool out_finished, bool overlay_open, bool opened, bool pressed,
+                                     bool whole_fade = false) {
     PauseFade fade;
     const bool window = pause_controller_state(state);
     const bool out = pause_out_state(state);
     const bool done = window || (out && out_finished);
-    fade.leave = done;
-    fade.open_overlay = done && pause_settings_ready(out_finished || window) && !opened && !overlay_open;
+    fade.park = whole_fade && window;
+    fade.leave = !whole_fade && done;
+    const bool ready = whole_fade ? window : done;
+    fade.open_overlay = ready && pause_settings_ready(whole_fade ? window : (out_finished || window)) && !opened &&
+                        !overlay_open;
     fade.block_press = pressed || out || window;
     fade.play_press = (out || window) && !pressed && !overlay_open;
     return fade;
@@ -765,6 +815,15 @@ constexpr bool kStartsEnabled = true;
 bool enabled();
 void set_enabled(bool on);
 bool take_open();
+
+struct PauseProbe {
+    bool shown = false;
+    bool controller = false;
+    int index = -1;
+    char row[48] = {};
+};
+
+void probe(PauseProbe& out);
 // The pause layout draws after the pause step. Skip that tree while Settings has it hidden.
 bool skip_pane(uint32_t pane);
 

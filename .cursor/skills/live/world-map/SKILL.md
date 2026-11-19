@@ -5,6 +5,8 @@ description: "Open the world map, move between nodes, and use the start menu. Us
 
 # World map
 
+`nsmbu status` includes `screen=world-map` for this map.
+`screen=world-map-iris` means the iris still covers it.
 The world map is `scene=CourseSelect` or `scene=Map` with `map=1`.
 The repo save starts on node `W1M0` in world 0 (Acorn Plains).
 Status names that node in `name=`.
@@ -58,6 +60,7 @@ The `pause-menu` skill owns that menu.
 Plus opens the start menu.
 Plus closes it.
 Plus during the map iris leaves the map up and the menu closed.
+`nsmbu status` includes `screen=start-menu` and the selected button.
 `nsmbu ui` lists the buttons and the selected name.
 `nsmbu wait --cursor Settings` waits for that button.
 

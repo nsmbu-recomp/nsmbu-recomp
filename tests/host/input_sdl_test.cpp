@@ -91,7 +91,7 @@ int main(){
  assert(logged("[input] version=1"));
  assert(logged("[input] origin=control"));
  assert(logged("[input] mode=fire"));
- assert(logged("[input] 0 A 0 0 0 0 0 0 0"));
+ assert(logged("[input] 0 A 0 0 0 0 0 0 0 down=A"));
  key(SDL_SCANCODE_K,false);assert(!(input::read().buttons&input::kA));
  key(SDL_SCANCODE_W,true);assert(input::read().ly==1);
  key(SDL_SCANCODE_D,true);assert(input::read().lx>0.7f&&input::read().lx<0.71f);
@@ -300,7 +300,7 @@ int main(){
   g_logs.clear();
   key(SDL_SCANCODE_K, true);
   assert(input::read().buttons & input::kA);
-  assert(logged("[input] frame 0 A 0 0 0 0 0 0 0"));
+  assert(logged("[input] frame 0 A 0 0 0 0 0 0 0 down=A"));
   assert(!logged("[input] version=1"));
  }
  SDL_DestroyWindow(controls);SDL_DestroyWindow(game);input::set_prompt_window(nullptr);

@@ -16,6 +16,7 @@ Notes for building, profiling, and changing the port.
 | Performance measurements | [performance.md](performance.md) |
 | Replay file format | [replay-format.md](replay-format.md) |
 | Agent verification inventory | [verification.md](verification.md) |
+| Course pause menu Settings | [pause-menu-settings.md](pause-menu-settings.md) |
 | Pause menu Settings fade handoff | [pause-menu-settings-handoff.md](pause-menu-settings-handoff.md) |
 | Port and course runtime | [nsmbu/](nsmbu/) |
 | Android engineer notes | [android/](android/) |

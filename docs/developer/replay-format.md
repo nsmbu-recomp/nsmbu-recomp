@@ -141,7 +141,14 @@ It is the binary `nsmbu open` starts.
 A release build is compiled with `NDEBUG` (`nsmbu build --release`, a packaged build) and does not write these lines.
 
 Each line is tagged `[input] `.
-Drop that prefix and the remaining text is a replay file line, with two extras that are not pad samples:
+A pad line keeps the replay fields, then names what changed.
+`down=A` is a button that went down.
+`up=A` is a button that went up.
+`lstick=1,0` and `rstick=0,0` are a stick that moved.
+`touch=1` or `touch=0` is the touch screen.
+The replay reader stops after the seven numbers.
+Those notes can stay on a copied line.
+Drop the `[input] ` prefix and the remaining text is a replay file line, with two extras that are not pad samples:
 
 - `course clock reset` marks a course exit.
   The next course entry starts again at step 0.
@@ -177,8 +184,8 @@ Hold ranges become `NSMBU_PRESS` and `NSMBU_STICK`.
 The next logged frame is the first frame the previous hold is no longer down, so the range ends on the frame before it.
 
 ```
-[input] frame 100 A 1 0 0 0 0 0 0
-[input] frame 110 - 0 0 0 0 0 0 0
+[input] frame 100 A 1 0 0 0 0 0 0 down=A lstick=1,0
+[input] frame 110 - 0 0 0 0 0 0 0 up=A lstick=0,0
 ```
 
 That pair is `NSMBU_PRESS=100-109:8000` and `NSMBU_STICK=100-109:1:0`.

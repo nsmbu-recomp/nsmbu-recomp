@@ -223,6 +223,32 @@ int main() {
     check(!anim_again.patched && flan == anim_once, "a second animation patch does nothing");
 
     check(kStartsEnabled, "the pause Settings button starts on");
+    check(ingame_settings_press(true, true, true, 2u, false),
+          "NSMBU_INGAME_SETTINGS opens the overlay and closes the pause menu");
+    check(ingame_settings_press(true, true, true, 3u, false),
+          "a decide that would open the controller window closes the pause menu instead");
+    check(!ingame_settings_press(false, true, true, 2u, false),
+          "without NSMBU_INGAME_SETTINGS the button keeps the game action");
+    check(!ingame_settings_press(true, true, true, 2u, true), "an open overlay does not press Settings again");
+    check(!ingame_settings_press(true, true, false, 2u, false), "Continue keeps its own press");
+    check(!ingame_settings_press(true, false, true, 2u, false), "a closed pause menu does not take the press");
+    check(!ingame_settings_press(true, true, true, 0u, false), "Plus is not a Settings press");
+    check(!ingame_settings_returns_menu(true, true), "the course stays paused while the overlay is open");
+    check(ingame_settings_returns_menu(true, false), "closing the overlay shows the pause menu again");
+    check(!ingame_settings_returns_menu(false, false), "a normal frame does not return the pause menu");
+    check(pause_settings_story_menu(true), "the story button list stays on screen");
+    check(!pause_settings_story_menu(false), "the controller page is not the pause menu");
+    check(!pause_settings_skips_pause_root(pause_settings_story_menu(true), true, false),
+          "the returned pause menu draws its buttons");
+    check(pause_settings_skips_pause_root(pause_settings_story_menu(false), true, false),
+          "the returned pause menu skips the controller page");
+    check(ingame_settings_guards_continue(true), "the returned menu guards Continue from the controller window");
+    check(!ingame_settings_guards_continue(false), "a hidden settings menu does not guard Continue");
+    check(ingame_settings_keeps_paused(true, false, 0u, false), "the returned pause menu stays paused");
+    check(!ingame_settings_keeps_paused(true, false, 2u, false), "Continue from the returned menu can unpause");
+    check(ingame_settings_keeps_paused(true, true, 2u, false), "Settings from the returned menu stays paused");
+    check(!ingame_settings_keeps_paused(true, false, 0u, true), "Back from the returned menu can leave");
+    check(!ingame_settings_keeps_paused(false, false, 0u, false), "a live course does not take the returned pause");
 
     const SettingsClickEnd mine = settings_click_end(true);
     const SettingsClickEnd other_end = settings_click_end(false);
@@ -390,8 +416,17 @@ int main() {
     check(pause_settings_closes_window(0, 1, 0), "a requested controller window closes behind Settings");
     check(!pause_settings_closes_window(0, 0, 0), "a shut controller window stays shut");
     const PauseFade window = pause_settings_fade(0x10216D74u, true, false, false, true);
-    check(window.leave && window.open_overlay && !window.play_press,
+    check(window.leave && window.open_overlay && !window.play_press && !window.park,
           "the overlay opens when that fade would enter the controller window");
+    const PauseFade finished = pause_settings_fade(0x10216DD4u, true, false, false, true, true);
+    check(!finished.leave && !finished.open_overlay && !finished.park && finished.block_press,
+          "NSMBU_INGAME_SETTINGS keeps a finished Out on that fade");
+    const PauseFade parked = pause_settings_fade(0x10216D74u, true, false, false, true, true);
+    check(parked.park && parked.open_overlay && !parked.leave && !parked.play_press,
+          "NSMBU_INGAME_SETTINGS opens the overlay from the controller window");
+    const PauseFade off = pause_settings_fade(0x10216DD4u, true, false, false, true, false);
+    check(off.leave && off.open_overlay && !off.park,
+          "without NSMBU_INGAME_SETTINGS, finished Out still leaves for the overlay");
     check(!pause_settings_hides_menu_items(false, false, true), "Out keeps the pause items on screen");
     check(pause_settings_hides_menu_items(true, true, false), "the overlay hides the pause items");
     check(pause_settings_hides_menu_items(false, true, false),
@@ -430,6 +465,12 @@ int main() {
           "a restored menu lets the next A start Out");
     check(!pause_settings_releases_press(false),
           "the Settings press stays blocked until the menu is back");
+    check(pause_face_controller(GD(0x10216D74u), 0, 0, 0, 0, 0),
+          "a controller state id is the controller page");
+    check(pause_face_controller(0, 0, 0, 1, 0, 0), "a visible controller pane is the controller page");
+    check(pause_face_controller(0, 0, 0, 0, 0, 1), "a visible switch window is the controller page");
+    check(!pause_face_controller(GD(0x10216DB4u), 0, 0, 0, 0, 0),
+          "the open pause menu is not the controller page");
     check(pause_settings_resets_decide(true, -1.f), "a finished Settings press can start again");
     check(!pause_settings_resets_decide(true, 0.f), "an idle Settings button stays idle");
     check(!pause_settings_resets_decide(false, -1.f), "the Settings press keeps playing until the menu is back");

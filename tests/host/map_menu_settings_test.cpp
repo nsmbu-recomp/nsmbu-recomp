@@ -50,6 +50,10 @@ int main() {
           "a file that already has Settings is left alone");
     check(!start_menu_flyt(reinterpret_cast<const uint8_t*>(other), sizeof other),
           "another layout is not the start menu");
+    check(!start_menu_settings(true, false),
+          "the start menu Settings button stays off without NSMBU_INGAME_SETTINGS");
+    check(start_menu_settings(true, true), "NSMBU_INGAME_SETTINGS lets that button on");
+    check(!start_menu_settings(false, true), "the debug checkbox still keeps that button off");
 
     const SettingsRepair idle = settings_repair(6, 6, false, 0);
     const SettingsRepair live = settings_repair(6, 6, false, 1);

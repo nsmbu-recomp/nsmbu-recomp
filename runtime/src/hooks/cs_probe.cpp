@@ -747,6 +747,12 @@ extern "C" void nsmbu_mark_course_left(void) {
     g_left_course = true;
 }
 
+extern "C" void site_024B814C(Cpu*) {
+    if (!g_have_pack) return;
+    nsmbu_mark_course_left();
+    seed_map_return_pose(0, false);
+}
+
 extern "C" void site_024B8324(Cpu* c) {
     nsmbu_mark_course_left();
     seed_map_return_pose(0, false);

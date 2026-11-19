@@ -10,6 +10,11 @@ It is not the world-map start menu.
 The `world-map` skill owns that start menu.
 The `course` skill gets a course on screen.
 
+`nsmbu status` names this menu in `screen=`.
+`screen=pause` names the selected row.
+`screen=settings` is the overlay on top of it.
+`behind=` names the page under that overlay.
+`screen=controller` is the Change Controller page.
 The story rows are Continue, Quit, and Settings.
 Settings is a new button injected on the Change Controller row.
 Change Controller stays in the layout and is hidden.
@@ -26,15 +31,13 @@ Under World map, turn off Settings button on the pause menu to hide it.
 The game builds the menu when the course loads.
 Leave the course and enter it again after you change the option.
 A course that loaded with the switch off keeps the three original rows.
-A or Enter on Settings plays the pause click.
-The whole menu shrinks and fades, the same as Continue.
-The overlay opens after that fade.
+`NSMBU_INGAME_SETTINGS=1` is required for this button.
+A or Enter on Settings opens the overlay and hides this pause menu.
 It does not open the controller menu.
-Closing the overlay fades this pause menu back in.
-It still does not open the controller menu.
-The pause buttons stay hidden while the overlay is open.
+Closing the overlay shows this pause menu again.
 The course stays paused.
-The cursor can move again after the overlay closes.
+Continue returns to the course.
+A or Enter on Settings opens the overlay again.
 `nsmbu click close` clicks the X in the top right of this overlay.
 
 ## Visual check

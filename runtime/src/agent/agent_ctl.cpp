@@ -36,6 +36,7 @@
 #endif
 #include "hooks/interp.h"
 #include "hooks/map_menu_settings.h"
+#include "hooks/pause_menu_settings.h"
 #include "mods/mod_json.h"
 #include "mods/sdk/nsmbu.h"
 #include "overlay/hostui.h"
@@ -140,6 +141,8 @@ int request_id(const mods::json::Value& req) {
     return int(idv.number);
 }
 
+void fill_picture(mods::json::Value& v);
+
 int request_frames(const mods::json::Value& req, int fallback) {
     const auto& fv = req.get("frames");
     if (fv.type == mods::json::Value::Number && fv.number > 0) return int(fv.number);
@@ -197,7 +200,29 @@ std::string handle_status(int id) {
         std::snprintf(digits, sizeof digits, "%u %u %u", scene.banner[0], scene.banner[1], scene.banner[2]);
         v.object["banner"] = digits;
     }
+    fill_picture(v);
     return mods::json::dump(v);
+}
+
+void fill_picture(mods::json::Value& v) {
+    v.object["overlay"] = overlay::is_open();
+    const char* tab = overlay::settings_tab();
+    if (tab && tab[0]) v.object["tab"] = tab;
+    map_menu::MenuProbe menu;
+    map_menu::probe(menu);
+    v.object["menu"] = menu.open;
+    if (menu.open) v.object["cursor"] = menu.cursor;
+    for (int i = 0; i < menu.count; i++) {
+        if (!menu.buttons[i].selected || !menu.buttons[i].name[0]) continue;
+        v.object["cursor_name"] = menu.buttons[i].name;
+        break;
+    }
+    pause_menu::PauseProbe pause;
+    pause_menu::probe(pause);
+    v.object["pause"] = pause.shown;
+    v.object["controller"] = pause.controller;
+    if (pause.index >= 0) v.object["pause_index"] = pause.index;
+    if (pause.row[0]) v.object["pause_row"] = pause.row;
 }
 
 std::string handle_ui(int id) {
@@ -205,7 +230,7 @@ std::string handle_ui(int id) {
     v.type = mods::json::Value::Object;
     v.object["id"] = id;
     v.object["ok"] = true;
-    v.object["overlay"] = overlay::is_open();
+    fill_picture(v);
     float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
     if (overlay::close_button(x0, y0, x1, y1)) {
         mods::json::Value box;
@@ -215,12 +240,8 @@ std::string handle_ui(int id) {
         box["y1"] = (double)y1;
         v.object["close"] = std::move(box);
     }
-    const char* tab = overlay::settings_tab();
-    if (tab && tab[0]) v.object["tab"] = tab;
     map_menu::MenuProbe menu;
     map_menu::probe(menu);
-    v.object["menu"] = menu.open;
-    if (menu.open) v.object["cursor"] = menu.cursor;
     mods::json::Value buttons;
     buttons.type = mods::json::Value::Array;
     for (int i = 0; i < menu.count; i++) {
