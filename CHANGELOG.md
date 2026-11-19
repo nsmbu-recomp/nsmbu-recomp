@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Press M to mute or unmute the game.
+  The game keeps that choice for the next start.
 - RecompLauncher support: a `recomplauncher.json` in every release.
   The launcher checks the player's copy, runs the setup once without a window
   (extracting the game files and building the game code from them), shows the

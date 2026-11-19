@@ -995,7 +995,8 @@ void tab_audio() {
         hostui::post([v] { hostui::set("audioMute", v ? "1" : "0"); });
     }
     if (mute_locked) note("NSMBU_NO_AUDIO is set for this start and takes precedence.");
-    help("Off plays the game through the host speakers. On keeps the mix running with no sound.");
+    help("Off plays the game through the host speakers. On keeps the mix running with no sound.\n"
+         "Press M to mute or unmute. The game keeps that choice for the next start.");
 
     const bool vol_locked = audio::volume_env_override();
     float vol = audio::volume() * 100.0f;

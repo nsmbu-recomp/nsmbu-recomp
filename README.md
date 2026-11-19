@@ -56,6 +56,9 @@ Experimental:
   <kbd>F1</kbd>–<kbd>F5</kbd> loads those slots.
 - **Screenshot.**
   <kbd>F10</kbd> saves the TV picture.
+- **Mute.**
+  Press <kbd>M</kbd> to mute or unmute the game.
+  The game keeps that choice.
 - **GamePad screen.**
   <kbd>Ctrl</kbd>+<kbd>G</kbd> shows or hides it.
   On macOS, <kbd>Cmd</kbd>+<kbd>G</kbd>.

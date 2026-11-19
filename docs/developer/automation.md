@@ -177,7 +177,9 @@ The switch changes no guest state; it only rebases those frame numbers.
 
 Hidden boots set `NSMBU_NO_AUDIO=1` so no output device is opened.
 The mix still runs.
-Interactive mute is in the settings overlay (` or F12) > Audio.
+Interactive mute is the M key, or Settings (` or F12) > Audio.
+The game keeps that choice in `audioMute`.
+`NSMBU_NO_AUDIO=1` still forces silence for that start.
 
 ## Boot recipes
 
