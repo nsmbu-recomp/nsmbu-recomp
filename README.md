@@ -10,6 +10,16 @@ The release includes the runtime, build tools, and installer.
 > You need your own legally dumped copy of the game.
 > Nothing in this repo, in any release, or in the build process contains or downloads Nintendo IP.
 
+## How to play
+
+You need your own copy of New Super Mario Bros. U for Wii U.
+A Cemu archive (`.wua`) needs no keys.
+A disc image (`.wud` or `.wux`) needs its disc key and the Wii U common key.
+An extracted folder needs `code`, `content`, and `meta`.
+Download the release for your system, start it, and choose that copy.
+The first start builds the game on your PC.
+Later starts play it.
+
 ## Features
 
 - **Windows, macOS, Linux, Android,** and **iOS**.
@@ -122,6 +132,9 @@ On macOS the same program is `NSMBU.app/Contents/MacOS/nsmbu`.
   The default folder is `game`.
 - `--save DIR` sets the save folder.
   The default folder is `nsmbu/save`.
+- `--install DIR` reads the game folder and the save folder from `DIR/install.json`.
+  Setup writes that file.
+  A folder you already extracted stays where it is.
 - `--open W-C` opens that course and skips the intro.
   `W-C` is one world digit and a course number, such as `1-1`.
 - `--renderer API` chooses `metal` or `vulkan` for this start.

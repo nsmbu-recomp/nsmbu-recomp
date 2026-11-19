@@ -308,6 +308,14 @@ def copy(src, dst):
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     shutil.copy2(src, dst)
 
+def launcher_profile(version):
+    """recomplauncher.json for a release. prepare.version is that release, so an update runs
+    setup again: the built game is linked against the runtime in that release."""
+    with open(os.path.join(ROOT, "recomplauncher.json"), encoding="utf-8") as f:
+        profile = json.load(f)
+    profile.setdefault("prepare", {})["version"] = version
+    return profile
+
 def make_zip(src_dir, zip_path):
     base = os.path.basename(src_dir)
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
@@ -381,8 +389,11 @@ def main():
         json.dump(manifest, f, indent=1)
 
     # RecompLauncher support (recomplauncher.json at the top of the release; the AppImage keeps
-    # a copy at its root, since appimage.py copies the whole folder).
-    copy(os.path.join(ROOT, "recomplauncher.json"), os.path.join(pkg, "recomplauncher.json"))
+    # a copy at its root, since appimage.py copies the whole folder). prepare.version is this
+    # release, so players who already set up run the step again after an update.
+    with open(os.path.join(pkg, "recomplauncher.json"), "w", encoding="utf-8") as f:
+        json.dump(launcher_profile(a.version), f, indent=2)
+        f.write("\n")
 
     for rel in TOOL_FILES + INSTALLER_FILES:
         copy(os.path.join(ROOT, rel), os.path.join(pkg, rel))

@@ -224,8 +224,13 @@ class Protocol:
 
 GUI = None
 
-LAUNCHER = False            # --launcher-progress: RecompLauncher's prepare step reads stdout
+LAUNCHER_PROGRESS = False  # --launcher-progress: RecompLauncher's prepare step reads stdout
 LAUNCHER_STEP = {"n": 0, "total": 0}
+
+def set_launcher_progress(on):
+    """The prepare-step flag. Kept off the LAUNCHER name, which is the shortcut target."""
+    global LAUNCHER_PROGRESS
+    LAUNCHER_PROGRESS = bool(on)
 
 def launcher_progress(frac, text):
     """One 'progress 0.42 Text' line (RecompLauncher's prepare format); frac runs from 0 to 1."""
@@ -246,7 +251,7 @@ def step(n, total, text, sid=""):
         GUI.emit({"event": "step", "n": n, "total": total, "title": text, "id": sid})
         LOG.write("[%d/%d] %s" % (n, total, text))
         return
-    if LAUNCHER:
+    if LAUNCHER_PROGRESS:
         launcher_progress((n - 1) / total if total else 0.0, text)
         LOG.write("[%d/%d] %s" % (n, total, text))
         return
@@ -270,7 +275,7 @@ class Progress:
         self.last = now
         if GUI:
             GUI.emit({"event": "progress", "label": self.label, "done": done, "total": total, "detail": detail})
-        elif LAUNCHER:
+        elif LAUNCHER_PROGRESS:
             st = LAUNCHER_STEP
             sub = done / total if total else 1.0
             frac = (st["n"] - 1 + sub) / st["total"] if st["total"] else sub
@@ -2180,8 +2185,7 @@ def main():
     ap.add_argument("--launcher-progress", action="store_true",
                     help="machine progress for RecompLauncher's setup step: 'progress 0.42 Text' lines on stdout")
     args = ap.parse_args()
-    global LAUNCHER
-    LAUNCHER = bool(args.launcher_progress)
+    set_launcher_progress(args.launcher_progress)
     try:
         sys.stdout.reconfigure(errors="replace")
     except AttributeError:
@@ -2201,7 +2205,7 @@ def main():
     except KeyboardInterrupt:
         say("\nSetup cancelled. Run it again to continue; nothing that was finished is lost.")
         rc = 130
-    if LAUNCHER and rc == 0:
+    if LAUNCHER_PROGRESS and rc == 0:
         launcher_progress(1.0, "Done")
     if interactive and (IS_WIN or IS_MAC):
         try:

@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   port's settings on the game's page, and starts the game directly.
   The copy can be a Cemu archive (.wua), a disc image (.wud or .wux), or the
   extracted game folder; the setup takes a folder through `--image` too.
+  An extracted folder stays where it is, and Play still opens that folder.
+  An update runs the setup again so the game is built for that release.
   The setup prints `progress` lines for the launcher's setup screen
   (`installer/setup.py --launcher-progress`, also used with `--console-setup`
   on Windows and `installer/recomplauncher-prepare.sh` on macOS and Linux).

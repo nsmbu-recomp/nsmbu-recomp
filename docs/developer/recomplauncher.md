@@ -23,8 +23,10 @@ It describes the game, the setup step, the start command, the settings, and the 
   so there are no verifiable CRC32 values.
   The installer's own check of the image stands in for it.
 
-`tools/release/package.py` copies the profile to the root of every release zip,
-and the AppImage step carries it along, so every release ships one at `/recomplauncher.json`.
+`tools/release/package.py` writes the profile at the root of every release zip.
+It sets `prepare.version` to that release, so an update runs setup again.
+The built game is linked against the runtime in the release.
+The AppImage step copies the folder, so the image has the same file at `/recomplauncher.json`.
 `installer/recomplauncher-prepare.sh` is on the packaging list for the same reason.
 
 Validate the profile after every edit:
@@ -62,8 +64,9 @@ The launcher runs the first program in `prepare.program` that exists:
 
 The remaining arguments are `--launcher-progress --yes --no-launch --no-shortcuts
 --data-dir {install}/data --image {game}`, with `timeout` 3600.
-The step is "done" when `{install}/data/install.json` and
-`{install}/data/game/code/red-pro2.rpx` both exist.
+The step is "done" when `{install}/data/install.json` exists.
+That file is written at the end of a successful setup.
+An extracted folder is not copied into `data/game`, so the done check is not the RPX there.
 
 ## `--launcher-progress`
 
@@ -109,7 +112,7 @@ Every default was taken from the runtime code, not guessed.
 
 ## Saves, logs and errors
 
-- `saves` covers `{install}/data/nsmbu/save` and `settings.ini`.
+- `saves` covers `{install}/data/nsmbu/save`, the portable `settings.ini` beside it, and `{config}/nsmbu/settings.ini` when the build is not portable (the Linux AppImage).
 - The `saves`, `logs` and `data` actions open those folders;
   `logs` follows the same portable/config split as the settings file,
   and "Clear shader cache" empties `shadercache` in the same place.
@@ -118,9 +121,14 @@ Every default was taken from the runtime code, not guessed.
 
 ## Start
 
-`start` runs `data/bin/nsmbu.exe` or `data/bin/nsmbu` with
-`--game {install}/data/game --save {install}/data/nsmbu/save`,
-which is the portable layout the setup builds.
+`start` runs the built game, `data/bin/nsmbu.exe` or `data/bin/nsmbu`, with
+`--install {install}/data`.
+That reads `install.json` for the game folder and uses `{install}/data/nsmbu/save` for saves.
+A disc image or a Cemu archive is recorded as `game` under the data folder.
+An extracted folder is recorded as the path the player picked.
+`--data-dir {install}/data` is the same data folder for the setup program, which is the fallback when the built game is not in the release yet (`NSMBU.exe`, `nsmbu-launcher`, or the AppImage).
+The setup program ignores `--install`.
+The game ignores `--data-dir`.
 
 ## What is not supported yet
 

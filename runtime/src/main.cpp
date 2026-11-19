@@ -18,6 +18,8 @@
 #include <cstring>
 #include <ctime>
 #include <filesystem>
+#include <fstream>
+#include <sstream>
 #include "guest_addr.h"
 #include "platform/host.h"
 #ifdef _WIN32
@@ -38,6 +40,7 @@
 #include "crash/crash_addr.h"
 #include "core/build_info.h"
 #include "core/game_folder.h"
+#include "core/install_launch.h"
 #include "core/user_error.h"
 #include "crash/crashrec.h"
 #include "crash/crash_context.h"
@@ -380,6 +383,7 @@ static void print_help(const char* argv0) {
            "Options:\n"
            "  --game DIR            Game dump directory\n"
            "  --save DIR            Save data directory\n"
+           "  --install DIR         Game and saves from DIR/install.json (setup's record)\n"
            "  --trace               Log HLE calls\n"
            "  --renderer API        metal or vulkan (also --renderer=API)\n"
            "  --open W-C            Boot into a course pack with the native intro skip (e.g. 1-1)\n"
@@ -466,6 +470,19 @@ int main(int argc, char** argv) {
         }
         else if (!strcmp(argv[i], "--game") && i + 1 < argc) config::game_dir = argv[++i];
         else if (!strcmp(argv[i], "--save") && i + 1 < argc) config::save_dir = argv[++i];
+        else if (!strcmp(argv[i], "--install") && i + 1 < argc) {
+            const std::string data = argv[++i];
+            std::ifstream in(data + "/install.json");
+            std::stringstream body;
+            if (in) body << in.rdbuf();
+            const install_launch::Paths paths = install_launch::from_install_json(data, in ? body.str() : "");
+            if (!paths.error.empty()) {
+                fprintf(stderr, "%s\n", paths.error.c_str());
+                return 1;
+            }
+            config::game_dir = paths.game;
+            config::save_dir = paths.save;
+        }
         else if (!strcmp(argv[i], "--trace")) g_trace_hle = true;
         else if (!strcmp(argv[i], "--warm-shaders")) warm_shaders = true;
         else if (!strcmp(argv[i], "--open") && i + 1 < argc) {

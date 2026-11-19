@@ -33,6 +33,14 @@ class SDKPackage(unittest.TestCase):
                 self.assertEqual(count, 4)
                 self.assertEqual(problems, [])
 
+    def test_launcher_profile_stamps_the_release(self):
+        profile = package.launcher_profile("9.9.9")
+        self.assertEqual(profile["prepare"]["version"], "9.9.9")
+        self.assertEqual(profile["prepare"]["done"], ["{install}/data/install.json"])
+        self.assertIn("data/bin/nsmbu", profile["start"]["program"])
+        self.assertEqual(profile["start"]["args"][:2], ["--install", "{install}/data"])
+        self.assertNotIn("{install}/data/game", profile["start"]["args"])
+
     def test_sdk_manifest_fields(self):
         manifest = package.sdk_manifest("v1", "android-arm64-v8a", "android-ndk", "libgame.so", "/ndk/bin/clang++",
                                         ["-O3"], ["{gamecode}", "-o", "{out}"])

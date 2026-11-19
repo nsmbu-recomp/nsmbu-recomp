@@ -2,6 +2,7 @@
 from pathlib import Path
 """Unit tests for the installer's helpers (no game files, no network): python3 test_setup.py"""
 import hashlib
+import io
 import json
 import os
 import sys
@@ -1020,6 +1021,34 @@ class BracketsInInstallFolder(unittest.TestCase):
 
             with mock.patch.object(setup.subprocess, "Popen", return_value=FakeProc()):
                 self.assertEqual(setup.recompile(os.path.join(temporary, "game"), gen_dir), 2)
+
+
+class LauncherProgress(unittest.TestCase):
+    def tearDown(self):
+        setup.set_launcher_progress(False)
+
+    def test_flag_does_not_replace_the_shortcut_target(self):
+        name = setup.LAUNCHER
+        self.assertIsInstance(name, str)
+        setup.set_launcher_progress(True)
+        self.assertEqual(setup.LAUNCHER, name)
+        self.assertTrue(setup.LAUNCHER_PROGRESS)
+
+    def test_step_stays_human_without_the_flag(self):
+        self.assertTrue(setup.LAUNCHER)
+        buf = io.StringIO()
+        with mock.patch("sys.stdout", buf):
+            setup.step(1, 4, "Checking the disc")
+        text = buf.getvalue()
+        self.assertNotIn("progress ", text)
+        self.assertIn("[1/4] Checking the disc", text)
+
+    def test_step_prints_a_progress_line(self):
+        setup.set_launcher_progress(True)
+        buf = io.StringIO()
+        with mock.patch("sys.stdout", buf):
+            setup.step(2, 4, "Building")
+        self.assertIn("progress 0.25 Building", buf.getvalue())
 
 
 class NonInteractive(unittest.TestCase):

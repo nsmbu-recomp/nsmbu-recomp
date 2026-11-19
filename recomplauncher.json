@@ -22,19 +22,18 @@
     ],
     "label": "Extracts your copy and builds the game from it (the longest step: a few minutes)",
     "timeout": 3600,
-    "done": [
-      "{install}/data/install.json",
-      "{install}/data/game/code/red-pro2.rpx"
-    ]
+    "done": ["{install}/data/install.json"]
   },
   "start": {
-    "program": ["data/bin/nsmbu.exe", "data/bin/nsmbu"],
-    "args": [
-      "--game",
-      "{install}/data/game",
-      "--save",
-      "{install}/data/nsmbu/save"
-    ]
+    "program": [
+      "data/bin/nsmbu.exe",
+      "data/bin/nsmbu",
+      "NSMBU.exe",
+      "NSMBU.app/Contents/MacOS/nsmbu-launcher",
+      "nsmbu-launcher",
+      "NSMBU.AppImage"
+    ],
+    "args": ["--install", "{install}/data", "--data-dir", "{install}/data"]
   },
   "config": [
     {
@@ -73,8 +72,8 @@
     },
     {
       "id": "aspect",
-      "label": "Aspect ratio(Experimental)",
-      "help": "The shape of the picture. 16:9 is the console's own; the wider ones show more on the sides.",
+      "label": "Aspect ratio",
+      "help": "The shape of the picture. 16:9 is the console's own. The wider ones are experimental and show more on the sides.",
       "choices": [
         { "label": "16:9 (console)", "set": { "aspect": "16:9" } },
         { "label": "Match window", "set": { "aspect": "window" } },
@@ -195,7 +194,11 @@
       "defaults": { "audioVolume": "1" }
     }
   ],
-  "saves": ["{install}/data/nsmbu/save", "{install}/data/nsmbu/settings.ini"],
+  "saves": [
+    "{install}/data/nsmbu/save",
+    "{install}/data/nsmbu/settings.ini",
+    "{config}/nsmbu/settings.ini"
+  ],
   "folders": {
     "saves": [{ "path": "{install}/data/nsmbu/save" }],
     "logs": [
