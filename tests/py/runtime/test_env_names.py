@@ -30,6 +30,10 @@ def declared_names():
     return set(DECLARED.findall(ENV_H.read_text(encoding="utf-8")))
 
 
+def flag_of(name):
+    return "--" + name.removeprefix("NSMBU_").lower().replace("_", "-")
+
+
 class EnvNames(unittest.TestCase):
     def test_documented_names_are_declared(self):
         known = declared_names()
@@ -48,6 +52,15 @@ class EnvNames(unittest.TestCase):
                     line = text.count("\n", 0, match.start()) + 1
                     unknown.append(f"{path.relative_to(ROOT)}:{line}: {name}")
         self.assertEqual(unknown, [])
+
+    def test_flags_md_lists_every_runtime_flag(self):
+        text = (DOCS / "developer" / "flags.md").read_text(encoding="utf-8")
+        missing = []
+        for name in sorted(declared_names()):
+            flag = flag_of(name)
+            if not re.search(r"(?<![\w-])" + re.escape(flag) + r"(?![\w-])", text):
+                missing.append(flag)
+        self.assertEqual(missing, [])
 
 
 if __name__ == "__main__":
