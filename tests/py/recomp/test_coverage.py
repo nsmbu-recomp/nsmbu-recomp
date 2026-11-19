@@ -131,7 +131,7 @@ class CoverageTests(unittest.TestCase):
         self.assertTrue(address_errors("ld32(0x101F84DC);", "new.cpp", self.mapping))
 
     def test_death_course_out_seeds_the_directed_map(self):
-        hooks = (ROOT / "recomp/hooks/course.jsonc").read_text(encoding="utf-8")
+        hooks = (ROOT / "recomp/hooks/course_return.jsonc").read_text(encoding="utf-8")
         self.assertIn('"024B814C"', hooks)
         source = (ROOT / "runtime/src/hooks/cs_probe.cpp").read_text(encoding="utf-8")
         start = source.index("void site_024B814C")
