@@ -24,6 +24,11 @@
     { "address": "02270310" }, // CourseSelectPlayer::create_: seed player fields before pack on the later path
     { "address": "022703A4" }, // CourseSelectPlayer::create_: seed player fields before pack on the fallback path
     { "address": "0227CCF4" }, // CourseSelectCamera::applyFocusFromCheckpointSearch: copy the opened course node into the camera pose
-    { "address": "0227E2A8" } // CourseSelectCamera::applyFocusFromCourseSearch: same copy on the course search
+    { "address": "0227E2A8" }, // CourseSelectCamera::applyFocusFromCourseSearch: same copy on the course search
+    { "address": "02267C48" }, // CourseSelectTask arm execute: directed return stays in the playable state
+    { "address": "02267C4C" }, // same execute, common tail: keep that return playable for a few seconds
+    { "address": "02267C70" }, // iris hold execute: directed return sends the unlock pulse on entry
+    { "address": "022674E8" }, // map player model: drop the gaussian latch before the choice
+    { "address": "024DE2D0" } // model build: a directed return uses the normal mesh, not gaussian
   ]
 }

@@ -410,13 +410,13 @@ static void open_controller(SDL_JoystickID id){
 void init(){
  input_map::load_startup();
 
+ if(!SDL_InitSubSystem(SDL_INIT_GAMEPAD)){LOG("[input] SDL gamepad initialization: %s",SDL_GetError());return;}
  if(!env::NO_CONTROLLERS()) {
-  if(!SDL_InitSubSystem(SDL_INIT_GAMEPAD)){LOG("[input] SDL gamepad initialization: %s",SDL_GetError());return;}
   int count=0;auto* ids=SDL_GetGamepads(&count);for(int i=0;i<count;i++)open_controller(ids[i]);SDL_free(ids);
-  SDL_AddEventWatch(rumble_quit_watch,nullptr);
-  atexit(stop_rumble_now);
-  std::thread(rumble_watchdog).detach();
  }
+ SDL_AddEventWatch(rumble_quit_watch,nullptr);
+ atexit(stop_rumble_now);
+ std::thread(rumble_watchdog).detach();
 }
 static std::string utf8(const std::u16string& text){
  std::string out;
@@ -511,7 +511,7 @@ void handle_event(const SDL_Event& event){
 #endif
  if(overlay::captures())mods::update_mouse();
  else if(mods::handle_mouse_event(event))return;
- if(event.type==SDL_EVENT_GAMEPAD_ADDED&&!env::NO_CONTROLLERS())open_controller(event.gdevice.which);
+ if(event.type==SDL_EVENT_GAMEPAD_ADDED&&(!env::NO_CONTROLLERS()||SDL_IsJoystickVirtual(event.gdevice.which)))open_controller(event.gdevice.which);
  if(event.type==SDL_EVENT_GAMEPAD_REMOVED){std::lock_guard lk(g_pads_mu);auto i=g_controllers.find(event.gdevice.which);if(i!=g_controllers.end()){SDL_CloseGamepad(i->second);g_controllers.erase(i);}const int slot=slot_of_locked(event.gdevice.which);if(slot>=0){g_slot[slot]=0;g_slot_name[slot].clear();}g_rumble_controllers.erase(event.gdevice.which);g_rumble_sent.erase(event.gdevice.which);g_accel.erase(event.gdevice.which);g_sensor_seen.erase(event.gdevice.which);g_sensor_kick.erase(event.gdevice.which);motion::controller_gone(event.gdevice.which);}
  if(event.type==SDL_EVENT_GAMEPAD_SENSOR_UPDATE){g_sensor_seen[event.gsensor.which]=SDL_GetTicks();if(!env::NO_HOST_INPUT()&&!overlay::blocks_input())sensor_event(event.gsensor);return;}
  if(event.type==SDL_EVENT_WINDOW_FOCUS_LOST)release_keys();

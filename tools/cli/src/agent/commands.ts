@@ -30,17 +30,20 @@ async function ensureNotRunning(repo: string): Promise<void> {
     removeAgentArtifacts(repo);
 }
 
+export function agentLaunchArgs(repo: string): string[] {
+    const args = ["--agent-sock", agentSocketPath(repo), "--no-audio"];
+    const user = agentUserDir(repo);
+    if (user) args.push(`--user-dir=${user}`);
+    return args;
+}
+
 export async function cmdOpen(repo: string, rest: string[]): Promise<void> {
     await ensureNotRunning(repo);
     mkdirSync(agentDir(repo), { recursive: true });
     const sock = agentSocketPath(repo);
-    const launchArgs = ["--agent-sock", sock];
     const user = agentUserDir(repo);
-    if (user) {
-        mkdirSync(user, { recursive: true });
-        launchArgs.push(`--user-dir=${user}`);
-    }
-    launchArgs.push(...rest);
+    if (user) mkdirSync(user, { recursive: true });
+    const launchArgs = [...agentLaunchArgs(repo), ...rest];
     const child = spawnPython(repo, "tools/run/launch.py", launchArgs, {
         detached: true,
         stdio: "ignore",

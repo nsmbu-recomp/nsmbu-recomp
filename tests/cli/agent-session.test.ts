@@ -3,6 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { agentLaunchArgs } from "../../tools/cli/src/agent/commands.ts";
 import { agentDir, agentSession, agentSocketPath, agentUserDir, setAgentSession } from "../../tools/cli/src/agent/paths.ts";
 import { liveAgents } from "../../tools/cli/src/agent/process.ts";
 import { applySession, takeSessionFlag } from "../../tools/cli/src/agent/session.ts";
@@ -35,6 +36,22 @@ test("a missing or repeated session id is rejected", () => {
     assert.throws(() => takeSessionFlag(["-s"]), /usage: nsmbu -s <id>/);
     assert.throws(() => takeSessionFlag(["-s", "a", "--session", "b", "status"]), /more than once/);
     assert.throws(() => takeSessionFlag(["-s", "../x", "open"]), /invalid session id/);
+});
+
+test("an agent game starts with the sound off", () => {
+    setAgentSession(null);
+    try {
+        const args = agentLaunchArgs("/repo");
+        assert.ok(args.includes("--no-audio"));
+        assert.ok(args.includes("--agent-sock"));
+        assert.equal(args.some((arg) => arg.startsWith("--user-dir=")), false);
+        setAgentSession("fix");
+        const named = agentLaunchArgs("/repo");
+        assert.ok(named.includes("--no-audio"));
+        assert.ok(named.includes(`--user-dir=${join("/repo", ".tmp", "agent", "fix", "user")}`));
+    } finally {
+        setAgentSession(null);
+    }
 });
 
 test("a named session has its own socket and user dir", () => {

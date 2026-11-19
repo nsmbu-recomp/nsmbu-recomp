@@ -38,6 +38,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- `nsmbu open` starts with the sound off.
 - The README lists more of the port's features.
 - The README lists the game program's command-line options.
 - The README credits [NSMBU-Headers](https://github.com/aboood40091/NSMBU-Headers) for the headers and the decompilation.
@@ -45,8 +46,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-- Dying in a course opened with `nsmbu run 1-1` returns you to that course on the world map.
-  Mario stands on that course, the same way as when you enter the course from the map and then die.
+- Mario takes the controller in a course opened with `nsmbu run 1-1`.
+- Dying or quitting a course opened with `nsmbu open 1-1` returns you to that course on the world map with Mario's normal model.
 - Settings opens again after that overlay closes, and again from the next pause menu.
 - After Settings, Continue returns to the course without the controller page or the broken cursor.
   The yellow cursor stays the size of the selected button, and the stick moves that cursor.
