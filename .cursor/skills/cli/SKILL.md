@@ -6,7 +6,8 @@ description: "nsmbu CLI playtests, benches, boots, builds, dumps, settings.ini, 
 # nsmbu CLI
 
 TypeScript CLI under `tools/cli/`.
-Run `nsmbu --help` for the command list.
+Run `nsmbu -s <id> --help` for the command list.
+Pass `-s <id>` on every `nsmbu` command.
 
 ## Docs
 
@@ -34,9 +35,9 @@ Use flags on `nsmbu game`.
 Bare `nsmbu game` opens the TUI.
 
 ```bash
-nsmbu game --list
-nsmbu game eu-1.3.0 --recomp
-nsmbu build
+nsmbu -s <id> game --list
+nsmbu -s <id> game eu-1.3.0 --recomp
+nsmbu -s <id> build
 ```
 
 `--list` prints JSON (`active`, `versions`, `loose_images`).
@@ -57,15 +58,13 @@ A runtime-only edit compiles the changed `.cpp` and links.
 
 ## Sessions
 
-`nsmbu -s <id>` names the live game this command talks to.
+`-s <id>` names the live game this command talks to.
 Use the same id on `open`, `status`, `press`, and `close`.
 A different id is a different game, socket, save, and settings under `.tmp/agent/<id>/`.
 An agent game stays in the background.
 Press, click, and screenshot do not bring its window forward.
-Omit `-s` for the default session, which is still one game under `.tmp/agent/`.
-`NSMBU_SESSION` sets the id when `-s` is absent.
-If `nsmbu open` refuses because that session is already running, run `nsmbu status` with the same id.
-`nsmbu close` with that id stops it.
+If `nsmbu -s <id> open` refuses because that session is already running, run `nsmbu -s <id> status`.
+`nsmbu -s <id> close` stops that game.
 `nsmbu test` refuses to start while any live agent session is up.
 Playtest cases use their own sockets and may run several games at once.
 Finish the test or close the games before `nsmbu game … --recomp` or a `game/active` switch.
