@@ -18,7 +18,6 @@
     { "address": "025CF020" } // AreaTask::getCourseOutHudFlag: AreaTask is null during course teardown
   ],
   "sites": [
-    { "address": "024B814C" }, // AreaTask::setCourseOut: death returns here, so seed the directed-open map before the flag
     { "address": "024B8324" }, // AreaTask::prepareCourseOutEnter: after enter type 3, seed map checkpoint/pose if still missing
     { "address": "0226FD14" }, // CourseSelectPlayer::create_: seed MainGame pose again before the read
     { "address": "0226FECC" }, // CourseSelectPlayer::create_: seed player fields before pack

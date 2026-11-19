@@ -720,15 +720,15 @@ jobs:
       - name: Release APK, signed with the project's key
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
-          NSMBU_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          NSMBU_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          NSMBU_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ORG_GRADLE_PROJECT_nsmbuKeystorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_nsmbuKeyAlias: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_nsmbuKeyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
           PUBLISHING: ${{ needs.version.outputs.publish }}
         run: |
           if [ -n "$KEYSTORE_B64" ]; then
-            export NSMBU_KEYSTORE="$RUNNER_TEMP/nsmbu-release.p12"
-            trap 'rm -f "$NSMBU_KEYSTORE"' EXIT
-            (umask 077 && printf '%s' "$KEYSTORE_B64" | base64 -d > "$NSMBU_KEYSTORE")
+            export ORG_GRADLE_PROJECT_nsmbuKeystore="$RUNNER_TEMP/nsmbu-release.p12"
+            trap 'rm -f "$ORG_GRADLE_PROJECT_nsmbuKeystore"' EXIT
+            (umask 077 && printf '%s' "$KEYSTORE_B64" | base64 -d > "$ORG_GRADLE_PROJECT_nsmbuKeystore")
           elif [ "$PUBLISHING" = true ]; then
             echo "::error::the signing secrets are missing: a published APK must carry the release key"; exit 1
           else

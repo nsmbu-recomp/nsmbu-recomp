@@ -12,6 +12,7 @@ The name is the function declared in `vendor/decomp/include`.
 - `aspect.jsonc` — widescreen camera, projections, and layout panes
 - `base_hud.jsonc` — base-disc course stock HUD (`USA_V0`, `EU_V0`)
 - `course.jsonc` — course open, the world map, and the course HUD
+- `course_return.jsonc` — death return on 1.3.0 discs (`USA`, `EU`, and the Luigi U combos)
 - `draw.jsonc` — missing model and Mii draws
 - `heap.jsonc` — frame allocator wait
 - `interp.jsonc` — frame interpolation and course-layer camera edges

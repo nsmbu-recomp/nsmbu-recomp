@@ -1,0 +1,9 @@
+// Death return on discs whose setCourseOut matches USA 1.3.0.
+// The base discs compile that function differently, so this site is not in their file.
+
+{
+  "builds": ["USA", "EU", "NSMBU_NSLU_USA", "NSMBU_NSLU_EU"],
+  "sites": [
+    { "address": "024B814C" } // AreaTask::setCourseOut: seed the directed-open map before the flag
+  ]
+}
