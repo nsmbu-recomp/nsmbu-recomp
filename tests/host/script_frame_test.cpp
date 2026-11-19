@@ -1,7 +1,7 @@
 #include "test/script_frame.h"
+#include "core/env.h"
 
 #include <cstdio>
-#include <cstdlib>
 
 static int failures = 0;
 
@@ -30,7 +30,7 @@ int main() {
     check(rebase(3000, 2000) == rebase(4000, 3000), "two boot lengths agree one second in");
     check(rebase(0, 0) == kAlignFrame, "anchor at frame zero");
 
-    const bool expect = enabled_value(std::getenv("NSMBU_TEST_FIXED_SEED"));
+    const bool expect = enabled_value(env::TEST_FIXED_SEED());
     check(enabled() == expect, "switch follows NSMBU_TEST_FIXED_SEED");
     check(frame(1234) == 1234, "frame is the tv frame before the anchor");
     check(!aligned(), "not aligned at start");

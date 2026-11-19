@@ -194,7 +194,9 @@ class TranslationTests(unittest.TestCase):
         original = adapter.setup.subprocess
         def record(*args, **kwargs):
             command = args[0]
-            seen.append((list(command), dict(kwargs.get("env") or {})))
+            raw = dict(kwargs.get("env") or {})
+            effective = {k: v for k, v in raw.items() if not k.startswith("NSMBU_RECOMP_")}
+            seen.append((list(command), effective))
             return adapter.setup.subprocess.real(*args, **kwargs)
         recompile = adapter.setup.recompile
         def wrapped(*args, **kwargs):
@@ -212,7 +214,7 @@ class TranslationTests(unittest.TestCase):
         self.assertEqual(len(command[1:]), 4)
         self.assertEqual(command[2:], [str(self.rpx), command[3], "--progress"])
         self.assertNotIn("--mod-hooks", command)
-        self.assertEqual(env["NSMBU_RECOMP_MOD_HOOKS"], "0")
+        self.assertNotIn("NSMBU_RECOMP_MOD_HOOKS", env)
         self.assertNotIn("NSMBU_RECOMP_MOD_HOOKS", __import__("os").environ)
         self.assertTrue(any(event.get("state") == "progress" for event in self.events))
 

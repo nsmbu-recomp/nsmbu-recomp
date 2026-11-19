@@ -1,7 +1,10 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { BUTTON_NAMES } from "./agent/buttons.ts";
+import { findRepoRoot } from "./repo.ts";
+import { flagName } from "./runtime_flags.ts";
 import { settingKeys } from "./settings.ts";
 
 type CommandSpec = {
@@ -18,6 +21,7 @@ const COMMANDS: CommandSpec[] = [
         flags: [
             { name: "release", description: "Release build" },
             { name: "sanitizer", description: "Sanitizer build" },
+            { name: "verbose", description: "Verbose cmake output" },
         ],
     },
     {
@@ -105,9 +109,26 @@ const COMMANDS: CommandSpec[] = [
         flags: [
             { name: "list", description: "List playtests" },
             { name: "show", description: "Leave the game window on screen" },
+            { name: "jobs", description: "Parallel playtest jobs" },
         ],
     },
-    { name: "scenario", description: "Headless logic-step trace for run comparison", noFiles: true },
+    {
+        name: "scenario",
+        description: "Headless logic-step trace for run comparison",
+        noFiles: true,
+        flags: [
+            { name: "game", description: "Game dump directory" },
+            { name: "save", description: "Save directory" },
+            { name: "align", description: "Align scene (default Title)" },
+            { name: "steps", description: "Logic steps after alignment (default 300)" },
+            { name: "fixed-seed", description: "Fixed random seed (default 1)" },
+            { name: "bin", description: "nsmbu binary path" },
+            { name: "shader-cache", description: "Shader cache file" },
+            { name: "boot-tries", description: "Boot attempts (default 3)" },
+            { name: "boot-limit", description: "Boot poll limit (default 240)" },
+            { name: "run-limit", description: "Run poll limit (default 300)" },
+        ],
+    },
     {
         name: "compare-runs",
         description: "Diff two scenario output folders",
@@ -150,6 +171,32 @@ const COMMANDS: CommandSpec[] = [
 
 function fishEscape(s: string): string {
     return s.replace(/'/g, "\\'");
+}
+
+function gameFlagsFromHeader(): string[] {
+    const candidates: string[] = [];
+    try {
+        candidates.push(join(findRepoRoot(), "runtime", "src", "core", "env.h"));
+    } catch {
+        /* no repo from cwd */
+    }
+    const pkgRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+    candidates.push(join(pkgRoot, "..", "..", "runtime", "src", "core", "env.h"));
+    let headerPath: string | null = null;
+    for (const path of candidates) {
+        if (existsSync(path)) {
+            headerPath = path;
+            break;
+        }
+    }
+    if (!headerPath) return [];
+    const text = readFileSync(headerPath, "utf8");
+    const flags: string[] = [];
+    const re = /ENV\(\w+,\s*"([^"]+)"\)/g;
+    for (const m of text.matchAll(re)) {
+        if (m[1].startsWith("NSMBU_")) flags.push(flagName(m[1]));
+    }
+    return [...new Set(flags)].sort();
 }
 
 function fishCompletionScript(): string {
@@ -208,6 +255,16 @@ function fishCompletionScript(): string {
                 `complete -c nsmbu -n '__nsmbu_seen ${cmd.name}' -l ${flag.name}${file} -d '${fishEscape(flag.description)}'`,
             );
         }
+    }
+
+    const gameFlags = gameFlagsFromHeader();
+    if (gameFlags.length > 0) {
+        const listed = gameFlags.map((f) => fishEscape(f)).join(" ");
+        lines.push(
+            "",
+            `complete -c nsmbu -n '__nsmbu_seen run' -f -a '${listed}' -d 'Game flag'`,
+            `complete -c nsmbu -n '__nsmbu_seen launch' -f -a '${listed}' -d 'Game flag'`,
+        );
     }
 
     lines.push(

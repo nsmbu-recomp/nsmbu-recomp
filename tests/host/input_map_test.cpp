@@ -304,11 +304,7 @@ static void test_files() {
     std::string live = dir + "/controls.json";
     CHECK(save_file(live, m));
     // the live mapping follows NSMBU_USER_DIR
-#ifdef _WIN32
-    _putenv_s(env::USER_DIR.name(), dir.c_str());
-#else
-    setenv(env::USER_DIR.name(), dir.c_str(), 1);
-#endif
+    env::set(env::USER_DIR, dir.c_str());
     CHECK(default_path() == live);
     load_startup();
     CHECK(current() == m);

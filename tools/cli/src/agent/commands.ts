@@ -34,16 +34,16 @@ export async function cmdOpen(repo: string, rest: string[]): Promise<void> {
     await ensureNotRunning(repo);
     mkdirSync(agentDir(repo), { recursive: true });
     const sock = agentSocketPath(repo);
-    const extraEnv: Record<string, string> = { NSMBU_AGENT_SOCK: sock };
+    const launchArgs = ["--agent-sock", sock];
     const user = agentUserDir(repo);
     if (user) {
         mkdirSync(user, { recursive: true });
-        extraEnv.NSMBU_USER_DIR = user;
+        launchArgs.push(`--user-dir=${user}`);
     }
-    const child = spawnPython(repo, "tools/run/launch.py", rest, {
+    launchArgs.push(...rest);
+    const child = spawnPython(repo, "tools/run/launch.py", launchArgs, {
         detached: true,
         stdio: "ignore",
-        extraEnv,
     });
     child.unref();
     if (child.pid === undefined) {

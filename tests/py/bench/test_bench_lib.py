@@ -158,9 +158,10 @@ class BenchmarkStatistics(unittest.TestCase):
                 log = '[fixture] Loaded slot 1\n'
                 log += f'[prof] frame 120: 120 frames (0 hold), {frame}.00 ms/frame, 150.0 swaps/s, 150.0 logic steps/s; render thread CPU 3.00 ms/frame, in ops 2.00 ms/frame, idle (waiting for commands) 1.00 ms/frame\n'
                 log += (f'[interp] main thread CPU per pass: logic {cpu}.00 ms\n' * 3)
-                executable.write_text('#!' + sys.executable + '\nimport os\n'
-                                      'assert os.environ["NSMBU_UNCAPPED"] == "1"\n'
-                                      'assert os.environ["NSMBU_RENDERER_RUNTIME"] == "metal"\n'
+                executable.write_text('#!' + sys.executable + '\nimport sys\n'
+                                      'assert "--uncapped" in sys.argv\n'
+                                      'assert "--renderer-runtime=metal" in sys.argv\n'
+                                      'assert not any(a.startswith("NSMBU_") for a in sys.argv)\n'
                                       'open("test_done", "w").close()\n'
                                       'print(' + repr(log) + ')\n')
                 executable.chmod(0o755)

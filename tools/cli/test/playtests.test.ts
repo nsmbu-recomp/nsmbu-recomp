@@ -5,20 +5,51 @@ import { CASES } from "../src/playtest/cases/index.ts";
 import { ensureLiveAgentIdle, Session } from "../src/playtest/session.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const repo = process.env.NSMBU_REPO ?? join(here, "../../..");
-const show = process.env.NSMBU_TEST_SHOW === "1";
 
-const runCase = process.env.NSMBU_REPO ? test : test.skip;
+function parseRunnerArgv(): { repo?: string; show: boolean; names?: string } {
+    const argv = process.argv.slice(2);
+    let repo: string | undefined;
+    let show = false;
+    let names: string | undefined;
+    for (let i = 0; i < argv.length; i++) {
+        const a = argv[i];
+        if (a === "--repo") {
+            repo = argv[++i];
+            continue;
+        }
+        if (a.startsWith("--repo=")) {
+            repo = a.slice("--repo=".length);
+            continue;
+        }
+        if (a === "--show") {
+            show = true;
+            continue;
+        }
+        if (a === "--names") {
+            names = argv[++i];
+            continue;
+        }
+        if (a.startsWith("--names=")) {
+            names = a.slice("--names=".length);
+        }
+    }
+    return { repo, show, names };
+}
+
+const runner = parseRunnerArgv();
+const repo = runner.repo ?? join(here, "../../..");
+const show = runner.show;
+const runCase = runner.repo ? test : test.skip;
 
 function casesToRun() {
-    const raw = process.env.NSMBU_TEST_NAMES?.trim();
+    const raw = runner.names?.trim();
     if (!raw) return CASES.filter((c) => !c.manual);
     const names = new Set(raw.split(",").filter(Boolean));
     return CASES.filter((c) => names.has(c.name));
 }
 
 test.before(async () => {
-    if (process.env.NSMBU_REPO) {
+    if (runner.repo) {
         await ensureLiveAgentIdle(repo);
     }
 });

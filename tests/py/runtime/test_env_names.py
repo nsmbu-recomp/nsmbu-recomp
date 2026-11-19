@@ -1,4 +1,4 @@
-"""Docs may name only NSMBU_* variables declared in runtime/src/core/env.h."""
+"""Docs may name only NSMBU_* settings declared in runtime/src/core/env.h or CMake build ids."""
 import re
 import unittest
 from pathlib import Path
@@ -8,19 +8,21 @@ ENV_H = ROOT / "runtime" / "src" / "core" / "env.h"
 DOCS = ROOT / "docs"
 NAME = re.compile(r"NSMBU_[A-Z0-9_]+")
 DECLARED = re.compile(r'ENV\([A-Z0-9_]+,\s*"(NSMBU_[A-Z0-9_]+)"\)')
-# Not runtime getenv names. Recompiler passes, build ids, decomp symbols, the CMake renderer switch,
-# and the nsmbu CLI session id.
-PREFIX_OK = ("NSMBU_RECOMP_", "NSMBU_NSLU_", "NSMBU_ADDR_")
+# Not runtime settings: decomp symbols and the CMake renderer switch.
+PREFIX_OK = ("NSMBU_NSLU_", "NSMBU_ADDR_")
 EXACT_OK = {
     "NSMBU_RENDERER",
-    "NSMBU_TEST_JOBS",
-    "NSMBU_VERBOSE_BUILD",
-    "NSMBU_BIN",
-    "NSMBU_DATA_DIR",
-    "NSMBU_GAME_SAMPLE",
-    "NSMBU_VULKAN_PRESENT_MODE",
-    "NSMBU_TEST_TRUST_NATIVE_MODS",
-    "NSMBU_SESSION",
+    "NSMBU_HAS_VULKAN",
+    "NSMBU_HAS_METAL",
+    "NSMBU_SDL_HOST",
+    "NSMBU_BUNDLED_DEPS",
+    "NSMBU_BUNDLED_ZSTD",
+    "NSMBU_SETUP_GUI",
+    "NSMBU_VERSION",
+    "NSMBU_VK_DECLARE",
+    "NSMBU_VK_LOAD",
+    "NSMBU_NSLU_USA",
+    "NSMBU_NSLU_EU",
 }
 
 

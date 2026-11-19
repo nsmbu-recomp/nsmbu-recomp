@@ -70,8 +70,14 @@ async function main(): Promise<void> {
     try {
         switch (cmd) {
             case "build": {
-                const { flags, positional } = parseArgv(rest, ["release", "sanitizer"], []);
-                cmdBuild(repo, hasFlag(flags, "release"), hasFlag(flags, "sanitizer"), positional);
+                const { flags, positional } = parseArgv(rest, ["release", "sanitizer", "verbose"], []);
+                cmdBuild(
+                    repo,
+                    hasFlag(flags, "release"),
+                    hasFlag(flags, "sanitizer"),
+                    hasFlag(flags, "verbose"),
+                    positional,
+                );
                 break;
             }
             case "launch": {

@@ -69,7 +69,7 @@ Inside a version folder:
   Without it, a known USA or Europe base-disc RPX (title version 0) is allowed.
 - `code/`, `content/`, `meta/` — extract output (base disc, or base plus update for `*-1.3.0`)
 
-Keys: `game/keys.txt`, or `WIIU_COMMON_KEY` for the common key only.
+Keys: `game/keys.txt`, `common.key`, or `--common-key FILE` for the common key.
 
 `.gitignore` ignores all of `game/` except `game/README.md`.
 
@@ -92,10 +92,10 @@ Otherwise it runs `stubgen.py` so the tree links without your RPX.
 Clang needs a GNU `libstdc++` (for example `libstdc++-14-dev` on Ubuntu).
 `tools/build/build.py` adds the matching `-L` path when it finds `libstdc++.so` under `/usr/lib/gcc/`.
 
-The `nsmbu` CLI exports `NSMBU_USER_DIR` to the gitignored `nsmbu/` folder on dev commands.
+The `nsmbu` CLI passes `--user-dir=<repo>/nsmbu` on dev commands.
 `nsmbu launch` starts `build/debug/nsmbu` with `--game` set to `game/` and `--save nsmbu/save`.
-Default debug env vars (`NSMBU_PROFILE`, `NSMBU_VK_STATS`, `NSMBU_SYNC_STATS`) are set when they are not already in the environment.
-`NSMBU_CRASH_RECOVERY` is not one of them.
+Default debug flags (`--profile`, `--vk-stats`, `--sync-stats`) are forwarded when launch does not pass them already.
+`--crash-recovery` is not one of them.
 
 `nsmbu launch --no-debug` skips those debug defaults.
 It still uses `nsmbu/`.
@@ -127,7 +127,7 @@ The loading card needs the pending course, not the save's current course.
 That state is in [course-open.md](course-open.md).
 You cannot pass a slot and a course pack on one launch.
 
-`nsmbu profile` runs `build/debug/nsmbu` with the fixed-scene profile env (`NSMBU_NO_AUDIO`, profile and Vulkan stats, slow-swap log, log file under `.tmp/repro/`).
+`nsmbu profile` runs `build/debug/nsmbu` with the fixed-scene profile flags (`--no-audio`, profile and Vulkan stats, slow-swap log, log file under `.tmp/repro/`).
 Default load is slot 2 at TV frame 700; the run stops at TV frame 1100.
 Pass a slot number, or `--exit-at`, `--load-at`, or `--log`.
 Use a Release binary (`nsmbu build --release`) for hitch checks.

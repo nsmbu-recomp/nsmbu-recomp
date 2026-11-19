@@ -1,40 +1,35 @@
 #pragma once
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 
 namespace env {
 
 struct Var {
     const char* key;
-    const char* operator()() const { return std::getenv(key); }
+    explicit Var(const char* k);
+    const char* operator()() const;
     const char* name() const { return key; }
-    bool present() const { return std::getenv(key) != nullptr; }
-    bool on() const {
-        const char* e = std::getenv(key);
-        return e && *e && std::strcmp(e, "0") != 0;
-    }
-    bool enabled() const {
-        const char* e = std::getenv(key);
-        return e && std::atoi(e) != 0;
-    }
-    int integer_or(int fallback) const {
-        const char* e = std::getenv(key);
-        return e ? std::atoi(e) : fallback;
-    }
-    double real_or(double fallback) const {
-        const char* e = std::getenv(key);
-        return e ? std::atof(e) : fallback;
-    }
-    unsigned long long u64_or(unsigned long long fallback) const {
-        const char* e = std::getenv(key);
-        return e ? std::strtoull(e, nullptr, 10) : fallback;
-    }
-    unsigned long ul_or(unsigned long fallback, int base) const {
-        const char* e = std::getenv(key);
-        return e ? std::strtoul(e, nullptr, base) : fallback;
-    }
+    bool present() const;
+    bool on() const;
+    bool enabled() const;
+    int integer_or(int fallback) const;
+    double real_or(double fallback) const;
+    unsigned long long u64_or(unsigned long long fallback) const;
+    unsigned long ul_or(unsigned long fallback, int base) const;
 };
+
+// argv wins over env.txt, which wins over in-process defaults.
+void set(const Var& var, const char* value);
+void set_new(const Var& var, const char* value);
+void set_named(const char* key, const char* value);
+void unset(const Var& var);
+void apply_flags(int argc, char** argv);
+void apply_file_line(const char* line);
+std::string assignments();
+void print_flags(std::FILE* out);
 
 const char* expand_path(const char* path);
 const char* path(const Var& var);
@@ -333,7 +328,5 @@ ENV(TEST_TOUCH, "NSMBU_TEST_TOUCH")
 
 inline constexpr int vulkan_cpu_path_count = 15;
 extern const Var vulkan_cpu_paths[vulkan_cpu_path_count];
-
-void unset(const Var& var);
 
 }

@@ -33,7 +33,7 @@ Run and crash logs live under `…/logs/` next to settings (`host::log_dir()`).
 On each start the previous `nsmbu.log` is renamed to `nsmbu-previous.log`.
 Then a new `nsmbu.log` is opened.
 Crash handlers write `crash-<date>-<time>.log` into the same folder.
-Set `NSMBU_LOG_FILE` to write somewhere else, or to `0` to skip the file.
+Pass `--log-file=PATH` to write somewhere else, or `--log-file=0` to skip the file.
 On Android, **Share log** in the setup app shares `nsmbu.log` and `nsmbu-previous.log`.
 It also shares the current setup job's status and the latest extract, translation, compile, and link logs.
 Key files and the imported dump are not included.
@@ -58,7 +58,7 @@ If the data folder is not writable, it falls back to:
 | Windows | `%TEMP%\NSMBU setup.log` |
 | Linux | `$TMPDIR/nsmbu-setup-log.log` (or `/tmp/nsmbu-setup-log.log`) |
 
-`--data-dir` / `NSMBU_DATA_DIR` moves the data folder.
+`--data-dir DIR` moves the data folder.
 `setup.log` follows it.
 
 ## Source and developer overrides
@@ -83,7 +83,7 @@ USA 1.3.0 is the identity: those code addresses are already the canonical ids in
 5. Search `references/headers` for that canonical address ([names.md](../developer/names.md)).
 6. Match `CHANGELOG.md` Unreleased and `nsmbu test --list` summaries that cite the issue before starting a new repro.
 
-`NSMBU_USER_DIR` (set by the `nsmbu` CLI to `<repo>/nsmbu`) moves settings and the logs folder with it.
-`portable.txt` next to the game binary wins over `NSMBU_USER_DIR` and keeps logs under that release's `nsmbu/logs`.
-Profile and replay tools may set `NSMBU_LOG_FILE` to a path under `.tmp/` (see [performance.md](../developer/performance.md) and [automation.md](../developer/automation.md)).
+The `nsmbu` CLI passes `--user-dir=<repo>/nsmbu` on dev commands, which moves settings and the logs folder with it.
+`portable.txt` next to the game binary wins over `--user-dir` and keeps logs under that release's `nsmbu/logs`.
+Profile and replay tools may pass `--log-file` to a path under `.tmp/` (see [performance.md](../developer/performance.md) and [automation.md](../developer/automation.md)).
 Those paths are for local measurement, not for player bug reports.

@@ -72,15 +72,8 @@ static int shots=0;
 namespace screenshot { bool key_down(int code){for(int k:input_map::current().keys[input_map::kScreenshot])if(k==code){++shots;return true;}return false;} void poll_controller(const float*){} }
 
 static void set_env(const env::Var& name, const char* value) {
-    if (!value) {
-        env::unset(name);
-        return;
-    }
-#ifdef _WIN32
-    _putenv_s(name.name(), value);
-#else
-    setenv(name.name(), value, 1);
-#endif
+    if (!value) env::unset(name);
+    else env::set(name, value);
 }
 int main(){
  assert(input::development_input_log());

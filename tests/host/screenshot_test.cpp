@@ -101,13 +101,8 @@ int main() {
     namespace fs = std::filesystem;
     const fs::path dir = fs::temp_directory_path() / ("nsmbu_screenshot_test_" + std::to_string(time(nullptr)));
     fs::create_directories(dir);
-#ifdef _WIN32
-    _putenv_s(env::SCREENSHOT_DIR.name(), dir.string().c_str());
-    _putenv_s(env::TEST_SCREENSHOT.name(), "7,9");
-#else
-    setenv(env::SCREENSHOT_DIR.name(), dir.string().c_str(), 1);
-    setenv(env::TEST_SCREENSHOT.name(), "7,9", 1);
-#endif
+    env::set(env::SCREENSHOT_DIR, dir.string().c_str());
+    env::set(env::TEST_SCREENSHOT, "7,9");
 
     const uint32_t W = 301, H = 77;
     const size_t stride = W * 4 + 12;

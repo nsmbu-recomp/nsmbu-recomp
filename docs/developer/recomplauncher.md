@@ -44,7 +44,7 @@ through the same `--image {game}` argument the launcher passes:
 
 - **A Cemu archive (`.wua`)**: no keys; the setup picks the supported title out of the archive.
 - **A disc image (`.wud` or `.wux`)**: needs the disc key file next to it (`IMAGE.key`)
-  and the Wii U common key (`common.key` beside the image, or `WIIU_COMMON_KEY`).
+  and the Wii U common key (`common.key` beside the image, or `--common-key`).
 - **The extracted game folder** (`code/`, `content/`, `meta/`).
 
 A folder arriving through `--image` is routed to the same folder source as `--game-dir`

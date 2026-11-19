@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Game settings are command-line flags (`--no-audio`, `--vk-present-mode`, and the rest).
+  `nsmbu run` forwards them to the binary.
+  The game no longer reads `NSMBU_*` from the environment.
+  The installer common key comes from `--common-key` or `common.key`, not an environment variable.
 - Press M to mute or unmute the game.
   The game keeps that choice for the next start.
 - RecompLauncher support: a `recomplauncher.json` in every release.
@@ -26,7 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   A or Enter plays the pause click and the button press, then opens this overlay.
   The pause buttons stay hidden until the overlay closes.
   Closing the overlay returns to the pause menu.
-  Start the game with `NSMBU_INGAME_SETTINGS=1` and that press hides the pause menu.
+  Start the game with `--ingame-settings` and that press hides the pause menu.
   Closing the overlay shows the pause menu again, including its buttons.
   Continue from that menu returns to the course, and Settings opens this overlay again.
   The blue panel keeps its original height.
@@ -61,7 +65,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Closing that overlay fades the pause menu back in.
 - The installer save screen imports an NSMBU save folder that contains `rp_personal_savedata.dat`.
 - Settings → Debug → **Settings button on the start menu** adds that button under Change Controller when the world map loads.
-  The button stays off unless the game is started with `NSMBU_INGAME_SETTINGS=1`.
+  The button stays off unless the game is started with `--ingame-settings`.
 - With that same option, the course pause Settings button opens this overlay and hides the pause menu.
   That press does not open the controller menu.
   Closing the overlay shows the pause menu again, and the course stays paused.

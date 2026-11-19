@@ -12,7 +12,7 @@ Course pad logs live under `tools/cli/src/playtest/replays/` and run as `nsmbu t
 
 Each `-s` id is one game.
 Omit `-s` and the command uses the default session, which is still one game.
-`NSMBU_SESSION` is that id when the flag is absent.
+There is no environment fallback; always pass `-s` when you need a non-default session.
 
 ## Install
 
@@ -76,7 +76,7 @@ Commands call into existing APIs: `render::frame_count()`, `interp::logic_steps(
 Package name and binary name are `nsmbu`.
 Entry: `tools/cli/bin/nsmbu.ts` with shebang / `package.json` `"bin":{"nsmbu":"…"}`, `"type":"module"`, `"engines":{"node":">=24"}`.
 
-The CLI exports `NSMBU_CLI=1` and `NSMBU_USER_DIR=<repo>/nsmbu` on every dev command (same layout as before).
+The CLI passes `--cli` and `--user-dir=<repo>/nsmbu` to the game on every dev command (same layout as before).
 
 | Command | Role |
 | --- | --- |
@@ -149,7 +149,7 @@ On Linux, `tools/build/build.py` adds the `libstdc++` path when it finds `libstd
 It also runs the recompiler when the contents of a `recomp/hooks/*.jsonc` file change.
 When that RPX is absent, the build fills `build/gen` with `recomp/stubgen.py` so the tree still links.
 
-Set `NSMBU_VERBOSE_BUILD=1` to print full CMake configure output (pkg-config checks and other `--` status lines).
+`nsmbu build --verbose` prints full CMake configure output (pkg-config checks and other `--` status lines).
 
 An RPX from a disc that lacks the 1.3.0 update has different addresses.
 Those addresses miss `references/headers`.
@@ -210,7 +210,7 @@ The run log is `nsmbu/logs/nsmbu.log`.
 ## Live look
 
 Commands talk to one session's game over that session's control socket.
-Pass the same `-s <id>` on every command for that game, or export `NSMBU_SESSION`.
+Pass the same `-s <id>` on every command for that game.
 Use them for a short look while writing a playtest case; lasting coverage stays in `tools/cli/src/playtest/cases/` and `nsmbu test`.
 
 - `nsmbu open [slot|course|course-file] […]` — ensure a debug binary, spawn the game with agent control enabled, wait until the socket accepts.

@@ -12,7 +12,7 @@ Across functions, this module adds:
   register save/restore helper (which does not follow the convention) it keeps every half the helper
   never writes; after an indirect call or an import, f14-f31; after a hooked function, nothing.
 Both are solved together as a greatest fixpoint (must-analysis: start from "everything known" and
-remove until stable). NSMBU_RECOMP_SINGLE_IP=0 keeps the per-function analysis alone.
+remove until stable). --no-single-ip keeps the per-function analysis alone.
 """
 import ctypes
 import os
@@ -20,8 +20,9 @@ import sys
 import time
 
 import ppc2c
+import switches
 
-INTERPROC = os.environ.get("NSMBU_RECOMP_SINGLE_IP", "1") != "0"
+INTERPROC = switches.Live("single_ip")
 TOP = (1 << 64) - 1
 SAVED = ppc2c.SAVED_FPRS
 VOLATILE = TOP & ~SAVED
@@ -79,7 +80,7 @@ def _import_mp():
 
 
 def _fork_ok():
-    if os.environ.get("NSMBU_RECOMP_SPAWN") == "1" or sys.platform == "win32":
+    if switches.S.spawn or sys.platform == "win32":
         return False
     try:
         mp = _import_mp()

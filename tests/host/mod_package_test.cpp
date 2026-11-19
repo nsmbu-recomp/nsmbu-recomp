@@ -1,17 +1,11 @@
 #include "mods/packages.h"
 #include "mods/content.h"
+#include "core/env.h"
 #include <cassert>
-#include <cstdlib>
 #include <string>
 
 namespace {
-void env(const char* key, const char* value) {
-#ifdef _WIN32
-    _putenv_s(key, value ? value : "");
-#else
-    if (value) setenv(key,value,1); else unsetenv(key);
-#endif
-}
+void env(const char* key, const char* value) { env::set_named(key, value); }
 }
 #include "mods/cemu_pack.h"
 #include <filesystem>

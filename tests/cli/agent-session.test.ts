@@ -59,12 +59,12 @@ test("a named session has its own socket and user dir", () => {
     }
 });
 
-test("NSMBU_SESSION applies when -s is absent and the flag wins", () => {
+test("NSMBU_SESSION is ignored when -s is absent and the flag wins", () => {
     const prev = process.env.NSMBU_SESSION;
     try {
         process.env.NSMBU_SESSION = "from-env";
         assert.deepEqual(applySession(["status"]), ["status"]);
-        assert.equal(agentSession(), "from-env");
+        assert.equal(agentSession(), null);
         assert.deepEqual(applySession(["-s", "flag", "open"]), ["open"]);
         assert.equal(agentSession(), "flag");
     } finally {

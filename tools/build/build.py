@@ -141,9 +141,9 @@ def cmake_configure_needed(build_dir, source_dir, cache_entries, define_entries)
             return True
     return False
 
-def run_cmake(argv, cwd):
+def run_cmake(argv, cwd, verbose=False):
     cmd = list(argv)
-    if os.environ.get("NSMBU_VERBOSE_BUILD") != "1":
+    if not verbose:
         cmd.insert(1, "--log-level=WARNING")
     subprocess.run(cmd, check=True, cwd=cwd)
 
@@ -204,6 +204,7 @@ def main():
     parser.add_argument("--no-debug", action="store_true")
     parser.add_argument("--sanitizer", action="store_true")
     parser.add_argument("--target", default="nsmbu", help="CMake target to build (default: nsmbu)")
+    parser.add_argument("--verbose", action="store_true", help="print full CMake configure output")
     parser.add_argument(
         "--dir",
         default=None,
@@ -222,7 +223,7 @@ def main():
     debug_build = not args.release and not args.no_debug
     ensure_gen_dir()
     if debug_build:
-        dev_game_icon.refresh_android_local_icon()
+        dev_game_icon.refresh_android_local_icon(verbose=args.verbose)
     libdir = libstdcxx_libdir()
     if not libdir:
         sys.exit(
@@ -278,7 +279,7 @@ def main():
         and not any(a.startswith("-DNSMBU_SETUP_GUI") for a in extra),
     )
     if cmake_configure_needed(build_dir, ROOT, cache_entries, define_entries):
-        run_cmake(cmake, ROOT)
+        run_cmake(cmake, ROOT, verbose=args.verbose)
     link_compile_commands(build_dir)
     subprocess.run(
         ["cmake", "--build", build_dir, "--target", args.target, "-j", str(args.jobs)],

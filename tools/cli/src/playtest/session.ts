@@ -5,6 +5,7 @@ import { AgentClient } from "../agent/client.ts";
 import { parseButtonBits } from "../agent/buttons.ts";
 import { closeLiveAgent, formatLiveAgent, isPidAlive, liveAgents } from "../agent/process.ts";
 import { canConnectSocket, waitForSocket } from "../agent/socket.ts";
+import { runtimeArgs } from "../runtime_flags.ts";
 import { spawnPython } from "../run.ts";
 
 export type PlayStatus = {
@@ -220,9 +221,7 @@ export class Session {
         mkdirSync(dirname(this.logPath), { recursive: true });
         mkdirSync(dirname(this.sockPath()), { recursive: true });
         const sock = this.sockPath();
-        const args = ["--save", this.saveDir];
-        if (this.openPack) args.push(this.openPack);
-        const extraEnv: Record<string, string> = {
+        const vars: Record<string, string> = {
             NSMBU_LOG_FILE: this.logPath,
             NSMBU_AGENT_SOCK: sock,
             NSMBU_USER_DIR: this.userDir,
@@ -235,13 +234,15 @@ export class Session {
             ...this.env,
         };
         if (this.env.NSMBU_HIDDEN_WINDOWS === undefined) {
-            extraEnv.NSMBU_HIDDEN_WINDOWS = this.show ? "0" : "1";
+            vars.NSMBU_HIDDEN_WINDOWS = this.show ? "0" : "1";
         }
-        if (this.env.NSMBU_NO_AUDIO === "0") delete extraEnv.NSMBU_NO_AUDIO;
+        if (this.env.NSMBU_NO_AUDIO === "0") delete vars.NSMBU_NO_AUDIO;
+        const gameFlags = runtimeArgs(vars);
+        const args = ["--save", this.saveDir, ...gameFlags];
+        if (this.openPack) args.push(this.openPack);
         const child = spawnPython(this.repo, "tools/run/launch.py", args, {
             detached: true,
             stdio: "ignore",
-            extraEnv,
         });
         child.unref();
         if (child.pid === undefined) throw new Error("failed to spawn game");

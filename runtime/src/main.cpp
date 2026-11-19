@@ -301,14 +301,7 @@ static void apply_portable_mode() {
     const std::string u = host::portable_user_dir();
     std::error_code ec;
     std::filesystem::create_directories(u, ec);
-    auto set = [](const env::Var& k, const std::string& v) {
-#ifdef _WIN32
-        if (getenv(k.name())) return;
-        _putenv_s(k.name(), v.c_str());
-#else
-        setenv(k.name(), v.c_str(), 0);
-#endif
-    };
+    auto set = [](const env::Var& k, const std::string& v) { env::set_new(k, v.c_str()); };
     set(env::STATE_DIR, u + "/states");
 #ifdef __APPLE__
     set(env::DISPLAY_SETTINGS, u + "/display.plist");
@@ -317,14 +310,7 @@ static void apply_portable_mode() {
 }
 
 static void default_vulkan_cpu_paths() {
-    for (const env::Var& var : env::vulkan_cpu_paths) {
-        if (var()) continue;
-#ifdef _WIN32
-        _putenv_s(var.name(), "1");
-#else
-        setenv(var.name(), "1", 0);
-#endif
-    }
+    for (const env::Var& var : env::vulkan_cpu_paths) env::set_new(var, "1");
 }
 
 static int g_log_fd = -1;
@@ -393,8 +379,12 @@ static void print_help(const char* argv0) {
 #ifdef NSMBU_HAS_VULKAN
            "  --renderer-smoke      Run the Vulkan smoke test and exit\n"
 #endif
-           "  -h, --help            Show this help\n",
+           "  -h, --help            Show this help\n"
+           "\n"
+           "Every NSMBU_* setting is a flag: NSMBU_NO_AUDIO is --no-audio.\n"
+           "A bare flag sets 1. --name=value sets a value.\n",
            name);
+    env::print_flags(stdout);
 }
 
 static bool valid_open_pack(const char* s) {
@@ -412,17 +402,13 @@ static bool valid_open_pack(const char* s) {
 }
 
 #if defined(__ANDROID__) || TARGET_OS_IPHONE
-// env.txt in the working folder: NAME=value lines for the NSMBU_* settings a phone has no shell for
+// env.txt in the working folder: one --flag or --flag=value per line. A phone has no shell.
 static void apply_env_txt() {
     if (FILE* f = fopen("env.txt", "r")) {
         char line[512];
         while (fgets(line, sizeof line, f)) {
-            line[strcspn(line, "\r\n")] = 0;
-            char* eq = strchr(line, '=');
-            if (line[0] == '#' || !eq || eq == line) continue;
-            *eq = 0;
-            setenv(line, eq + 1, 1);
-            LOG("[boot] env.txt: %s=%s", line, eq + 1);
+            env::apply_file_line(line);
+            LOG("[boot] env.txt: %s", line);
         }
         fclose(f);
     }
@@ -430,6 +416,7 @@ static void apply_env_txt() {
 #endif
 
 int main(int argc, char** argv) {
+    env::apply_flags(argc, argv);
     if (const char* warm = env::SHADER_WARM())
         if (*warm && std::strcmp(warm, "0")) std::setvbuf(stderr, nullptr, _IONBF, 0);
     apply_portable_mode();
@@ -444,7 +431,7 @@ int main(int argc, char** argv) {
         if (chdir(dir) != 0) fprintf(stderr, "cannot enter %s\n", dir);
         setenv("XDG_CONFIG_HOME", (std::string(dir) + "/config").c_str(), 1);
 
-        setenv(env::VK_DRAW_BATCH.name(), "2048", 0);
+        env::set_new(env::VK_DRAW_BATCH, "2048");
 
         if (!env::INTERP()) interp::set_mode(1);
 

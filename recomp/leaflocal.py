@@ -19,14 +19,14 @@ the same; only the dead stores of scratch registers go away. Not applied to func
 (transform_nonleaf below handles those), hooks, instruction hooks, traps or unimplemented
 instructions.
 """
-import os
 import re
 
 import ppc2c
+import switches
 
-# NSMBU_RECOMP_LEAF_POISON=1: a checking build; at each return the scratch registers the function
+# --leaf-poison: a checking build; at each return the scratch registers the function
 # used get garbage, so a caller that relied on one would break visibly
-POISON = os.environ.get("NSMBU_RECOMP_LEAF_POISON", "0") == "1"
+POISON = switches.Live("leaf_poison", check=True)
 
 _R = re.compile(r"c->r\[(\d+)\]")
 _F = re.compile(r"c->f\[(\d+)\]\.ps([01])")
@@ -141,7 +141,7 @@ def transform(stmts):
 # The same locals in a function that calls others. Before each call the registers the function
 # assigned since the last sync go back to the Cpu struct. A later return, tail call or loop-head
 # sync also stores them when they are dirty. After the call, a register is read again only when it
-# is live (NSMBU_RECOMP_NONLEAF_LIVE=0 reads every used register again). r0, r11 and r12 are still
+# is live (--no-nonleaf-live reads every used register again). r0, r11 and r12 are still
 # tracked as dirty locals between calls like any other register, but they are always written back
 # before a call (a callee loads them from the struct in its prologue) and always reloaded when live
 # after a call (a callee with calls writes them back at its own calls). One float half does not
@@ -342,7 +342,7 @@ def transform_nonleaf(stmts, addrs):
     n = len(out)
     index = {a: i for i, a in enumerate(addrs)}
     live_on = ppc2c.pass_on("NSMBU_RECOMP_NONLEAF_LIVE")
-    poison_on = os.environ.get("NSMBU_RECOMP_LEAF_POISON", "0") == "1"
+    poison_on = bool(POISON)
     global reloads_written, reloads_left_out, reload_calls
 
     def every_half():

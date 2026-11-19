@@ -116,7 +116,7 @@ nsmbu test --list
 nsmbu test [--show] [name…]
 ```
 
-Cases run in parallel (default 2 jobs; override with `NSMBU_TEST_JOBS`).
+Cases run in parallel (default 2 jobs; override with `nsmbu test --jobs N`).
 Add cases under `tools/cli/src/playtest/cases/` and register in `cases/index.ts`.
 Helpers live in `tools/cli/src/playtest/helpers.ts`.
 

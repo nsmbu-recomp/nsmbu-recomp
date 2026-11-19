@@ -355,8 +355,6 @@ class Adapter:
 
         A paused or killed translation restarts its incomplete generation;
         completed translation is reused only after hashing every output file.
-        The NSMBU_RECOMP_* switches setup.recompile passes to recomp.py are part
-        of the identity, so a different translation keeps its own generation.
         """
         self.boundary()
         game = Path(game).resolve()
@@ -365,8 +363,7 @@ class Adapter:
                   "rpx": self.hash_file(game / "code/red-pro2.rpx"),
                   "installer": self.hash_file(self.package / "installer/setup.py"),
                   "rpx_reader": self.hash_file(self.package / "tools/rpx/rpx.py"),
-                  "translator": self.hash_tree(self.package / "recomp"),
-                  "switches": {name: value for name, value in os.environ.items() if name.startswith("NSMBU_RECOMP_")}}
+                  "translator": self.hash_tree(self.package / "recomp")}
         inputs["translator"] = {name: value for name, value in inputs["translator"].items()
                                 if Path(name).suffix in (".py", ".json", ".jsonc")}
         identity = hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
@@ -414,11 +411,9 @@ class Adapter:
             expected = self.package / "recomp/recomp.py"
             if len(command) != 5 or Path(command[1]).resolve() != expected or command[4] != "--progress":
                 raise RuntimeError("unexpected subprocess requested by translation")
-            switches = {name: value for name, value in (env or {}).items() if name.startswith("NSMBU_RECOMP_")}
-            argv, search, saved = sys.argv, list(sys.path), {name: os.environ.get(name) for name in switches}
+            argv, search = sys.argv, list(sys.path)
             output, code = Lines(), 0
             try:
-                os.environ.update(switches)
                 sys.argv = command[1:]
                 sys.path.insert(0, str(expected.parent))
                 with redirect_stdout(output), self.translation_control():
@@ -432,11 +427,6 @@ class Adapter:
             finally:
                 sys.argv = argv
                 sys.path[:] = search
-                for name, value in saved.items():
-                    if value is None:
-                        os.environ.pop(name, None)
-                    else:
-                        os.environ[name] = value
             if output.partial:
                 output.lines.append(output.partial)
             return SimpleNamespace(stdout=iter(output.lines), wait=lambda: code, returncode=code)

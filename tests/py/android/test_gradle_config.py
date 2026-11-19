@@ -23,8 +23,8 @@ class GradleConfig(unittest.TestCase):
 
     def test_setup_packages_and_release_properties(self):
         for name in ("nsmbuPythonDir", "nsmbuToolchainDir", "nsmbuExtractorDir", "nsmbuAbi",
-                     "nsmbuVersionName", "nsmbuVersionCode", "NSMBU_KEYSTORE", "NSMBU_KEYSTORE_PASSWORD",
-                     "NSMBU_KEY_ALIAS", "NSMBU_KEY_PASSWORD"):
+                     "nsmbuVersionName", "nsmbuVersionCode", "nsmbuKeystore", "nsmbuKeystorePassword",
+                     "nsmbuKeyAlias", "nsmbuKeyPassword"):
             self.assertIn("'" + name + "'", GRADLE)
         self.assertIn("'**/libnsmbu-*.so'", GRADLE)
         self.assertNotIn("androidx.window", GRADLE)
