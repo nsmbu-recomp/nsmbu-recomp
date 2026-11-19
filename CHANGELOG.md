@@ -41,8 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-- Dying in a course opened with `nsmbu run 1-1` returns you to that course on the world map.
-  Mario stands on that course, the same way as when you enter the course from the map and then die.
+- Dying or quitting a course opened with `nsmbu open 1-1` returns you to that course on the world map with Mario's normal model.
 - Settings opens again after that overlay closes, and again from the next pause menu.
 - After Settings, Continue returns to the course without the controller page or the broken cursor.
   The yellow cursor stays the size of the selected button, and the stick moves that cursor.

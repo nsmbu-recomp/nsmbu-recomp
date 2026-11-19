@@ -3,6 +3,7 @@
 ## Rules
 
 - Never commit any game files to the repo they must always be gitignored.
+- Always `nsmbu close` the running game session once finished.
 
 ## Changelog
 
