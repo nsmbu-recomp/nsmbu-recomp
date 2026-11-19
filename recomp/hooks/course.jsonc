@@ -18,7 +18,6 @@
     { "address": "025CF020" } // AreaTask::getCourseOutHudFlag: AreaTask is null during course teardown
   ],
   "sites": [
-    { "address": "024B814C" }, // AreaTask::setCourseOut: death returns here, so seed the directed-open map before the flag
     { "address": "024B8324" }, // AreaTask::prepareCourseOutEnter: after enter type 3, seed map checkpoint/pose if still missing
     { "address": "0226FD14" }, // CourseSelectPlayer::create_: seed MainGame pose again before the read
     { "address": "0226FECC" }, // CourseSelectPlayer::create_: seed player fields before pack
@@ -29,9 +28,6 @@
     { "address": "02267C48" }, // CourseSelectTask arm execute: directed return stays in the playable state
     { "address": "02267C4C" }, // same execute, common tail: keep that return playable for a few seconds
     { "address": "02267C70" }, // iris hold execute: directed return sends the unlock pulse on entry
-    { "address": "0228E0CC" }, // map player update: drop the scripted-move latch before the stick read
-    { "address": "0228E228" }, // same update: a directed return is not a demo event, so the stick path runs
-    { "address": "0228E234" }, // same update: the stick read stays enabled
     { "address": "022674E8" }, // map player model: drop the gaussian latch before the choice
     { "address": "024DE2D0" } // model build: a directed return uses the normal mesh, not gaussian
   ]

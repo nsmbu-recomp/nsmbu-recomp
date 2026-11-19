@@ -135,8 +135,11 @@ class CoverageTests(unittest.TestCase):
 
     def test_death_course_out_seeds_the_directed_map(self):
         hooks = (ROOT / "recomp/hooks/course.jsonc").read_text(encoding="utf-8")
-        self.assertIn('"024B814C"', hooks)
         self.assertIn('"02267C48"', hooks)
+        limited = (ROOT / "recomp/hooks/course_return.jsonc").read_text(encoding="utf-8")
+        self.assertIn('"024B814C"', limited)
+        self.assertIn('"USA"', limited)
+        self.assertNotIn("USA_V0", limited)
         source = (ROOT / "runtime/src/hooks/cs_probe.cpp").read_text(encoding="utf-8")
         start = source.index("void site_024B814C")
         end = source.index("void site_024B8324")

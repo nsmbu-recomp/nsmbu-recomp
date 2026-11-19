@@ -202,7 +202,8 @@ class Hooks(unittest.TestCase):
             entries, skipped = builds.read_hooks(builds.hook_files(), build)
             self.assertEqual(
                 skipped,
-                [("map_menu_cursor.jsonc", "USA EU NSMBU_NSLU_USA NSMBU_NSLU_EU")],
+                [("course_return.jsonc", "USA EU NSMBU_NSLU_USA NSMBU_NSLU_EU"),
+                 ("map_menu_cursor.jsonc", "USA EU NSMBU_NSLU_USA NSMBU_NSLU_EU")],
             )
             by_canon = {canon: addr for _, canon, addr, *_ in entries}
             self.assertNotIn(0x025A4C5C, by_canon)
