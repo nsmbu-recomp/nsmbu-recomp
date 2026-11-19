@@ -31,7 +31,7 @@ Under World map, turn off Settings button on the pause menu to hide it.
 The game builds the menu when the course loads.
 Leave the course and enter it again after you change the option.
 A course that loaded with the switch off keeps the three original rows.
-`NSMBU_INGAME_SETTINGS=1` is required for this button.
+`--ingame-settings` is required for this button.
 A or Enter on Settings opens the overlay and hides this pause menu.
 It does not open the controller menu.
 Closing the overlay shows this pause menu again.

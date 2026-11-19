@@ -15,9 +15,9 @@ Frame time, CPU samples, GPU timestamp intervals, and world-map benches are the 
 Development builds write `[input]` pad lines.
 The line layout is in `docs/developer/replay-format.md`.
 Read `docs/developer/cli.md` for install, build/launch, live control, and `nsmbu settings`.
-Read `docs/developer/env.md` when you add, rename, or pass a game setting flag.
+Read `docs/developer/flags.md` when you add, rename, or pass a game setting flag.
 A new setting is one `ENV` line in `runtime/src/core/env.h`, passed as a `--flag` on the game binary.
-Read Frame interpolation in `docs/developer/env.md` before changing a model pose, a camera picture, or interpolation.
+Read Frame interpolation in `docs/developer/flags.md` before changing a model pose, a camera picture, or interpolation.
 The `file-select`, `world-map`, and `course` skills own a short boot to that place.
 Read `game/README.md` for dump folder layout.
 

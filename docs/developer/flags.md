@@ -25,7 +25,9 @@ Boolean settings use a `--name` switch without a value.
 Values use `--name=value` or a separate argument when documented in `--help`.
 The canonical list is `./build/debug/nsmbu --help` (or the release binary's `--help`).
 
-To add a setting, add one `ENV` line in `runtime/src/core/env.h`, wire the flag in `runtime/src/core/env.cpp`, and document what it does in the feature page that owns the behaviour.
+To add a setting, add one `ENV` line in `runtime/src/core/env.h`.
+The flag name follows the rule above.
+Document what it does in the feature page that owns the behaviour.
 
 ## Writes
 

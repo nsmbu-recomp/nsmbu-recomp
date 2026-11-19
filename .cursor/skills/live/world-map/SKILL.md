@@ -20,7 +20,7 @@ One stick-right reaches `W101`.
 The `course` skill owns that enter and the quit back to the map.
 
 This boot keeps `nsmbu/settings.ini` (frame cap, resolution, present mode).
-Leave `NSMBU_INTERP_FPS`, `NSMBU_RES_SCALE`, `NSMBU_VK_PRESENT_MODE`, and `NSMBU_HIDDEN_WINDOWS` unset when the check is that session.
+Leave `--interp-fps`, `--res-scale`, `--vk-present-mode`, and `--hidden-windows` off when the check is that session.
 
 `nsmbu open` uses the repo `nsmbu/` settings and the active dump.
 That is the default session.
@@ -87,7 +87,7 @@ Done when status shows `name=W101`.
 The only unlocked neighbour of `W101` is back to `W1M0`.
 Stick left for that return.
 
-Hidden map boots often set `NSMBU_HIDDEN_WINDOWS=1`, immediate present, and resolution scale 1 (see [automation.md](../../../docs/developer/automation.md)).
+Hidden map boots often pass `--hidden-windows`, `--vk-present-mode=immediate`, and `--res-scale=1` (see [automation.md](../../../docs/developer/automation.md)).
 Use it only for a log that must match `docs/developer/automation.md`.
 The press list there is the same map, measured in TV frames.
 

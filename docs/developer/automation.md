@@ -185,7 +185,7 @@ The game keeps that choice in `audioMute`.
 
 Add a recipe here when a boot, pad timeline, or profile command works a second time.
 Each entry is the command, the log line that shows it worked, and what a later press would do.
-Full variable lists stay in [env.md](env.md).
+The flag contract stays in [flags.md](flags.md).
 Course replay benchmarks stay in [performance.md](performance.md).
 
 ### World map
