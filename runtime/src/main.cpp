@@ -224,6 +224,7 @@ static void init_crash_log_dir() {
     std::snprintf(g_crash_log_dir, sizeof g_crash_log_dir, "%s", host::log_dir().c_str());
 }
 static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ex) {
+    init_crash_log_dir();
     auto code=ex->ExceptionRecord->ExceptionCode;
     if (g_crash_log_dir[0]) {
         std::error_code ec;
@@ -273,9 +274,14 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ex) {
     }
     return EXCEPTION_EXECUTE_HANDLER;
 }
+static void abort_handler(int) {
+    RaiseException(0x40000015u /* STATUS_FATAL_APP_EXIT */, EXCEPTION_NONCONTINUABLE, 0, nullptr);
+    _exit(134);
+}
 static void install_crash_handler() {
     init_crash_log_dir();
     SetUnhandledExceptionFilter(crash_handler);
+    std::signal(SIGABRT, abort_handler);
     crash_addr::prime();
 }
 #endif
@@ -424,11 +430,17 @@ static int run_test_host_crash() {
     if (libc) {
         if (auto proc = GetProcAddress(libc, "strlen")) len = reinterpret_cast<size_t (*)(const char*)>(proc);
     }
+    __try {
+        LOG("%zu", len(reinterpret_cast<const char*>(bad_addr)));
+    } __except (crash_handler(GetExceptionInformation()), EXCEPTION_EXECUTE_HANDLER) {
+        _exit(1);
+    }
+    _exit(1);
 #else
     if (void* f = dlsym(RTLD_DEFAULT, "strlen")) len = (size_t (*)(const char*))f;
-#endif
     LOG("%zu", len(reinterpret_cast<const char*>(bad_addr)));
     return 1;
+#endif
 }
 
 int main(int argc, char** argv) {
