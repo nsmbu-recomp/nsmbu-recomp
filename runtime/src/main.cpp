@@ -2,7 +2,7 @@
 #ifdef __APPLE__
 #include <TargetConditionals.h>
 #endif
-#ifndef _WIN32
+#if !defined(_WIN32) || (defined(_WIN32) && !defined(_MSC_VER))
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -11,6 +11,7 @@
 #else
 #include <fcntl.h>
 #include <io.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #endif
@@ -108,7 +109,7 @@ static void crash_guest_cpu(int fd, void (*out)(int, const char*, size_t)) {
     out(fd, "\n", 1);
 }
 
-#ifndef _WIN32
+#if !defined(_WIN32) || (defined(_WIN32) && !defined(_MSC_VER))
 
 static int g_crash_fd = -1;
 static void crash_raw(int fd, const char* s, size_t n) {
@@ -126,6 +127,7 @@ static void init_crash_log_dir() {
 static void crash_out(int fd, const char* s, size_t n) { crash_context::redact(fd, {s,n}, crash_raw); }
 static void crash_log_only(int fd, const char* s, size_t n) { crash_context::redact(fd, {s,n}, crash_log_raw); }
 static void crash_handler(int sig, siginfo_t* si, void* uctx) {
+    init_crash_log_dir();
     uintptr_t a = (uintptr_t)si->si_addr;
     uintptr_t base = (uintptr_t)PPC_MEM_BASE;
     char path[640];
@@ -281,7 +283,7 @@ static void abort_handler(int) {
 static void install_crash_handler() {
     init_crash_log_dir();
     SetUnhandledExceptionFilter(crash_handler);
-    std::signal(SIGABRT, abort_handler);
+    signal(SIGABRT, abort_handler);
     crash_addr::prime();
 }
 #endif
@@ -424,12 +426,22 @@ static int run_test_host_crash() {
     LOG("[boot] NSMBU_TEST_HOST_CRASH: crashing on purpose in the C library");
     volatile uintptr_t bad_addr = 16;
     size_t (*volatile len)(const char*) = strlen;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_MSC_VER)
     HMODULE libc = GetModuleHandleA("ucrtbase.dll");
     if (!libc) libc = GetModuleHandleA("msvcrt.dll");
     if (libc) {
         if (auto proc = GetProcAddress(libc, "strlen")) len = reinterpret_cast<size_t (*)(const char*)>(proc);
     }
+#elif defined(_MSC_VER)
+    HMODULE libc = GetModuleHandleA("ucrtbase.dll");
+    if (!libc) libc = GetModuleHandleA("msvcrt.dll");
+    if (libc) {
+        if (auto proc = GetProcAddress(libc, "strlen")) len = reinterpret_cast<size_t (*)(const char*)>(proc);
+    }
+#else
+    if (void* f = dlsym(RTLD_DEFAULT, "strlen")) len = (size_t (*)(const char*))f;
+#endif
+#ifdef _MSC_VER
     __try {
         LOG("%zu", len(reinterpret_cast<const char*>(bad_addr)));
     } __except (crash_handler(GetExceptionInformation()), EXCEPTION_EXECUTE_HANDLER) {
@@ -437,7 +449,6 @@ static int run_test_host_crash() {
     }
     _exit(1);
 #else
-    if (void* f = dlsym(RTLD_DEFAULT, "strlen")) len = (size_t (*)(const char*))f;
     LOG("%zu", len(reinterpret_cast<const char*>(bad_addr)));
     return 1;
 #endif
