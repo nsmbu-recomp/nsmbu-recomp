@@ -15,6 +15,8 @@
 #include <sys/stat.h>
 #endif
 #include <cstdio>
+#include <cstdlib>
+#include <cstdint>
 #include <cstring>
 #include <ctime>
 #include <filesystem>
@@ -504,12 +506,14 @@ int main(int argc, char** argv) {
 
     if (env::TEST_HOST_CRASH()) {
         LOG("[boot] NSMBU_TEST_HOST_CRASH: crashing on purpose in the C library");
+        volatile uintptr_t bad_addr = 16;
         size_t (*volatile len)(const char*) = strlen;
 #ifndef _WIN32
 
         if (void* f = dlsym(RTLD_DEFAULT, "strlen")) len = (size_t (*)(const char*))f;
 #endif
-        LOG("%zu", len((const char*)(uintptr_t)16));
+        LOG("%zu", len(reinterpret_cast<const char*>(bad_addr)));
+        std::abort();
     }
 
     render::choose(argc, argv);
