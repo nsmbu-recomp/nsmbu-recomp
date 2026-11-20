@@ -69,11 +69,7 @@ void trace_dump(FILE* f, unsigned last);
 void mem_init_data_imports(uint32_t alloc_slot, uint32_t alloc_ex_slot, uint32_t free_slot);
 
 static bool crash_cli_no_dialog() {
-#ifndef NDEBUG
-    return env::CLI.enabled();
-#else
-    return false;
-#endif
+    return env::CLI.on() || env::TEST_HOST_CRASH.on() || env::HIDDEN_WINDOWS.on();
 }
 
 static int crash_append(char* buf, int n, int cap, const char* fmt, uint32_t v) {
@@ -417,11 +413,33 @@ static void apply_env_txt() {
 }
 #endif
 
+static int run_test_host_crash() {
+    if (!env::TEST_HOST_CRASH()) return -1;
+    LOG("[boot] NSMBU_TEST_HOST_CRASH: crashing on purpose in the C library");
+    volatile uintptr_t bad_addr = 16;
+    size_t (*volatile len)(const char*) = strlen;
+#ifdef _WIN32
+    HMODULE libc = GetModuleHandleA("ucrtbase.dll");
+    if (!libc) libc = GetModuleHandleA("msvcrt.dll");
+    if (libc) {
+        if (auto proc = GetProcAddress(libc, "strlen")) len = reinterpret_cast<size_t (*)(const char*)>(proc);
+    }
+#else
+    if (void* f = dlsym(RTLD_DEFAULT, "strlen")) len = (size_t (*)(const char*))f;
+#endif
+    LOG("%zu", len(reinterpret_cast<const char*>(bad_addr)));
+    return 1;
+}
+
 int main(int argc, char** argv) {
     env::apply_flags(argc, argv);
+    apply_portable_mode();
+    crash_context::initialize();
+    install_crash_handler();
+    start_log_file();
+    if (int early = run_test_host_crash(); early >= 0) return early;
     if (const char* warm = env::SHADER_WARM())
         if (*warm && std::strcmp(warm, "0")) std::setvbuf(stderr, nullptr, _IONBF, 0);
-    apply_portable_mode();
     default_vulkan_cpu_paths();
 #ifdef _WIN32
 
@@ -496,31 +514,9 @@ int main(int argc, char** argv) {
         else if (!strcmp(argv[i], "--renderer-smoke")) renderer_smoke = true;
 #endif
     }
-    crash_context::initialize();
-    install_crash_handler();
-    start_log_file();
-
     LOG("[boot] %s %s (%s), %s", app_title::kName, build::version(), build::commit(), reporthdr::os_description().c_str());
     LOG("[boot] game version %s (%s, title %s, title version %d)", g_guest_build_label, g_guest_build_name,
         g_guest_build_title_id, g_guest_build_title_version);
-
-    if (env::TEST_HOST_CRASH()) {
-        LOG("[boot] NSMBU_TEST_HOST_CRASH: crashing on purpose in the C library");
-        volatile uintptr_t bad_addr = 16;
-        size_t (*volatile len)(const char*) = strlen;
-#ifdef _WIN32
-        HMODULE libc = GetModuleHandleA("ucrtbase.dll");
-        if (!libc) libc = GetModuleHandleA("msvcrt.dll");
-        if (libc) {
-            if (auto proc = GetProcAddress(libc, "strlen"))
-                len = reinterpret_cast<size_t (*)(const char*)>(proc);
-        }
-#else
-        if (void* f = dlsym(RTLD_DEFAULT, "strlen")) len = (size_t (*)(const char*))f;
-#endif
-        LOG("%zu", len(reinterpret_cast<const char*>(bad_addr)));
-        return 1;
-    }
 
     render::choose(argc, argv);
 #ifdef NSMBU_HAS_VULKAN
