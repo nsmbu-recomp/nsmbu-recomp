@@ -509,9 +509,12 @@ int main(int argc, char** argv) {
         volatile uintptr_t bad_addr = 16;
         size_t (*volatile len)(const char*) = strlen;
 #ifdef _WIN32
-        if (HMODULE libc = GetModuleHandleW(L"ucrtbase.dll"))
+        HMODULE libc = GetModuleHandleA("ucrtbase.dll");
+        if (!libc) libc = GetModuleHandleA("msvcrt.dll");
+        if (libc) {
             if (auto proc = GetProcAddress(libc, "strlen"))
                 len = reinterpret_cast<size_t (*)(const char*)>(proc);
+        }
 #else
         if (void* f = dlsym(RTLD_DEFAULT, "strlen")) len = (size_t (*)(const char*))f;
 #endif
