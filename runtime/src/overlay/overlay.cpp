@@ -96,9 +96,8 @@ PerfAverage g_average;
 std::atomic<float> g_density{1.0f};
 std::atomic<bool> g_wait_release{false};
 std::atomic<double> g_last_frame{0};
-const bool g_no_host = env::NO_HOST_INPUT() != nullptr;
-
-const bool g_no_host_keys = g_no_host && !env::TEST_POST_KEYS();
+bool no_host_input() { return env::NO_HOST_INPUT() != nullptr; }
+bool no_host_keys() { return no_host_input() && !env::TEST_POST_KEYS(); }
 bool g_pad_b_used = false;
 
 struct Event {
@@ -404,7 +403,7 @@ void test_pad(float* v) {
 
 void read_controller() {
     std::copy(std::begin(U.values), std::end(U.values), std::begin(U.prev));
-    if (g_no_host) {
+    if (no_host_input()) {
         std::fill(std::begin(U.values), std::end(U.values), 0.0f);
         if (g_wait_release.load()) g_wait_release = false;
         return;
@@ -1126,7 +1125,7 @@ void package_controls() {
     using namespace mods::packages;
     static std::string error;
 
-    static const char* test_enable = g_no_host ? env::TEST_MOD_ENABLE() : nullptr;
+    static const char* test_enable = no_host_input() ? env::TEST_MOD_ENABLE() : nullptr;
     {
         static double last_scan = -1;
         double now = ImGui::GetTime();
@@ -2356,7 +2355,7 @@ bool perf_overlay_active() {
 }
 
 bool key(int code, bool down, bool repeat, int mods) {
-    if (g_no_host_keys) return false;
+    if (no_host_keys()) return false;
 #ifdef __APPLE__
 
     if (code == kVK_ANSI_Comma && (mods & kSuper) && !g_capturing_keys.load()) {
@@ -2393,7 +2392,7 @@ bool key(int code, bool down, bool repeat, int mods) {
 }
 bool mouse_move(float nx, float ny, bool touch) {
     const bool tile = map_menu::pointer(nx, ny);
-    if (!captures() || g_no_host) return tile;
+    if (!captures() || no_host_input()) return tile;
     push({Event::MousePos, 0, false, nx, ny, 0, touch});
     return true;
 }
@@ -2420,17 +2419,17 @@ bool click_close(float& x, float& y) {
 
 bool mouse_button(int button, bool down, bool touch) {
     if (button == 0 && down && map_menu::click()) return true;
-    if (!captures() || g_no_host) return false;
+    if (!captures() || no_host_input()) return false;
     push({Event::MouseButton, button, down, 0, 0, 0, touch});
     return true;
 }
 bool mouse_wheel(float dx, float dy) {
-    if (!captures() || g_no_host) return false;
+    if (!captures() || no_host_input()) return false;
     push({Event::Wheel, 0, false, dx, dy, 0});
     return true;
 }
 bool text(const char* utf8) {
-    if (!utf8 || !*utf8 || !is_open() || g_no_host) return false;
+    if (!utf8 || !*utf8 || !is_open() || no_host_input()) return false;
     Event e;
     e.kind = Event::Text;
     e.text = utf8;
@@ -2628,7 +2627,7 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
     if (text) {
         float pad[input_map::kPadCount];
         std::copy(std::begin(U.values), std::end(U.values), pad);
-        if (g_no_host) test_pad(pad);
+        if (no_host_input()) test_pad(pad);
         if (text_entry::draw(pad)) {
 
             for (auto& k : g_held_keys) k = false;

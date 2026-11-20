@@ -5,7 +5,7 @@
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}")
 set(USER_DIR "${WORK}/nsmbu")
-execute_process(COMMAND "${NSMBU}" --test-host-crash --no-audio --hidden-windows
+execute_process(COMMAND "${NSMBU}" --test-host-crash --no-audio --hidden-windows --cli
                         "--user-dir=${USER_DIR}"
                 WORKING_DIRECTORY "${WORK}" RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
 if(rc EQUAL 0)
