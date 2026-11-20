@@ -508,12 +508,15 @@ int main(int argc, char** argv) {
         LOG("[boot] NSMBU_TEST_HOST_CRASH: crashing on purpose in the C library");
         volatile uintptr_t bad_addr = 16;
         size_t (*volatile len)(const char*) = strlen;
-#ifndef _WIN32
-
+#ifdef _WIN32
+        if (HMODULE libc = GetModuleHandleW(L"ucrtbase.dll"))
+            if (auto proc = GetProcAddress(libc, "strlen"))
+                len = reinterpret_cast<size_t (*)(const char*)>(proc);
+#else
         if (void* f = dlsym(RTLD_DEFAULT, "strlen")) len = (size_t (*)(const char*))f;
 #endif
         LOG("%zu", len(reinterpret_cast<const char*>(bad_addr)));
-        std::abort();
+        return 1;
     }
 
     render::choose(argc, argv);

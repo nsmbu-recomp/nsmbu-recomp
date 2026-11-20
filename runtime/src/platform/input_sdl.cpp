@@ -1467,9 +1467,23 @@ static void apply_scenario(PadState& s) {
         if (t >= p.from && t < p.to) s.buttons |= p.bits;
 }
 
-static std::atomic<bool> g_pro{env::PRO_CONTROLLER.on()};
-bool pro_controller() { return g_pro.load(std::memory_order_relaxed); }
-void set_pro_controller(bool on) { g_pro = on; LOG("[input] keyboard/controller act as %s", on ? "Pro Controller" : "GamePad"); }
+static std::atomic<bool> g_pro{false};
+static std::atomic<bool> g_pro_defaulted{false};
+
+static void ensure_pro_default() {
+    if (g_pro_defaulted.exchange(true, std::memory_order_relaxed)) return;
+    g_pro.store(env::PRO_CONTROLLER.on(), std::memory_order_relaxed);
+}
+
+bool pro_controller() {
+    ensure_pro_default();
+    return g_pro.load(std::memory_order_relaxed);
+}
+void set_pro_controller(bool on) {
+    g_pro_defaulted.store(true, std::memory_order_relaxed);
+    g_pro = on;
+    LOG("[input] keyboard/controller act as %s", on ? "Pro Controller" : "GamePad");
+}
 
 PadState read(int player) {
     player = std::clamp(player, 0, input::kMaxPlayers - 1);
