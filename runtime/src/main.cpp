@@ -424,46 +424,23 @@ static int run_test_host_crash() {
     if (!env::TEST_HOST_CRASH()) return -1;
     LOG("[boot] NSMBU_TEST_HOST_CRASH: crashing on purpose in the C library");
     volatile uintptr_t bad_addr = 16;
-#ifdef _WIN32
+    size_t (*volatile len)(const char*) = strlen;
+#ifndef _WIN32
+    if (void* f = dlsym(RTLD_DEFAULT, "strlen")) len = (size_t (*)(const char*))f;
+#else
     HMODULE libc = GetModuleHandleA("ucrtbase.dll");
     if (!libc) libc = GetModuleHandleA("msvcrt.dll");
-    void* strlen_addr = nullptr;
-    if (libc) strlen_addr = reinterpret_cast<void*>(GetProcAddress(libc, "strlen"));
-    if (!strlen_addr) _exit(2);
-    EXCEPTION_RECORD er{};
-    er.ExceptionCode = EXCEPTION_ACCESS_VIOLATION;
-    er.ExceptionAddress = strlen_addr;
-    er.NumberParameters = 2;
-    er.ExceptionInformation[0] = 0;
-    er.ExceptionInformation[1] = bad_addr;
-    CONTEXT ctx{};
-#if defined(_M_X64) || defined(__x86_64__)
-    ctx.ContextFlags = CONTEXT_CONTROL;
-    ctx.Rip = (DWORD64)strlen_addr;
-#elif defined(_M_IX86) || defined(__i386__)
-    ctx.ContextFlags = CONTEXT_CONTROL;
-    ctx.Eip = (DWORD)strlen_addr;
+    if (libc) {
+        if (void* p = reinterpret_cast<void*>(GetProcAddress(libc, "strlen")))
+            len = reinterpret_cast<size_t (*)(const char*)>(p);
+    }
 #endif
-    EXCEPTION_POINTERS ex{&er, &ctx};
-    crash_handler(&ex);
-    _exit(1);
-#else
-    size_t (*volatile len)(const char*) = strlen;
-    if (void* f = dlsym(RTLD_DEFAULT, "strlen")) len = (size_t (*)(const char*))f;
     LOG("%zu", len(reinterpret_cast<const char*>(bad_addr)));
     return 1;
-#endif
 }
 
 int main(int argc, char** argv) {
     env::apply_flags(argc, argv);
-#ifdef _WIN32
-    env::seed_from_env(env::TEST_HOST_CRASH);
-    env::seed_from_env(env::USER_DIR);
-    env::seed_from_env(env::CLI);
-    env::seed_from_env(env::HIDDEN_WINDOWS);
-    env::seed_from_env(env::NO_AUDIO);
-#endif
     apply_portable_mode();
     crash_context::initialize();
     install_crash_handler();
