@@ -2,8 +2,13 @@
 #ifdef __APPLE__
 #include <TargetConditionals.h>
 #endif
-#if !defined(_WIN32) || (defined(_WIN32) && !defined(_MSC_VER))
+#ifndef _WIN32
 #include <dlfcn.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#elif !defined(_MSC_VER)
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/stat.h>
