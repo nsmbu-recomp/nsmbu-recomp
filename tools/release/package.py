@@ -38,7 +38,9 @@ LIB_EXT = (".a", ".lib", ".tbd", ".dylib", ".so")
 
 TOOL_FILES = [
     "tools/rpx/rpx.py",
+    "tools/check_content.py",
     "recomp/recomp.py",
+    "recomp/switches.py",
     "recomp/analyze.py",
     "recomp/ppc2c.py",
     "recomp/crlive.py",
@@ -50,6 +52,7 @@ TOOL_FILES = [
 INSTALLER_FILES = [
     "installer/setup.py",
     "installer/toolchains.json",
+    "installer/recomplauncher-prepare.sh",
     "installer/README.md",
 ]
 SETUP_APP = "NSMBU"
@@ -306,6 +309,14 @@ def copy(src, dst):
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     shutil.copy2(src, dst)
 
+def launcher_profile(version):
+    """recomplauncher.json for a release. prepare.version is that release, so an update runs
+    setup again: the built game is linked against the runtime in that release."""
+    with open(os.path.join(ROOT, "recomplauncher.json"), encoding="utf-8") as f:
+        profile = json.load(f)
+    profile.setdefault("prepare", {})["version"] = version
+    return profile
+
 def make_zip(src_dir, zip_path):
     base = os.path.basename(src_dir)
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
@@ -378,11 +389,19 @@ def main():
     with open(os.path.join(pkg, "sdk", "manifest.json"), "w") as f:
         json.dump(manifest, f, indent=1)
 
+    # RecompLauncher support (recomplauncher.json at the top of the release; the AppImage keeps
+    # a copy at its root, since appimage.py copies the whole folder). prepare.version is this
+    # release, so players who already set up run the step again after an update.
+    with open(os.path.join(pkg, "recomplauncher.json"), "w", encoding="utf-8") as f:
+        json.dump(launcher_profile(a.version), f, indent=2)
+        f.write("\n")
+
     for rel in TOOL_FILES + INSTALLER_FILES:
         copy(os.path.join(ROOT, rel), os.path.join(pkg, rel))
-    for hp in sorted(os.listdir(os.path.join(ROOT, "recomp"))):
-        if re.match(r"hooks.*\.txt$", hp):
-            copy(os.path.join(ROOT, "recomp", hp), os.path.join(pkg, "recomp", hp))
+    hooks_dir = os.path.join(ROOT, "recomp", "hooks")
+    for hp in sorted(os.listdir(hooks_dir)):
+        if hp.endswith(".jsonc"):
+            copy(os.path.join(hooks_dir, hp), os.path.join(pkg, "recomp", "hooks", hp))
 
     builds_dir = os.path.join(ROOT, "recomp", "builds")
     if os.path.isdir(builds_dir):

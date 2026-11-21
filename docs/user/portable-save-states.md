@@ -116,7 +116,7 @@ A text value can have up to 128 characters.
 The file can have up to 128 KB.
 A file that breaks a rule is not written and is not read.
 A state cannot carry a memory dump.
-`runtime/test/portable_state_test.cpp` checks the format.
+`tests/host/portable_state_test.cpp` checks the format.
 
 ## Loading
 

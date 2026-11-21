@@ -1,0 +1,10 @@
+// Directed course return. Base discs compile these functions differently.
+{
+  "builds": ["USA", "EU", "NSMBU_NSLU_USA", "NSMBU_NSLU_EU"],
+  "sites": [
+    { "address": "024B814C" }, // AreaTask::setCourseOut: death returns here, so seed the directed-open map before the flag
+    { "address": "0228E0CC" }, // map player update: drop the scripted-move latch before the stick read
+    { "address": "0228E228" }, // same update: a directed return is not a demo event, so the stick path runs
+    { "address": "0228E234" } // same update: the stick read stays enabled
+  ]
+}

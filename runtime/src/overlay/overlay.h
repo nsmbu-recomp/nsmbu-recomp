@@ -33,6 +33,10 @@ bool key(int code, bool down, bool repeat, int mods);
 
 bool mouse_move(float nx, float ny, bool touch = false);
 bool mouse_button(int button, bool down, bool touch = false);
+// The X drawn at the top right of the settings window, in 0..1 display space.
+bool close_button(float& x0, float& y0, float& x1, float& y1);
+// Presses that X with the pointer. The overlay has to be open and the button drawn.
+bool click_close(float& x, float& y);
 bool mouse_wheel(float dx, float dy);
 void set_density(float pixels_per_point);
 bool text(const char* utf8);

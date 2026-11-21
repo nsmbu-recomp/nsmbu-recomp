@@ -147,25 +147,18 @@ struct Ui {
     double full_since = -1;
     int result = 0;
     double last_draw = 0;
-    std::shared_ptr<const game_font::Glyphs> glyphs;
-    std::string note;
-    double note_since = -1;
     std::u16string reported;
     float scale = 1.0f;
     float win_h = 0;
 };
 Ui U;
 
-bool in_font(uint32_t c) { return !U.glyphs || U.glyphs->count(c); }
-
 uint32_t key_char(uint32_t c) {
-    const uint32_t s = U.shift ? shifted(c) : c;
-    return in_font(s) ? s : c;
+    return U.shift ? shifted(c) : c;
 }
 
 bool allowed(uint32_t c) {
     if (c < 0x20 || c == 0x7F || (c >= 0x80 && c < 0xA0)) return false;
-    if (!in_font(c)) return false;
     switch (U.req.mode) {
     case 1: return c >= '0' && c <= '9';
     case 3: return (c < 0x80 && isalnum((int)c)) || c == '-' || c == '_' || c == '.';
@@ -181,7 +174,7 @@ void build_grid() {
         for (int i = 0; i < (int)r.size(); i++) {
             auto cp = code_points(r[i]);
 
-            row.push_back({kChar, cp.empty() || !in_font(cp[0]) ? 0 : cp[0], i, 1});
+            row.push_back({kChar, cp.empty() ? 0 : cp[0], i, 1});
         }
         U.grid.push_back(row);
     }
@@ -196,8 +189,6 @@ void build_grid() {
 
 void begin(const Request& r) {
     U.req = r;
-    U.glyphs = r.glyphs;
-    U.note.clear();
     U.reported = r.initial;
     U.text = r.initial;
     U.caret = U.text.size();
@@ -220,12 +211,6 @@ void begin(const Request& r) {
 }
 
 void insert(uint32_t c) {
-    if (c >= 0x20 && !in_font(c)) {
-        U.note = "\"" + utf8(c > 0xFFFF ? std::u16string{(char16_t)(0xD800 + ((c - 0x10000) >> 10)), (char16_t)(0xDC00 + (c & 1023))}
-                                         : std::u16string{(char16_t)c}) + "\" is not available in the game's font";
-        U.note_since = now_s();
-        return;
-    }
     if (!allowed(c)) return;
     std::u16string units;
     if (c > 0xFFFF) c -= 0x10000, units = {(char16_t)(0xD800 + (c >> 10)), (char16_t)(0xDC00 + (c & 1023))};
@@ -502,10 +487,6 @@ void window() {
         ImGui::PopFont();
 
         const float x0 = ImGui::GetCursorPosX();
-        if (U.note_since >= 0 && now_s() - U.note_since < 2.5) {
-            ImGui::TextColored(ImVec4(1.0f, 0.62f, 0.45f, 1.0f), "%s", U.note.c_str());
-            ImGui::SameLine();
-        }
         const bool flash = U.full_since >= 0 && now_s() - U.full_since < 0.6;
         char count[32];
         snprintf(count, sizeof count, "%d / %d", (int)U.text.size(), U.req.max_len);

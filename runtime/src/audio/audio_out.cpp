@@ -281,6 +281,13 @@ void set_muted(bool on) {
         apply_device_gain();
     }
 }
+bool toggle_muted() {
+    if (mute_env_override()) return false;
+    const bool on = !muted();
+    set_muted(on);
+    hostui::post([on] { hostui::set("audioMute", on ? "1" : "0"); });
+    return true;
+}
 bool mute_env_override() { return env::NO_AUDIO() != nullptr; }
 
 float volume() { return g_volume.load(std::memory_order_relaxed); }

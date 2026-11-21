@@ -3,9 +3,9 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { AgentClient } from "../agent/client.ts";
 import { parseButtonBits } from "../agent/buttons.ts";
-import { agentSocketPath } from "../agent/paths.ts";
-import { isPidAlive, readAgentPid } from "../agent/process.ts";
+import { closeLiveAgent, formatLiveAgent, isPidAlive, liveAgents } from "../agent/process.ts";
 import { canConnectSocket, waitForSocket } from "../agent/socket.ts";
+import { runtimeArgs } from "../runtime_flags.ts";
 import { spawnPython } from "../run.ts";
 
 export type PlayStatus = {
@@ -29,6 +29,7 @@ export type PlayStatus = {
     map_lock?: number;
     map_title?: number;
     map_players?: number;
+    banner?: string;
     player?: { x: number; y: number; z: number } | null;
     sound_ready?: boolean;
     audio_buffered?: number;
@@ -73,14 +74,11 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 }
 
 export async function ensureLiveAgentIdle(repo: string): Promise<void> {
-    const sock = agentSocketPath(repo);
-    if (await canConnectSocket(sock)) {
-        throw new Error("agent game already running (control socket is active); nsmbu close first");
-    }
-    const pid = readAgentPid(repo);
-    if (pid !== null && isPidAlive(pid)) {
-        throw new Error(`agent game already running (pid ${pid}); nsmbu close first`);
-    }
+    const live = await liveAgents(repo);
+    if (live.length === 0) return;
+    const detail = live.map(formatLiveAgent).join("; ");
+    const close = live.map(closeLiveAgent).join(" or ");
+    throw new Error(`${detail}; ${close} first`);
 }
 
 export class Session {
@@ -223,9 +221,7 @@ export class Session {
         mkdirSync(dirname(this.logPath), { recursive: true });
         mkdirSync(dirname(this.sockPath()), { recursive: true });
         const sock = this.sockPath();
-        const args = ["--save", this.saveDir];
-        if (this.openPack) args.push(this.openPack);
-        const extraEnv: Record<string, string> = {
+        const vars: Record<string, string> = {
             NSMBU_LOG_FILE: this.logPath,
             NSMBU_AGENT_SOCK: sock,
             NSMBU_USER_DIR: this.userDir,
@@ -238,13 +234,15 @@ export class Session {
             ...this.env,
         };
         if (this.env.NSMBU_HIDDEN_WINDOWS === undefined) {
-            extraEnv.NSMBU_HIDDEN_WINDOWS = this.show ? "0" : "1";
+            vars.NSMBU_HIDDEN_WINDOWS = this.show ? "0" : "1";
         }
-        if (this.env.NSMBU_NO_AUDIO === "0") delete extraEnv.NSMBU_NO_AUDIO;
+        if (this.env.NSMBU_NO_AUDIO === "0") delete vars.NSMBU_NO_AUDIO;
+        const gameFlags = runtimeArgs(vars);
+        const args = ["--save", this.saveDir, ...gameFlags];
+        if (this.openPack) args.push(this.openPack);
         const child = spawnPython(this.repo, "tools/run/launch.py", args, {
             detached: true,
             stdio: "ignore",
-            extraEnv,
         });
         child.unref();
         if (child.pid === undefined) throw new Error("failed to spawn game");
@@ -282,6 +280,7 @@ export class Session {
             map_lock: r.map_lock,
             map_title: r.map_title,
             map_players: r.map_players,
+            banner: r.banner,
             player: r.player,
             sound_ready: r.sound_ready,
             audio_buffered: r.audio_buffered,
@@ -295,10 +294,9 @@ export class Session {
         if (!r.ok) throw new Error(r.error ?? "leave failed");
     }
 
-    async eval(code: string, timeoutMs = 8000): Promise<string> {
-        const r = await withTimeout(this.live().request({ cmd: "eval", code, timeout: timeoutMs }), timeoutMs + 5000, "eval");
-        if (!r.ok) throw new Error(r.error ?? "eval failed");
-        return (r.output ?? "").trim();
+    async goto(place: string): Promise<void> {
+        const r = await withTimeout(this.live().request({ cmd: "goto", place }), 20_000, "goto");
+        if (!r.ok) throw new Error(r.error ?? "goto failed");
     }
 
     async screenshot(path: string, opts?: { drc?: boolean }): Promise<void> {
@@ -342,6 +340,17 @@ export class Session {
         const now = await this.status();
         const target = (now.step ?? 0) + steps;
         await this.wait((s) => (s.step ?? 0) >= target, timeoutSec);
+    }
+
+    async ui(): Promise<{ overlay: boolean }> {
+        const r = await withTimeout(this.live().request({ cmd: "ui" }), 20_000, "ui");
+        if (!r.ok) throw new Error(r.error ?? "ui failed");
+        return { overlay: r.overlay === true };
+    }
+
+    async clickClose(): Promise<void> {
+        const r = await withTimeout(this.live().request({ cmd: "click", target: "close" }), 20_000, "click");
+        if (!r.ok) throw new Error(r.error ?? "click failed");
     }
 
     async stop(): Promise<void> {

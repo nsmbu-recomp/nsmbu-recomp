@@ -32,7 +32,7 @@ export const widescreenTitle: PlayCase = {
             save: "repo",
             env: { NSMBU_ASPECT: "21:9", NSMBU_HIDDEN_WINDOWS: "0" },
         });
-        await session.eval("return nsmbu.Scene.open_title()");
+        await session.goto("title");
         await session.wait((s) => s.scene === "Title", 360);
         await advanceUntilFrame(session, 850, 120);
         const path = join(session.workDir, "title.png");

@@ -1,6 +1,7 @@
 
 
 #include "crash/crash_addr.h"
+#include "core/env.h"
 
 #include <cstdio>
 #include <cstring>
@@ -84,6 +85,10 @@ void host_backtrace(int fd, Out out, const void* context) {
 #endif
     if (context) {
         CONTEXT c = *(const CONTEXT*)context;
+        if (env::TEST_HOST_CRASH.on()) {
+            frame_line(fd, out, 0, (uintptr_t)c.CRASH_PC);
+            return;
+        }
         const NT_TIB* tib = (const NT_TIB*)NtCurrentTeb();
         const DWORD64 lo = (DWORD64)tib->StackLimit, hi = (DWORD64)tib->StackBase;
         for (int i = 0; i < 48 && c.CRASH_PC; i++) {

@@ -1,5 +1,7 @@
 # New Super Mario Bros. U: Native Port / Recompilation
 
+<a href="https://recomplauncher.com/game/nsmbu-recomp"><picture><source media="(prefers-color-scheme: dark)" srcset="https://recomplauncher.com/assets/press/launcher/badge-light.svg"><img alt="Get it on RecompLauncher" src="https://recomplauncher.com/assets/press/launcher/badge-dark.svg" height="48"></picture></a>
+
 This project compiles your copy of New Super Mario Bros. U into a native program.
 The release includes the runtime, build tools, and installer.
 
@@ -8,21 +10,38 @@ The release includes the runtime, build tools, and installer.
 > You need your own legally dumped copy of the game.
 > Nothing in this repo, in any release, or in the build process contains or downloads Nintendo IP.
 
+## How to play
+
+You need your own copy of New Super Mario Bros. U for Wii U.
+A Cemu archive (`.wua`) needs no keys.
+A disc image (`.wud` or `.wux`) needs its disc key and the Wii U common key.
+An extracted folder needs `code`, `content`, and `meta`.
+Download the release for your system, start it, and choose that copy.
+The first start builds the game on your PC.
+Later starts play it.
+
 ## Features
 
-- [Windows](docs/user/windows/README.md), [macOS](docs/user/macos/README.md), [Linux](docs/user/linux/README.md), [Android](docs/user/android/README.md), and [iOS](docs/user/ios/README.md).
-- **[Save states](docs/user/portable-save-states.md)** for a course or the world map.
-- **[Mods](docs/modding/README.md)** Cemu level packs, and graphics packs.
-- **Up to four players**, each with a controller.
+- **Windows, macOS, Linux, Android,** and **iOS**.
+- **[Save states](docs/user/portable-save-states.md)** F1-5.
+- **[Mods](docs/modding/README.md)** for Cemu graphics packs and shader packs.
+- **GamePad screen** in its own window, over the TV picture, or hidden.
+- **On-screen controls** on Android and iOS.
+- **Console language**, volume, and the TV or GamePad sound mix.
 
 Experimental:
 
 - **Higher frame rates.**
   Frame rate is under Settings → Graphics.
+  A rate above 60 draws extra pictures between the game steps.
   On Android, a high rate pauses when the device gets hot.
-  See [Higher frame rates and heat](docs/user/android/README.md#higher-frame-rates-and-heat).
-- **A wider picture.**
+  Heat guard is under Settings → Graphics.
+- **A wider or taller picture.**
   Aspect ratio is under Settings → Display.
+  Stretch fills that shape with the 16:9 picture.
+  Turn stretch off to show more of the level.
+- **Internal resolution**, anisotropic filtering, and edge smoothing.
+- **Async shader compile**, so a burst of new shaders does not freeze the picture.
 
 ### Controls
 
@@ -37,6 +56,9 @@ Experimental:
   <kbd>F1</kbd>–<kbd>F5</kbd> loads those slots.
 - **Screenshot.**
   <kbd>F10</kbd> saves the TV picture.
+- **Mute.**
+  Press <kbd>M</kbd> to mute or unmute the game.
+  The game keeps that choice.
 - **GamePad screen.**
   <kbd>Ctrl</kbd>+<kbd>G</kbd> shows or hides it.
   On macOS, <kbd>Cmd</kbd>+<kbd>G</kbd>.
@@ -54,9 +76,9 @@ Combo packs are title version 0 and have no separate update folder.
 | USA base disc | `00050000-10101d00` | 0 | Supported |
 | Europe | `00050000-10101e00` | 80 (1.3.0) | Supported |
 | Europe base disc | `00050000-10101e00` | 0 | Supported |
-| USA (NSMBU + NSLU) | `00050000-1014b700` | 0 | Partially Supported |
-| Europe (NSMBU + NSLU) | `00050000-1014b800` | 0 | Partially Supported |
-| Japan | `00050000-10101c00` | — | Not supported yet |
+| USA (NSMBU + NSLU) | `00050000-1014b700` | 0 | Supported |
+| Europe (NSMBU + NSLU) | `00050000-1014b800` | 0 | Supported |
+| Japan | `00050000-10101c00` | — | Unsupported |
 
 ## Install
 
@@ -65,7 +87,6 @@ Put it in a folder you can write to.
 Start the app.
 The first start opens the installer.
 Each later start launches the game.
-Which file to open, and what the system requires, is on the page for your system under [docs/user](docs/user/).
 
 ### Choose your game
 
@@ -91,7 +112,6 @@ Skip this step if you chose a Cemu archive or an extracted folder.
 A disc image needs its disc key and the Wii U common key.
 Type or paste each key, or point at a key file.
 You can also add a matching 1.3.0 update.
-Key file formats are in [docs/user/keys.md](docs/user/keys.md).
 
 ### Wait for the build
 
@@ -103,12 +123,39 @@ The installer then builds the native game.
 The first start takes a few minutes.
 When it finishes, start the app again to play.
 
+
+## Command line
+
+These options belong to the game program.
+A release keeps that program in `data/bin/nsmbu` (`nsmbu.exe` on Windows).
+On macOS the same program is `NSMBU.app/Contents/MacOS/nsmbu`.
+`-h` or `--help` prints the full list of flags and exits.
+
+Each game setting has one name in `runtime/src/core/env.h`.
+Drop the `NSMBU_` prefix, lowercase the rest, and join words with hyphens (`NSMBU_NO_AUDIO` → `--no-audio`).
+Boolean settings use `--name` without a value; values use `--name=value` or a separate argument when `--help` says so.
+Run the binary with `--help` for every flag (~265 settings); this section keeps only the structural options players need first.
+
+- `--game DIR` sets the folder that holds `code`, `content`, and `meta`.
+  The default folder is `game`.
+- `--save DIR` sets the save folder.
+  The default folder is `nsmbu/save`.
+- `--install DIR` reads the game folder and the save folder from `DIR/install.json`.
+  Setup writes that file.
+  A folder you already extracted stays where it is.
+- `--open W-C` opens that course and skips the intro.
+  `W-C` is one world digit and a course number, such as `1-1`.
+- `--renderer API` chooses `metal` or `vulkan` for this start.
+  `--renderer=vulkan` is the same option.
+- `--trace` writes each host library call to the log.
+- `--warm-shaders` fills the Metal shader cache and then exits.
+  With another renderer, the program prints an error and exits.
+- `--renderer-smoke` starts Vulkan, runs its smoke test, and then exits.
+
+
 ## More
 
 - [Repair or change the game](docs/user/repair.md)
-- [Where files live](docs/user/files.md)
-- [If the system blocks the app](docs/user/blocked-app.md)
-- [Terminal installer](docs/user/terminal-installer.md)
 - [Logs for bug reports](docs/user/logs.md)
 - [Other guides](docs/user/)
 
@@ -121,6 +168,8 @@ Build from source, CLI commands, and developer docs are in [CONTRIBUTING.md](CON
 This repository was forked from the [Wind Waker HD recompilation](https://github.com/ZeldaWWHDRecomp/ZeldaWWHDRecomp).
 
 The Collision Viewer is based on the collision viewer from [Tsuru](https://github.com/Zenith-Team/Tsuru).
+
+The headers and the decompilation are from [aboood40091/NSMBU-Headers](https://github.com/aboood40091/NSMBU-Headers).
 
 > [!NOTE]
 > This project is made with the help of AI agents.

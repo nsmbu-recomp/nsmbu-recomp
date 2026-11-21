@@ -18,6 +18,8 @@ import sys
 import time
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(REPO, "tools", "lib"))
+import runtime_flags
 
 SCENES = {
     "still": (1, "", ""),
@@ -262,38 +264,39 @@ def run_once(args, variant, env_extra, index, out_dir):
     load_at, origin = args.load_frame, args.origin
     cache = os.path.abspath(args.cache_dir or os.path.join(out_dir, "cache"))
     os.makedirs(cache, exist_ok=True)
-    env = {k: v for k, v in os.environ.items() if not k.startswith("NSMBU_")}
     press_from = args.press_from if args.press_from >= 0 else max(0, load_at - 300)
     presses = ",".join("%d-%d:8000" % (f, f + 8) for f in range(press_from, load_at, args.press_every))
-    env.update({
+    nsmbu_env = {
         "NSMBU_NO_AUDIO": "1", "NSMBU_NO_GAMEPAD": "1", "NSMBU_NO_HOST_INPUT": "1",
         "NSMBU_SHADER_CACHE": os.path.join(cache, "shaders.bin"), "NSMBU_VK_SHADER_CACHE": os.path.join(cache, "vkshaders"),
         "NSMBU_VK_PIPELINE_CACHE": os.path.join(cache, "vkpipelines.bin"),
         "NSMBU_DISPLAY_SETTINGS": os.path.join(run_dir, "display.plist"), "NSMBU_SETTINGS": os.path.join(run_dir, "settings.ini"),
-        "XDG_CONFIG_HOME": os.path.join(run_dir, "config"),
         "NSMBU_PRESS": presses, "NSMBU_STATE_DIR": os.path.abspath(args.state_dir), "NSMBU_STATE_LOAD_AT": "%d:%d" % (load_at, slot),
         "NSMBU_TEST_ORIGIN": str(origin), "NSMBU_TEST_END": str(args.seconds),
         "NSMBU_RENDERER_RUNTIME": args.renderer, "NSMBU_PROFILE": "1", "NSMBU_TICK_STATS": "1",
         "NSMBU_INTERP_PASS_STATS": "1",
-    })
+    }
     if not args.visible:
-        env["NSMBU_HIDDEN_WINDOWS"] = "1"
+        nsmbu_env["NSMBU_HIDDEN_WINDOWS"] = "1"
     if stick:
-        env["NSMBU_TEST_STICK"] = stick
+        nsmbu_env["NSMBU_TEST_STICK"] = stick
     if rstick:
-        env["NSMBU_TEST_RSTICK"] = rstick
+        nsmbu_env["NSMBU_TEST_RSTICK"] = rstick
     if args.renderer == "vulkan":
-        env["NSMBU_VK_CPU_ONLY_STATS"] = "1"
-    env["NSMBU_INTERP"] = "0"
-    env["NSMBU_INTERP_AT_STEP"] = str(load_at + 60)
+        nsmbu_env["NSMBU_VK_CPU_ONLY_STATS"] = "1"
+    nsmbu_env["NSMBU_INTERP"] = "0"
+    nsmbu_env["NSMBU_INTERP_AT_STEP"] = str(load_at + 60)
     if args.fps != "60":
-        env["NSMBU_INTERP_FPS"] = args.fps
+        nsmbu_env["NSMBU_INTERP_FPS"] = args.fps
     if args.display_hz is not None:
-        env["NSMBU_DISPLAY_HZ"] = str(args.display_hz)
+        nsmbu_env["NSMBU_DISPLAY_HZ"] = str(args.display_hz)
     if args.uncapped:
-        env["NSMBU_UNCAPPED"] = "1"
-        env["NSMBU_VK_UNCAPPED"] = "1"
-    env.update(env_extra)
+        nsmbu_env["NSMBU_UNCAPPED"] = "1"
+        nsmbu_env["NSMBU_VK_UNCAPPED"] = "1"
+    nsmbu_env.update(env_extra)
+    game_flags = runtime_flags.args_from_env(nsmbu_env)
+    env = runtime_flags.strip_runtime(os.environ)
+    env["XDG_CONFIG_HOME"] = os.path.join(run_dir, "config")
 
     while True:
         if args.gate:
@@ -313,8 +316,9 @@ def run_once(args, variant, env_extra, index, out_dir):
     load_peak = load_before
     started = time.time()
     with open(os.path.join(run_dir, "log"), "w") as log:
-        proc = subprocess.Popen([os.path.abspath(binary), "--game", os.path.abspath(args.game), "--save", "save"],
-                                cwd=run_dir, env=env, stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+        proc = subprocess.Popen(
+            [os.path.abspath(binary), "--game", os.path.abspath(args.game), "--save", "save", *game_flags],
+            cwd=run_dir, env=env, stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
         status = "ok"
         try:
             while proc.poll() is None:

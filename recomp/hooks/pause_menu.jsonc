@@ -1,0 +1,8 @@
+// Course pause settings button.
+
+{
+  "hooks": [
+    { "address": "025F3834" }, // PauseGame::execute: open settings from the new button and keep Continue, Quit, and Change Controller
+    { "address": "025FD500" } // PauseGame course step: Continue must not draw the Out fade onto the TV
+  ]
+}

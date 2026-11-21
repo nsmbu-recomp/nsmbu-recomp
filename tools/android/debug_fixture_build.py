@@ -28,6 +28,6 @@ def register(setup):
     setup.SUPPORTED_BUILDS = {**setup.SUPPORTED_BUILDS, build.title_id: build}
     recompile = setup.recompile
     def translate(*args, **kwargs):
-        with _fixture.fixture_build_context(Path(setup.PKG) / "recomp"):
+        with _fixture.fixture_build_context(Path(setup.PKG) / "recomp" / "hooks"):
             return recompile(*args, **kwargs)
     setup.recompile = translate

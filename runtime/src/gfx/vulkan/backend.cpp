@@ -31,6 +31,7 @@
 #include "input/input.h"
 #include "mods/mods.h"
 #include "agent/agent_ctl.h"
+#include "platform/agent_window.h"
 #include "overlay/hostui.h"
 #include "overlay/overlay.h"
 #ifdef NSMBU_SDL_HOST
@@ -2523,6 +2524,7 @@ void init() {
   SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");
 #endif
 
+  agent_window::apply_hints();
   if (hidden_windows())
     SDL_SetHint(SDL_HINT_MAC_BACKGROUND_APP, "1");
   use_user_libdecor_plugin();
@@ -2542,11 +2544,11 @@ void init() {
   load_global_functions(gipa);
 #ifdef __ANDROID__
   SDL_AddEventWatch(lifecycle_watch, nullptr);
-  const SDL_WindowFlags windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_FULLSCREEN;
+  const SDL_WindowFlags windowFlags = agent_window::flags(SDL_WINDOW_VULKAN | SDL_WINDOW_FULLSCREEN);
 #else
 
-  const SDL_WindowFlags windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE |
-                                      (hidden_windows() ? SDL_WINDOW_HIDDEN : 0);
+  const SDL_WindowFlags windowFlags = agent_window::flags(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE |
+                                                          (hidden_windows() ? SDL_WINDOW_HIDDEN : 0));
 #endif
   int windowW = 1280, windowH = 720;
 #ifndef __ANDROID__

@@ -110,13 +110,13 @@ Run the Android compiler workflow in that repo when the pinned LLVM revision, ND
 ## Tests
 
 ```sh
-python3 -m unittest discover -s tools/android -p 'test_*.py'
-python3 -m unittest discover -s installer -p 'test_*.py'
+python3 -m unittest discover -s tests/py/android -p 'test_*.py'
+python3 -m unittest discover -s tests/py/installer -p 'test_*.py'
 ctest -R 'heat_guard|touch_controls|input_mapping|sdl_input'
 ```
 
-- `tools/android/test_jvm.py` runs the plain-Java policy tests in `tools/android/*Test.java`, with small Android stubs under `tools/android/stubs`.
-- `tools/android/test_app_sources.py` type-checks all app Java against the installed Android platform.
-- `tools/android/test_phone_wiring.py` and `test_release_workflow.py` check the JNI names, log paths, manifest entries and release job against each other.
+- `tests/py/android/test_jvm.py` runs the plain-Java policy tests in `tools/android/*Test.java`, with small Android stubs under `tools/android/stubs`.
+- `tests/py/android/test_app_sources.py` type-checks all app Java against the installed Android platform.
+- `tests/py/android/test_phone_wiring.py` and `test_release_workflow.py` check the JNI names, log paths, manifest entries and release job against each other.
 
 Touch controls and phone vibration are Android-only, so `nsmbu test` playtests do not cover them.

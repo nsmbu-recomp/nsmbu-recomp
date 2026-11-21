@@ -56,13 +56,19 @@ uint64_t now_us() {
     return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-const char* env() { return env::RUMBLE(); }
-std::atomic<bool> g_enabled{!env() || atoi(env()) != 0};
+const char* rumble_env() { return env::RUMBLE(); }
+std::atomic<bool> g_enabled{true};
+std::atomic<bool> g_defaulted{false};
+
+void ensure_default_enabled() {
+    if (g_defaulted.exchange(true, std::memory_order_relaxed)) return;
+    const char* e = rumble_env();
+    g_enabled.store(!e || atoi(e) != 0, std::memory_order_relaxed);
+}
 }
 
 bool log_enabled() {
-    static const bool on = env::LOG_RUMBLE() || env::RUMBLE_LOG();
-    return on;
+    return env::LOG_RUMBLE() || env::RUMBLE_LOG();
 }
 
 void gamepad_pattern(uint32_t chan, const uint8_t* bits, uint32_t nbits) {
@@ -102,11 +108,14 @@ void reset() {
     for (auto& m : g_pro) m.reset();
 }
 
-bool enabled() { return g_enabled.load(std::memory_order_relaxed); }
+bool enabled() {
+    ensure_default_enabled();
+    return g_enabled.load(std::memory_order_relaxed);
+}
 void set_enabled(bool on) {
     if (g_enabled.exchange(on) != on) LOG("[rumble] controller rumble %s", on ? "on" : "off");
 }
-bool env_override() { return env() != nullptr; }
+bool env_override() { return rumble_env() != nullptr; }
 
 float host_level(uint64_t window_us) {
     if (!enabled()) return 0.0f;

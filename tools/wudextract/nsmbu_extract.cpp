@@ -19,8 +19,7 @@
 //
 // KEYS (no keys are included in this project; they come from your own console):
 //   --disc-key FILE     the disc key (default: IMAGE with the extension replaced by .key)
-//   --common-key FILE   the Wii U common key (default: WIIU_COMMON_KEY environment variable,
-//                       then common.key next to IMAGE or in the current directory)
+//   --common-key FILE   the Wii U common key (default: common.key next to IMAGE or in the cwd)
 //   --keys-stdin        read "disc <32 hex digits>" / "common <32 hex digits>" lines from stdin
 // A key file holds 16 raw bytes, or text: a bare line of 32 hex digits, or named lines such as Cemu's
 // keys.txt ("disc = <32 hex digits>", "common = <32 hex digits>") or "wii u common key: <32 hex digits>".
@@ -30,8 +29,7 @@
 // (0005000010101d00_v64). Without it an archive with a single title uses that one.
 // --only GLOB (repeatable): extract only the files whose path in the title (code/..., content/...,
 // meta/...) matches one of the patterns, without case; '*' matches any run of characters ('/' too),
-// '?' one character. The setup uses it to take only the language files of a second disc
-// (content/Common/Pack/permanent_2d_*.pack, meta/meta.xml).
+// '?' one character.
 //
 // info on an archive prints "format wua", one "title ID VERSION FOLDER FILES BYTES" line per title
 // folder, and for the selected title "selected FOLDER", "title_id", "version", "files", "bytes".
@@ -803,8 +801,6 @@ int run(const std::vector<std::string>& args) {
     if (!common_key.set) {
         if (!common_key_file.empty()) {
             load_key_file(upath(common_key_file), common_key, KeyRole::Common, 5, "Wii U common key");
-        } else if (const char* env = getenv("WIIU_COMMON_KEY"); env && *env) {
-            if (!parse_key(env, common_key)) fail(5, "WIIU_COMMON_KEY is malformed: expected 32 hex digits");
         } else {
             std::error_code ec;
             for (fs::path d : {fs::absolute(img, ec).parent_path(), fs::current_path(ec)}) {
@@ -815,8 +811,7 @@ int run(const std::vector<std::string>& args) {
                 }
             }
             if (!common_key.set)
-                fail(5, "Wii U common key not found: use --common-key FILE, WIIU_COMMON_KEY, or common.key next to "
-                        "the image");
+                fail(5, "Wii U common key not found: use --common-key FILE or common.key next to the image");
         }
     }
 

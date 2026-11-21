@@ -1,7 +1,5 @@
 #include "core/env.h"
 
-#include <string>
-
 #if defined(_WIN32)
 #include <stdlib.h>
 #endif
@@ -20,9 +18,9 @@ const char* expand_path(const char* path) {
     home = getenv("HOME");
 #endif
     if (!home) home = ".";
-    static thread_local std::string out;
-    out = path[1] == '/' ? std::string(home) + (path + 1) : home;
-    return out.c_str();
+    static thread_local std::string expanded;
+    expanded = path[1] == '/' ? std::string(home) + (path + 1) : home;
+    return expanded.c_str();
 }
 
 const char* path(const Var& var) {
@@ -31,29 +29,21 @@ const char* path(const Var& var) {
 }
 
 const Var vulkan_cpu_paths[vulkan_cpu_path_count] = {
-    VK_REUSE_UNIFORM_SNAPSHOTS,
-    VK_REUSE_FEEDBACK_IMAGES,
-    VK_SKIP_REDUNDANT_BINDS,
-    VK_DESCRIPTOR_RANKS,
-    VK_PIPELINE_LOOKASIDE,
-    VK_SHADER_ADDRESS_MEMO,
-    VK_FETCH_MEMO,
-    VK_SPECIALIZE_INDICES,
-    VK_SHADER_STATE_MEMO,
-    VK_SKIP_VERTEX_BINDS,
-    VK_SAMPLER_MEMO,
-    VK_SPARSE_HASH_MEMO,
-    VK_SHADER_KEY_DIRTY,
-    VK_REUSE_VERTEX_SNAPSHOTS,
-    VK_VERTEX_HISTORY_REUSE
+    Var("NSMBU_VK_REUSE_UNIFORM_SNAPSHOTS"),
+    Var("NSMBU_VK_REUSE_FEEDBACK_IMAGES"),
+    Var("NSMBU_VK_SKIP_REDUNDANT_BINDS"),
+    Var("NSMBU_VK_DESCRIPTOR_RANKS"),
+    Var("NSMBU_VK_PIPELINE_LOOKASIDE"),
+    Var("NSMBU_VK_SHADER_ADDRESS_MEMO"),
+    Var("NSMBU_VK_FETCH_MEMO"),
+    Var("NSMBU_VK_SPECIALIZE_INDICES"),
+    Var("NSMBU_VK_SHADER_STATE_MEMO"),
+    Var("NSMBU_VK_SKIP_VERTEX_BINDS"),
+    Var("NSMBU_VK_SAMPLER_MEMO"),
+    Var("NSMBU_VK_SPARSE_HASH_MEMO"),
+    Var("NSMBU_VK_SHADER_KEY_DIRTY"),
+    Var("NSMBU_VK_REUSE_VERTEX_SNAPSHOTS"),
+    Var("NSMBU_VK_VERTEX_HISTORY_REUSE"),
 };
-
-void unset(const Var& var) {
-#if defined(_WIN32)
-    _putenv_s(var.name(), "");
-#else
-    unsetenv(var.name());
-#endif
-}
 
 }
