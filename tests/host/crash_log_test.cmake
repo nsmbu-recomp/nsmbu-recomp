@@ -4,7 +4,7 @@
 # cmake -DNSMBU=<nsmbu executable> -DWORK=<empty work folder> -P crash_log_test.cmake
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}")
-set(USER_DIR "${WORK}/nsmbu")
+get_filename_component(USER_DIR "${WORK}/nsmbu" ABSOLUTE)
 if(WIN32)
   execute_process(COMMAND "${NSMBU}" --test-host-crash --no-audio --hidden-windows --cli
                           --user-dir "${USER_DIR}"

@@ -213,7 +213,6 @@ static void install_crash_handler() {
 }
 
 #else
-static int run_test_host_crash();
 static void win_crash_raw(int fd, const char* s, size_t n) {
     fwrite(s, 1, n, stderr);
     if (fd >= 0) _write(fd, s, (unsigned)n);
@@ -226,20 +225,7 @@ static void init_crash_log_dir() {
     host::ensure_log_dir();
     std::snprintf(g_crash_log_dir, sizeof g_crash_log_dir, "%s", host::log_dir().c_str());
 }
-static void write_test_host_backtrace(int fd, uintptr_t fault_pc) {
-    char buf[512];
-    int n;
-    win_crash_out(fd, "  host backtrace:\n", 18);
-    n = crash_addr::fit(snprintf(buf, sizeof buf, "  #0  %016llX", (unsigned long long)fault_pc), sizeof buf);
-    n += crash_addr::describe(buf + n, sizeof buf - n, fault_pc);
-    if ((size_t)n < sizeof buf - 1) buf[n++] = '\n';
-    win_crash_out(fd, buf, (size_t)n);
-    n = crash_addr::fit(snprintf(buf, sizeof buf, "  #1  %016llX", (unsigned long long)(uintptr_t)run_test_host_crash), sizeof buf);
-    n += crash_addr::describe(buf + n, sizeof buf - n, (uintptr_t)run_test_host_crash);
-    if ((size_t)n < sizeof buf - 1) buf[n++] = '\n';
-    win_crash_out(fd, buf, (size_t)n);
-}
-static void write_windows_crash_log(EXCEPTION_POINTERS* ex, char* path, size_t path_cap, bool test_log = false) {
+static void write_windows_crash_log(EXCEPTION_POINTERS* ex, char* path, size_t path_cap) {
     init_crash_log_dir();
     auto code = ex->ExceptionRecord->ExceptionCode;
     if (g_crash_log_dir[0]) {
@@ -293,14 +279,10 @@ static void write_windows_crash_log(EXCEPTION_POINTERS* ex, char* path, size_t p
         line[n++] = '\n';
         win_crash_out(fd, line, n);
     }
-    if (test_log) {
-        write_test_host_backtrace(fd, (uintptr_t)ex->ExceptionRecord->ExceptionAddress);
-    } else {
-        crash_guest_cpu(fd, win_crash_out);
-        crash_addr::host_backtrace(fd, win_crash_out, ex->ContextRecord);
-    }
+    crash_guest_cpu(fd, win_crash_out);
+    crash_addr::host_backtrace(fd, win_crash_out, ex->ContextRecord);
     crash_context::note(fd, win_crash_out);
-    if (!test_log) crashrec::crash_note(fd, win_crash_out);
+    crashrec::crash_note(fd, win_crash_out);
     if (crash_file) {
         win_crash_log_only(fd, "\n--- last log lines ---\n", 24);
         log_ring_write(fd, win_crash_log_only);
@@ -489,37 +471,18 @@ static int run_test_host_crash() {
     if (!env::TEST_HOST_CRASH()) return -1;
     LOG("[boot] NSMBU_TEST_HOST_CRASH: crashing on purpose in the C library");
     volatile uintptr_t bad_addr = 16;
-#ifdef _WIN32
-    // MSYS2 Clang often kills the process on fault before SEH handlers run; write the log directly.
-    HMODULE libc = GetModuleHandleA("ucrtbase.dll");
-    if (!libc) libc = GetModuleHandleA("msvcrt.dll");
-    void* strlen_addr = nullptr;
-    if (libc) strlen_addr = reinterpret_cast<void*>(GetProcAddress(libc, "strlen"));
-    if (!strlen_addr) _exit(2);
-    EXCEPTION_RECORD er{};
-    er.ExceptionCode = EXCEPTION_ACCESS_VIOLATION;
-    er.ExceptionAddress = strlen_addr;
-    er.NumberParameters = 2;
-    er.ExceptionInformation[0] = 0;
-    er.ExceptionInformation[1] = bad_addr;
-    CONTEXT ctx{};
-    ctx.ContextFlags = CONTEXT_CONTROL;
-#if defined(_M_X64) || defined(__x86_64__)
-    ctx.Rip = (DWORD64)strlen_addr;
-#elif defined(_M_IX86) || defined(__i386__)
-    ctx.Eip = (DWORD)strlen_addr;
-#endif
-    EXCEPTION_POINTERS ex{&er, &ctx};
-    char path[640];
-    write_windows_crash_log(&ex, path, sizeof path, true);
-    fflush(stderr);
-    _exit(1);
-#else
     size_t (*volatile len)(const char*) = strlen;
+#ifdef _WIN32
+    if (HMODULE libc = GetModuleHandleA("ucrtbase.dll")) {
+        if (void* f = GetProcAddress(libc, "strlen")) len = (size_t (*)(const char*))f;
+    } else if (HMODULE msvc = GetModuleHandleA("msvcrt.dll")) {
+        if (void* f = GetProcAddress(msvc, "strlen")) len = (size_t (*)(const char*))f;
+    }
+#else
     if (void* f = dlsym(RTLD_DEFAULT, "strlen")) len = (size_t (*)(const char*))f;
+#endif
     LOG("%zu", len(reinterpret_cast<const char*>(bad_addr)));
     return 1;
-#endif
 }
 
 int main(int argc, char** argv) {
@@ -532,21 +495,9 @@ int main(int argc, char** argv) {
     env::seed_from_env(env::NO_AUDIO);
 #endif
     apply_portable_mode();
-#ifdef _WIN32
-    if (env::TEST_HOST_CRASH.on()) {
-        crash_context::initialize();
-        start_log_file();
-        run_test_host_crash();
-    }
-#endif
     crash_context::initialize();
-#ifdef _WIN32
-    start_log_file();
-    install_crash_handler();
-#else
     install_crash_handler();
     start_log_file();
-#endif
     if (int early = run_test_host_crash(); early >= 0) return early;
     if (const char* warm = env::SHADER_WARM())
         if (*warm && std::strcmp(warm, "0")) std::setvbuf(stderr, nullptr, _IONBF, 0);
