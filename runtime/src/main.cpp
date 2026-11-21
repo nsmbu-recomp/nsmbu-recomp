@@ -532,10 +532,16 @@ int main(int argc, char** argv) {
     env::seed_from_env(env::NO_AUDIO);
 #endif
     apply_portable_mode();
+#ifdef _WIN32
+    if (env::TEST_HOST_CRASH.on()) {
+        crash_context::initialize();
+        start_log_file();
+        run_test_host_crash();
+    }
+#endif
     crash_context::initialize();
 #ifdef _WIN32
     start_log_file();
-    if (env::TEST_HOST_CRASH.on()) run_test_host_crash();
     install_crash_handler();
 #else
     install_crash_handler();
