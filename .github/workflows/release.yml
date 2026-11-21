@@ -573,14 +573,19 @@ jobs:
           $exe = Join-Path $data 'bin\nsmbu.exe'
           if (-not (Test-Path (Join-Path $data 'bin\SDL3.dll'))) { throw "SDL3.dll was not installed" }
           # no game files: the executable must start and stop with "Game folder not found" (abort() may leave
-          # an error-reporting process around, so do not wait forever)
+          # an error-reporting process around, so do not wait forever). nsmbu.exe is a GUI app: read its log file.
+          $nogame = Join-Path $env:RUNNER_TEMP 'nogame'
+          $bindir = Split-Path $exe -Parent
           $env:NSMBU_HIDDEN_WINDOWS = '1'
-          $p = Start-Process -FilePath $exe -ArgumentList '--game', (Join-Path $env:RUNNER_TEMP 'nogame') `
-            -RedirectStandardError run.log -RedirectStandardOutput out.log -NoNewWindow -PassThru
-          if (-not $p.WaitForExit(120000)) { $p.Kill() }
+          $p = Start-Process -FilePath $exe -WorkingDirectory $bindir `
+            -ArgumentList '--game', $nogame -Wait -NoNewWindow -PassThru
           Remove-Item Env:NSMBU_HIDDEN_WINDOWS -ErrorAction SilentlyContinue
-          Get-Content run.log, out.log
-          if (-not (Select-String -Path run.log, out.log -Pattern 'Game folder not found' -Quiet)) { throw "the installed executable did not start" }
+          $log = Join-Path $data 'nsmbu\logs\nsmbu.log'
+          if (-not (Test-Path $log)) { throw "no log file at $log (exit $($p.ExitCode))" }
+          if (-not (Select-String -Path $log -Pattern 'Game folder not found' -Quiet)) {
+            Get-Content $log -Tail 40
+            throw "the installed executable did not start (exit $($p.ExitCode))"
+          }
           # the graphical installer (GUI subsystem: wait for it explicitly)
           $env:SDL_VIDEO_DRIVER = 'offscreen'
           $g = Start-Process -FilePath (Join-Path $pkg 'NSMBU.exe') `
@@ -634,12 +639,14 @@ jobs:
           if ($unpacked.Length -le 259) { throw "the test folder is not deep enough to cross MAX_PATH" }
           if (-not (Test-Path -LiteralPath ('\\?\' + (Join-Path $data "toolchain\$deepest")))) { throw "the deepest compiler file is missing" }
           if (Test-Path (Join-Path $data 'toolchain\unpack.tmp')) { throw "unpack.tmp was left behind" }
+          $deepLog = Join-Path $data 'nsmbu\logs\nsmbu.log'
+          $deepExe = Join-Path $data 'bin\nsmbu.exe'
           $env:NSMBU_HIDDEN_WINDOWS = '1'
-          $p = Start-Process -FilePath (Join-Path $data 'bin\nsmbu.exe') -ArgumentList '--game', (Join-Path $env:RUNNER_TEMP 'nogame') `
-            -RedirectStandardError deep-run.log -RedirectStandardOutput deep-out.log -NoNewWindow -PassThru
-          if (-not $p.WaitForExit(120000)) { $p.Kill() }
+          $p = Start-Process -FilePath $deepExe -WorkingDirectory (Split-Path $deepExe -Parent) `
+            -ArgumentList '--game', (Join-Path $env:RUNNER_TEMP 'nogame') -Wait -NoNewWindow -PassThru
           Remove-Item Env:NSMBU_HIDDEN_WINDOWS -ErrorAction SilentlyContinue
-          if (-not (Select-String -Path deep-run.log, deep-out.log -Pattern 'Game folder not found' -Quiet)) { throw "the game built in a deep folder did not start" }
+          if (-not (Test-Path $deepLog)) { throw "no log file at $deepLog (exit $($p.ExitCode))" }
+          if (-not (Select-String -Path $deepLog -Pattern 'Game folder not found' -Quiet)) { throw "the game built in a deep folder did not start (exit $($p.ExitCode))" }
           # one character deeper: setup stops at once with the plain message
           Expand-Archive -Path $zip -DestinationPath ($outer + 'x')
           $pkg = Join-Path ($outer + 'x') $name
