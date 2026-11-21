@@ -60,8 +60,8 @@ class DebugFixtureTests(unittest.TestCase):
             self.assertIs(module.hook_files, files)
 
     def test_release_source_inventory_and_guard(self):
-        release = {str(p.relative_to(ROOT)) for p in source_files(ROOT)}
-        debug = {str(p.relative_to(ROOT)) for p in source_files(ROOT, True)}
+        release = {p.relative_to(ROOT).as_posix() for p in source_files(ROOT)}
+        debug = {p.relative_to(ROOT).as_posix() for p in source_files(ROOT, True)}
         self.assertFalse(release & guard.ANDROID_TEST_FILES)
         self.assertIn('recomp/builds/eu.json', release)
         self.assertIn('tools/android/debug_fixture_build.py', debug)

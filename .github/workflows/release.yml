@@ -238,6 +238,15 @@ jobs:
       - name: Vendored libraries
         run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
       - name: Install dependencies
         run: |
           sudo apt-get update

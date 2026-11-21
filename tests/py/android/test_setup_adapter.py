@@ -212,7 +212,8 @@ class TranslationTests(unittest.TestCase):
         self.assertIs(adapter.setup.subprocess, original)
         command, env = seen[0]
         self.assertEqual(len(command[1:]), 4)
-        self.assertEqual(command[2:], [str(self.rpx), command[3], "--progress"])
+        self.assertEqual(Path(command[2]).resolve(), self.rpx.resolve())
+        self.assertEqual(command[4], "--progress")
         self.assertNotIn("--mod-hooks", command)
         self.assertNotIn("NSMBU_RECOMP_MOD_HOOKS", env)
         self.assertNotIn("NSMBU_RECOMP_MOD_HOOKS", __import__("os").environ)
