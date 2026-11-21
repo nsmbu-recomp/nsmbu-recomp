@@ -211,6 +211,7 @@ if(ANDROID)
 endif()
 if(WIN32)
   target_compile_definitions(nsmbu PRIVATE _USE_MATH_DEFINES)
+  target_compile_options(nsmbu PRIVATE -funwind-tables)
   nsmbu_windows_resources(nsmbu "New Super Mario Bros. U, native PC port" "nsmbu.exe" gui)
 
   target_link_libraries(nsmbu PRIVATE winmm ws2_32 advapi32 shell32 comctl32)
