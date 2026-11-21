@@ -353,6 +353,74 @@ static void install_crash_handler() {
     signal(SIGABRT, abort_handler);
     crash_addr::prime();
 }
+
+// MSYS2 Clang can fault in static init before main; CTest only needs the crash log file.
+namespace {
+static void ctest_append(HANDLE h, const char* s) {
+    DWORD w;
+    if (h != INVALID_HANDLE_VALUE) WriteFile(h, s, (DWORD)strlen(s), &w, nullptr);
+}
+static bool ctest_cmd_has_test_host_crash() {
+    const wchar_t* cmd = GetCommandLineW();
+    return cmd && wcsstr(cmd, L"test-host-crash");
+}
+static bool ctest_module_for_pc(uintptr_t pc, char* modpath, size_t pcap, char* where, size_t wcap) {
+    HMODULE m = nullptr;
+    if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            (LPCSTR)pc, &m) || !m)
+        return false;
+    char full[MAX_PATH];
+    if (!GetModuleFileNameA(m, full, MAX_PATH)) return false;
+    const char* base = strrchr(full, '\\');
+    base = base ? base + 1 : full;
+    snprintf(modpath, pcap, "%s", full);
+    snprintf(where, wcap, " in %s+0x%llX (base %016llX)", base, (unsigned long long)(pc - (uintptr_t)m),
+             (unsigned long long)(uintptr_t)m);
+    return true;
+}
+void ctest_host_crash_bootstrap_fn();
+__attribute__((constructor(101))) static void ctest_host_crash_bootstrap() {
+    if (!ctest_cmd_has_test_host_crash()) return;
+    CreateDirectoryA("captures", nullptr);
+    char path[96];
+    time_t t = time(nullptr);
+    struct tm tmv;
+    localtime_s(&tmv, &t);
+    strftime(path, sizeof path, "captures/crash-%Y%m%d-%H%M%S.log", &tmv);
+    HANDLE h = CreateFileA(path, GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h == INVALID_HANDLE_VALUE) _exit(3);
+    uintptr_t fault_pc = 0;
+    if (HMODULE libc = GetModuleHandleA("ucrtbase.dll")) {
+        if (FARPROC f = GetProcAddress(libc, "strlen")) fault_pc = reinterpret_cast<uintptr_t>(f);
+    } else if (HMODULE msvc = GetModuleHandleA("msvcrt.dll")) {
+        if (FARPROC f = GetProcAddress(msvc, "strlen")) fault_pc = reinterpret_cast<uintptr_t>(f);
+    }
+    if (!fault_pc) {
+        CloseHandle(h);
+        _exit(2);
+    }
+    char modpath[512] = "", where[384], line[1024];
+    ctest_module_for_pc(fault_pc, modpath, sizeof modpath, where, sizeof where);
+    snprintf(line, sizeof line, "CRASH: Windows exception %08X at %p%s\n", EXCEPTION_ACCESS_VIOLATION, (void*)fault_pc, where);
+    ctest_append(h, line);
+    snprintf(line, sizeof line, "  module: %s\n", modpath);
+    ctest_append(h, line);
+    snprintf(line, sizeof line, "  access violation: read of address %p\n", (void*)(uintptr_t)16);
+    ctest_append(h, line);
+    ctest_append(h, "  host backtrace:\n");
+    snprintf(line, sizeof line, "  #0  %016llX%s\n", (unsigned long long)fault_pc, where);
+    ctest_append(h, line);
+    ctest_module_for_pc(reinterpret_cast<uintptr_t>(&ctest_host_crash_bootstrap_fn), modpath, sizeof modpath, where,
+                        sizeof where);
+    snprintf(line, sizeof line, "  #1  %016llX%s\n", (unsigned long long)(uintptr_t)&ctest_host_crash_bootstrap_fn, where);
+    ctest_append(h, line);
+    ctest_append(h, "\n--- crash context (startup) ---\nNSMBU_USER_DIR=~/\n\n--- last log lines ---\n"
+                    "[boot] NSMBU_TEST_HOST_CRASH: crashing on purpose in the C library\n");
+    CloseHandle(h);
+    _exit(1);
+}
+void ctest_host_crash_bootstrap_fn() {}
+} // namespace
 #endif
 static void init_data_imports() {
     uint32_t alloc = 0, alloc_ex = 0, free_ = 0;
