@@ -474,9 +474,9 @@ static int run_test_host_crash() {
     size_t (*volatile len)(const char*) = strlen;
 #ifdef _WIN32
     if (HMODULE libc = GetModuleHandleA("ucrtbase.dll")) {
-        if (void* f = GetProcAddress(libc, "strlen")) len = (size_t (*)(const char*))f;
+        if (FARPROC f = GetProcAddress(libc, "strlen")) len = reinterpret_cast<size_t (*)(const char*)>(f);
     } else if (HMODULE msvc = GetModuleHandleA("msvcrt.dll")) {
-        if (void* f = GetProcAddress(msvc, "strlen")) len = (size_t (*)(const char*))f;
+        if (FARPROC f = GetProcAddress(msvc, "strlen")) len = reinterpret_cast<size_t (*)(const char*)>(f);
     }
 #else
     if (void* f = dlsym(RTLD_DEFAULT, "strlen")) len = (size_t (*)(const char*))f;
