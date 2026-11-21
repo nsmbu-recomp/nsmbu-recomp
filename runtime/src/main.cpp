@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #endif
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
@@ -250,11 +251,18 @@ static void write_windows_crash_log(EXCEPTION_POINTERS* ex, char* path, size_t p
     localtime_s(&tmv, &t);
     char name[64];
     strftime(name, sizeof name, "crash-%Y%m%d-%H%M%S.log", &tmv);
-    const std::string logpath =
-        (std::filesystem::path(g_crash_log_dir[0] ? g_crash_log_dir : "logs") / name).string();
-    std::snprintf(path, path_cap, "%s", logpath.c_str());
-    FILE* crash_file = fopen(logpath.c_str(), "wb");
-    int fd = crash_file ? _fileno(crash_file) : -1;
+    const std::filesystem::path logpath =
+        std::filesystem::path(g_crash_log_dir[0] ? g_crash_log_dir : "logs") / name;
+    std::snprintf(path, path_cap, "%s", logpath.string().c_str());
+    std::error_code ec;
+    std::filesystem::create_directories(logpath.parent_path(), ec);
+    FILE* crash_file = nullptr;
+    int fd = _open(logpath.string().c_str(), _O_WRONLY | _O_CREAT | _O_TRUNC | _O_BINARY, _S_IREAD | _S_IWRITE);
+    if (fd >= 0) crash_file = _fdopen(fd, "wb");
+    if (!crash_file) {
+        fprintf(stderr, "[crash] cannot write %s (errno=%d)\n", path, errno);
+        fd = -1;
+    }
     int n;
 
     char where[384], mpath[512] = "", line[1024];
@@ -293,7 +301,7 @@ static void write_windows_crash_log(EXCEPTION_POINTERS* ex, char* path, size_t p
     }
     crash_context::note(fd, win_crash_out);
     if (!test_log) crashrec::crash_note(fd, win_crash_out);
-    if (fd >= 0) {
+    if (crash_file) {
         win_crash_log_only(fd, "\n--- last log lines ---\n", 24);
         log_ring_write(fd, win_crash_log_only);
         fflush(crash_file);
