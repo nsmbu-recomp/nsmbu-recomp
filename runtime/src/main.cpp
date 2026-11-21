@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #endif
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
@@ -220,11 +221,14 @@ static void win_crash_log_raw(int fd, const char* s, size_t n) { if (fd >= 0) _w
 static void win_crash_out(int fd, const char* s, size_t n) { crash_context::redact(fd, {s,n}, win_crash_raw); }
 static void win_crash_log_only(int fd, const char* s, size_t n) { crash_context::redact(fd, {s,n}, win_crash_log_raw); }
 static char g_crash_log_dir[512];
+static std::atomic<bool> g_handling_crash{false};
 static void init_crash_log_dir() {
     host::ensure_log_dir();
     std::snprintf(g_crash_log_dir, sizeof g_crash_log_dir, "%s", host::log_dir().c_str());
 }
 static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ex) {
+    if (g_handling_crash.exchange(true))
+        return EXCEPTION_EXECUTE_HANDLER;
     init_crash_log_dir();
     auto code=ex->ExceptionRecord->ExceptionCode;
     if (g_crash_log_dir[0]) {
@@ -234,8 +238,10 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ex) {
     char path[640]; time_t t=time(nullptr); struct tm tmv; localtime_s(&tmv,&t);
     char name[64];
     strftime(name,sizeof name,"crash-%Y%m%d-%H%M%S.log",&tmv);
-    std::snprintf(path,sizeof path,"%s/%s", g_crash_log_dir[0] ? g_crash_log_dir : "logs", name);
-    int fd=_open(path,_O_WRONLY|_O_CREAT|_O_TRUNC|_O_BINARY,_S_IREAD|_S_IWRITE);
+    const std::string logpath =
+        (std::filesystem::path(g_crash_log_dir[0] ? g_crash_log_dir : "logs") / name).string();
+    std::snprintf(path, sizeof path, "%s", logpath.c_str());
+    int fd=_open(logpath.c_str(),_O_WRONLY|_O_CREAT|_O_TRUNC|_O_BINARY,_S_IREAD|_S_IWRITE);
     int n;
 
     char where[384], mpath[512]="", line[1024];
@@ -275,12 +281,20 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ex) {
     }
     return EXCEPTION_EXECUTE_HANDLER;
 }
+static LONG CALLBACK vectored_crash_handler(EXCEPTION_POINTERS* ex) {
+    const DWORD code = ex->ExceptionRecord->ExceptionCode;
+    if (code != EXCEPTION_ACCESS_VIOLATION && code != EXCEPTION_IN_PAGE_ERROR)
+        return EXCEPTION_CONTINUE_SEARCH;
+    crash_handler(ex);
+    return EXCEPTION_CONTINUE_SEARCH;
+}
 static void abort_handler(int) {
     RaiseException(0x40000015u /* STATUS_FATAL_APP_EXIT */, EXCEPTION_NONCONTINUABLE, 0, nullptr);
     _exit(134);
 }
 static void install_crash_handler() {
     init_crash_log_dir();
+    AddVectoredExceptionHandler(1, vectored_crash_handler);
     SetUnhandledExceptionFilter(crash_handler);
     signal(SIGABRT, abort_handler);
     crash_addr::prime();
