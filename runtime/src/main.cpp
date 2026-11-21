@@ -427,7 +427,8 @@ static int run_test_host_crash() {
 #ifdef _WIN32
     HMODULE libc = GetModuleHandleA("ucrtbase.dll");
     if (!libc) libc = GetModuleHandleA("msvcrt.dll");
-    void* strlen_addr = libc ? GetProcAddress(libc, "strlen") : nullptr;
+    void* strlen_addr = nullptr;
+    if (libc) strlen_addr = reinterpret_cast<void*>(GetProcAddress(libc, "strlen"));
     if (!strlen_addr) _exit(2);
     EXCEPTION_RECORD er{};
     er.ExceptionCode = EXCEPTION_ACCESS_VIOLATION;
