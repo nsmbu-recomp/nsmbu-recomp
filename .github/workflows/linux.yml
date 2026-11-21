@@ -16,8 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: LuaJIT submodule
-        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
+      - name: Vendored libraries
+        run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - name: Install dependencies
         run: |
@@ -55,17 +55,7 @@ jobs:
       - name: Unit tests
         run: |
           ctest --test-dir build/linux --output-on-failure
-          python3 installer/test_setup.py
-          python3 recomp/test_builds.py
-          python3 recomp/test_output.py
-          python3 recomp/test_pool.py
-          python3 tools/android/test_apk_cli.py
-          python3 tools/lib/test_dev_game_icon.py
-
-      - name: Shader preparation and benchmark tooling unit tests
-        run: |
-          python3 tools/test_shaderprep.py
-          python3 -m unittest discover -s tools/bench -p "test_*.py"
+          python3 -m unittest discover -s tests/py -p "test_*.py"
           npm test --prefix tools/cli
 
       - name: Configure synchronization validation coverage
@@ -76,43 +66,30 @@ jobs:
           EOF
 
       - name: Default precise barrier smoke test (lavapipe + sync validation)
-        env:
-          NSMBU_VK_VALIDATION: "1"
         run: |
           export LD_LIBRARY_PATH="$HOME/sdl3/lib"
-          xvfb-run -a -s "-screen 0 1920x1080x24" ./build/linux/nsmbu --renderer-smoke 2>&1 | tee smoke.log
+          xvfb-run -a -s "-screen 0 1920x1080x24" ./build/linux/nsmbu --renderer-smoke --vk-validation 2>&1 | tee smoke.log
           grep -Fq "[renderer smoke] PASS:" smoke.log
           ! grep -Eq "VUID|SYNC-HAZARD|validation error" smoke.log
 
       - name: Verify synchronization validation is active
-        env:
-          NSMBU_VK_VALIDATION: "1"
-          NSMBU_VK_SYNC_NEGATIVE_CONTROL: "1"
         run: |
           export LD_LIBRARY_PATH="$HOME/sdl3/lib"
-          xvfb-run -a -s "-screen 0 1920x1080x24" ./build/linux/nsmbu --renderer-smoke 2>&1 | tee sync-negative.log
+          xvfb-run -a -s "-screen 0 1920x1080x24" ./build/linux/nsmbu --renderer-smoke --vk-validation --vk-sync-negative-control 2>&1 | tee sync-negative.log
           grep -Fq "SYNC-HAZARD-WRITE-AFTER-WRITE" sync-negative.log
           grep -Fq "sync negative control submitted" sync-negative.log
 
       - name: Conservative barrier smoke test (lavapipe + sync validation)
-        env:
-          NSMBU_VK_VALIDATION: "1"
-          NSMBU_VK_NARROW_BARRIERS: "0"
         run: |
           export LD_LIBRARY_PATH="$HOME/sdl3/lib"
-          xvfb-run -a -s "-screen 0 1920x1080x24" ./build/linux/nsmbu --renderer-smoke 2>&1 | tee conservative-smoke.log
+          xvfb-run -a -s "-screen 0 1920x1080x24" ./build/linux/nsmbu --renderer-smoke --vk-validation --vk-narrow-barriers=0 2>&1 | tee conservative-smoke.log
           grep -Fq "[renderer smoke] PASS:" conservative-smoke.log
           ! grep -Eq "VUID|SYNC-HAZARD|validation error" conservative-smoke.log
 
       - name: BC fallback smoke test (lavapipe + sync validation)
-        env:
-          NSMBU_VK_VALIDATION: "1"
-          NSMBU_VK_NARROW_BARRIERS: "1"
-          NSMBU_VK_FORCE_BC_DECODE: "1"
-          NSMBU_VK_BC_VERIFY: "1"
         run: |
           export LD_LIBRARY_PATH="$HOME/sdl3/lib"
-          xvfb-run -a -s "-screen 0 1920x1080x24" ./build/linux/nsmbu --renderer-smoke 2>&1 | tee bc-smoke.log
+          xvfb-run -a -s "-screen 0 1920x1080x24" ./build/linux/nsmbu --renderer-smoke --vk-validation --vk-narrow-barriers=1 --vk-force-bc-decode --vk-bc-verify 2>&1 | tee bc-smoke.log
           grep -Fq "[renderer smoke] PASS:" bc-smoke.log
           grep -q "BC production uploads" bc-smoke.log
           grep -q "synthetic GPU/CPU checks PASS" bc-smoke.log

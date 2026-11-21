@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - tools/android/**
+      - tests/py/android/**
       - installer/setup.py
       - tools/release/package.py
       - recomp/**
@@ -20,6 +21,7 @@ on:
     branches: [main]
     paths:
       - tools/android/**
+      - tests/py/android/**
       - installer/setup.py
       - tools/release/package.py
       - recomp/**
@@ -45,5 +47,4 @@ jobs:
           distribution: temurin
           java-version: "17"
       - name: Android setup unit tests
-        working-directory: tools/android
-        run: python3 -m unittest discover -s . -p 'test_*.py' -v
+        run: python3 -m unittest discover -s tests/py/android -p 'test_*.py' -v

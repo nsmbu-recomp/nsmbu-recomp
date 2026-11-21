@@ -20,7 +20,6 @@ SRC_CACHE = os.path.join(CACHE, "src")
 STAMPS = os.path.join(CACHE, "stamps")
 ZBIN = os.path.join(CACHE, "zbin")
 ZIG_CACHE = os.path.join(CACHE, "zig-cache")
-LUAJIT = os.path.join(ROOT, "vendor", "luajit")
 
 def strip_linker_depfiles(build_dir):
     for dirpath, _, names in os.walk(build_dir):
@@ -150,7 +149,6 @@ def curl_download(url, dest):
 
 
 VENDOR_SUBMODULES = (
-    ("vendor/luajit", "src/lj_arch.h"),
     ("vendor/fmt", "include/fmt/base.h"),
     ("vendor/imgui", "imgui.h"),
     ("vendor/xxHash", "xxhash.h"),
@@ -158,7 +156,7 @@ VENDOR_SUBMODULES = (
 )
 
 
-def check_luajit():
+def check_vendors():
     missing = [rel for rel, marker in VENDOR_SUBMODULES if not os.path.isfile(os.path.join(ROOT, rel, marker))]
     if missing:
         die("missing sources in %s; run: git submodule update --init %s" % (", ".join(missing), " ".join(missing)))
@@ -442,7 +440,7 @@ def main():
     log("building Linux %s installer package (%s)" % (arch, version))
 
     require_tools()
-    check_luajit()
+    check_vendors()
     pins = dependency_pins()
     vulkan_lib = vulkan_library(arch)
     toolchain_id = toolchain_for_arch(arch)

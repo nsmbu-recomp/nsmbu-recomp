@@ -4,9 +4,6 @@
 [submodule "vendor/Nintendo-File-Formats"]
 	path = vendor/Nintendo-File-Formats
 	url = https://github.com/nsmbu-recomp/Nintendo-File-Formats.git
-[submodule "vendor/luajit"]
-	path = vendor/luajit
-	url = https://github.com/LuaJIT/LuaJIT.git
 [submodule "vendor/ZeldaWWHDRecomp"]
 	path = vendor/ZeldaWWHDRecomp
 	url = https://github.com/ZeldaWWHDRecomp/ZeldaWWHDRecomp.git

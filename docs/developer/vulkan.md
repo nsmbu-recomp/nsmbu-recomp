@@ -464,7 +464,7 @@ bytes even when the game writes the range meanwhile):
 - native index extents: the buffer cache entry's shadow, or a CPU copy the arena slice is written from;
 - converted indices are built in a CPU vector and scanned there.
 
-`runtime/test/snapshot_cache_test.cpp` (CTest `snapshot_caches`) poisons every mapped byte right after
+`tests/host/snapshot_cache_test.cpp` (CTest `snapshot_caches`) poisons every mapped byte right after
 it is written and checks that the caches still find exactly the expected reuse hits. The only read of
 mapped GPU-input memory left is the buffer cache's opt-in diagnostic `NSMBU_VK_BUFFER_CACHE_VERIFY=1`.
 Buffers the CPU is meant to read (captures, the GamePad overlay signatures) come from

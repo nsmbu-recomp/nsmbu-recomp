@@ -1,0 +1,42 @@
+// Frame interpolation.
+// runtime/src/hooks/interp.cpp
+
+{
+  "hooks": [
+    { "address": "029C52CC" }, // ApplicationFramework::procCalc_: start a frame; an in-between pass skips the task-tree logic
+    { "address": "024FBF6C" }, // RenderObjRenderMgr::calcView: bake the in-between camera projection for the draw
+    // Course-layer draws. Each one reads the live ortho at RenderInfo+0x18 for this picture, then restores the logic edges.
+    // AreaTask::drawCourseTiles and AreaTask::drawCourseTilesSecond take that RenderInfo in r6.
+    // The BgRenderer draws take it in r4, except BgRenderer::drawGround which takes it in r5.
+    // The ground and brick passes are in this layer, not only BgRenderer::drawGround.
+    { "address": "024B47A8" }, // AreaTask::drawCourseTiles: in-between ortho for this draw, then the logic edges
+    { "address": "024B47C8" }, // AreaTask::drawCourseTilesSecond: the second tile draw
+    { "address": "026904D4" }, // BgRenderer::drawLayer0: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "026905C0" }, // BgRenderer::drawLayer0Second: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02690680" }, // BgRenderer::drawLayer1: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269083C" }, // BgRenderer::drawLayer1Second: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691690" }, // BgRenderer::drawLayer1SecondCont: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269179C" }, // BgRenderer::drawLayer2: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "026917E4" }, // BgRenderer::drawLayer2Second: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691868" }, // BgRenderer::drawLayer2SecondCont: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269196C" }, // BgRenderer::drawLayer3: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691970" }, // BgRenderer::drawLayer3Second: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "026919A4" }, // BgRenderer::drawSwitch0: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691A8C" }, // BgRenderer::drawSwitch2: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691B74" }, // BgRenderer::drawReducedGBuffer: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691DF0" }, // BgRenderer::drawSwitch3: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02691EAC" }, // BgRenderer::drawSwitch10: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269206C" }, // BgRenderer::drawSwitch15: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "026920B0" }, // BgRenderer::drawStep13: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02692194" }, // BgRenderer::drawSwitch13: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269222C" }, // BgRenderer::drawSwitch14: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "02692748" }, // BgRenderer::drawStep17: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269282C" }, // BgRenderer::drawSwitch17: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "026928C4" }, // BgRenderer::drawSwitch18: capture the live ortho from RenderInfo in r4, then restore the logic edges
+    { "address": "0269325C" }, // BgRenderer::drawGround: capture the live ortho from RenderInfo in r5, then restore the logic edges
+    { "address": "0268B70C" }, // Bg::drawGrassAndFlowers: in-between camera and blended deco arrays
+    { "address": "029C4FE4" }, // ApplicationFramework::procDraw_: a 30 fps step draws no frame
+    { "address": "029FD94C" }, // sead::DualScreenMethodTreeMgr::drawBtm: skip the GamePad picture when that screen is hidden
+    { "address": "024F30DC" } // ModelG3d::calcGPU: capture the model world pose and draw the in-between pass blended
+  ]
+}

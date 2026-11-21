@@ -1,0 +1,13 @@
+# Refuses game files, keys and recompiled game code in the tree.
+name: Content guard
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/check_content.py

@@ -47,4 +47,15 @@ bool has_rumble();
 
 void stop_rumble_now();
 
+// True when this binary is a development build.
+// Those builds append one `[input]` line to the run log each time the pad changes, so a later run can play the same input back.
+// A release build (`NDEBUG`) returns false and writes none of those lines.
+inline bool development_input_log() {
+#ifndef NDEBUG
+    return true;
+#else
+    return false;
+#endif
+}
+
 }

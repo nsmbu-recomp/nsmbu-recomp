@@ -7,7 +7,7 @@ The NSMBU recompiler does not emit the old addresses.
 The runtime hook code still refers to them.
 A weak stub satisfies the link.
 A real function in the generated game code replaces the stub.
-hooks.txt addresses with no hook_ function in the runtime get a weak hook too.
+Addresses in recomp/hooks/*.jsonc with no hook_ function in the runtime get a weak hook too.
 """
 import glob
 import os
@@ -36,14 +36,11 @@ def symbols():
     return sorted(found)
 
 def hook_lists():
-    from builds import _parse_hook, hook_files
+    from builds import hook_files, load_hook_file
     hooks, sites = set(), set()
     for path in hook_files():
-        for lineno, raw in enumerate(open(path), 1):
-            line = raw.split("#")[0].strip()
-            if not line:
-                continue
-            site, canon, _same = _parse_hook(line, "%s:%d" % (os.path.basename(path), lineno))
+        _label, entries = load_hook_file(path)
+        for site, canon, _same, _where in entries:
             (sites if site else hooks).add(canon)
     return hooks, sites
 

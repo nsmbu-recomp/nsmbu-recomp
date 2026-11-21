@@ -10,8 +10,9 @@ Short live control (`status`, `press`, `stick`, `screenshot`, `wait`, `quit`) is
 Course pad logs live under `tools/cli/src/playtest/replays/` and run as `nsmbu test replay-1-1` and `replay-2-1`.
 `replay-bug-1` checks the intro-skip quit.
 
-Only one game instance is supported.
-The process is too heavy to run more than one, so there is no `--session` flag and no multi-instance control.
+Each `-s` id is one game.
+Omit `-s` and the command uses the default session, which is still one game.
+There is no environment fallback; always pass `-s` when you need a non-default session.
 
 ## Install
 
@@ -50,14 +51,18 @@ flowchart LR
 ### Transport
 
 Unix domain socket on Linux and macOS; named pipe on Windows.
-Fixed path under `.tmp/agent/` (socket, pid, optional log) for the single running instance.
+The default session keeps its socket and pid under `.tmp/agent/`.
+`nsmbu -s <id>` uses `.tmp/agent/<id>/` for that socket and pid.
+`NSMBU_USER_DIR` for that session is `.tmp/agent/<id>/user`, so the save, settings, and log stay off the shared `nsmbu/` folder.
+A game started with that socket does not take the foreground.
+Later agent commands leave the window where it is.
 The game opens the listener when started through `nsmbu open` (or `launch --agent`).
 Protocol: newline-delimited JSON request/response.
 No HTTP server.
 
 ### Input model
 
-Live pad overlay merged in `input::read()` in `runtime/src/platform/input_sdl.cpp` (same layering idea as `mods::lua_press`).
+Live pad overlay merged in `input::read()` in `runtime/src/platform/input_sdl.cpp` (same layering idea as `mods::pad_inject`).
 Hold bits or stick axes until released or until a short pulse duration (default about 20 frames).
 Does not write replay files.
 Course recordings are the `replay-*` playtests.
@@ -71,22 +76,21 @@ Commands call into existing APIs: `render::frame_count()`, `interp::logic_steps(
 Package name and binary name are `nsmbu`.
 Entry: `tools/cli/bin/nsmbu.ts` with shebang / `package.json` `"bin":{"nsmbu":"…"}`, `"type":"module"`, `"engines":{"node":">=24"}`.
 
-The CLI exports `NSMBU_CLI=1` and `NSMBU_USER_DIR=<repo>/nsmbu` on every dev command (same layout as before).
+The CLI passes `--cli` and `--user-dir=<repo>/nsmbu` to the game on every dev command (same layout as before).
 
 | Command | Role |
 | --- | --- |
 | `nsmbu build` / `build --release` / `build --sanitizer` | `tools/build/build.py` |
 | `nsmbu launch` (+ `--no-debug`, `--trace`, `--gdb`, `--lldb`) | `tools/run/launch.py` |
 | `nsmbu crash` | launch with `NSMBU_TEST_HOST_CRASH=1`; in a Debug build the process exits non-zero and prints the crash log path instead of the Report crash dialog |
-| `nsmbu wine` (+ `--no-debug`, `--trace`) | cross-build `build/windows/nsmbu.exe` then `tools/run/launch.py --wine` |
 | `nsmbu run` / `run --release` | build then launch |
 | `nsmbu extract` | `tools/disc/extract.py` |
 | `nsmbu save <save.dat\|save.json> [output] [--output PATH]` | convert `rp_savedata.dat` to JSON and back |
-| `nsmbu profile` / `perf` | profiling helpers |
+| `nsmbu settings [list\|get\|set\|unset] [--file PATH]` | read and write `settings.ini` without the settings overlay |
+| `nsmbu profile [slot] [--cpu] [--seconds N] [--attach PID]` | slot-1 scene `[prof]` digest; `--cpu` adds a Linux `perf` sample. `NSMBU_VK_GPU_TIMESTAMPS=1` adds GPU submission intervals. World-map scores stay on `nsmbu bench` |
 | `nsmbu installer [--version VERSION] [--no-open]` | builds this Linux host's GitHub Release folder (the zip contents) at `build/installer` with the pinned zig toolchain, SDL3, and Vulkan-Headers from the tree, then opens that folder's setup window; `--no-open` returns after the package is ready; does not publish |
 | `nsmbu apk` | builds the same setup APK as a release: Python, the compiler and the extractor are inside, and the game code is not. Installs it on a USB device (`adb`). `--build-only` skips adb. `--install-only` installs the last APK. |
-| `nsmbu lint` / `recomp` | TypeScript mod build, recomp only |
-| `nsmbu scripted <name>` | wraps `tools/run/scripted-run.sh` |
+| `nsmbu recomp` | Recomp only |
 | `nsmbu test [--list] [--show] [name…]` | boots a game per playtest and runs selected cases in parallel ([automation.md](automation.md)); `--show` leaves the window on screen and runs one case at a time |
 | `nsmbu scenario OUT [VAR=value …]` | headless logic-step trace for build-to-build comparison ([automation.md](automation.md)) |
 | `nsmbu compare-runs RUN_A RUN_B [--scene NAME] [--steps N]` | diff two `scenario` output folders ([automation.md](automation.md)) |
@@ -110,22 +114,48 @@ Challenge `replayCrc` values in JSON are read for inspection only; they are reco
 No block CRC32 fields appear in the JSON; those trailers are recomputed when writing the `.dat` file so the game still accepts it.
 Non-finite `f32` values (star coin coordinates) are written as `0x`-prefixed 32-bit hex.
 
+### Settings
+
+`nsmbu settings` reads and writes the same `settings.ini` the overlay writes.
+The default file is `nsmbu/settings.ini` under `NSMBU_USER_DIR`.
+`--file` selects another file.
+The game loads the file on the next start.
+A running game keeps the settings it already loaded, and its next save replaces the file.
+An `NSMBU_*` variable that the game treats as an override still wins for that start.
+
+```
+nsmbu settings
+nsmbu settings get fps
+nsmbu settings set fps 165
+nsmbu settings set audioMute on
+nsmbu settings set resScale 1440p
+nsmbu settings unset gpu
+```
+
+`list` prints each known key, the saved value or `-`, and the accepted values.
+`fps` writes `fps60`, `fpsUnlocked`, `fpsCustom`, and `interpFps` together.
+`30`, `60`, `120`, `144`, `165`, and `240` are the listed rates.
+Any other integer from 60 to 1000 is a custom cap.
+`unlocked` draws as fast as the machine can.
+`vkPresentMode` also sets `vkPresentChosen=1`, which is what makes `fifo` stick.
+A key the catalog does not name is stored as written when it matches `name` or `name.part`.
+
 ## Compile
 
 Generated C uses `musttail`, so the build uses Clang.
 On Linux, `tools/build/build.py` adds the `libstdc++` path when it finds `libstdc++.so` under `/usr/lib/gcc/`.
 
 `nsmbu build` runs the recompiler when `game/code/red-pro2.rpx` is newer than `build/gen`.
-It also runs the recompiler when the contents of `hooks.txt` or a `hooks_*.txt` file change.
+It also runs the recompiler when the contents of a `recomp/hooks/*.jsonc` file change.
 When that RPX is absent, the build fills `build/gen` with `recomp/stubgen.py` so the tree still links.
 
-Set `NSMBU_VERBOSE_BUILD=1` to print full CMake configure output (pkg-config checks and other `--` status lines).
+`nsmbu build --verbose` prints full CMake configure output (pkg-config checks and other `--` status lines).
 
 An RPX from a disc that lacks the 1.3.0 update has different addresses.
-Those addresses miss `references/headers` and `recomp/headers_names.txt`.
+Those addresses miss `references/headers`.
 
 A warm `nsmbu build` skips `cmake -S` when the build cache already matches the compiler flags and CMake options.
-Regenerate guest stubs only when `hooks.txt`, `hooks_*.txt`, or the recomp inputs changed.
+Regenerate guest stubs only when a `recomp/hooks/*.jsonc` file, or the recomp inputs, changed.
 The `0 hooks` line from stub generation is normal.
 Hooks live in `build/gen`.
 `recomp/guest_stubs.py` writes weak stubs for guest symbols the runtime still names.
@@ -144,28 +174,29 @@ These stay as `python3 tools/…` until they move into the CLI.
 
 | Script | Role |
 | --- | --- |
-| `recomp/analyze.py` | Find branch islands in recomp output ([vendor/decomp/docs/decomp-notes.md](../../vendor/decomp/docs/decomp-notes.md)) |
-| `tools/rpx/ppcdis.py` | Disassemble guest `.text` (see `vendor/decomp/docs/TODO.md`) |
-| `tools/frames/flicker.py` | Compare frame dumps ([automation.md](automation.md)) |
+| `recomp/analyze.py` | Find branch islands in recomp output, including `bctr` into a run of `b` opcodes |
+| `tools/rpx/ppcdis.py` | Disassemble guest `.text`, or query `callers`, `func`, `access`, and `xref`. Import calls and a local `recomp/headers_names.txt` are annotated on the disassembly |
 | `tools/bench/bench_lib.py` | Save-state A/B statistics (unit tests; scenarios use `nsmbu bench`) |
 | `tools/shader/shaderprep.py` | Metal shader head-start cache |
 
 ## Host tests
 
-Host tests are CTest targets in `CMakeLists.txt`.
+Host tests are CTest targets in `tests/CMakeLists.txt`.
 
 ```bash
 ctest --test-dir build --output-on-failure
 ```
 
-Linux CI also runs these scripts after that `ctest`.
+Linux CI also runs the Python tests after that `ctest`.
 
 ```bash
-python3 installer/test_setup.py
-python3 recomp/test_builds.py
+python3 -m unittest discover -s tests/py -p "test_*.py"
 ```
 
-`.githooks/pre_push.py` runs a full local `ctest` before a push.
+`.githooks/pre_push.py` runs before a push when `core.hooksPath` is `.githooks`.
+The script builds the commit you push.
+It then runs `ctest`, `python3 -m unittest discover -s tests/py -p "test_*.py"`, and `npm test --prefix tools/cli`.
+
 Profiling follows [performance.md](performance.md).
 
 ## Local userdata
@@ -178,17 +209,36 @@ The run log is `nsmbu/logs/nsmbu.log`.
 
 ## Live look
 
-Commands talk to the single running game over the fixed control socket.
+Commands talk to one session's game over that session's control socket.
+Pass the same `-s <id>` on every command for that game.
 Use them for a short look while writing a playtest case; lasting coverage stays in `tools/cli/src/playtest/cases/` and `nsmbu test`.
 
 - `nsmbu open [slot|course|course-file] […]` — ensure a debug binary, spawn the game with agent control enabled, wait until the socket accepts.
+  The game starts with the sound off.
   Release builds ignore `NSMBU_AGENT_SOCK`.
   A course file is a `course_res_pack` archive, such as `game/content/Common/course_res_pack/1-27.szs`, and starts that course the same way as `1-27`.
-  Refuse if a game is already running.
-- `nsmbu status` — one line from the guest thread: frame, logic step, pid, scene name, whether the world map or a course task is alive, course pack, entering pack when it differs, save file, map checkpoint, map node and world, and the player snapshot or `player=none`.
+  Refuse if that session already has a game.
+  Another `-s` id can be open at the same time.
+- `nsmbu status` — one line from the guest thread: frame, logic step, pid, scene name, whether the world map or a course task is alive, course pack, entering pack when it differs, save file, map checkpoint, map node and world, the player snapshot or `player=none`, and `screen=` for the picture that is drawn.
   On the world map the line also has the node name, the node position, and the map player position.
   `area=1` means a course area is running.
   Fields that are not ready are omitted.
+  The picture is the `screen=` field.
+  When that field is absent, run `nsmbu status` again.
+  `scene=` is the scene name.
+  `player=` is the player snapshot.
+  `screen=course` is a course even when `scene=` still says `Map`.
+  `screen=gamepad` is the GamePad popup.
+  `screen=saves` is the three save files.
+  `screen=title` is the title.
+  `screen=world-map` is the world map.
+  `screen=world-map-iris` is that map while the iris still covers it.
+  `screen=start-menu` names the selected start-menu button.
+  `screen=pause` names the selected pause row.
+  `screen=controller` is the Change Controller page.
+  `screen=settings` is this port's overlay.
+  `behind=` names the page under that overlay.
+  `screen=loading` is the loading card.
 - `nsmbu leave` — quit the live course through `requestCourseOut_Normal` on the guest thread.
   The command returns an error when no course is running.
 - `nsmbu press A` / `press 8000` — short pulse (configurable frames).
@@ -201,19 +251,58 @@ Use them for a short look while writing a playtest case; lasting coverage stays 
 - `nsmbu goto <title|file|map|W-C>` — ask the guest thread to open that place, then wait until status shows it.
   `map` opens the first save on the world map.
   `1-1` is a course pack.
-- `nsmbu ui` — settings overlay open flag and tab, and the world-map start menu cursor, button names, and rectangles.
+- `nsmbu ui` — settings overlay open flag and tab, the world-map start menu cursor, button names, and rectangles, and the course pause row or controller page when that page is up.
 - `nsmbu actors [--limit N] [--radius N]` — the player power-up, then the nearest course actors with profile id, position, and velocity.
-- `nsmbu log [--tag a,b] [--lines N]` — recent lines from the in-process log ring.
+- `nsmbu eval --list` — one JSON object naming every probe compiled into the debug game.
+  Each entry has `name`, `kind` (`call` or `read`), `help`, and `observe`.
+  A read also has `type` and `count`.
+- `nsmbu eval <name> [json]` — run that probe on the guest thread and print the JSON value.
+  A call receives the JSON object and may change the game when `observe` is false.
+  A read copies host memory whose type and size were registered with the name.
+  `ping` returns its arguments.
+  `map.menu` returns the world-map start menu.
+  `map.win_w` returns the window width used for that menu.
+  A missing name, bad JSON, or a null address is an error.
+- `nsmbu log [--tag a,b] [--around] [--lines N]` — recent lines from the in-process log ring.
   `--tag menu,scene` keeps lines that contain `[menu]` or `[scene]`.
+  The word inside the brackets is the tag.
+  `--around` prints the status line, then keeps the tags for that picture.
+  A bracket word outside that list stays in the log file and out of this output.
+  `[vulkan]` and `[prof]` stay out until `--tag` names `vulkan` or `prof`.
+  A course keeps `[open]`, `[scene]`, `[pause]`, and `[input]`.
+  A pause menu keeps `[pause]`, `[overlay]`, `[menu]`, and `[input]`.
+  The latest `[scene]` line stays in that list.
+
+Tags an agent filters:
+
+- `input` — a pad change.
+  `down=` and `up=` name the buttons.
+  `lstick=` and `rstick=` name a stick that moved.
+  A course line starts with the step.
+  Any other place starts with `frame` and the TV frame.
+  The same tag also carries controller connect lines and replay progress.
+- `scene` — the scene changed.
+- `open` — a course is opening.
+  The line ends with `course up` when play can start.
+- `menu` — the world-map start menu.
+- `pause` — the course pause menu.
+- `overlay` — this port's settings overlay opened or closed.
+- `screenshot` — a picture was saved.
+- `boot` — the process started and names the game version.
+- `agent` — the control socket.
+- `gfx` — a frame dump or the title picture.
+- `prof` — a frame-time sample.
+- `vulkan` — a Vulkan line.
+
 - `nsmbu picture [--frames N] [--rect x,y,w,h]` — capture a few TV frames and print a hash plus the mean and max channel change inside the rectangle.
   The rectangle is in 1280×720 TV pixels.
   Omit it to use the whole frame.
 - `nsmbu restart` — remember the course pack, world map, title, or file select, quit, rebuild `build/debug/nsmbu` when a runtime source is newer, then open that place again.
-- `nsmbu quit` / `close` — graceful quit and tear down control files under `.tmp/agent/`.
+- `nsmbu quit` / `close` — graceful quit and tear down that session's control files under `.tmp/agent/` (or `.tmp/agent/<id>/`).
 
-These commands block until their work is done: `open` waits for the socket, `leave` waits for the guest thread to quit the course, `press` / `stick` hold for their frames, `screenshot` and `picture` wait for the PNGs, `status`, `ui`, and `actors` wait for the guest thread, `goto` waits until that place is current, and `wait` polls until the frame, step, scene, or cursor bound.
+These commands block until their work is done: `open` waits for the socket, `leave` waits for the guest thread to quit the course, `press` / `stick` hold for their frames, `screenshot` and `picture` wait for the PNGs, `status`, `ui`, `actors`, and `eval <name>` wait for the guest thread, `eval --list` answers from the listen thread, `goto` waits until that place is current, and `wait` polls until the frame, step, scene, or cursor bound.
 Use `wait --step N` or `wait --scene NAME` when the next action needs guest progress.
-`nsmbu scripted <name>` remains for exit-at-frame dumps (see [automation.md](automation.md)).
+Frame dumps and fixed `NSMBU_PRESS` timelines use `NSMBU_DUMP_FRAMES`, `NSMBU_EXIT_AT_FRAME`, and related vars with `nsmbu launch` (see [automation.md](automation.md)).
 
 ## Runtime work
 
@@ -233,13 +322,15 @@ No change to the replay file format or `NSMBU_PRESS` start-only tables except co
 ## Docs and agent skills
 
 `CONTRIBUTING.md`, `docs/developer/nsmbu/port.md`, `docs/developer/automation.md`, and `AGENTS.md` use `nsmbu …` for CLI invocations.
-`.agents/skills/nsmbu/SKILL.md` steers agents to playtest cases first, with live look commands for short checks.
+`.cursor/skills/cli/SKILL.md` steers agents to playtest cases first, with live look commands for short checks.
 Complex input stays on `record` / `replay`.
 
 ## Implementation notes
 
 The CLI shells out to existing Python tools for build, launch, and profile; do not reimplement CMake in TypeScript.
 TypeScript: erasable syntax only (`erasableSyntaxOnly` in `tools/cli/tsconfig.json`); imports use `.ts` extensions.
-Control state for the one instance lives under `.tmp/agent/` (gitignored via existing `.tmp/`).
+Control state for the default session lives under `.tmp/agent/` (gitignored via existing `.tmp/`).
+A named session lives under `.tmp/agent/<id>/`.
 Global install is `npm link` from `tools/cli/`; do not add a repo-root wrapper script.
-No `--session` and no multi-game support.
+`-s` / `--session` selects the id.
+The default session stays one game.

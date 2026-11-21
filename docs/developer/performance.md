@@ -23,16 +23,15 @@ optimizations have been adapted:
   (Since 2026-10-06 both renderers decide when to check by page write tracking,
   see "Texture change detection" below; the sparse check is only the fallback.)
 
-Swapchains now prefer mailbox when advertised, with FIFO fallback. The existing
-override in **this** checkout is `NSMBU_VK_PRESENT_MODE` (the other checkout uses
-`NSMBU_VULKAN_PRESENT_MODE`). To test presentation throttling separately:
+Swapchains now prefer mailbox when advertised, with FIFO fallback.
+To test presentation throttling separately:
 
 ```powershell
-$env:NSMBU_VK_PRESENT_MODE = 'immediate'
-./build/windows/nsmbu.exe
+./build/windows/nsmbu.exe --vk-present-mode=immediate
 ```
 
-Immediate mode may tear. Remove the variable to restore mailbox/FIFO selection.
+Immediate mode may tear.
+Omit the flag to restore mailbox/FIFO selection.
 This setting retains guest GX2 pacing and does not guarantee 60 fps.
 
 The Release timer probe (`build/windows/sleep_test.exe`) compares 80 five-ms
@@ -78,13 +77,38 @@ nsmbu build --release
 nsmbu profile
 ```
 
-`nsmbu profile` writes `.tmp/repro/nsmbu.log`.
+`nsmbu profile` loads slot 1 and prints a `[profile]` digest of the last `[prof]` window.
+The log stays at `.tmp/repro/nsmbu.log`.
+The binary is `build/release/nsmbu` when that file exists.
 Pass a slot (`nsmbu profile 1`), or `--exit-at`, `--load-at`, or `--log`.
-
-Read `[prof]`, `[vulkan perf]`, and `[gx2] frame` in `.tmp/repro/nsmbu.log`.
+`nsmbu profile --cpu` records Linux `perf` stacks for that scene and prints the top symbols plus the same digest.
+`nsmbu profile --cpu --attach PID` samples a game that is already running.
 A missing live thread logs `does not exist yet`.
 Load at a later TV frame.
 An exited thread in the save is ignored.
+
+### GPU intervals
+
+`waits ms/frame: gpu` in the `[profile]` digest is render-thread time blocked on the GPU.
+Draw phases in that digest are render-thread CPU.
+A GPU load percentage is the Android performance report (`GPU busy`).
+
+Desktop and macOS time the GPU with Vulkan timestamp queries.
+Set the switch in the environment so `nsmbu profile` keeps it:
+
+```sh
+NSMBU_VK_GPU_TIMESTAMPS=1 nsmbu profile
+```
+
+Read `[vulkan GPU timestamps] submission interval sum` in `.tmp/repro/nsmbu.log`.
+That number is the summed submission interval per frame.
+It can include queue stalls.
+`unsupported` or `all-zero/emulated timing UNUSABLE` means this device cannot time the GPU.
+
+`NSMBU_VK_GPU_PASS_TIMESTAMPS=1` adds `[vulkan GPU scope N]` lines for the top render-pass and feedback-copy buckets.
+Turn that switch off before a frame-time or bench score.
+The scope queries change the frame time.
+The switch list is "Optional performance diagnostics" in [vulkan.md](vulkan.md).
 
 On macOS, sample the same command with `sample` (1 ms stacks for every thread).
 The "Sort by top of stack" section shows where the CPU time goes.
@@ -93,30 +117,26 @@ Canonical addresses are USA v1.3.0 `red-pro2.rpx` (see [names.md](names.md)).
 
 ### Profilers
 
-Game sampler (built in):
-
-- Turn on with `NSMBU_GAME_SAMPLE=120`.
-  `SIGUSR2` prints a report.
-- You get a per-PC histogram and a per-thread table in the game log.
-- The log is `nsmbu/logs/*.log` or `.tmp/repro/nsmbu.log`.
-
 `perf` (external):
 
-- Turn on with `nsmbu perf`.
+- Turn on with `nsmbu profile --cpu`.
 - You get full stacks over every thread.
-- Artifacts land in `.tmp/perf/`.
+- The command prints the top symbols.
+- The full report is `.tmp/perf/report.txt`.
 
-World-map profiles use the debug boot in [automation.md](automation.md).
-`nsmbu scripted` changes present mode and resolution, so it is the wrong boot for a settings-matched map profile.
+World-map frame time is `nsmbu bench overworld` or `nsmbu bench load-overworld`.
+Those runs copy `nsmbu/` settings and leave the window visible.
+Headless boots that set `NSMBU_VK_PRESENT_MODE=immediate` and `NSMBU_RES_SCALE=1` are the wrong path for a settings-matched map profile.
 
-`nsmbu perf` runs the fixed 1-1 scene under `perf record`.
+`nsmbu profile --cpu` runs the fixed 1-1 scene under `perf record`.
 It writes `.tmp/perf/nsmbu.data`, `game.log`, `report.txt`, and `report_flat.txt`.
-Attach to a live session with `nsmbu perf --attach PID --seconds 30`.
+Attach to a live session with `nsmbu profile --cpu --attach PID --seconds 30`.
 It asks for sudo and sets `perf_event_paranoid` to 1 when the kernel refuses sampling (per boot).
 
 ### Read the artifacts
 
-`[gx2] frame N, X swaps/s`, `[gx2] slow swap`, and `[prof]` per-phase ms lines are the first check.
+The printed `[profile]` block is the first check.
+`[gx2] frame N, X swaps/s`, `[gx2] slow swap`, and `[prof]` per-phase ms lines are in the log when that block names a phase to open.
 Steady 60 fps holds ~59.9 swaps/s.
 
 A `[game sample]` report counts `pc - binary_base` of the built `nsmbu` binary (usually `build/debug/nsmbu`), CPU-time sampled.
@@ -125,7 +145,7 @@ The thread table at the bottom gives the busy share per game thread (`GX2 render
 `.tmp/perf/nsmbu.data` resolves against the binary by build ID.
 Keep that binary unchanged until the data is read.
 
-Name in-binary sample rows with `grep` on the log offset against `recomp/headers_names.txt` and the rules in [names.md](names.md).
+Name guest addresses in those rows with the rules in [names.md](names.md).
 Use Linux `perf` when you need full symbolication of mapped libraries.
 Reads of guest code live in `build/gen/code_*.c` (`f_XXXXXXXX`).
 
@@ -496,12 +516,12 @@ full checks, hashed bytes (Metal), uploads, page write faults and pages protecte
 ## Guest register reloads after calls (2026-10-21)
 
 Functions with calls now keep the guest registers in C locals between calls and reload only the ones a later read needs.
-A backward liveness pass over each function's statement graph (`recomp/leaflocal.py`, `NSMBU_RECOMP_NONLEAF_LIVE`, on by default) drops the reloads of registers and float halves that are overwritten before they are read again, and keeps the ones a return, a tail call or a loop-head sync still needs.
+A backward liveness pass over each function's statement graph (`recomp/leaflocal.py`, `--nonleaf-live`, on by default) drops the reloads of registers and float halves that are overwritten before they are read again, and keeps the ones a return, a tail call or a loop-head sync still needs.
 
 The recompiler emits one reload statement per register per call, and the game has 173,463 calls in functions with calls.
 `report.txt` therefore counts 2,918,797 reload statements with the pass off and 621,916 with it on: 79% of them are gone.
 
-`NSMBU_RECOMP_NONLEAF_ABI`, an earlier version that also left r0, r11 and r12 in their locals at a call, was removed because both halves break the game.
+An earlier nonleaf ABI pass that also left r0, r11 and r12 in their locals at a call was removed because both halves break the game.
 A generated callee loads `c->r[0]`, `c->r[11]` and `c->r[12]` in its prologue, and 6 and 36 guest functions read r0 and r11 before writing them, so skipping the write-back loses their input (the boot hangs before `[gx2] initialized`).
 A callee with calls of its own writes those registers back at its own calls, so skipping the reload leaves the caller a stale copy (SIGSEGV at guest address `00000019`, `lr=02000278`).
 In a plain (struct form) recomp, 0 of 84,509 functions read r12 before writing it and 40 read r0 or r11, but a sound skip needs the callee's live-in set at each call site for about 15% of what the live pass already saves.
@@ -520,14 +540,14 @@ The direct effect is on the guest code.
 A 1 ms `SIGPROF` leaf sampler on the thread CPU clock, attached with `LD_PRELOAD`, counts the guest thread's samples in `f_*` code between 881 and 928 with the pass off and between 830 and 884 with it on, about 8% fewer.
 That is CPU headroom, not frames, on this machine.
 
-`nsmbu recomp` writes the reload count to `report.txt`; recompile the same tree with `NSMBU_RECOMP_NONLEAF_LIVE=0` for the baseline.
+`nsmbu recomp` writes the reload count to `report.txt`; recompile the same tree with `--no-nonleaf-live` for the baseline.
 A build with the pass on must still pass `nsmbu test replay-1-1` (`player state matched` in `.tmp/playtest/replay-1-1/nsmbu.log`).
-`python3 -m unittest recomp/test_leaflocal.py` covers the transform itself.
+`python3 -m unittest discover -s tests/py/recomp -p "test_leaflocal.py"` covers the transform itself.
 
 Three things mislead while measuring this.
 The `[prof]` windows for one setting swing up to 20% between runs here, so compare three runs per side and use the medians; a single pair can show a gain that is not there.
 `perf` is unavailable (`perf_event_paranoid=4`), which is why the guest CPU number comes from a `SIGPROF` sampler on the thread CPU clock.
-`NSMBU_RECOMP_LEAF_POISON=1` fills the locals that a reload would have overwritten with garbage, and it also writes garbage into the `Cpu` struct at every return, so it is good for a short boot and not for a full replay (SIGSEGV at guest address `00000034` with r5-r12 all `DEADBEEF`).
+`recomp.py --leaf-poison` fills the locals that a reload would have overwritten with garbage, and it also writes garbage into the `Cpu` struct at every return, so it is good for a short boot and not for a full replay (SIGSEGV at guest address `00000034` with r5-r12 all `DEADBEEF`).
 
 ## Unchanged texture binds on the world map (2026-11-03)
 

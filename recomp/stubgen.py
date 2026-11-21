@@ -20,14 +20,11 @@ import names
 root = os.path.normpath(os.path.join(here, ".."))
 
 def hook_lists():
-    from builds import _parse_hook, hook_files
+    from builds import hook_files, load_hook_file
     hooks, sites = set(), set()
     for path in hook_files():
-        for lineno, raw in enumerate(open(path), 1):
-            line = raw.split("#")[0].strip()
-            if not line:
-                continue
-            site, canon, _same = _parse_hook(line, "%s:%d" % (os.path.basename(path), lineno))
+        _label, entries = load_hook_file(path)
+        for site, canon, _same, _where in entries:
             (sites if site else hooks).add(canon)
     return hooks, sites
 

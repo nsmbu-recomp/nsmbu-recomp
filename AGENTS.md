@@ -3,6 +3,8 @@
 ## Rules
 
 - Never commit any game files to the repo they must always be gitignored.
+- Always `nsmbu close` the running game session once finished.
+- Always start nsmbu muted.
 
 ## Changelog
 
@@ -18,9 +20,6 @@ The `nsmbu` target compiles with `-Wall`.
 
 ## Decomp
 
-Any discoveries you find about the source code document it in the headers in `vendor/decomp/include` also add documentation comments explaining what the function does and any side effect or requirements for calling it.
-
-## Verification
-
-Read the `verify` skill before you finish a change.
-See [docs/developer/verification.md](docs/developer/verification.md) for the full check inventory.
+When decompiling a function, call the Task tool with `subagent_type` `decompile`.
+When working with hooks make sure you understand the underlying code.
+The prompt is the address, the symbol, or both.

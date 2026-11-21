@@ -147,8 +147,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: LuaJIT submodule
-        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
+      - name: Vendored libraries
+        run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - name: Install build tools
         run: brew install ninja
@@ -164,10 +164,7 @@ jobs:
       - name: Unit tests
         run: |
           ctest --test-dir build/rel --output-on-failure
-          python3 installer/test_setup.py
-          python3 recomp/test_builds.py
-          python3 recomp/test_output.py
-          python3 recomp/test_pool.py
+          python3 -m unittest discover -s tests/py -p "test_*.py"
 
       - name: Package
         run: |
@@ -238,8 +235,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: LuaJIT submodule
-        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
+      - name: Vendored libraries
+        run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - name: Install dependencies
         run: |
@@ -315,10 +312,7 @@ jobs:
         run: |
           export LD_LIBRARY_PATH="$HOME/sdl3/lib"
           ctest --test-dir build/rel --output-on-failure
-          python3 installer/test_setup.py
-          python3 recomp/test_builds.py
-          python3 recomp/test_output.py
-          python3 recomp/test_pool.py
+          python3 -m unittest discover -s tests/py -p "test_*.py"
 
       - name: Package
         run: |
@@ -429,8 +423,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: LuaJIT submodule
-        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
+      - name: Vendored libraries
+        run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - name: Pinned llvm-mingw toolchain (installer/toolchains.json)
         run: |
@@ -480,7 +474,7 @@ jobs:
       - name: Unit tests
         run: |
           ctest --test-dir build/rel --output-on-failure
-          python installer/test_setup.py
+          python -m unittest discover -s tests/py -p "test_*.py"
 
       - name: Pinned embeddable Python, shipped in the release (installer/toolchains.json)
         # the setup runs with it (tools/python); the release itself downloads no Python (issue #58)
@@ -674,8 +668,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: LuaJIT submodule
-        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
+      - name: Vendored libraries
+        run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - uses: actions/setup-java@v5
         with:
@@ -726,15 +720,15 @@ jobs:
       - name: Release APK, signed with the project's key
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
-          NSMBU_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          NSMBU_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          NSMBU_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ORG_GRADLE_PROJECT_nsmbuKeystorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_nsmbuKeyAlias: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_nsmbuKeyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
           PUBLISHING: ${{ needs.version.outputs.publish }}
         run: |
           if [ -n "$KEYSTORE_B64" ]; then
-            export NSMBU_KEYSTORE="$RUNNER_TEMP/nsmbu-release.p12"
-            trap 'rm -f "$NSMBU_KEYSTORE"' EXIT
-            (umask 077 && printf '%s' "$KEYSTORE_B64" | base64 -d > "$NSMBU_KEYSTORE")
+            export ORG_GRADLE_PROJECT_nsmbuKeystore="$RUNNER_TEMP/nsmbu-release.p12"
+            trap 'rm -f "$ORG_GRADLE_PROJECT_nsmbuKeystore"' EXIT
+            (umask 077 && printf '%s' "$KEYSTORE_B64" | base64 -d > "$ORG_GRADLE_PROJECT_nsmbuKeystore")
           elif [ "$PUBLISHING" = true ]; then
             echo "::error::the signing secrets are missing: a published APK must carry the release key"; exit 1
           else
@@ -806,7 +800,6 @@ jobs:
           else
             python3 tools/release/notes.py README.md "$VERSION" > dist/notes.md
           fi
-          cat dist/notes.md
           python3 tools/release/guard.py dist
 
       - uses: actions/upload-artifact@v4

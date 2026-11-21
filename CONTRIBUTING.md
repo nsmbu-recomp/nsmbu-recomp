@@ -5,13 +5,32 @@ The last merge from `upstream/main` is commit `defb89f21607345e2e97b2c145a071a3f
 These commands are for a source checkout.
 Players use a [release](README.md#install).
 
+## Game files
+
+Nothing that came out of the game goes into the repository.
+That includes game files, keys, extracted data, recompiled C, compiled binaries, shader caches, and saves.
+Addresses, hashes, and code we wrote are fine.
+
+Two checks enforce this:
+
+- CI runs `tools/check_content.py` on every push and pull request.
+- The same check runs before each local commit once you enable the hook:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+That setting also runs `.githooks/pre_push.py` before each push.
+The script builds the commit you push.
+It then runs `ctest`, the Python unit tests, and `npm test --prefix tools/cli`.
+
 Install Node 24 or newer, CMake 3.20 or newer, Python 3, and Clang.
 Link the developer CLI once: `cd tools/cli && npm link`.
 After that, every command is the global `nsmbu` on `PATH`.
 
 Put your dump in `game/`.
 The file layout is in [game/README.md](game/README.md).
-Initialize the build submodules before the first build: `git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp`.
+Initialize the build submodules before the first build: `git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp`.
 
 | Command | Result |
 |---------|--------|

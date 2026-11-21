@@ -5,7 +5,7 @@ An address is the canonical id of a function, a global, or an instruction site (
 A name is easier to read and easier to talk about.
 Add the name next to the address.
 Do not replace the address with the name: the address stays the key in the hooks files and in the runtime.
-`hooks.txt` and `hooks_*.txt` list the call sites the runtime replaces.
+`recomp/hooks/*.jsonc` lists the call sites the runtime replaces.
 A regional rebuild shifts those addresses through the map in [builds.md](builds.md) and keeps the `f_XXXXXXXX` names.
 
 ## Where the names come from
@@ -23,8 +23,8 @@ Use `vendor/decomp` for the body of a function, the member order, and the layout
 Use `references/Cemu` for HLE behaviour, not for names.
 
 `vendor/decomp` and `vendor/Nintendo-File-Formats` are submodules of this repository.
-`vendor/luajit`, `vendor/fmt`, `vendor/imgui`, `vendor/xxHash`, and `vendor/metal-cpp` are submodules.
-Run `git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp` before a build.
+`vendor/fmt`, `vendor/imgui`, `vendor/xxHash`, and `vendor/metal-cpp` are submodules.
+Run `git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp` before a build.
 The other trees here are gitignored local checkouts.
 The trees below are not name sources.
 Open one when the task is in that library.
@@ -41,10 +41,10 @@ Open one when the task is in that library.
 | `vendor/Nintendo-File-Formats` | Nintendo file format notes |
 
 The repository does not carry the headers.
-`recomp/names.py` extracts the addresses and names from a local `references/headers` checkout into `recomp/headers_names.txt`, and that file is in git.
-`recomp.py` and `stubgen.py` read the file, so the gen needs no checkout of the headers.
 Credit the names to [nsmbu/headers](https://github.com/nsmbu/headers).
-Refresh the file after a headers update with `python3 recomp/names.py references/headers`.
+`python3 recomp/names.py references/headers` can write a local extract at `recomp/headers_names.txt`.
+That file is gitignored.
+`recomp.py` and `stubgen.py` read it when it is present, and they use an empty table when it is not.
 
 ## Read a name out of a header
 
@@ -75,12 +75,11 @@ A nested `class` in the file adds to the scope: in `references/headers/scene/Sce
 | Site | Shape | Example | Source of the shape |
 | --- | --- | --- | --- |
 | Generated C | `f_XXXXXXXX`, 8 uppercase hex digits | `f_02994164` | `recomp/recomp.py` names every function by its canonical address |
-| Generated C comments | the header name in a `/* ... */` comment | `/* Scene::setNextScene */` | `recomp/names.py` reads `references/headers` and `recomp.py` writes the name above the definition, next to the prototype in `funcs.h`, and at every call site of a named function |
-| `recomp/hooks.txt` | `XXXXXXXX` for a function entry, `@XXXXXXXX` for an instruction site | `@022A79C4` | the recompiler reads this file |
+| Generated C comments | the header name in a `/* ... */` comment | `/* Scene::setNextScene */` | `recomp.py` writes the name from a local `recomp/names.py` extract when that file exists |
+| `recomp/hooks/*.jsonc` | `hooks` for a function entry, `sites` for an instruction, `"same": true` for a checked wrap | `"address": "022A79C4"` | the recompiler reads these files |
 | A hooked function | `hook_XXXXXXXX` in the runtime, `f_XXXXXXXX_orig` for the game code | `hook_02994164` | `f_` plus the same digits |
 | Runtime code and data | `GC(0xXXXXXXXX)` for code, `GD(0xXXXXXXXX)` for data | `GC(0x02994164)` | [runtime/include/guest_addr.h](../runtime/include/guest_addr.h) |
 | A runtime constant | a `kName` constant that holds the address | `kSetNextScene = GC(0x02994164)` | [runtime/src/mods/sdk/nsmbu.cpp](../runtime/src/mods/sdk/nsmbu.cpp) |
-| Mod API (proposal) | `nsmbu.Fn.<name>`, generated from the headers | `nsmbu.Fn.dScnPly_Execute` | [modding/api.md](modding/api.md) |
 
 `GC` and `GD` are the identity for the USA build.
 They stay in the code so a later regional build can shift the address through that build's map.
@@ -92,12 +91,6 @@ Keep the canonical USA address inside `GC` and `GD`, and give the constant a nam
 
    ```sh
    grep -rn "0x02994164" references/headers
-   ```
-
-   Without a checkout, search the extracted file:
-
-   ```sh
-   grep "02994164" recomp/headers_names.txt
    ```
 
 2. Read the class and the symbol from the hit.

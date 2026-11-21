@@ -40,9 +40,10 @@ F1 = lambda n: "c->f[%d].ps1" % n
 
 
 def pass_on(var):
-    """The switch of a code-quality pass (recomp.py's usage text): on unless var=0. With
-    NSMBU_RECOMP_PLAIN=1 every pass is off unless its own variable is 1."""
-    return os.environ.get(var, "0" if os.environ.get("NSMBU_RECOMP_PLAIN") == "1" else "1") != "0"
+    """The switch of a code-quality pass (recomp.py's usage text): on unless its flag is off.
+    With --plain every pass is off unless its own flag forces it on."""
+    import switches
+    return switches.pass_on(var)
 
 
 # ---- single-precision register halves (round25 left out) ----
@@ -52,10 +53,11 @@ def pass_on(var):
 # lfs or psq_l, or the result of a single-precision instruction) has no bits below those, so round25
 # returns it unchanged. recomp.py follows which register halves hold such values through each
 # function (forward dataflow over its branches; the callee-saved f14-f31 survive calls) and the
-# translation leaves round25 out for them. NSMBU_RECOMP_SINGLE=0 turns it off;
-# NSMBU_RECOMP_SINGLE_CHECK=1 checks every operand left as it is at run time (ppc_single_check).
-SINGLE = pass_on("NSMBU_RECOMP_SINGLE")
-SINGLE_CHECK = os.environ.get("NSMBU_RECOMP_SINGLE_CHECK", "0") == "1"
+# translation leaves round25 out for them. --no-single turns it off;
+# --single-check checks every operand left as it is at run time (ppc_single_check).
+import switches as _switches
+SINGLE = _switches.Live("single")
+SINGLE_CHECK = _switches.Live("single_check", check=True)
 fp_state = 0  # bit 2n + half: register n's half (0 ps0, 1 ps1) holds a single-precision value
 cur_addr = 0  # the instruction being translated (for the check build)
 single_stats = [0, 0]  # multiplier operands: rounded, left as they are

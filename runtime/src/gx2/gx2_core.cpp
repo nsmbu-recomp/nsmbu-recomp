@@ -657,7 +657,7 @@ static void execute_one(Op op, const uint32* p, uint32 n) {
     rprof::Op kind;
     switch (op) {
     case OP_CALL: execute_op(op, p, n); return;
-    case OP_SET_REGS: case OP_SET_PROJ_REGS: kind = rprof::kOpRegs; break;
+    case OP_SET_REGS: kind = rprof::kOpRegs; break;
     case OP_DRAW: case OP_DRAW_INDEXED: kind = rprof::kOpDraw; rprof::classify_draw(); break;
     case OP_CLEAR_COLOR: case OP_CLEAR_DEPTH: case OP_CLEAR_BUFFERS: kind = rprof::kOpClear; break;
     case OP_COPY_SURFACE: kind = rprof::kOpCopy; break;
@@ -744,18 +744,6 @@ static void execute_op(Op op, const uint32* p, uint32 n) {
         frame_dump::current_mark() = frame_dump::take_mark();
         render::swap();
         break;
-    case OP_SET_PROJ_REGS: {
-        uint32 v[16];
-        memcpy(v, p + 1, sizeof v);
-        float kx, ky;
-        if (n == 17 && render::target_aspect_factors(g_regs[mmCB_COLOR0_TILE] & 0xFFFF, g_regs[mmCB_COLOR0_FRAG], kx, ky))
-            for (int i = 0; i < 4; i++) {
-                v[i] = fbits(bitsf(v[i]) / kx);
-                v[4 + i] = fbits(bitsf(v[4 + i]) / ky);
-            }
-        apply_regs(p[0], v, std::min<uint32>(n - 1, 16));
-        break;
-    }
     case OP_LAYOUT_CONTENT:
         aspect::set_content_clip(n && p[0]);
         aspect::set_edge_hud(n > 1 && p[1]);
@@ -1193,6 +1181,9 @@ HLE(gx2, GX2SetClearDepthStencil) {
     db->clearDepth = farg(c, 0);
     db->clearStencil = arg(c, 1) & 0xFF;
 }
+// The game treats this copy as finished when the call returns.
+// agl tile-mode conversion then frees the temporary surface and can reuse that memory for the shader program array.
+// Wait for the render thread unless a display list is being recorded. Display lists run when they are called.
 HLE(gx2, GX2CopySurface) {
 
     static const bool dbg = env::COPYDBG() != nullptr;
@@ -1270,9 +1261,9 @@ HLE(gx2, GX2SwapScanBuffers) {
         }
     }
     if (!hold) {
-        mods::lua_sdk::set_cpu(c);
+        mods::scene::set_cpu(c);
         mods::packages::frame(steps);
-        mods::lua_sdk::native_intro_skip_tick(steps);
+        mods::scene::native_intro_skip_tick(steps);
         agent_ctl::guest_service();
         collision_wireframe::capture(c);
         course_hot_reload::tick();

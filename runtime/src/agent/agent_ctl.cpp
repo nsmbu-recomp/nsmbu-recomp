@@ -1,12 +1,14 @@
 #include "agent/agent_ctl.h"
 
+#include "agent/agent_eval.h"
+
 #include <atomic>
 #include <chrono>
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
+#include <cstdio>
 #include <deque>
-#include <exception>
 #include <filesystem>
 #include <mutex>
 #include <string>
@@ -34,11 +36,12 @@
 #endif
 #include "hooks/interp.h"
 #include "hooks/map_menu_settings.h"
-#include "mods/lua_eval.h"
+#include "hooks/pause_menu_settings.h"
 #include "mods/mod_json.h"
 #include "mods/sdk/nsmbu.h"
 #include "overlay/hostui.h"
 #include "overlay/overlay.h"
+#include "overlay/overlay_click.h"
 #include "core/runtime.h"
 
 namespace agent_ctl {
@@ -89,15 +92,17 @@ std::deque<PictureWait> g_pictures;
 std::deque<std::string> g_out_lines;
 std::atomic<bool> g_quit{false};
 
-enum class GuestOp { Status, Eval, Leave, Goto, Ui, Actors };
+enum class GuestOp { Status, Leave, Goto, Ui, Actors, Eval };
 
 struct GuestJob {
     int id = 0;
-    GuestOp op = GuestOp::Eval;
+    GuestOp op = GuestOp::Status;
     std::string code;
-    int timeout_ms = 5000;
     int limit = 16;
     float radius = 0;
+    std::string name;
+    mods::json::Value args;
+    bool observe = false;
 };
 std::deque<GuestJob> g_jobs;
 thread_local bool g_servicing = false;
@@ -136,6 +141,8 @@ int request_id(const mods::json::Value& req) {
     return int(idv.number);
 }
 
+void fill_picture(mods::json::Value& v);
+
 int request_frames(const mods::json::Value& req, int fallback) {
     const auto& fv = req.get("frames");
     if (fv.type == mods::json::Value::Number && fv.number > 0) return int(fv.number);
@@ -164,8 +171,8 @@ std::string handle_status(int id) {
         v.object["player"] = std::move(p);
     } else
         v.object["player"].type = mods::json::Value::Null;
-    mods::lua_sdk::SceneReport scene;
-    mods::lua_sdk::scene_report(scene);
+    mods::scene::SceneReport scene;
+    mods::scene::scene_report(scene);
     if (!scene.scene.empty()) v.object["scene"] = scene.scene;
     if (scene.map_known) v.object["map"] = scene.map;
     if (scene.course_known) v.object["course"] = scene.course;
@@ -188,14 +195,16 @@ std::string handle_status(int id) {
     if (scene.map_lock_known) v.object["map_lock"] = scene.map_lock;
     if (scene.map_title_known) v.object["map_title"] = scene.map_title;
     if (scene.map_players_known) v.object["map_players"] = scene.map_players;
+    if (scene.banner_known) {
+        char digits[32];
+        std::snprintf(digits, sizeof digits, "%u %u %u", scene.banner[0], scene.banner[1], scene.banner[2]);
+        v.object["banner"] = digits;
+    }
+    fill_picture(v);
     return mods::json::dump(v);
 }
 
-std::string handle_ui(int id) {
-    mods::json::Value v;
-    v.type = mods::json::Value::Object;
-    v.object["id"] = id;
-    v.object["ok"] = true;
+void fill_picture(mods::json::Value& v) {
     v.object["overlay"] = overlay::is_open();
     const char* tab = overlay::settings_tab();
     if (tab && tab[0]) v.object["tab"] = tab;
@@ -203,6 +212,36 @@ std::string handle_ui(int id) {
     map_menu::probe(menu);
     v.object["menu"] = menu.open;
     if (menu.open) v.object["cursor"] = menu.cursor;
+    for (int i = 0; i < menu.count; i++) {
+        if (!menu.buttons[i].selected || !menu.buttons[i].name[0]) continue;
+        v.object["cursor_name"] = menu.buttons[i].name;
+        break;
+    }
+    pause_menu::PauseProbe pause;
+    pause_menu::probe(pause);
+    v.object["pause"] = pause.shown;
+    v.object["controller"] = pause.controller;
+    if (pause.index >= 0) v.object["pause_index"] = pause.index;
+    if (pause.row[0]) v.object["pause_row"] = pause.row;
+}
+
+std::string handle_ui(int id) {
+    mods::json::Value v;
+    v.type = mods::json::Value::Object;
+    v.object["id"] = id;
+    v.object["ok"] = true;
+    fill_picture(v);
+    float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+    if (overlay::close_button(x0, y0, x1, y1)) {
+        mods::json::Value box;
+        box["x0"] = (double)x0;
+        box["y0"] = (double)y0;
+        box["x1"] = (double)x1;
+        box["y1"] = (double)y1;
+        v.object["close"] = std::move(box);
+    }
+    map_menu::MenuProbe menu;
+    map_menu::probe(menu);
     mods::json::Value buttons;
     buttons.type = mods::json::Value::Array;
     for (int i = 0; i < menu.count; i++) {
@@ -225,9 +264,9 @@ std::string handle_ui(int id) {
 }
 
 std::string handle_actors(int id, int limit, float radius) {
-    mods::lua_sdk::ActorProbe probe;
+    mods::scene::ActorProbe probe;
     std::string err;
-    if (!mods::lua_sdk::probe_actors(limit, radius, probe, err))
+    if (!mods::scene::probe_actors(limit, radius, probe, err))
         return response_err(id, err.empty() ? "actors failed" : err);
     mods::json::Value v;
     v.type = mods::json::Value::Object;
@@ -240,7 +279,7 @@ std::string handle_actors(int id, int limit, float radius) {
     mods::json::Value rows;
     rows.type = mods::json::Value::Array;
     for (int i = 0; i < probe.count; i++) {
-        const mods::lua_sdk::ActorRow& a = probe.rows[i];
+        const mods::scene::ActorRow& a = probe.rows[i];
         mods::json::Value row;
         row.type = mods::json::Value::Object;
         row.object["profile"] = (double)a.profile;
@@ -323,12 +362,12 @@ void handle_request(const mods::json::Value& req) {
     const std::string cmd = req.get("cmd").string();
     if (cmd == "status") {
         std::lock_guard<std::mutex> lk(g_mu);
-        g_jobs.push_back(GuestJob{id, GuestOp::Status, {}, 0});
+        g_jobs.push_back(GuestJob{id, GuestOp::Status, {}});
         return;
     }
     if (cmd == "leave") {
         std::lock_guard<std::mutex> lk(g_mu);
-        g_jobs.push_back(GuestJob{id, GuestOp::Leave, {}, 0});
+        g_jobs.push_back(GuestJob{id, GuestOp::Leave, {}});
         return;
     }
     if (cmd == "press") {
@@ -412,12 +451,31 @@ void handle_request(const mods::json::Value& req) {
             return;
         }
         std::lock_guard<std::mutex> lk(g_mu);
-        g_jobs.push_back(GuestJob{id, GuestOp::Goto, place, 0});
+        g_jobs.push_back(GuestJob{id, GuestOp::Goto, place});
         return;
     }
     if (cmd == "ui") {
         std::lock_guard<std::mutex> lk(g_mu);
-        g_jobs.push_back(GuestJob{id, GuestOp::Ui, {}, 0});
+        g_jobs.push_back(GuestJob{id, GuestOp::Ui, {}});
+        return;
+    }
+    if (cmd == "click") {
+        if (req.get("target").string() != "close") {
+            queue_line(response_err(id, "missing target"));
+            return;
+        }
+        float x = 0, y = 0;
+        if (!overlay::click_close(x, y)) {
+            queue_line(response_err(id, "close button is not on screen"));
+            return;
+        }
+        mods::json::Value v;
+        v.type = mods::json::Value::Object;
+        v.object["id"] = id;
+        v.object["ok"] = true;
+        v.object["x"] = (double)x;
+        v.object["y"] = (double)y;
+        queue_line(mods::json::dump(v));
         return;
     }
     if (cmd == "actors") {
@@ -431,16 +489,48 @@ void handle_request(const mods::json::Value& req) {
         return;
     }
     if (cmd == "eval") {
-        const auto& cv = req.get("code");
-        if (cv.type != mods::json::Value::String) {
-            queue_line(response_err(id, "missing code"));
+        const auto& list = req.get("list");
+        const bool listing = (list.type == mods::json::Value::Bool && list.boolean) ||
+                             (list.type == mods::json::Value::Number && list.number != 0);
+        if (listing) {
+            try {
+                mods::json::Value v = mods::json::parse(agent_eval::list_json());
+                v.object["id"] = id;
+                v.object["ok"] = true;
+                queue_line(mods::json::dump(v));
+            } catch (const std::exception& e) {
+                queue_line(response_err(id, e.what()));
+            }
             return;
         }
-        int timeout_ms = 5000;
-        const auto& tv = req.get("timeout");
-        if (tv.type == mods::json::Value::Number && tv.number > 0) timeout_ms = int(tv.number);
+        const std::string name = req.get("name").string();
+        if (name.empty()) {
+            queue_line(response_err(id, "missing name"));
+            return;
+        }
+        bool observe = false;
+        if (!agent_eval::lookup(name, observe)) {
+            queue_line(response_err(id, "unknown eval"));
+            return;
+        }
+        mods::json::Value args;
+        args.type = mods::json::Value::Object;
+        const auto& given = req.get("args");
+        if (given.type != mods::json::Value::Null) {
+            if (given.type != mods::json::Value::Object) {
+                queue_line(response_err(id, "eval json must be an object"));
+                return;
+            }
+            args = given;
+        }
+        GuestJob job;
+        job.id = id;
+        job.op = GuestOp::Eval;
+        job.name = name;
+        job.args = std::move(args);
+        job.observe = observe;
         std::lock_guard<std::mutex> lk(g_mu);
-        g_jobs.push_back(GuestJob{id, GuestOp::Eval, cv.text, timeout_ms});
+        g_jobs.push_back(std::move(job));
         return;
     }
     if (cmd == "quit") {
@@ -725,14 +815,32 @@ void service() {
 
 namespace {
 
-bool observable(GuestOp op) {
-    return op == GuestOp::Status || op == GuestOp::Ui || op == GuestOp::Actors;
+bool observable(const GuestJob& job) {
+    if (job.op == GuestOp::Status || job.op == GuestOp::Ui || job.op == GuestOp::Actors) return true;
+    if (job.op == GuestOp::Eval) return job.observe;
+    return false;
+}
+
+std::string handle_eval(const GuestJob& job) {
+    std::string err;
+    const std::string value = agent_eval::invoke(job.name, job.args, err);
+    if (!err.empty()) return response_err(job.id, err);
+    try {
+        mods::json::Value v;
+        v.type = mods::json::Value::Object;
+        v.object["id"] = job.id;
+        v.object["ok"] = true;
+        v.object["value"] = mods::json::parse(value);
+        return mods::json::dump(v);
+    } catch (const std::exception& e) {
+        return response_err(job.id, e.what());
+    }
 }
 
 bool take_job(GuestJob& job, bool observe_only) {
     std::lock_guard<std::mutex> lk(g_mu);
     for (auto it = g_jobs.begin(); it != g_jobs.end(); ++it) {
-        if (!observable(it->op)) continue;
+        if (!observable(*it)) continue;
         job = std::move(*it);
         g_jobs.erase(it);
         return true;
@@ -743,28 +851,9 @@ bool take_job(GuestJob& job, bool observe_only) {
     return true;
 }
 
-void run_eval(const GuestJob& job) {
-    mods::lua_eval::Result result;
-    try {
-        result = mods::lua_eval::run(job.code, job.timeout_ms);
-    } catch (const std::exception& e) {
-        result.ok = false;
-        result.output = e.what();
-    }
-    mods::json::Value v;
-    v.type = mods::json::Value::Object;
-    v.object["id"] = job.id;
-    v.object["ok"] = result.ok;
-    if (result.ok)
-        v.object["output"] = result.output;
-    else
-        v.object["error"] = result.output;
-    queue_line(mods::json::dump(v));
-}
-
 void run_leave(const GuestJob& job) {
     std::string err;
-    if (!mods::lua_sdk::leave_course(err)) {
+    if (!mods::scene::leave_course(err)) {
         queue_line(response_err(job.id, err.empty() ? "leave failed" : err));
         return;
     }
@@ -773,7 +862,7 @@ void run_leave(const GuestJob& job) {
 
 void run_goto(const GuestJob& job) {
     std::string err;
-    if (!mods::lua_sdk::open_place(job.code, err)) {
+    if (!mods::scene::open_place(job.code, err)) {
         queue_line(response_err(job.id, err.empty() ? "goto failed" : err));
         return;
     }
@@ -794,12 +883,12 @@ void guest_service() {
             queue_line(handle_ui(job.id));
         else if (job.op == GuestOp::Actors)
             queue_line(handle_actors(job.id, job.limit, job.radius));
+        else if (job.op == GuestOp::Eval)
+            queue_line(handle_eval(job));
         else if (job.op == GuestOp::Leave)
             run_leave(job);
         else if (job.op == GuestOp::Goto)
             run_goto(job);
-        else
-            run_eval(job);
     }
 }
 
@@ -813,6 +902,8 @@ void guest_observe() {
             queue_line(handle_ui(job.id));
         else if (job.op == GuestOp::Actors)
             queue_line(handle_actors(job.id, job.limit, job.radius));
+        else if (job.op == GuestOp::Eval)
+            queue_line(handle_eval(job));
         else
             queue_line(handle_status(job.id));
     }

@@ -53,7 +53,7 @@ common = <32 hex digits>
 0005000010101e00 = <Europe disc key>
 ```
 
-`WIIU_COMMON_KEY` can supply the common key instead of `common=`.
+Use `common.key` next to the image or `--common-key FILE` when `common=` is not in `keys.txt`.
 
 ## Updates
 

@@ -1,23 +1,4 @@
 {
     "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "nsmbu: vscode lldb init",
-            "type": "shell",
-            "command": "python3 tools/run/vscode_lldb_init.py",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "nsmbu: vscode lldb init (no debug env)",
-            "type": "shell",
-            "command": "python3 tools/run/vscode_lldb_init.py --no-debug-env",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "problemMatcher": []
-        }
-    ]
+    "tasks": []
 }
