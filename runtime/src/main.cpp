@@ -228,16 +228,17 @@ static void init_crash_log_dir() {
 static void write_test_host_backtrace(int fd, uintptr_t fault_pc) {
     char buf[512];
     int n;
-    win_crash_out(fd, "  host backtrace:\n", 18);
+    win_crash_raw(fd, "  host backtrace:\n", 18);
     n = crash_addr::fit(snprintf(buf, sizeof buf, "  #0  %016llX", (unsigned long long)fault_pc), sizeof buf);
     n += crash_addr::describe(buf + n, sizeof buf - n, fault_pc);
     if ((size_t)n < sizeof buf - 1) buf[n++] = '\n';
-    win_crash_out(fd, buf, (size_t)n);
+    win_crash_raw(fd, buf, (size_t)n);
 }
 static void write_windows_crash_log(EXCEPTION_POINTERS* ex, char* path, size_t path_cap) {
-    init_crash_log_dir();
+    const bool host_crash_test = env::TEST_HOST_CRASH.on() && !ex->ContextRecord;
+    if (!host_crash_test) init_crash_log_dir();
     auto code = ex->ExceptionRecord->ExceptionCode;
-    if (g_crash_log_dir[0]) {
+    if (!host_crash_test && g_crash_log_dir[0]) {
         std::error_code ec;
         std::filesystem::create_directories(g_crash_log_dir, ec);
     }
@@ -246,8 +247,14 @@ static void write_windows_crash_log(EXCEPTION_POINTERS* ex, char* path, size_t p
     localtime_s(&tmv, &t);
     char name[64];
     strftime(name, sizeof name, "crash-%Y%m%d-%H%M%S.log", &tmv);
-    const std::filesystem::path logpath =
-        std::filesystem::path(g_crash_log_dir[0] ? g_crash_log_dir : "logs") / name;
+    std::filesystem::path logpath;
+    if (host_crash_test) {
+        std::error_code ec;
+        std::filesystem::create_directories("captures", ec);
+        logpath = std::filesystem::path("captures") / name;
+    } else {
+        logpath = std::filesystem::path(g_crash_log_dir[0] ? g_crash_log_dir : "logs") / name;
+    }
     std::snprintf(path, path_cap, "%s", logpath.string().c_str());
     std::error_code ec;
     std::filesystem::create_directories(logpath.parent_path(), ec);
@@ -259,6 +266,7 @@ static void write_windows_crash_log(EXCEPTION_POINTERS* ex, char* path, size_t p
         fd = -1;
     }
     int n;
+    void (*emit)(int, const char*, size_t) = host_crash_test ? win_crash_raw : win_crash_out;
 
     char where[384], mpath[512] = "", line[1024];
     using crash_addr::fit;
@@ -266,10 +274,10 @@ static void write_windows_crash_log(EXCEPTION_POINTERS* ex, char* path, size_t p
     n = fit(snprintf(line, sizeof line, "CRASH: Windows exception %08lX at %p%s\n", code,
                      ex->ExceptionRecord->ExceptionAddress, where),
            sizeof line);
-    win_crash_out(fd, line, n);
+    emit(fd, line, n);
     if (mpath[0]) {
         n = fit(snprintf(line, sizeof line, "  module: %s\n", mpath), sizeof line);
-        win_crash_out(fd, line, n);
+        emit(fd, line, n);
     }
 
     const EXCEPTION_RECORD* er = ex->ExceptionRecord;
@@ -286,17 +294,16 @@ static void write_windows_crash_log(EXCEPTION_POINTERS* ex, char* path, size_t p
             n += fit(snprintf(line + n, sizeof line - n, "%s", where), sizeof line - n);
         if (n > (int)sizeof line - 2) n = (int)sizeof line - 2;
         line[n++] = '\n';
-        win_crash_out(fd, line, n);
+        emit(fd, line, n);
     }
-    const bool host_crash_test = env::TEST_HOST_CRASH.on();
-    if (host_crash_test && !ex->ContextRecord) {
+    if (host_crash_test) {
         write_test_host_backtrace(fd, (uintptr_t)ex->ExceptionRecord->ExceptionAddress);
     } else {
-        crash_guest_cpu(fd, win_crash_out);
-        crash_addr::host_backtrace(fd, win_crash_out, ex->ContextRecord);
+        crash_guest_cpu(fd, emit);
+        crash_addr::host_backtrace(fd, emit, ex->ContextRecord);
     }
     crash_context::note(fd, win_crash_out);
-    if (!host_crash_test) crashrec::crash_note(fd, win_crash_out);
+    if (!host_crash_test) crashrec::crash_note(fd, emit);
     if (crash_file) {
         win_crash_log_only(fd, "\n--- last log lines ---\n", 24);
         log_ring_write(fd, win_crash_log_only);
@@ -490,8 +497,9 @@ static bool argv_test_host_crash(int argc, char** argv) {
     return false;
 }
 
-static int run_test_host_crash() {
-    if (!env::TEST_HOST_CRASH.on()) return -1;
+static int run_test_host_crash(int argc, char** argv) {
+    if (!env::TEST_HOST_CRASH.on() && !argv_test_host_crash(argc, argv)) return -1;
+    if (!env::TEST_HOST_CRASH()) env::set(env::TEST_HOST_CRASH, "1");
     LOG("[boot] NSMBU_TEST_HOST_CRASH: crashing on purpose in the C library");
     volatile uintptr_t bad_addr = 16;
 #ifdef _WIN32
@@ -525,8 +533,21 @@ static int run_test_host_crash() {
 }
 
 int main(int argc, char** argv) {
+#ifdef _WIN32
+    if (argv_test_host_crash(argc, argv)) {
+        env::apply_flags(argc, argv);
+        env::set(env::TEST_HOST_CRASH, "1");
+        env::seed_from_env(env::USER_DIR);
+        env::seed_from_env(env::CLI);
+        env::seed_from_env(env::HIDDEN_WINDOWS);
+        env::seed_from_env(env::NO_AUDIO);
+        apply_portable_mode();
+        crash_context::initialize();
+        start_log_file();
+        run_test_host_crash(argc, argv);
+    }
+#endif
     env::apply_flags(argc, argv);
-    if (argv_test_host_crash(argc, argv) && !env::TEST_HOST_CRASH()) env::set(env::TEST_HOST_CRASH, "1");
 #ifdef _WIN32
     env::seed_from_env(env::TEST_HOST_CRASH);
     env::seed_from_env(env::USER_DIR);
@@ -536,15 +557,9 @@ int main(int argc, char** argv) {
 #endif
     apply_portable_mode();
     crash_context::initialize();
-#ifdef _WIN32
-    start_log_file();
-    if (env::TEST_HOST_CRASH.on()) run_test_host_crash();
-    install_crash_handler();
-#else
     install_crash_handler();
     start_log_file();
-    if (int early = run_test_host_crash(); early >= 0) return early;
-#endif
+    if (int early = run_test_host_crash(argc, argv); early >= 0) return early;
     if (const char* warm = env::SHADER_WARM())
         if (*warm && std::strcmp(warm, "0")) std::setvbuf(stderr, nullptr, _IONBF, 0);
     default_vulkan_cpu_paths();
