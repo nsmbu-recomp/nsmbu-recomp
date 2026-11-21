@@ -335,20 +335,12 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ex) {
     }
     return EXCEPTION_EXECUTE_HANDLER;
 }
-static LONG CALLBACK vectored_crash_handler(EXCEPTION_POINTERS* ex) {
-    const DWORD code = ex->ExceptionRecord->ExceptionCode;
-    if (code != EXCEPTION_ACCESS_VIOLATION && code != EXCEPTION_IN_PAGE_ERROR)
-        return EXCEPTION_CONTINUE_SEARCH;
-    crash_handler(ex);
-    return EXCEPTION_CONTINUE_SEARCH;
-}
 static void abort_handler(int) {
     RaiseException(0x40000015u /* STATUS_FATAL_APP_EXIT */, EXCEPTION_NONCONTINUABLE, 0, nullptr);
     _exit(134);
 }
 static void install_crash_handler() {
     init_crash_log_dir();
-    AddVectoredExceptionHandler(1, vectored_crash_handler);
     SetUnhandledExceptionFilter(crash_handler);
     signal(SIGABRT, abort_handler);
     crash_addr::prime();

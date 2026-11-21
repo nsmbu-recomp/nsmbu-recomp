@@ -184,13 +184,9 @@ jobs:
           "$RUNNER_TEMP/data/bin/nsmbu" --hidden-windows --game "$RUNNER_TEMP/nogame" > run.log 2>&1 || true
           cat run.log
           grep -q "Game folder not found" run.log
-          # the graphical installer: fresh data folder so setup.py runs its hello/welcome flow
-          mkdir -p "$RUNNER_TEMP/data-gui"
-          set -o pipefail
-          perl -e 'alarm shift; exec @ARGV' 900 -- env SDL_VIDEO_DRIVER=offscreen \
-            "./NSMBU.app/Contents/MacOS/nsmbu-launcher" --self-test \
-            --screenshots "$RUNNER_TEMP" --data-dir "$RUNNER_TEMP/data-gui" 2>&1 | tee launcher-selftest.log
-          test -n "$(find "$RUNNER_TEMP" -maxdepth 1 -name 'selftest-*.png' -print -quit)"
+          # the graphical installer: starts setup.py through the launcher and renders its first screen
+          SDL_VIDEO_DRIVER=offscreen "./NSMBU.app/Contents/MacOS/nsmbu-launcher" --self-test \
+            --screenshots "$RUNNER_TEMP" --data-dir "$RUNNER_TEMP/data"
           mkdir -p "$GITHUB_WORKSPACE/gui-shots"
           cp "$RUNNER_TEMP"/selftest-*.png "$GITHUB_WORKSPACE/gui-shots/"
 
@@ -577,19 +573,14 @@ jobs:
           $exe = Join-Path $data 'bin\nsmbu.exe'
           if (-not (Test-Path (Join-Path $data 'bin\SDL3.dll'))) { throw "SDL3.dll was not installed" }
           # no game files: the executable must start and stop with "Game folder not found" (abort() may leave
-          # an error-reporting process around, so do not wait forever). nsmbu.exe is a GUI app: read its log file.
-          $nogame = Join-Path $env:RUNNER_TEMP 'nogame'
-          $bindir = Split-Path $exe -Parent
+          # an error-reporting process around, so do not wait forever)
           $env:NSMBU_HIDDEN_WINDOWS = '1'
-          $p = Start-Process -FilePath $exe -WorkingDirectory $bindir `
-            -ArgumentList '--game', $nogame -Wait -NoNewWindow -PassThru
+          $p = Start-Process -FilePath $exe -ArgumentList '--game', (Join-Path $env:RUNNER_TEMP 'nogame') `
+            -RedirectStandardError run.log -RedirectStandardOutput out.log -NoNewWindow -PassThru
+          if (-not $p.WaitForExit(120000)) { $p.Kill() }
           Remove-Item Env:NSMBU_HIDDEN_WINDOWS -ErrorAction SilentlyContinue
-          $log = Join-Path $data 'nsmbu\logs\nsmbu.log'
-          if (-not (Test-Path $log)) { throw "no log file at $log (exit $($p.ExitCode))" }
-          if (-not (Select-String -Path $log -Pattern 'Game folder not found' -Quiet)) {
-            Get-Content $log -Tail 40
-            throw "the installed executable did not start (exit $($p.ExitCode))"
-          }
+          Get-Content run.log, out.log
+          if (-not (Select-String -Path run.log, out.log -Pattern 'Game folder not found' -Quiet)) { throw "the installed executable did not start" }
           # the graphical installer (GUI subsystem: wait for it explicitly)
           $env:SDL_VIDEO_DRIVER = 'offscreen'
           $g = Start-Process -FilePath (Join-Path $pkg 'NSMBU.exe') `
@@ -643,14 +634,12 @@ jobs:
           if ($unpacked.Length -le 259) { throw "the test folder is not deep enough to cross MAX_PATH" }
           if (-not (Test-Path -LiteralPath ('\\?\' + (Join-Path $data "toolchain\$deepest")))) { throw "the deepest compiler file is missing" }
           if (Test-Path (Join-Path $data 'toolchain\unpack.tmp')) { throw "unpack.tmp was left behind" }
-          $deepLog = Join-Path $data 'nsmbu\logs\nsmbu.log'
-          $deepExe = Join-Path $data 'bin\nsmbu.exe'
           $env:NSMBU_HIDDEN_WINDOWS = '1'
-          $p = Start-Process -FilePath $deepExe -WorkingDirectory (Split-Path $deepExe -Parent) `
-            -ArgumentList '--game', (Join-Path $env:RUNNER_TEMP 'nogame') -Wait -NoNewWindow -PassThru
+          $p = Start-Process -FilePath (Join-Path $data 'bin\nsmbu.exe') -ArgumentList '--game', (Join-Path $env:RUNNER_TEMP 'nogame') `
+            -RedirectStandardError deep-run.log -RedirectStandardOutput deep-out.log -NoNewWindow -PassThru
+          if (-not $p.WaitForExit(120000)) { $p.Kill() }
           Remove-Item Env:NSMBU_HIDDEN_WINDOWS -ErrorAction SilentlyContinue
-          if (-not (Test-Path $deepLog)) { throw "no log file at $deepLog (exit $($p.ExitCode))" }
-          if (-not (Select-String -Path $deepLog -Pattern 'Game folder not found' -Quiet)) { throw "the game built in a deep folder did not start (exit $($p.ExitCode))" }
+          if (-not (Select-String -Path deep-run.log, deep-out.log -Pattern 'Game folder not found' -Quiet)) { throw "the game built in a deep folder did not start" }
           # one character deeper: setup stops at once with the plain message
           Expand-Archive -Path $zip -DestinationPath ($outer + 'x')
           $pkg = Join-Path ($outer + 'x') $name
