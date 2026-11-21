@@ -225,52 +225,64 @@ static void init_crash_log_dir() {
     host::ensure_log_dir();
     std::snprintf(g_crash_log_dir, sizeof g_crash_log_dir, "%s", host::log_dir().c_str());
 }
-static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ex) {
+static void write_windows_crash_log(EXCEPTION_POINTERS* ex, char* path, size_t path_cap) {
     init_crash_log_dir();
-    auto code=ex->ExceptionRecord->ExceptionCode;
+    auto code = ex->ExceptionRecord->ExceptionCode;
     if (g_crash_log_dir[0]) {
         std::error_code ec;
         std::filesystem::create_directories(g_crash_log_dir, ec);
     }
-    char path[640]; time_t t=time(nullptr); struct tm tmv; localtime_s(&tmv,&t);
+    time_t t = time(nullptr);
+    struct tm tmv;
+    localtime_s(&tmv, &t);
     char name[64];
-    strftime(name,sizeof name,"crash-%Y%m%d-%H%M%S.log",&tmv);
+    strftime(name, sizeof name, "crash-%Y%m%d-%H%M%S.log", &tmv);
     const std::string logpath =
         (std::filesystem::path(g_crash_log_dir[0] ? g_crash_log_dir : "logs") / name).string();
-    std::snprintf(path, sizeof path, "%s", logpath.c_str());
+    std::snprintf(path, path_cap, "%s", logpath.c_str());
     FILE* crash_file = fopen(logpath.c_str(), "wb");
     int fd = crash_file ? _fileno(crash_file) : -1;
     int n;
 
-    char where[384], mpath[512]="", line[1024];
+    char where[384], mpath[512] = "", line[1024];
     using crash_addr::fit;
-    crash_addr::describe(where,sizeof where,(uintptr_t)ex->ExceptionRecord->ExceptionAddress,mpath,sizeof mpath);
-    n=fit(snprintf(line,sizeof line,"CRASH: Windows exception %08lX at %p%s\n",code,ex->ExceptionRecord->ExceptionAddress,where),sizeof line); win_crash_out(fd,line,n);
-    if(mpath[0]){n=fit(snprintf(line,sizeof line,"  module: %s\n",mpath),sizeof line); win_crash_out(fd,line,n);}
+    crash_addr::describe(where, sizeof where, (uintptr_t)ex->ExceptionRecord->ExceptionAddress, mpath, sizeof mpath);
+    n = fit(snprintf(line, sizeof line, "CRASH: Windows exception %08lX at %p%s\n", code,
+                     ex->ExceptionRecord->ExceptionAddress, where),
+           sizeof line);
+    win_crash_out(fd, line, n);
+    if (mpath[0]) {
+        n = fit(snprintf(line, sizeof line, "  module: %s\n", mpath), sizeof line);
+        win_crash_out(fd, line, n);
+    }
 
-    const EXCEPTION_RECORD* er=ex->ExceptionRecord;
-    if((code==EXCEPTION_ACCESS_VIOLATION||code==EXCEPTION_IN_PAGE_ERROR)&&er->NumberParameters>=2){
-        const ULONG_PTR kind=er->ExceptionInformation[0], target=er->ExceptionInformation[1];
-        const char* what=kind==0?"read":kind==1?"write":kind==8?"execute (DEP)":"access";
-        const uintptr_t gbase=(uintptr_t)PPC_MEM_BASE;
-        n=fit(snprintf(line,sizeof line,"  %s: %s of address %p",code==EXCEPTION_ACCESS_VIOLATION?"access violation":"in-page error",
-                       what,(void*)target),sizeof line);
-        if(target>=gbase&&target<gbase+0x100000000ull) n+=fit(snprintf(line+n,sizeof line-n," (guest address %08X)",(unsigned)(target-gbase)),sizeof line-n);
-        else if(crash_addr::describe(where,sizeof where,target)) n+=fit(snprintf(line+n,sizeof line-n,"%s",where),sizeof line-n);
-        if(n>(int)sizeof line-2) n=(int)sizeof line-2;
-        line[n++]='\n'; win_crash_out(fd,line,n);
+    const EXCEPTION_RECORD* er = ex->ExceptionRecord;
+    if ((code == EXCEPTION_ACCESS_VIOLATION || code == EXCEPTION_IN_PAGE_ERROR) && er->NumberParameters >= 2) {
+        const ULONG_PTR kind = er->ExceptionInformation[0], target = er->ExceptionInformation[1];
+        const char* what = kind == 0 ? "read" : kind == 1 ? "write" : kind == 8 ? "execute (DEP)" : "access";
+        const uintptr_t gbase = (uintptr_t)PPC_MEM_BASE;
+        n = fit(snprintf(line, sizeof line, "  %s: %s of address %p",
+                         code == EXCEPTION_ACCESS_VIOLATION ? "access violation" : "in-page error", what, (void*)target),
+               sizeof line);
+        if (target >= gbase && target < gbase + 0x100000000ull)
+            n += fit(snprintf(line + n, sizeof line - n, " (guest address %08X)", (unsigned)(target - gbase)), sizeof line - n);
+        else if (crash_addr::describe(where, sizeof where, target))
+            n += fit(snprintf(line + n, sizeof line - n, "%s", where), sizeof line - n);
+        if (n > (int)sizeof line - 2) n = (int)sizeof line - 2;
+        line[n++] = '\n';
+        win_crash_out(fd, line, n);
     }
-    crash_guest_cpu(fd, win_crash_out);
-    crash_addr::host_backtrace(fd,win_crash_out,ex->ContextRecord);
+    if (!env::TEST_HOST_CRASH.on()) crash_guest_cpu(fd, win_crash_out);
+    crash_addr::host_backtrace(fd, win_crash_out, ex->ContextRecord);
     if (env::TEST_HOST_CRASH.on()) {
-        char line[512];
-        int n = crash_addr::fit(snprintf(line, sizeof line, "  #1 %016llX", (unsigned long long)(uintptr_t)run_test_host_crash), sizeof line);
-        n += crash_addr::describe(line + n, sizeof line - n, (uintptr_t)run_test_host_crash);
-        if ((size_t)n < sizeof line - 1) line[n++] = '\n';
-        win_crash_out(fd, line, (size_t)n);
+        char bt[512];
+        n = crash_addr::fit(snprintf(bt, sizeof bt, "  #1 %016llX", (unsigned long long)(uintptr_t)run_test_host_crash), sizeof bt);
+        n += crash_addr::describe(bt + n, sizeof bt - n, (uintptr_t)run_test_host_crash);
+        if ((size_t)n < sizeof bt - 1) bt[n++] = '\n';
+        win_crash_out(fd, bt, (size_t)n);
     }
-    crash_context::note(fd,win_crash_out);
-    crashrec::crash_note(fd,win_crash_out);
+    crash_context::note(fd, win_crash_out);
+    if (!env::TEST_HOST_CRASH.on()) crashrec::crash_note(fd, win_crash_out);
     if (fd >= 0) {
         win_crash_log_only(fd, "\n--- last log lines ---\n", 24);
         log_ring_write(fd, win_crash_log_only);
@@ -278,7 +290,17 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ex) {
         fclose(crash_file);
         fprintf(stderr, "[crash] wrote %s\n", path);
     }
-    if(g_ppc_trace) { FILE* f=fopen("trace_dump.txt","w"); if(f){trace_dump(f,3000);fclose(f);} }
+}
+static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ex) {
+    char path[640];
+    write_windows_crash_log(ex, path, sizeof path);
+    if (g_ppc_trace) {
+        FILE* f = fopen("trace_dump.txt", "w");
+        if (f) {
+            trace_dump(f, 3000);
+            fclose(f);
+        }
+    }
     input::stop_rumble_now();
     if (crash_cli_no_dialog()) {
         fflush(stderr);
@@ -470,7 +492,9 @@ static int run_test_host_crash() {
     ctx.Eip = (DWORD)strlen_addr;
 #endif
     EXCEPTION_POINTERS ex{&er, &ctx};
-    crash_handler(&ex);
+    char path[640];
+    write_windows_crash_log(&ex, path, sizeof path);
+    fflush(stderr);
     _exit(1);
 #else
     size_t (*volatile len)(const char*) = strlen;
@@ -484,8 +508,14 @@ int main(int argc, char** argv) {
     env::apply_flags(argc, argv);
     apply_portable_mode();
     crash_context::initialize();
+#ifdef _WIN32
+    start_log_file();
+    if (env::TEST_HOST_CRASH()) run_test_host_crash();
+    install_crash_handler();
+#else
     install_crash_handler();
     start_log_file();
+#endif
     if (int early = run_test_host_crash(); early >= 0) return early;
     if (const char* warm = env::SHADER_WARM())
         if (*warm && std::strcmp(warm, "0")) std::setvbuf(stderr, nullptr, _IONBF, 0);
