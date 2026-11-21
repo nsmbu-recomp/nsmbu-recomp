@@ -6,12 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-21
+
 ### Added
 
-- Game settings are command-line flags (`--no-audio`, `--vk-present-mode`, and the rest).
-  `nsmbu run` forwards them to the binary.
-  The game no longer reads `NSMBU_*` from the environment.
-  The installer common key comes from `--common-key` or `common.key`, not an environment variable.
 - Press M to mute or unmute the game.
   The game keeps that choice for the next start.
 - RecompLauncher support: a `recomplauncher.json` in every release.
@@ -538,7 +536,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - The TV and GamePad present together on one vsync.
 
-[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.4...v0.9.0
 [0.8.4]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.3...v0.8.4
