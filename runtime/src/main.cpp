@@ -437,10 +437,11 @@ static int run_test_host_crash() {
     er.ExceptionInformation[0] = 0;
     er.ExceptionInformation[1] = bad_addr;
     CONTEXT ctx{};
-    RtlCaptureContext(&ctx);
 #if defined(_M_X64) || defined(__x86_64__)
+    ctx.ContextFlags = CONTEXT_CONTROL;
     ctx.Rip = (DWORD64)strlen_addr;
 #elif defined(_M_IX86) || defined(__i386__)
+    ctx.ContextFlags = CONTEXT_CONTROL;
     ctx.Eip = (DWORD)strlen_addr;
 #endif
     EXCEPTION_POINTERS ex{&er, &ctx};
@@ -456,6 +457,13 @@ static int run_test_host_crash() {
 
 int main(int argc, char** argv) {
     env::apply_flags(argc, argv);
+#ifdef _WIN32
+    env::seed_from_env(env::TEST_HOST_CRASH);
+    env::seed_from_env(env::USER_DIR);
+    env::seed_from_env(env::CLI);
+    env::seed_from_env(env::HIDDEN_WINDOWS);
+    env::seed_from_env(env::NO_AUDIO);
+#endif
     apply_portable_mode();
     crash_context::initialize();
     install_crash_handler();

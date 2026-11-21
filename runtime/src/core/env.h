@@ -106,6 +106,11 @@ inline void set_new(const Var& var, const char* value) { detail::put(var.key, va
 inline void set_named(const char* key, const char* value) { detail::put(key, value, 2); }
 inline void unset(const Var& var) { detail::put(var.key, nullptr, 2); }
 
+inline void seed_from_env(const Var& var) {
+    if (var()) return;
+    if (const char* e = std::getenv(var.name())) detail::put(var.key, e, 1);
+}
+
 inline void apply_flags(int argc, char** argv) {
     for (int i = 1; i < argc; i++) {
         const char* a = argv[i];
