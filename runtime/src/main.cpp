@@ -275,12 +275,6 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ex) {
     }
     return EXCEPTION_EXECUTE_HANDLER;
 }
-static LONG CALLBACK test_host_crash_veh(EXCEPTION_POINTERS* ex) {
-    const DWORD code = ex->ExceptionRecord->ExceptionCode;
-    if (code != EXCEPTION_ACCESS_VIOLATION && code != EXCEPTION_IN_PAGE_ERROR)
-        return EXCEPTION_CONTINUE_SEARCH;
-    return crash_handler(ex);
-}
 static void abort_handler(int) {
     RaiseException(0x40000015u /* STATUS_FATAL_APP_EXIT */, EXCEPTION_NONCONTINUABLE, 0, nullptr);
     _exit(134);
@@ -288,7 +282,6 @@ static void abort_handler(int) {
 static void install_crash_handler() {
     init_crash_log_dir();
     SetUnhandledExceptionFilter(crash_handler);
-    if (env::TEST_HOST_CRASH.on()) AddVectoredExceptionHandler(0, test_host_crash_veh);
     signal(SIGABRT, abort_handler);
     crash_addr::prime();
 }
@@ -431,18 +424,34 @@ static int run_test_host_crash() {
     if (!env::TEST_HOST_CRASH()) return -1;
     LOG("[boot] NSMBU_TEST_HOST_CRASH: crashing on purpose in the C library");
     volatile uintptr_t bad_addr = 16;
-    size_t (*volatile len)(const char*) = strlen;
 #ifdef _WIN32
     HMODULE libc = GetModuleHandleA("ucrtbase.dll");
     if (!libc) libc = GetModuleHandleA("msvcrt.dll");
-    if (libc) {
-        if (auto proc = GetProcAddress(libc, "strlen")) len = reinterpret_cast<size_t (*)(const char*)>(proc);
-    }
-#else
-    if (void* f = dlsym(RTLD_DEFAULT, "strlen")) len = (size_t (*)(const char*))f;
+    void* strlen_addr = libc ? GetProcAddress(libc, "strlen") : nullptr;
+    if (!strlen_addr) _exit(2);
+    EXCEPTION_RECORD er{};
+    er.ExceptionCode = EXCEPTION_ACCESS_VIOLATION;
+    er.ExceptionAddress = strlen_addr;
+    er.NumberParameters = 2;
+    er.ExceptionInformation[0] = 0;
+    er.ExceptionInformation[1] = bad_addr;
+    CONTEXT ctx{};
+    ctx.ContextFlags = CONTEXT_FULL;
+    RtlCaptureContext(&ctx);
+#if defined(_M_X64) || defined(__x86_64__)
+    ctx.Rip = (DWORD64)strlen_addr;
+#elif defined(_M_IX86) || defined(__i386__)
+    ctx.Eip = (DWORD)strlen_addr;
 #endif
+    EXCEPTION_POINTERS ex{&er, &ctx};
+    crash_handler(&ex);
+    _exit(1);
+#else
+    size_t (*volatile len)(const char*) = strlen;
+    if (void* f = dlsym(RTLD_DEFAULT, "strlen")) len = (size_t (*)(const char*))f;
     LOG("%zu", len(reinterpret_cast<const char*>(bad_addr)));
     return 1;
+#endif
 }
 
 int main(int argc, char** argv) {
