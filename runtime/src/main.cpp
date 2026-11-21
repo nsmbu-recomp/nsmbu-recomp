@@ -437,7 +437,6 @@ static int run_test_host_crash() {
     er.ExceptionInformation[0] = 0;
     er.ExceptionInformation[1] = bad_addr;
     CONTEXT ctx{};
-    ctx.ContextFlags = CONTEXT_FULL;
     RtlCaptureContext(&ctx);
 #if defined(_M_X64) || defined(__x86_64__)
     ctx.Rip = (DWORD64)strlen_addr;
