@@ -8,11 +8,6 @@
 #include <signal.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#elif !defined(_MSC_VER)
-#include <fcntl.h>
-#include <signal.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #else
 #include <fcntl.h>
 #include <io.h>
@@ -114,7 +109,7 @@ static void crash_guest_cpu(int fd, void (*out)(int, const char*, size_t)) {
     out(fd, "\n", 1);
 }
 
-#if !defined(_WIN32) || (defined(_WIN32) && !defined(_MSC_VER))
+#ifndef _WIN32
 
 static int g_crash_fd = -1;
 static void crash_raw(int fd, const char* s, size_t n) {
@@ -132,7 +127,6 @@ static void init_crash_log_dir() {
 static void crash_out(int fd, const char* s, size_t n) { crash_context::redact(fd, {s,n}, crash_raw); }
 static void crash_log_only(int fd, const char* s, size_t n) { crash_context::redact(fd, {s,n}, crash_log_raw); }
 static void crash_handler(int sig, siginfo_t* si, void* uctx) {
-    init_crash_log_dir();
     uintptr_t a = (uintptr_t)si->si_addr;
     uintptr_t base = (uintptr_t)PPC_MEM_BASE;
     char path[640];
@@ -281,6 +275,12 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ex) {
     }
     return EXCEPTION_EXECUTE_HANDLER;
 }
+static LONG CALLBACK test_host_crash_veh(EXCEPTION_POINTERS* ex) {
+    const DWORD code = ex->ExceptionRecord->ExceptionCode;
+    if (code != EXCEPTION_ACCESS_VIOLATION && code != EXCEPTION_IN_PAGE_ERROR)
+        return EXCEPTION_CONTINUE_SEARCH;
+    return crash_handler(ex);
+}
 static void abort_handler(int) {
     RaiseException(0x40000015u /* STATUS_FATAL_APP_EXIT */, EXCEPTION_NONCONTINUABLE, 0, nullptr);
     _exit(134);
@@ -288,6 +288,7 @@ static void abort_handler(int) {
 static void install_crash_handler() {
     init_crash_log_dir();
     SetUnhandledExceptionFilter(crash_handler);
+    if (env::TEST_HOST_CRASH.on()) AddVectoredExceptionHandler(0, test_host_crash_veh);
     signal(SIGABRT, abort_handler);
     crash_addr::prime();
 }
@@ -431,13 +432,7 @@ static int run_test_host_crash() {
     LOG("[boot] NSMBU_TEST_HOST_CRASH: crashing on purpose in the C library");
     volatile uintptr_t bad_addr = 16;
     size_t (*volatile len)(const char*) = strlen;
-#if defined(_WIN32) && !defined(_MSC_VER)
-    HMODULE libc = GetModuleHandleA("ucrtbase.dll");
-    if (!libc) libc = GetModuleHandleA("msvcrt.dll");
-    if (libc) {
-        if (auto proc = GetProcAddress(libc, "strlen")) len = reinterpret_cast<size_t (*)(const char*)>(proc);
-    }
-#elif defined(_MSC_VER)
+#ifdef _WIN32
     HMODULE libc = GetModuleHandleA("ucrtbase.dll");
     if (!libc) libc = GetModuleHandleA("msvcrt.dll");
     if (libc) {
@@ -446,17 +441,8 @@ static int run_test_host_crash() {
 #else
     if (void* f = dlsym(RTLD_DEFAULT, "strlen")) len = (size_t (*)(const char*))f;
 #endif
-#ifdef _MSC_VER
-    __try {
-        LOG("%zu", len(reinterpret_cast<const char*>(bad_addr)));
-    } __except (crash_handler(GetExceptionInformation()), EXCEPTION_EXECUTE_HANDLER) {
-        _exit(1);
-    }
-    _exit(1);
-#else
     LOG("%zu", len(reinterpret_cast<const char*>(bad_addr)));
     return 1;
-#endif
 }
 
 int main(int argc, char** argv) {
