@@ -5,9 +5,15 @@
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}")
 set(USER_DIR "${WORK}/nsmbu")
-execute_process(COMMAND "${NSMBU}" --test-host-crash --no-audio --hidden-windows --cli
-                        "--user-dir=${USER_DIR}"
-                WORKING_DIRECTORY "${WORK}" RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
+if(WIN32)
+  execute_process(COMMAND "${CMAKE_COMMAND}" -E env NSMBU_TEST_HOST_CRASH=1 NSMBU_NO_AUDIO=1
+                          NSMBU_HIDDEN_WINDOWS=1 NSMBU_CLI=1 "NSMBU_USER_DIR=${USER_DIR}" "${NSMBU}"
+                  WORKING_DIRECTORY "${WORK}" RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
+else()
+  execute_process(COMMAND "${NSMBU}" --test-host-crash --no-audio --hidden-windows --cli
+                          "--user-dir=${USER_DIR}"
+                  WORKING_DIRECTORY "${WORK}" RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
+endif()
 if(rc EQUAL 0)
   message(FATAL_ERROR "the executable did not crash:\n${out}\n${err}")
 endif()
