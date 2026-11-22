@@ -9,6 +9,7 @@
 #include "input/input.h"
 
 #include <cstdio>
+#include <cstdlib>
 
 extern "C" void f_02994164_orig(Cpu* c);
 extern "C" void nsmbu_note_scene_src(uint32_t src, uint32_t factory);
@@ -17,6 +18,8 @@ extern "C" void f_024BD86C_orig(Cpu* c);
 extern "C" void f_0252F900_orig(Cpu* c);
 extern "C" void f_0252D9C0_orig(Cpu* c);
 extern "C" void f_025CF020_orig(Cpu* c);
+extern "C" void f_024E25F4_orig(Cpu* c);
+extern "C" void f_024E29B8_orig(Cpu* c);
 extern "C" void f_024EFE58_orig(Cpu* c);
 extern "C" void f_024F009C_orig(Cpu* c);
 
@@ -710,8 +713,24 @@ extern "C" void hook_02994164(Cpu* c) {
 
 extern "C" void hook_029CBBB4(Cpu*) {}
 
+static void apply_test_entrance() {
+    uint32_t info = ld32(kCourseInfo);
+    if (!info) return;
+    const char* env = std::getenv("CANNON_ENTRANCE");
+    if (env && env[0]) {
+        unsigned id = 0;
+        if (std::sscanf(env, "%u", &id) == 1 && id <= 255u) st8(info + 0x1Fu, (uint8_t)id);
+    }
+    const char* file = std::getenv("CANNON_FILE");
+    if (file && file[0]) {
+        unsigned id = 0;
+        if (std::sscanf(file, "%u", &id) == 1 && id <= 255u) st8(info + 0x1Eu, (uint8_t)id);
+    }
+}
+
 extern "C" void hook_024BD86C(Cpu* c) {
     if (mods::scene::story_leave_pending()) return;
+    apply_test_entrance();
     interp::begin_course_setup();
     f_024BD86C_orig(c);
     interp::end_course_setup();
@@ -733,6 +752,24 @@ extern "C" void hook_0252F900(Cpu* c) {
 extern "C" void hook_0252D9C0(Cpu* c) {
     if (ld32(kAreaTask) == 0) return;
     f_0252D9C0_orig(c);
+}
+
+// Optional light pointers in the null page are absent. The copies compare
+// with zero and then skip the loads.
+extern "C" void hook_024E25F4(Cpu* c) {
+    if (!std::getenv("CANNON_RAW")) {
+        for (int i = 4; i <= 10; i++) {
+            if (c->r[i] < 0x10000u) c->r[i] = 0;
+        }
+    }
+    f_024E25F4_orig(c);
+}
+
+// Course exit can pass the null page to this teardown. The original returns
+// only when the object is exactly zero.
+extern "C" void hook_024E29B8(Cpu* c) {
+    if (!std::getenv("CANNON_RAW") && c->r[3] < 0x10000u) return;
+    f_024E29B8_orig(c);
 }
 
 static bool mii_model_drawable() {

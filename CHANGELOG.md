@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Mario can walk again after going through a door in a course.
+- The game no longer closes when you take the cannon from the World 1 castle to the airship boss (#82).
 - Play from RecompLauncher finds the game folder in the install (#85).
   When that folder is missing, the message shows the full path and asks you to run setup again.
 - RecompLauncher can find a USA or Europe copy, or the extracted game folder, in the player's folders.

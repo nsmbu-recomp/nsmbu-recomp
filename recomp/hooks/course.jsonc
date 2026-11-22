@@ -15,7 +15,9 @@
     },
     { "address": "0226FBC4" }, // CourseSelectPlayer::create_: seed map pose before path resolve / spawn
     { "address": "0252F900" }, // PlayerCourseHud::drawStockItemList: AreaTask is null while a course change replaces the area
-    { "address": "025CF020" } // AreaTask::getCourseOutHudFlag: AreaTask is null during course teardown
+    { "address": "025CF020" }, // AreaTask::getCourseOutHudFlag: AreaTask is null during course teardown
+    { "address": "024E25F4" }, // light field copy: a null-page optional pointer is absent
+    { "address": "024E29B8" } // light teardown on course exit: return when the object is in the null page
   ],
   "sites": [
     { "address": "024B8324" }, // AreaTask::prepareCourseOutEnter: after enter type 3, seed map checkpoint/pose if still missing
