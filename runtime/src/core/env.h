@@ -30,6 +30,8 @@ inline State& state() {
 }
 
 inline const char* lookup(const char* key) {
+    // Static init can read a Var before its constructor. A null key must not build a string.
+    if (!key) return nullptr;
     auto it = state().values.find(key);
     if (it == state().values.end()) return nullptr;
     return it->second.value.c_str();

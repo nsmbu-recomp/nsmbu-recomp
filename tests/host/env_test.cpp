@@ -23,6 +23,10 @@ static void put_process_env(const char* name, const char* value) {
 }
 
 int main() {
+    env::Var blank(nullptr);
+    check(blank() == nullptr, "null key reads as unset");
+    check(!blank.on() && !blank.enabled(), "null key is off");
+
     check(std::strcmp(env::NO_HOST_INPUT.name(), "NSMBU_NO_HOST_INPUT") == 0, "no_host_input name");
     check(std::strcmp(env::VK_STATS.name(), "NSMBU_VK_STATS") == 0, "vk_stats name");
 
