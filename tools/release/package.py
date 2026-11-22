@@ -90,14 +90,22 @@ LINUX_SETUP_DESKTOP = """[Desktop Entry]
 Type=Application
 Name=NSMBU
 Comment=New Super Mario Bros. U (native PC port); the first start prepares the game from your own disc dump
-Exec=sh -c 'cd "$(dirname "%k")" && exec ./nsmbu-launcher'
+Exec=sh -c 'cd "$(dirname "%k")" && exec ./tools/nsmbu-launcher'
 Terminal=false
 Categories=Game;
 Actions=setup;
 
 [Desktop Action setup]
 Name=Setup (repair, update, change the game)
-Exec=sh -c 'cd "$(dirname "%k")" && exec ./nsmbu-launcher --setup'
+Exec=sh -c 'cd "$(dirname "%k")" && exec ./tools/nsmbu-launcher --setup'
+"""
+LINUX_PLAY = """#!/bin/sh
+# The built game. Setup writes data/bin/nsmbu; Play finds this name.
+here=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+if [ -f "$here/data/bin/nsmbu" ]; then
+    exec "$here/data/bin/nsmbu" "$@"
+fi
+exec "$here/tools/nsmbu-launcher" "$@"
 """
 
 def add_setup_gui(pkg, platform, exe, version):
@@ -113,11 +121,14 @@ def add_setup_gui(pkg, platform, exe, version):
     elif platform.startswith("windows"):
         copy(exe, os.path.join(pkg, SETUP_APP + ".exe"))
     else:
-        copy(exe, os.path.join(pkg, "nsmbu-launcher"))
-        os.chmod(os.path.join(pkg, "nsmbu-launcher"), 0o755)
+        copy(exe, os.path.join(pkg, "tools", "nsmbu-launcher"))
+        os.chmod(os.path.join(pkg, "tools", "nsmbu-launcher"), 0o755)
+        with open(os.path.join(pkg, "nsmbu"), "w") as f:
+            f.write(LINUX_PLAY)
+        os.chmod(os.path.join(pkg, "nsmbu"), 0o755)
         with open(os.path.join(pkg, SETUP_APP + ".desktop"), "w") as f:
             f.write(LINUX_SETUP_DESKTOP)
-        os.chmod(os.path.join(pkg, SETUP_APP + ".desktop"), 0o755)
+        os.chmod(os.path.join(pkg, SETUP_APP + ".desktop"), 0o644)
 VENDORED_LICENSES = {
     "Cemu (MPL-2.0)": "vendor/cemu/LICENSE.txt",
     "Dear ImGui (MIT)": "vendor/imgui/LICENSE.txt",

@@ -1659,11 +1659,20 @@ def launch(state, data_dir):
     else:
         subprocess.Popen(args, cwd=data_dir, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-LAUNCHER = {"darwin": "NSMBU.app", "win32": "NSMBU.exe"}.get(sys.platform, "nsmbu-launcher")
+LAUNCHER = {"darwin": "NSMBU.app", "win32": "NSMBU.exe"}.get(sys.platform, "tools/nsmbu-launcher")
+
+def launcher_target():
+    """The setup program a shortcut should open. Older Linux releases keep it at the folder root."""
+    target = os.path.join(PKG, LAUNCHER)
+    if not IS_MAC and not IS_WIN and not os.path.isfile(target):
+        old = os.path.join(PKG, "nsmbu-launcher")
+        if os.path.isfile(old):
+            return old
+    return target
 
 def create_shortcut():
     """Optional (portable release): a shortcut to the release folder's launcher. Returns its path."""
-    target = os.path.join(PKG, LAUNCHER)
+    target = launcher_target()
     if IS_MAC:
         apps = os.path.expanduser("~/Applications")
         os.makedirs(apps, exist_ok=True)

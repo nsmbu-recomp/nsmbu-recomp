@@ -55,7 +55,7 @@ The setup importer also reads `<repo>/nsmbu` when this tree is a source checkout
 | `tests/py/installer/test_setup.py` | unit tests of the helpers (`python3 tests/py/installer/test_setup.py`) |
 
 In a release folder the program is `NSMBU.app` (macOS), `NSMBU.exe` (Windows) or
-`nsmbu-launcher` plus `NSMBU.desktop` (Linux); the terminal setup in `tools/` is the fallback.
+`tools/nsmbu-launcher` plus `NSMBU.desktop` (Linux); the terminal setup in `tools/` is the fallback.
 
 ## NSMBU (the program a release starts)
 

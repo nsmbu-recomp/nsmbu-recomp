@@ -415,7 +415,7 @@ def package_release(
     log("packaging %s" % pkg_name)
     subprocess.run([sys.executable] + args, cwd=ROOT, check=True)
     pkg_dir = os.path.join(out_dir, pkg_name)
-    launcher = os.path.join(pkg_dir, "nsmbu-launcher")
+    launcher = os.path.join(pkg_dir, "tools", "nsmbu-launcher")
     if not os.path.isfile(launcher):
         die("package step did not write " + launcher)
     return pkg_dir
@@ -483,7 +483,7 @@ def main():
     if a.no_open:
         return
 
-    launcher = os.path.join(INSTALLER_DIR, "nsmbu-launcher")
+    launcher = os.path.join(INSTALLER_DIR, "tools", "nsmbu-launcher")
     log("opening setup")
     subprocess.run([launcher, "--setup"], cwd=INSTALLER_DIR, check=True)
 

@@ -374,16 +374,16 @@ jobs:
           ./tools/setup-in-terminal.sh --yes --no-launch --gen-dir "$GITHUB_WORKSPACE/build/gen-stub" --data-dir "$RUNNER_TEMP/data"
           # the right architecture: the game the installer linked and the program a player starts
           want=$([ "$ARCH" = aarch64 ] && echo "ARM aarch64" || echo "x86-64")
-          file "$RUNNER_TEMP/data/bin/nsmbu" ./nsmbu-launcher
+          file "$RUNNER_TEMP/data/bin/nsmbu" ./tools/nsmbu-launcher
           file "$RUNNER_TEMP/data/bin/nsmbu" | grep -q "$want"
-          file ./nsmbu-launcher | grep -q "$want"
+          file ./tools/nsmbu-launcher | grep -q "$want"
           ldd "$RUNNER_TEMP/data/bin/nsmbu"
           "$RUNNER_TEMP/data/bin/nsmbu" --hidden-windows --game "$RUNNER_TEMP/nogame" > run.log 2>&1 || true
           cat run.log
           grep -q "Game folder not found" run.log
-          ldd ./nsmbu-launcher
+          ldd ./tools/nsmbu-launcher
           perl -e 'alarm shift; exec @ARGV' 900 -- env SDL_VIDEO_DRIVER=offscreen \
-            ./nsmbu-launcher --self-test --data-dir "$RUNNER_TEMP/data"
+            ./tools/nsmbu-launcher --self-test --data-dir "$RUNNER_TEMP/data"
 
       - name: Renderer smoke test of the installed executable (lavapipe)
         # the 22.04 runner's Mesa is old; a failure here is reported but does not block the release

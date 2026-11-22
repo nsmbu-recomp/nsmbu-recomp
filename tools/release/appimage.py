@@ -5,7 +5,7 @@ usage: appimage.py PKG_DIR --out OUT_DIR [--appimagetool PATH] [--runtime-file P
        appimage.py --extract-runtime APPIMAGE OUT_FILE
 
 PKG_DIR is the NSMBU-VERSION-linux-ARCH folder tools/release/package.py produced (with
-nsmbu-launcher, tools/, sdk/, portable.txt, ...). An AppImage mount is read-only, so the result
+tools/nsmbu-launcher, tools/, sdk/, portable.txt, ...). An AppImage mount is read-only, so the result
 drops portable.txt: setup then keeps the game, its code, saves and settings in the per-user
 folders (~/.local/share/nsmbu and ~/.config/nsmbu, setup.py default_data_dir) instead of next to
 the program, and nothing is ever written beside the .AppImage.
@@ -87,14 +87,14 @@ APPRUN = """#!/bin/sh
 # NSMBU (AppImage): start the release's launcher (next to tools/ and sdk/).
 # This image is read-only: the setup keeps the game, its code, saves and settings in the
 # per-user folders (issue #55), never beside this file.
-exec "$(dirname "$0")/nsmbu-launcher" "$@"
+exec "$(dirname "$0")/tools/nsmbu-launcher" "$@"
 """
 
 DESKTOP = """[Desktop Entry]
 Type=Application
 Name=NSMBU
 Comment=New Super Mario Bros. U (native PC port); the first start prepares the game from your own disc dump
-Exec=nsmbu-launcher
+Exec=tools/nsmbu-launcher
 Icon=nsmbu
 Categories=Game;
 Terminal=false
@@ -102,7 +102,7 @@ Actions=setup;
 
 [Desktop Action setup]
 Name=Setup (repair, update, change the game)
-Exec=nsmbu-launcher --setup
+Exec=tools/nsmbu-launcher --setup
 """
 
 def host_arch():
@@ -251,8 +251,8 @@ def main():
     pkg = os.path.normpath(os.path.abspath(a.pkg))
     if not os.path.isfile(os.path.join(pkg, "installer", "setup.py")):
         sys.exit("%s is not a packaged release (no installer/setup.py)" % pkg)
-    if not os.path.isfile(os.path.join(pkg, "nsmbu-launcher")):
-        sys.exit("%s has no nsmbu-launcher (package it with --setup-gui)" % pkg)
+    if not os.path.isfile(os.path.join(pkg, "tools", "nsmbu-launcher")):
+        sys.exit("%s has no tools/nsmbu-launcher (package it with --setup-gui)" % pkg)
     if not os.path.isfile(os.path.join(pkg, "portable.txt")):
         sys.exit("%s has no portable.txt: package.py always writes one (the zip is the portable "
                  "release; the AppImage drops it)" % pkg)
