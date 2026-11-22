@@ -32,7 +32,7 @@ Continue through the tag when the user asked to publish or tag.
    Done when that branch is checked out and matches its upstream.
 2. **Changelog.** Done when `CHANGELOG.md` has `## [X.Y.Z]` and `## [Unreleased]` is empty.
    When it is not, follow the `changelog` skill on this branch.
-3. **Checks.** Done when `nsmbu test` and `nsmbu installer --no-open` have passed in this checkout on this tree, or when `HEAD` already contains `## [X.Y.Z]` and the worktree is clean.
+3. **Checks.** Done when `nsmbu test` and `nsmbu installer --no-open` have passed in this checkout, or when `HEAD` already contains `## [X.Y.Z]` and the working tree is clean.
    Follow the `cli` skill when a case fails.
    A failure from any other checkout, or from a binary that does not match `game/`, is a checkout mistake.
    Use this checkout and rerun.
