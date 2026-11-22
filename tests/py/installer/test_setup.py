@@ -468,6 +468,23 @@ class UpdateFolder(unittest.TestCase):
             self.make_folder(d, rpx=b"made-up eu rpx", app_tid="0005000e10101e00", app_ver="0050")
             self.assertEqual(setup.check_update_folder(d).name, "EU")
 
+    def test_explicit_dir_must_match_the_game(self):
+        with tempfile.TemporaryDirectory() as d:
+            upd = os.path.join(d, "update")
+            self.make_folder(upd, rpx=b"made-up eu rpx", app_tid="0005000e10101e00", app_ver="0050")
+            args = type("A", (), {"update_dir": upd})()
+            with self.assertRaisesRegex(setup.SetupError, "this copy is"):
+                setup.get_update_dir(os.path.join(d, "game.wux"), setup.UI(False), args, "0005000010101d00")
+
+    def test_same_folder_is_left_alone(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.make_folder(d)
+            with open(os.path.join(d, "code", "red-pro2.rpx"), "rb") as f:
+                before = f.read()
+            setup.apply_update_to(d, d)
+            with open(os.path.join(d, "code", "red-pro2.rpx"), "rb") as f:
+                self.assertEqual(f.read(), before)
+
     def test_missing_layout(self):
         with tempfile.TemporaryDirectory() as d:
             with self.assertRaisesRegex(setup.SetupError, "not an update folder"):

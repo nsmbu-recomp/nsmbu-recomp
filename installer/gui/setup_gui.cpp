@@ -2455,12 +2455,51 @@ static void use_user_libdecor_plugin() {
 static void use_user_libdecor_plugin() {}
 #endif
 
-int main(int argc, char** argv) {
-#ifdef _WIN32
-    if (argc > 1 && !strcmp(argv[1], "--console-setup")) {
-        return console_setup(find_package().pkg, std::vector<std::string>(argv + 2, argv + argc));
+static bool has_flag(int argc, char** argv, const char* flag) {
+    for (int i = 1; i < argc; i++)
+        if (!strcmp(argv[i], flag)) return true;
+    return false;
+}
+
+static std::vector<std::string> without_flag(int argc, char** argv, const char* flag) {
+    std::vector<std::string> out;
+    for (int i = 1; i < argc; i++)
+        if (strcmp(argv[i], flag)) out.emplace_back(argv[i]);
+    return out;
+}
+
+#ifndef _WIN32
+static int console_setup_posix(const std::string& pkg, const std::vector<std::string>& args) {
+    if (pkg.empty()) {
+        fprintf(stderr, "Setup could not start: the release files were not found. Keep this program in the release folder, next to installer/.\n");
+        return 1;
     }
+    std::vector<std::string> cmd = {"python3", pkg + "installer/setup.py"};
+    cmd.insert(cmd.end(), args.begin(), args.end());
+    std::vector<char*> av;
+    av.reserve(cmd.size() + 1);
+    for (auto& s : cmd) av.push_back(s.data());
+    av.push_back(nullptr);
+    setenv("PYTHONDONTWRITEBYTECODE", "1", 1);
+    if (chdir(pkg.c_str()) != 0) {
+        fprintf(stderr, "Setup could not start: cannot open the release folder (%s).\n", strerror(errno));
+        return 1;
+    }
+    execvp(av[0], av.data());
+    fprintf(stderr, "Setup could not start python3 (%s).\n", strerror(errno));
+    return 1;
+}
 #endif
+
+int main(int argc, char** argv) {
+    if (has_flag(argc, argv, "--console-setup")) {
+        std::vector<std::string> rest = without_flag(argc, argv, "--console-setup");
+#ifdef _WIN32
+        return console_setup(find_package().pkg, rest);
+#else
+        return console_setup_posix(find_package().pkg, rest);
+#endif
+    }
     std::string automate;
     bool want_setup = false;
     for (int i = 1; i < argc; i++) {
@@ -2470,6 +2509,7 @@ int main(int argc, char** argv) {
         else if (a == "--screenshots" && i + 1 < argc) A.shots_dir = argv[++i];
         else if (a == "--self-test") A.self_test = true;
         else if (a == "--setup") want_setup = true;
+        else if (a == "--console-setup") continue;
         else if (a.rfind("-psn_", 0) == 0) continue;
         else A.passthru.push_back(a);
     }

@@ -1082,6 +1082,10 @@ def path_ci(root, *parts):
 def require_playable_game_folder(path):
     """Full playable game tree (base content + code), not an update-only dump. Raises SetupError."""
     if not valid_game_folder(path):
+        if dlc_content_root(path):
+            raise SetupError("%s is the New Super Luigi U add-on, not the game. Choose the game folder "
+                             "(code/red-pro2.rpx, content/, meta/meta.xml), then add this folder as the "
+                             "optional Luigi U add-on." % path)
         raise SetupError("%s is not an extracted game folder (needs code/red-pro2.rpx, content/, meta/meta.xml)" % path)
     tid = game_folder_title(path)
     if tid and tid.startswith("0005000e"):
@@ -1115,6 +1119,8 @@ def check_update_folder(path):
     return build
 
 def apply_update_to(dst, update_dir):
+    if os.path.realpath(update_dir) == os.path.realpath(dst):
+        return
     for name in ("code", "content", "meta"):
         src = os.path.join(update_dir, name)
         if not os.path.isdir(src):
@@ -1187,13 +1193,16 @@ def matching_aoc_title(info):
         return None
     return max(hits, key=lambda t: t.get("version", 0))
 
-def get_update_dir(image, ui, args):
-    """Optional matching 1.3.0 update next to the disc image, --update-dir, chosen interactively,
-    or None to install the base disc alone."""
+def get_update_dir(image, ui, args, game_title_id=None):
+    """Optional matching 1.3.0 update next to the disc or folder, --update-dir, chosen interactively,
+    or None to install the base copy alone."""
     path = getattr(args, "update_dir", None) or find_sidecar_update(image)
     if path:
         path = os.path.abspath(path)
         build = check_update_folder(path)
+        if game_title_id and build.title_id != game_title_id.lower():
+            raise SetupError("this update is for %s; this copy is %s"
+                             % (title_desc(build.title_id), title_desc(game_title_id)))
         say("  OK: %s 1.3.0 update in %s" % (build.name, path))
         return path
     if not ui.interactive:
@@ -2026,7 +2035,7 @@ def install(ctx, source, keys=None, info=None, ui=None, check_keys=None):
         check_title(info.get("title_id", ""))
         say("  OK: %s, %s files, %s" % (title_desc(info.get("title_id", "")), info.get("files"),
                                         human(int(info.get("bytes", 0)))))
-        update_dir = get_update_dir(source[1], ui, args)
+        update_dir = get_update_dir(source[1], ui, args, info.get("title_id", ""))
         dlc_dir = get_dlc_dir(source[1], info.get("title_id", ""), ui, args)
     elif kind == "archive":
         begin("archive")
@@ -2049,6 +2058,7 @@ def install(ctx, source, keys=None, info=None, ui=None, check_keys=None):
             check_title(tid)
         build = check_game_version(source[1])
         say("  OK: %s (%s, title version %d)" % (source[1], build.name, build.title_version))
+        update_dir = get_update_dir(source[1], ui, args, tid or "")
         dlc_dir = get_dlc_dir(source[1], tid or "", ui, args)
     elif kind == "installed":
         if not valid_game_folder(ctx.game_dir):
@@ -2083,6 +2093,9 @@ def install(ctx, source, keys=None, info=None, ui=None, check_keys=None):
             copy_game_folder(source[1], data_dir)
             game_dir = os.path.join(data_dir, "game")
             say("  Game files are in %s (%d s)" % (game_dir, time.time() - t0))
+        if update_dir:
+            say("  Applying 1.3.0 update from %s" % update_dir)
+            apply_update_to(game_dir, update_dir)
         if dlc_dir:
             say("  Adding New Super Luigi U from %s" % dlc_dir)
             apply_dlc_to(game_dir, dlc_dir)
@@ -2192,6 +2205,8 @@ def main():
                     help="machine interface for the graphical installer (JSON lines; see installer/README.md)")
     ap.add_argument("--launcher-progress", action="store_true",
                     help="machine progress for RecompLauncher's setup step: 'progress 0.42 Text' lines on stdout")
+    ap.add_argument("--console-setup", action="store_true",
+                    help="accepted and ignored; the launcher program consumes this before setup.py runs")
     args = ap.parse_args()
     global TOOLCHAIN_DIR, NO_DIALOGS
     TOOLCHAIN_DIR = args.toolchain_dir
