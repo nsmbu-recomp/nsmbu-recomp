@@ -49,6 +49,11 @@ inline std::string join_path(const std::string& dir, const std::string& rel) {
     return dir + sep + rel;
 }
 
+inline std::string against_data_dir(const std::string& path, const std::string& data_dir) {
+    if (path.empty() || data_dir.empty() || absolute_path(path)) return path;
+    return join_path(data_dir, path);
+}
+
 inline Paths from_install_json(const std::string& data_dir, const std::string& json) {
     Paths paths;
     if (json.empty()) {
@@ -60,7 +65,7 @@ inline Paths from_install_json(const std::string& data_dir, const std::string& j
         paths.error = "--install: setup record has no game folder";
         return paths;
     }
-    paths.game = absolute_path(game) ? game : join_path(data_dir, game);
+    paths.game = against_data_dir(game, data_dir);
     paths.save = join_path(data_dir, "nsmbu/save");
     return paths;
 }

@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Play from RecompLauncher finds the game folder in the install (#85).
+  When that folder is missing, the message shows the full path and asks you to run setup again.
 - RecompLauncher can find a USA or Europe copy, or the extracted game folder, in the player's folders.
 - Choosing the New Super Luigi U folder as the game tells you to pick the game folder, then add that folder as the add-on.
 - RecompLauncher setup no longer stops with "unrecognized arguments: --console-setup".

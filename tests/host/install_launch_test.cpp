@@ -35,5 +35,17 @@ int main() {
     const install_launch::Paths bare = install_launch::from_install_json("/data", "{\"version\": \"1\"}");
     check(bare.error.find("no game folder") != std::string::npos, "record without game_dir");
 
+    check(install_launch::against_data_dir("game", "/games/NSMBU/data") == "/games/NSMBU/data/game",
+          "relative game joins the data folder");
+    check(install_launch::against_data_dir("nsmbu/save", "/games/NSMBU/data") == "/games/NSMBU/data/nsmbu/save",
+          "relative save joins the data folder");
+    check(install_launch::against_data_dir("/dumps/nsmbu", "/games/NSMBU/data") == "/dumps/nsmbu",
+          "absolute path stays put");
+    check(install_launch::against_data_dir("C:\\dumps\\nsmbu", "D:\\NSMBU\\data") == "C:\\dumps\\nsmbu",
+          "windows absolute path stays put");
+    check(install_launch::against_data_dir("game", "D:\\NSMBU\\data") == "D:\\NSMBU\\data\\game",
+          "windows relative game joins the data folder");
+    check(install_launch::against_data_dir("game", "") == "game", "empty data folder leaves the relative path");
+
     return failures ? 1 : 0;
 }

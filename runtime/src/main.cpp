@@ -696,6 +696,10 @@ int main(int argc, char** argv) {
         else if (!strcmp(argv[i], "--renderer-smoke")) renderer_smoke = true;
 #endif
     }
+    if (const std::string data = host::portable_data_dir(); !data.empty()) {
+        config::game_dir = install_launch::against_data_dir(config::game_dir, data);
+        config::save_dir = install_launch::against_data_dir(config::save_dir, data);
+    }
     LOG("[boot] %s %s (%s), %s", app_title::kName, build::version(), build::commit(), reporthdr::os_description().c_str());
     LOG("[boot] game version %s (%s, title %s, title version %d)", g_guest_build_label, g_guest_build_name,
         g_guest_build_title_id, g_guest_build_title_version);

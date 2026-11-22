@@ -172,16 +172,17 @@ inline std::string exe_dir() {
  }();
  return dir;
 }
+inline std::string portable_data_dir() {
+    const std::string e = exe_dir();
+    if (e.empty()) return {};
+    FILE* f = fopen((e + "/portable.txt").c_str(), "rb");
+    if (!f) return {};
+    fclose(f);
+    const size_t s = e.find_last_of("/\\");
+    return s == std::string::npos ? e : e.substr(0, s);
+}
 inline std::string portable_user_dir() {
-    std::string e = exe_dir();
-    if (!e.empty()) {
-        FILE* f = fopen((e + "/portable.txt").c_str(), "rb");
-        if (f) {
-            fclose(f);
-            size_t s = e.find_last_of("/\\");
-            return (s == std::string::npos ? e : e.substr(0, s)) + "/nsmbu";
-        }
-    }
+    if (const std::string data = portable_data_dir(); !data.empty()) return data + "/nsmbu";
     if (const char* override = env::USER_DIR()) return std::string(override);
     return std::string();
 }
