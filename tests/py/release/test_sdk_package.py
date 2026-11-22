@@ -37,7 +37,9 @@ class SDKPackage(unittest.TestCase):
         profile = package.launcher_profile("9.9.9")
         self.assertEqual(profile["prepare"]["version"], "9.9.9")
         self.assertEqual(profile["prepare"]["done"], ["{install}/data/install.json"])
-        self.assertIn("data/bin/nsmbu", profile["start"]["program"])
+        self.assertEqual(profile["start"]["program"][:3], ["data/bin/nsmbu.exe", "nsmbu", "data/bin/nsmbu"])
+        self.assertNotIn("nsmbu-launcher", profile["start"]["program"])
+        self.assertIn("tools/nsmbu-launcher", profile["start"]["program"])
         self.assertEqual(profile["start"]["args"][:2], ["--install", "{install}/data"])
         self.assertNotIn("{install}/data/game", profile["start"]["args"])
 
