@@ -12,6 +12,7 @@ import {
     cmdLaunch,
     cmdProfile,
     cmdRecomp,
+    cmdRecomplauncher,
     cmdRun,
 } from "../src/dev.ts";
 import {
@@ -134,6 +135,9 @@ async function main(): Promise<void> {
                 break;
             case "recomp":
                 cmdRecomp(repo);
+                break;
+            case "recomplauncher":
+                cmdRecomplauncher(repo);
                 break;
             case "test":
                 await cmdTest(repo, rest);

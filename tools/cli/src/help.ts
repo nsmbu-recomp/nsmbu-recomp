@@ -21,6 +21,7 @@ Usage:
   nsmbu installer [--version VERSION] [--no-open]
   nsmbu apk [--abi arm64-v8a|x86_64] [--device SERIAL] [--build-only] [--install-only] [--yes]
   nsmbu recomp
+  nsmbu recomplauncher
   nsmbu test [--list] [--show] [--jobs N] [name…]
   nsmbu scenario OUT [--game PATH] [--save PATH] [--align NAME] [--steps N] [--fixed-seed N] [--bin PATH] [--shader-cache PATH] [--boot-tries N] [--boot-limit N] [--run-limit N] [NSMBU_VAR=value …] [--flag …]
   nsmbu compare-runs RUN_A RUN_B [--scene NAME] [--steps N]

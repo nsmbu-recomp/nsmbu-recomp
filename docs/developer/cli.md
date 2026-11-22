@@ -91,6 +91,7 @@ The CLI passes `--cli` and `--user-dir=<repo>/nsmbu` to the game on every dev co
 | `nsmbu installer [--version VERSION] [--no-open]` | builds this Linux host's GitHub Release folder (the zip contents) at `build/installer` with the pinned zig toolchain, SDL3, and Vulkan-Headers from the tree, then opens that folder's setup window; `--no-open` returns after the package is ready; does not publish |
 | `nsmbu apk` | builds the same setup APK as a release: Python, the compiler and the extractor are inside, and the game code is not. Installs it on a USB device (`adb`). `--build-only` skips adb. `--install-only` installs the last APK. |
 | `nsmbu recomp` | Recomp only |
+| `nsmbu recomplauncher` | Builds a folder RecompLauncher can open as a local build, at `build/recomplauncher`. The runtime comes from the latest GitHub release for this PC. The launcher program and installer files come from this checkout. |
 | `nsmbu test [--list] [--show] [name…]` | boots a game per playtest and runs selected cases in parallel ([automation.md](automation.md)); `--show` leaves the window on screen and runs one case at a time |
 | `nsmbu scenario OUT [VAR=value …]` | headless logic-step trace for build-to-build comparison ([automation.md](automation.md)) |
 | `nsmbu compare-runs RUN_A RUN_B [--scene NAME] [--steps N]` | diff two `scenario` output folders ([automation.md](automation.md)) |

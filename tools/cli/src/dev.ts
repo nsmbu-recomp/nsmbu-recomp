@@ -568,6 +568,10 @@ export async function cmdApk(repo: string, rest: string[]): Promise<void> {
     runPythonInherit(repo, "tools/android/apk.py", args);
 }
 
+export function cmdRecomplauncher(repo: string): void {
+    runPython(repo, "tools/release/recomplauncher_test.py", []);
+}
+
 export function cmdRecomp(repo: string): void {
     const listed = runPythonCapture(repo, "tools/disc/game_select.py", ["--list"]);
     if (listed.status !== 0) {

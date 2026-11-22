@@ -103,6 +103,11 @@ const COMMANDS: CommandSpec[] = [
     },
     { name: "recomp", description: "Run recomp only", noFiles: true },
     {
+        name: "recomplauncher",
+        description: "Build a RecompLauncher folder at build/recomplauncher",
+        noFiles: true,
+    },
+    {
         name: "test",
         description: "Run playtests",
         noFiles: true,
