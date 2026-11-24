@@ -666,7 +666,12 @@ void load_startup() {
     std::string path = default_path(), err;
     Config c;
     struct stat st;
-    if (stat(path.c_str(), &st) != 0) return;
+    if (stat(path.c_str(), &st) != 0) {
+        // The defaults are already in memory. Write them so the file exists before anyone rebinds.
+        if (!save_config_file(path, Config::defaults()))
+            fprintf(stderr, "[input] could not save default controls to %s\n", path.c_str());
+        return;
+    }
     if (load_config_file(path, c, &err)) {
         set_config(c, false);
         fprintf(stderr, "[input] controls loaded from %s%s%s\n", path.c_str(), err.empty() ? "" : ": ", err.c_str());

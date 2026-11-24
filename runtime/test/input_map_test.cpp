@@ -323,6 +323,10 @@ static void test_files() {
     CHECK(save_config_file(live, c));
     Config cr;
     CHECK(load_config_file(live, cr, &err) && cr == c);
+    std::filesystem::remove(live, ec);
+    load_startup();
+    CHECK(std::filesystem::is_regular_file(live));
+    CHECK(load_config_file(live, cr, &err) && cr == Config::defaults());
     std::filesystem::remove_all(dir,ec);
 }
 

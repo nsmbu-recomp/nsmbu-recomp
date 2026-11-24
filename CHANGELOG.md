@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- The first start saves the default controls.
 - Setup saves each compiler version in the temporary folder.
   The next setup of that version skips the download.
 
