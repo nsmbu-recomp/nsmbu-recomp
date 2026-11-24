@@ -2,7 +2,10 @@
 
 #pragma once
 #include <functional>
+#include <memory>
 #include <string>
+
+#include "game_font.h"
 
 namespace text_entry {
 
@@ -14,6 +17,7 @@ struct Request {
     int language = 1;
 
     std::function<void(const std::u16string&)> changed;
+    std::shared_ptr<const game_font::Glyphs> glyphs;
 };
 using Done = std::function<void(bool ok, std::u16string text)>;
 

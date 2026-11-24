@@ -31,7 +31,7 @@ Settings g_settings;
 bool g_aiming = false;
 int g_gyro_controllers = 0;
 float g_mouse_dx = 0, g_mouse_dy = 0;
-bool gyro_log() { return env::GYRO_LOG() != nullptr; }
+const bool g_log = env::GYRO_LOG() != nullptr;
 
 struct Device {
     Fusion fusion;
@@ -107,7 +107,7 @@ void feed(uint64_t id, uint64_t t_ns, Vec3 gyro_h, Vec3 acc_h) {
     }
     if (g_active == id) g_pending = g_pending + aim;
     d.logged_aim = d.logged_aim + aim;
-    if (gyro_log() && secs(now - d.log_at) >= 0.5) {
+    if (g_log && secs(now - d.log_at) >= 0.5) {
         const double span = d.log_at.time_since_epoch().count() ? secs(now - d.log_at) : 0.5;
         const Vec3 b = d.fusion.bias(), g = d.fusion.gravity();
         log_msg("[gyro] %s%s: %.0f samples/s, gyro %.3f %.3f %.3f rad/s, acc %.2f %.2f %.2f g, bias %.3f %.3f %.3f%s, "
@@ -391,7 +391,7 @@ VpadMotion vpad(bool repeat) {
     }
     g_pad.turn(step, aim);
     g_read_aim = g_read_aim + aim;
-    if (gyro_log() && g_settings.source != kOff && secs(now - g_read_log_at) >= 0.5) {
+    if (g_log && g_settings.source != kOff && secs(now - g_read_log_at) >= 0.5) {
         const double span = g_read_log_at.time_since_epoch().count() ? secs(now - g_read_log_at) : 0.5;
         log_msg("[gyro] GamePad turned %.1f right, %.1f up deg/s; aiming %d; right stick %.2f %.2f", g_read_aim.yaw * kRadToDeg / span,
                 g_read_aim.pitch * kRadToDeg / span, (int)g_aiming, g_stick_x, g_stick_y);

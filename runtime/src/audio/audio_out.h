@@ -17,7 +17,6 @@ void flush();
 
 bool muted();
 void set_muted(bool on);
-bool toggle_muted();
 bool mute_env_override();
 
 float volume();

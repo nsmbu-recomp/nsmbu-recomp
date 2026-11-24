@@ -15,17 +15,22 @@ The game draws the stock item from `Common.szs` (`ItemList`) on each player thro
 - A mode the bubble cannot show is not intercepted.
 
 `use_button` and `show_hud` stay out of the example.
+The example does not draw with `nsmbu.Gui`.
+
 ## API
 
-These calls are not in the runtime yet:
+Add these to [modding/sdk/nsmbu.Player.d.ts](../../modding/sdk/nsmbu.Player.d.ts) and [docs/modding/api.md](api.md):
 
-- A switch that turns the rule above on for every player.
-- A read of the stored mode, empty when the bubble is empty.
-- A write that sets or clears that player’s bubble.
+- `nsmbu.Player.set_store_extra(on)` turns the rule above on for every player.
+- `player.stock()` returns the stored mode, or nil when the bubble is empty.
+- `player.set_stock(mode)` sets or clears that player’s bubble.
+
+The example only calls `set_store_extra(true)` from `onLoaded` and `set_store_extra(false)` from `onUnload`.
+`stock` and `set_stock` are there so another mod can read or fill the bubble without copying the rule.
 
 ## Runtime
 
-Decompile the stock field and the item-type values the `ItemList` panes use, and record them under `vendor/decomp`.
+Decompile the stock field and the item-type values the `ItemList` panes use, and record them under `vendor/decomp` and `recomp/headers_names.txt`.
 Hook `setItem`.
 When store-extra is on, the player is Super or better, the bubble is empty, and the mode has a stock type: write the stock field and skip the original call.
 Otherwise call `f_02931C1C_orig`.
@@ -33,8 +38,10 @@ Do not keep a second copy of the stored mode in the runtime.
 
 ## Example
 
-There is no example package.
-When the hook exists, player-facing notes are: the reserve is the game’s icon above you, you use the game’s stock control, and an item you already brought is left alone.
+Add `modding/examples/powerup-storage` again with `main.ts`, `README.md`, and `manifest.json`.
+`main.ts` is the load and unload calls.
+Update [modding/examples/CHANGELOG.md](../../modding/examples/CHANGELOG.md) and the root changelog.
+Player-facing notes: the reserve is the game’s icon above you, you use the game’s stock control, and an item you already brought is left alone.
 
 ## Check
 
@@ -47,7 +54,7 @@ After the stock field is known, one headless `nsmbu` script checks three cases o
 ## Work
 
 1. Decompile the per-player stock field, item types, and ItemList update path.
-   Name them in `vendor/decomp`.
+   Name them in `vendor/decomp` and `recomp/headers_names.txt`.
 2. Add `set_store_extra`, `stock`, and `set_stock` on the Player API and implement them in the `setItem` hook.
 3. Add the powerup-storage example as the store-extra switch, with no HUD or use-button options, and update the README and changelogs.
 4. Run the headless check above.

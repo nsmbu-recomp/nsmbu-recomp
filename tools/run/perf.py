@@ -4,8 +4,11 @@
 The samples land in .tmp/perf/nsmbu.data with a readable report next to it.
 Send .tmp/perf/nsmbu.data, .tmp/perf/report.txt and .tmp/perf/report_flat.txt.
 
-Invoked by `nsmbu profile --cpu`.
-Direct use: python3 tools/run/perf.py [--seconds N] [--attach PID] [profile.py options...]
+usage:
+  python3 tools/run/perf.py [--seconds N] [profile.py options...]
+      starts the fixed 1-1 scene (tools/run/profile.py) and records it
+  python3 tools/run/perf.py --attach PID [--seconds N]
+      records an already running game
 
 Attachments need `perf_event_paranoid` at 1 or lower. When it is higher, the
 script prompts for sudo and sets 1 for this boot.
@@ -19,10 +22,6 @@ import signal
 import subprocess
 import sys
 import time
-
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
-import prof_digest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(ROOT, ".tmp", "perf")
@@ -130,30 +129,21 @@ def write_reports():
     with open(os.path.join(OUT, "report_flat.txt"), "w") as f:
         f.write(flat)
     lines = [line for line in flat.splitlines() if line.startswith("     ") and "%" in line]
-    print("[profile] cpu")
-    for line in lines[:8]:
-        print(line.rstrip())
-    print("[profile] cpu report %s" % os.path.join(OUT, "report.txt"))
+    print("[perf] top rows:")
+    for line in lines[:25]:
+        print("  " + line)
+    for name in ("nsmbu.data", "report.txt", "report_flat.txt", "game.log"):
+        path = os.path.join(OUT, name)
+        print("[perf] %-12s %9d bytes" % (name, os.path.getsize(path)))
 
 
-def scene_cmd(args):
-    cmd = [
-        sys.executable,
-        os.path.join(ROOT, "tools", "run", "profile.py"),
-        "--no-digest",
-        "--log",
-        GAME_LOG,
-        "--exit-at",
-        str(args.exit_at),
-        "--load-at",
-        str(args.load_at),
-    ]
-    if args.run_args:
-        cmd += args.run_args
-    return cmd
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    parser.add_argument("--seconds", type=int, default=25)
+    parser.add_argument("--attach", type=int)
+    parser.add_argument("run", nargs=argparse.REMAINDER)
+    args = parser.parse_args()
 
-
-def run(args):
     if not shutil.which("perf"):
         fail("perf is not on PATH (linux-tools or linux-tools-generic)")
 
@@ -161,17 +151,20 @@ def run(args):
     check_paranoia()
 
     profile = None
-    attached = args.attach is not None
     try:
-        if attached:
+        if args.attach:
             pid = args.attach
         else:
             os.makedirs(OUT, exist_ok=True)
-            profile = subprocess.Popen(scene_cmd(args), cwd=ROOT)
+            cmd = [sys.executable, os.path.join(ROOT, "tools", "run", "profile.py"),
+                   "--log", GAME_LOG]
+            if args.run:
+                cmd += args.run
+            profile = subprocess.Popen(cmd, cwd=ROOT)
             pid = find_child(profile.pid)
             if not pid:
                 fail("the game process did not appear; see " + GAME_LOG)
-            print("[profile] game pid %s" % pid)
+            print("[perf] game pid %s" % pid)
             if not wait_loaded(GAME_LOG, 180):
                 fail("no 'Loaded slot' in " + GAME_LOG + "; recording anyway")
 
@@ -185,19 +178,6 @@ def run(args):
                 profile.kill()
 
     write_reports()
-    if not attached and os.path.isfile(GAME_LOG):
-        sys.stdout.write(prof_digest.format_digest(open(GAME_LOG, errors="replace").read(), GAME_LOG))
-    return 0
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
-    parser.add_argument("--seconds", type=int, default=25)
-    parser.add_argument("--attach", type=int)
-    parser.add_argument("--exit-at", type=int, default=1100)
-    parser.add_argument("--load-at", type=int, default=700)
-    parser.add_argument("run_args", nargs=argparse.REMAINDER)
-    raise SystemExit(run(parser.parse_args()))
 
 
 if __name__ == "__main__":

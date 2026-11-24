@@ -3,4 +3,4 @@
 To repair, update, or choose a different game file, open the installer again.
 
 - **macOS or Windows:** hold Shift while you start **NSMBU**.
-- **Linux:** run `tools/nsmbu-launcher --setup`, or use the Setup action on `NSMBU.desktop`.
+- **Linux:** run `nsmbu-launcher --setup`, or use the Setup action on `NSMBU.desktop`.

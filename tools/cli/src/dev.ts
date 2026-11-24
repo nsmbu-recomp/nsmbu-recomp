@@ -1,6 +1,7 @@
-import { launchArgs, runBuildArgs } from "./launch_plan.ts";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { flagString, hasFlag, parseArgv } from "./parse.ts";
-import { runPython, runPythonCapture, runPythonChecked } from "./run.ts";
+import { runPython, runPythonCapture, runPythonChecked, runShell } from "./run.ts";
 import { clack, confirm, selectOption, textInput } from "./select.ts";
 
 const GAME_USAGE =
@@ -16,16 +17,13 @@ function runPythonInherit(repo: string, script: string, args: string[], extraEnv
     }
 }
 
-export function cmdBuild(repo: string, release: boolean, sanitizer: boolean, verbose: boolean, rest: string[]): void {
+export function cmdBuild(repo: string, release: boolean, sanitizer: boolean, rest: string[]): void {
     const args: string[] = [];
     if (release) {
         args.push("--release");
     }
     if (sanitizer) {
         args.push("--sanitizer");
-    }
-    if (verbose) {
-        args.push("--verbose");
     }
     args.push(...rest);
     runPython(repo, "tools/build/build.py", args);
@@ -35,17 +33,51 @@ export function cmdLaunch(
     repo: string,
     opts: { noDebug: boolean; trace: boolean; gdb: boolean; lldb: boolean; wine?: boolean },
     rest: string[],
+    extraEnv: Record<string, string> = {},
 ): void {
-    runPython(repo, "tools/run/launch.py", launchArgs(opts, rest));
+    const args: string[] = [];
+    if (opts.noDebug) {
+        args.push("--no-debug");
+    }
+    if (opts.trace) {
+        args.push("--trace");
+    }
+    if (opts.gdb) {
+        args.push("--gdb");
+    }
+    if (opts.lldb) {
+        args.push("--lldb");
+    }
+    if (opts.wine) {
+        args.push("--wine");
+    }
+    args.push(...rest);
+    runPython(repo, "tools/run/launch.py", args, extraEnv);
 }
 
 export function cmdCrash(repo: string): void {
-    cmdLaunch(repo, { noDebug: false, trace: false, gdb: false, lldb: false }, ["--test-host-crash"]);
+    cmdLaunch(repo, { noDebug: false, trace: false, gdb: false, lldb: false }, [], {
+        NSMBU_TEST_HOST_CRASH: "1",
+    });
+}
+
+export function cmdWine(
+    repo: string,
+    opts: { noDebug: boolean; trace: boolean },
+    rest: string[],
+): void {
+    const buildArgs: string[] = opts.noDebug ? ["--release"] : [];
+    buildArgs.push(...rest);
+    runPythonInherit(repo, "tools/build/build_windows.py", buildArgs);
+    cmdLaunch(repo, { noDebug: opts.noDebug, trace: opts.trace, gdb: false, lldb: false, wine: true }, rest);
 }
 
 export function cmdRun(repo: string, release: boolean, rest: string[]): void {
-    runPythonInherit(repo, "tools/build/build.py", runBuildArgs(release));
-    cmdLaunch(repo, { noDebug: release, trace: false, gdb: false, lldb: false }, rest);
+    const buildArgs: string[] = release ? ["--release"] : [];
+    buildArgs.push(...rest);
+    runPythonInherit(repo, "tools/build/build.py", buildArgs);
+    const launchArgs = [...rest];
+    cmdLaunch(repo, { noDebug: release, trace: false, gdb: false, lldb: false }, launchArgs);
 }
 
 export function cmdExtract(repo: string, rest: string[]): void {
@@ -164,7 +196,7 @@ function keysHint(state: GameListState): string[] {
     const lines = [
         "Keys: game/keys.txt (Cemu format — common= and title-id lines).",
         "Disc images stay under game/: New Super Mario Bros. U (USA).wux / (Europe).wux.",
-        "Common key: --common-key FILE, game/common.key, or common= in game/keys.txt.",
+        "Optional: WIIU_COMMON_KEY for the common key only.",
     ];
     if (state.has_common_key) {
         lines.push(`Common key found (${state.common_key_src}).`);
@@ -470,37 +502,11 @@ export async function cmdGame(repo: string, rest: string[]): Promise<void> {
 }
 
 export function cmdProfile(repo: string, rest: string[]): void {
-    const { flags, positional } = parseArgv(
-        rest,
-        ["cpu", "seconds", "attach", "exit-at", "load-at", "log"],
-        ["seconds", "attach", "exit-at", "load-at", "log"],
-    );
-    const args: string[] = [];
-    if (hasFlag(flags, "cpu")) {
-        args.push("--cpu");
-    }
-    const seconds = flagString(flags, "seconds");
-    if (seconds) {
-        args.push("--seconds", seconds);
-    }
-    const attach = flagString(flags, "attach");
-    if (attach) {
-        args.push("--attach", attach);
-    }
-    const exitAt = flagString(flags, "exit-at");
-    if (exitAt) {
-        args.push("--exit-at", exitAt);
-    }
-    const loadAt = flagString(flags, "load-at");
-    if (loadAt) {
-        args.push("--load-at", loadAt);
-    }
-    const log = flagString(flags, "log");
-    if (log) {
-        args.push("--log", log);
-    }
-    args.push(...positional);
-    runPython(repo, "tools/run/profile.py", args);
+    runPython(repo, "tools/run/profile.py", rest);
+}
+
+export function cmdPerf(repo: string, rest: string[]): void {
+    runPython(repo, "tools/run/perf.py", rest);
 }
 
 export function cmdInstaller(repo: string, rest: string[]): void {
@@ -568,8 +574,12 @@ export async function cmdApk(repo: string, rest: string[]): Promise<void> {
     runPythonInherit(repo, "tools/android/apk.py", args);
 }
 
-export function cmdRecomplauncher(repo: string): void {
-    runPython(repo, "tools/release/recomplauncher_test.py", []);
+export function cmdLint(repo: string): void {
+    const verify = existsSync(join(repo, "modding", "node_modules", "typescript-to-lua")) ? "" : "npm --prefix modding ci && ";
+    runShell(
+        repo,
+        `${verify}npm --prefix modding run --silent build && stylua --config-path modding/.stylua.toml modding/examples`,
+    );
 }
 
 export function cmdRecomp(repo: string): void {
@@ -587,4 +597,15 @@ export function cmdRecomp(repo: string): void {
         throw new Error(`game/${id}/ is not extracted yet; run nsmbu game`);
     }
     runPython(repo, "recomp/recomp.py", [`game/${id}/code/red-pro2.rpx`, "build/gen"]);
+}
+
+export function cmdScripted(repo: string, name: string, rest: string[]): void {
+    runShell(repo, `bash tools/run/scripted-run.sh ${shellQuote(name)} ${rest.map(shellQuote).join(" ")}`.trim());
+}
+
+function shellQuote(s: string): string {
+    if (/^[a-zA-Z0-9._/-]+$/.test(s)) {
+        return s;
+    }
+    return `'${s.replace(/'/g, "'\\''")}'`;
 }

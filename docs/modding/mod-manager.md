@@ -11,11 +11,14 @@ Manager version **1.0.0**.
 
 | Kind | Status | Doc |
 | --- | --- | --- |
-| `content` | Live | [content.md](content.md) |
 | `cemu` | Live | [cemu.md](cemu.md) |
+| `lua` | Rejected | [lua-mods.md](lua-mods.md) |
+| `content` | Rejected | [content.md](content.md) |
 
-The manager installs Cemu graphics and shader packs, and content file-replacement packages.
-Any other kind is rejected.
+The only package the manager installs is a Cemu graphics or shader pack.
+`kind: lua` and `kind: content` are rejected.
+File-only Cemu level packs are rejected the same way.
+The LuaJIT library and the `modding/` sources stay in the tree.
 
 ## Player workflow
 
@@ -59,8 +62,8 @@ It needs an explicit `NSMBU_MOD_MANAGER_DIR`, so it never applies to a player's 
 
 ## Shared manifest fields
 
-There is no separate manifest schema file.
-The fields below are what the manager reads.
+The schema is `modding/sdk/manifest.schema.json`.
+Each example manifest sets `$schema` to `../../sdk/manifest.schema.json`.
 
 | Field | Meaning |
 | --- | --- |
@@ -69,7 +72,7 @@ The fields below are what the manager reads.
 | `game_id` | `nsmbu-usa` (the runtime also verifies its exact RPX entry) |
 | `author`, `description` | Optional display metadata |
 | `minimum_manager_version` | Optional three-part minimum |
-| `kind` | `cemu`. Any other kind is rejected |
+| `kind` | `cemu`. `lua`, `content`, `native`, `guest`, and `settings` are rejected |
 | `dependencies` | Objects with `id` and optional `minimum_version`. `builtin:<id>` is rejected |
 | `conflicts` | Package IDs. `builtin:<id>` is rejected |
 | `options` | Typed defaults and names; numeric min/max/step or enum choices |
@@ -96,7 +99,7 @@ See [cemu.md](cemu.md).
 A package that names `builtin:` fails to install.
 The next save drops leftover nested-profile and `builtins` keys.
 The same test installs synthetic Cemu packs: preset validation and the restart-only lifecycle.
-Install of every non-Cemu kind in the host test is asserted to fail.
+Install of `kind: lua`, `kind: content`, `kind: native`, `kind: guest`, and `kind: settings` is asserted to fail.
 A folder that is not a Cemu graphics pack is rejected.
 
 `mod_cemu_startup` and `mod_cemu_backend` start the manager on prepared storage and check startup activation.

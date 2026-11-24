@@ -27,23 +27,14 @@ type AgentResponse = {
     map_lock?: number;
     map_title?: number;
     map_players?: number;
-    banner?: string;
     player?: { x: number; y: number; z: number } | null;
     sound_ready?: boolean;
     audio_buffered?: number;
     path?: string;
     output?: string;
     overlay?: boolean;
-    close?: { x0: number; y0: number; x1: number; y1: number };
-    x?: number;
-    y?: number;
     tab?: string;
     menu?: boolean;
-    cursor_name?: string;
-    pause?: boolean;
-    pause_index?: number;
-    pause_row?: string;
-    controller?: boolean;
     cursor?: number;
     buttons?: { index: number; name: string; selected: boolean; x0?: number; y0?: number; x1?: number; y1?: number }[];
     power?: number;
@@ -51,8 +42,6 @@ type AgentResponse = {
     actors?: { profile: number; x: number; y: number; z: number; vx: number; vy: number; vz: number }[];
     lines?: string[];
     paths?: string[];
-    evals?: { name: string; kind: string; help?: string; observe?: boolean; type?: string; count?: number }[];
-    value?: unknown;
 };
 
 export type { AgentResponse };

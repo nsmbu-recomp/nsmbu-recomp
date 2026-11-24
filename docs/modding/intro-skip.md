@@ -133,9 +133,9 @@ The decide chain, decoded:
    current until `SaveMgr.mStatus` (`0x101E7DA4` instance `+0x14`) is no longer `cStatus_Writing`.
    Confirming the popup kicks a full `save://rp_savedata.dat` write before the flow moves on.
 
-The native skip uses `pad_inject::press` with the A button mask.
+The native skip uses `lua_press::press` with the A button mask.
 That press reaches the game through the padscore HLE sampling
-(`runtime/src/mods/pad_inject.cpp`), which drives the layout animation that sets the `0x2000` bit.
+(`runtime/src/mods/lua_press.cpp`), which drives the layout animation that sets the `0x2000` bit.
 The writer of that bit inside the layout stack is not traced yet.
 
 ### Boot save-file load
@@ -291,21 +291,28 @@ Course setup `f_024BD86C` calls `f_024D29A4`, which copies those next fields to 
 
 Later in that function, `f_0269A2B4` sprintfs format `0x100E6040` (`"%d-%d"`) as `(byte+0x10)+1` and `(byte+0x11)+1`.
 That string is the `%s` in `course_res_pack/%s.szs` (`f_029D3150`).
-Pack `1-23` is world 0, course 22 (`open_place("1-23")`).
+Pack `1-23` is `load_story(0, 22)` or `load_pack("1-23")`.
 `course_no` is `pack_id - 1`, not a separate map slot index.
 
 Guest `0x024D3AD4` is a save-nibble helper.
 It is not the filename builder.
 Older notes that pointed at ROM tables near `0x100C97xx` for the pack filename were wrong.
 
-`open_place("1-23")` and `load_story_course` call `setCourse_Story` when the fader is idle.
-The source argument is the live flow task.
+The Lua API exposes:
+
+```lua
+scene.load_story(world_no, course_no)
+scene.load_pack("1-23")
+```
+
+Both call `setCourse_Story` when the fader is idle.
+The second argument is the live flow task.
 A null source crashes inside `Scene::setNextScene` (`ld32` at `0x029947D0`).
-They return `scene busy` while a scene change is queued or the fader is busy.
+They return `"scene busy"` while a scene change is queued or the fader is busy.
 The native skip requests the pack once, then waits for `course_task()`.
 
-The agent `goto` command uses the same transition.
-The native skip uses it for the `--open` pack.
+`load_pack` remains available to mods.
+The native skip uses the same transition with the `--open` pack.
 
 ### Course enter banner digits
 
@@ -322,11 +329,7 @@ A direct open can show a blank green number and the save's world name.
 
 The same skip means `FieldGameData::setCheckPoint` never runs before the course.
 Quitting back to `CourseSelectTask` then has `mCheckPoint.index == -1` and `MainGame` map pose `+0x19C/+0x1A0/+0x1A4` cleared, so `CourseSelectPlayer` fails to spawn on the opened node.
-The runtime seeds that checkpoint and pose from the opened pack when the checkpoint is still missing.
-Quit uses course-out site `0x024B8324`.
-A death uses `AreaTask::setCourseOut` (`0x024B814C`) and does not pass through that quit site.
-That entry seeds the same pose when the course came from a directed open.
-`CourseSelectPlayer` setup (`0x0226FBC4` / `0x0226FD14`) seeds again when the map player is created.
+The runtime seeds that checkpoint and pose from `CourseInfo` world/course when the checkpoint is still missing (course-out site `0x024B8324`, CourseSelectPlayer setup `0x0226FBC4` / `0x0226FD14`).
 Node lookup uses `CourseSelectMgr` path entries by name (`W101` for pack `1-1`).
 Path node `+0x50/+0x54` are not a reliable world/course pair (many nodes share `0,0`), so name match is required.
 Live `CourseSelectPlayer+0x110` is a pointer after spawn.
@@ -336,28 +339,6 @@ The map camera copies its focus node at `0x0227CCF4` and `0x0227E2A8` from the p
 Those sites replace that node with the opened course before the pose and position stores.
 They stay out of the opening cinematic and out of loading a save from the file select.
 Both of those set a course-exit type without going through course-out, and the map keeps its own camera until it gives you control.
-`apply_save` writes `MainGame.mIsSinglePlayerDRC` (`+0x14`) from the host controller.
-The course treats controller id 0 as the player only while that flag is set.
-A GamePad host sets the flag, so `nsmbu run 1-1` reads that pad.
-Clearing the flag while the GamePad screen is off makes that course ignore the stick.
-A map opened from the save leaves that flag clear, so Mario is drawn on the TV.
-The GamePad flag leaves the TV on the GamePad ghost and selects the GamePad map update.
-Course-out still clears the flag when the GamePad screen is off.
-The host pad stays on its current controller.
-The pose seed leaves the course-out demo latched.
-That demo stores `CourseSelectTask+0xDC8` (scripted move) and `+0xDCD` (gaussian model) and never sends the second pulse that would clear them.
-`+0xDC9` alone is the map-calc lock.
-Clearing it leaves the white model and a player that ignores the stick.
-The arm at `0x02267C48` drops `+0xDC8`, `+0xDC9`, `+0xDCA`, and `+0xDCD`, sets `+0xDCB` to 1, and stays in state `0x101FD3A4`.
-The player update at `0x0228E0CC` clears those bytes again before the stick read.
-A demo event id still skips that stick read.
-`0x0228E228` clears that skip for a directed return.
-The model build at `0x024DE2D0` keeps the gaussian argument clear, so the first mesh is the normal one.
-The stick read also needs `CourseSelectPlayer+0x623`.
-`0x0228E234` sets that byte.
-The hold execute at `0x02267C70` sends the stock unlock pulse (`+0xDCA` 1, `+0xDCB` 1, `+0xDCD` 0) when a directed return is still inside that state.
-The override lasts a few seconds of map time.
-A later course enter from the map uses the normal iris.
 See [course-open.md](../developer/nsmbu/course-open.md).
 
 ### Normal enter path

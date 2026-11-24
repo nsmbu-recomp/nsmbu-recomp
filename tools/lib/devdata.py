@@ -1,7 +1,5 @@
 import os
 import shutil
-import subprocess
-import sys
 
 USER_NAME = "nsmbu"
 LEGACY_NAME = "user"
@@ -29,24 +27,10 @@ def sync_example_mods(_root):
 
 def apply_env(env, root):
     user, save = ensure(root)
+    env.setdefault("NSMBU_USER_DIR", user)
+    os.environ.setdefault("NSMBU_USER_DIR", env["NSMBU_USER_DIR"])
     sync_example_mods(root)
     return user, save
-
-
-def wine_path(wine, path):
-    r = subprocess.run(
-        [wine, "winepath", "-w", path],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if r.returncode != 0:
-        err = (r.stderr or r.stdout or "").strip()
-        sys.exit("winepath failed for %s" % path + (": %s" % err if err else ""))
-    out = (r.stdout or "").strip()
-    if not out:
-        sys.exit("winepath returned empty for %s" % path)
-    return out
 
 
 def has_save_arg(args):

@@ -1,7 +1,6 @@
 import { spawn } from "node:child_process";
 import { cpSync, createWriteStream, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { runtimeArgs, stripRuntime } from "../runtime_flags.ts";
 import { MAP_FRAME, MAP_WINDOWS, parseProf, scoreOverworldTrace } from "./prof.ts";
 
 function gameBinary(repo: string): string {
@@ -34,30 +33,40 @@ function copyIf(src: string, dest: string): void {
     if (existsSync(src)) cpSync(src, dest);
 }
 
-function baseGameFlags(user: string, runDir: string, extra: Record<string, string> = {}): string[] {
-    const vars: Record<string, string> = {
-        NSMBU_USER_DIR: user,
-        NSMBU_LOG_FILE: join(runDir, "log"),
-        NSMBU_SETTINGS: join(runDir, "settings.ini"),
-        NSMBU_DISPLAY_SETTINGS: join(runDir, "display.plist"),
-        NSMBU_NO_AUDIO: "1",
-        NSMBU_NO_GAMEPAD: "1",
-        NSMBU_NO_HOST_INPUT: "1",
-        NSMBU_PROFILE: "1",
-        NSMBU_VK_STATS: "1",
-        NSMBU_SYNC_STATS: "1",
-        NSMBU_INTERP_PASS_STATS: "1",
-        NSMBU_EXIT_AT_FRAME: "9000",
-        ...extra,
-    };
-    return runtimeArgs(vars);
-}
-
-function childEnv(runDir: string): NodeJS.ProcessEnv {
-    return {
-        ...stripRuntime(process.env),
-        XDG_CONFIG_HOME: join(runDir, "config"),
-    };
+function baseEnv(user: string, runDir: string): NodeJS.ProcessEnv {
+    const env: NodeJS.ProcessEnv = { ...process.env };
+    for (const key of [
+        "NSMBU_UNCAPPED",
+        "NSMBU_VK_UNCAPPED",
+        "NSMBU_DUMP_FRAMES",
+        "NSMBU_DUMP_TITLE",
+        "NSMBU_PRESS",
+        "NSMBU_STICK",
+        "NSMBU_KEYS",
+        "NSMBU_AGENT_SOCK",
+        "NSMBU_INTERP",
+        "NSMBU_INTERP_FPS",
+        "NSMBU_HIDDEN_WINDOWS",
+        "NSMBU_VK_PRESENT_MODE",
+        "NSMBU_DISPLAY_HZ",
+        "NSMBU_RES_SCALE",
+    ]) {
+        delete env[key];
+    }
+    env.NSMBU_USER_DIR = user;
+    env.NSMBU_LOG_FILE = join(runDir, "log");
+    env.NSMBU_SETTINGS = join(runDir, "settings.ini");
+    env.NSMBU_DISPLAY_SETTINGS = join(runDir, "display.plist");
+    env.XDG_CONFIG_HOME = join(runDir, "config");
+    env.NSMBU_NO_AUDIO = "1";
+    env.NSMBU_NO_GAMEPAD = "1";
+    env.NSMBU_NO_HOST_INPUT = "1";
+    env.NSMBU_PROFILE = "1";
+    env.NSMBU_VK_STATS = "1";
+    env.NSMBU_SYNC_STATS = "1";
+    env.NSMBU_INTERP_PASS_STATS = "1";
+    env.NSMBU_EXIT_AT_FRAME = "9000";
+    return env;
 }
 
 function logTail(path: string): string {
@@ -88,7 +97,7 @@ function loadReady(dir: string): string {
 async function boot(
     repo: string,
     runDir: string,
-    gameFlags: string[],
+    env: NodeJS.ProcessEnv,
     ready: (dir: string) => string,
 ): Promise<void> {
     rmSync(runDir, { recursive: true, force: true });
@@ -103,9 +112,8 @@ async function boot(
     const bin = gameBinary(repo);
     const game = activeGame(repo);
     const logPath = join(runDir, "log");
-    const env = childEnv(runDir);
     await new Promise<void>((resolve, reject) => {
-        const child = spawn(bin, ["--game", game, "--save", "save", ...gameFlags], {
+        const child = spawn(bin, ["--game", game, "--save", "save"], {
             cwd: runDir,
             env,
             stdio: ["ignore", "pipe", "pipe"],
@@ -148,16 +156,15 @@ async function boot(
     });
 }
 
-const PRESS =
-    "600-620:8000,800-820:8000,1000-1020:8000,1200-1220:8000,1400-1420:8000,1600-1620:8000,1800-1820:8000,2000-2020:8000,2200-2220:8000,2400-2420:8000";
-
 export async function captureLoadOverworld(repo: string, work: string): Promise<string> {
     const user = join(repo, ".tmp", "bench", "user");
     seedUser(repo, user);
     const runDir = join(work, "run");
-    const gameFlags = baseGameFlags(user, runDir, { NSMBU_PRESS: PRESS });
+    const env = baseEnv(user, runDir);
+    env.NSMBU_PRESS =
+        "600-620:8000,800-820:8000,1000-1020:8000,1200-1220:8000,1400-1420:8000,1600-1620:8000,1800-1820:8000,2000-2020:8000,2200-2220:8000,2400-2420:8000";
     process.stdout.write("bench capture load-overworld\n");
-    await boot(repo, runDir, gameFlags, loadReady);
+    await boot(repo, runDir, env, loadReady);
     return readLog(runDir);
 }
 
@@ -169,8 +176,10 @@ export async function captureOverworld(repo: string, work: string): Promise<stri
     const user = join(repo, ".tmp", "bench", "user");
     seedUser(repo, user);
     const runDir = join(work, "run");
-    const gameFlags = baseGameFlags(user, runDir, { NSMBU_PRESS: PRESS });
+    const env = baseEnv(user, runDir);
+    env.NSMBU_PRESS =
+        "600-620:8000,800-820:8000,1000-1020:8000,1200-1220:8000,1400-1420:8000,1600-1620:8000,1800-1820:8000,2000-2020:8000,2200-2220:8000,2400-2420:8000";
     process.stdout.write("bench capture overworld\n");
-    await boot(repo, runDir, gameFlags, overworldReady);
+    await boot(repo, runDir, env, overworldReady);
     return readLog(runDir);
 }

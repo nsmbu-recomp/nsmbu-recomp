@@ -85,7 +85,7 @@ def main():
         )
     if not common:
         sys.exit(
-            "Wii U common key not found; use --common-key FILE or put common= in game/keys.txt"
+            "Wii U common key not found; set WIIU_COMMON_KEY or put common= in game/keys.txt"
         )
     print("disc image: %s" % os.path.relpath(image, root))
     print("disc key: %s" % (disc_src or "?"))

@@ -1,10 +1,13 @@
 import { spawn, spawnSync } from "node:child_process";
 import type { SpawnOptions } from "node:child_process";
 import { join } from "node:path";
+import { nsmbuUserDir } from "./repo.ts";
 
-export function baseEnv(_repo: string, extra: Record<string, string> = {}): NodeJS.ProcessEnv {
+export function baseEnv(repo: string, extra: Record<string, string> = {}): NodeJS.ProcessEnv {
     return {
         ...process.env,
+        NSMBU_CLI: "1",
+        NSMBU_USER_DIR: nsmbuUserDir(repo),
         ...extra,
     };
 }

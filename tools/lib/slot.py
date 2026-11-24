@@ -6,9 +6,6 @@ _SLOT = re.compile(r"^([1-5])$")
 _WORLD = re.compile(r"^\d+-\d+$")
 _FILE_PACK = re.compile(r"^([1-9])-([1-9]\d*)$")
 LOAD_FRAME = 200
-_ALWAYS_VALUE = {"save"}
-
-
 def _course_res_packs():
     packs = [os.path.join("game", "content", "Common", "course_res_pack")]
     here = os.path.dirname(os.path.abspath(__file__))
@@ -47,44 +44,22 @@ def course_file_pack(arg):
     return f"{match.group(1)}-{pack_no}"
 
 
-def _flag_name(arg):
-    if not arg.startswith("--"):
-        return None
-    if "=" in arg:
-        return arg[2:arg.index("=")]
-    return arg[2:]
-
-
-def _consumes_value(flag_name, value):
-    if value is None or value.startswith("-"):
-        return False
-    if flag_name in _ALWAYS_VALUE:
-        return True
-    if _WORLD.fullmatch(value) and flag_name != "open":
-        return False
-    return True
-
-
 def take_args(args):
     slot = None
     pack = None
     rest = []
-    i = 0
-    while i < len(args):
-        arg = args[i]
-        fname = _flag_name(arg)
-        if fname is not None:
-            if "=" in arg:
-                rest.append(arg)
-                i += 1
-                continue
-            if i + 1 < len(args) and _consumes_value(fname, args[i + 1]):
-                rest.append(arg)
-                rest.append(args[i + 1])
-                i += 2
-                continue
+    skip_value = False
+    for arg in args:
+        if skip_value:
             rest.append(arg)
-            i += 1
+            skip_value = False
+            continue
+        if arg == "--save":
+            rest.append(arg)
+            skip_value = True
+            continue
+        if arg.startswith("--save="):
+            rest.append(arg)
             continue
         if arg.lower().endswith(".szs") or "/" in arg or "\\" in arg:
             found = course_file_pack(arg)
@@ -93,7 +68,6 @@ def take_args(args):
             if slot is not None:
                 sys.exit("pass a save slot or a course pack, not both")
             pack = found
-            i += 1
             continue
         if _WORLD.fullmatch(arg):
             if pack is not None:
@@ -101,7 +75,6 @@ def take_args(args):
             if slot is not None:
                 sys.exit("pass a save slot or a course pack, not both")
             pack = arg
-            i += 1
             continue
         match = _SLOT.fullmatch(arg)
         if match:
@@ -110,10 +83,8 @@ def take_args(args):
             if pack is not None:
                 sys.exit("pass a save slot or a course pack, not both")
             slot = int(match.group(1))
-            i += 1
             continue
         rest.append(arg)
-        i += 1
     return slot, pack, rest
 
 
@@ -122,9 +93,12 @@ def take_slot(args):
     return slot, rest
 
 
-def state_path(slot, user_dir=None):
-    if user_dir:
-        directory = os.path.join(user_dir, "states")
+def state_path(slot):
+    override = os.environ.get("NSMBU_STATE_DIR")
+    if override:
+        directory = override
+    elif os.environ.get("NSMBU_USER_DIR"):
+        directory = os.path.join(os.environ["NSMBU_USER_DIR"], "states")
     elif sys.platform == "darwin":
         directory = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "nsmbu", "states")
     elif sys.platform == "win32":
@@ -135,12 +109,8 @@ def state_path(slot, user_dir=None):
     return os.path.join(directory, f"slot{slot}.bin")
 
 
-def load_flag(slot, user_dir=None, frame=LOAD_FRAME):
-    path = state_path(slot, user_dir)
+def apply_slot(env, slot):
+    path = state_path(slot)
     if not os.path.isfile(path):
         sys.exit(f"missing {path}. Save a state in slot {slot}.")
-    return "--state-load-at=%d:%d" % (frame, slot)
-
-
-def apply_slot(env, slot, user_dir=None, frame=LOAD_FRAME):
-    return load_flag(slot, user_dir, frame)
+    env.setdefault("NSMBU_STATE_LOAD_AT", f"{LOAD_FRAME}:{slot}")

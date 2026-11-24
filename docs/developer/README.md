@@ -6,18 +6,15 @@ Notes for building, profiling, and changing the port.
 | --- | --- |
 | CLI | [cli.md](cli.md) |
 | Automation, playtests, and boots | [automation.md](automation.md) |
-| Game command-line flags | [flags.md](flags.md) |
+| `NSMBU_*` environment variables | [env.md](env.md) |
 | Frame rate and the in-between camera | [framerate.md](framerate.md) |
 | How recompilation differs from Cemu | [how-it-works.md](how-it-works.md) |
 | Regional build maps | [builds.md](builds.md) |
 | Function names and hook addresses | [names.md](names.md) |
 | Vulkan renderer | [vulkan.md](vulkan.md) |
-| RecompLauncher support | [recomplauncher.md](recomplauncher.md) |
 | Performance measurements | [performance.md](performance.md) |
 | Replay file format | [replay-format.md](replay-format.md) |
 | Agent verification inventory | [verification.md](verification.md) |
-| Course pause menu Settings | [pause-menu-settings.md](pause-menu-settings.md) |
-| Pause menu Settings fade handoff | [pause-menu-settings-handoff.md](pause-menu-settings-handoff.md) |
 | Port and course runtime | [nsmbu/](nsmbu/) |
 | Android engineer notes | [android/](android/) |
 

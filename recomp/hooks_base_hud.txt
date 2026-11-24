@@ -1,0 +1,4 @@
+# builds: USA_V0 EU_V0
+# Base-disc stock HUD draw. USA 1.3.0 keeps that body at 0252F900, which these discs do not have.
+# Course change calls it while AreaTask is null.
+0252D9C0

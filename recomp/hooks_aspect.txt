@@ -1,0 +1,7 @@
+# nw::lyt pane placement for widescreen edge HUD.
+# Address = function entry. Prefix @ for an instruction site inside a function.
+
+02ABC054  # nw::lyt::Pane::CalculateMtx: shift edge anchors once per pane
+02ABCAE8  # nw::lyt::Pane::Draw: report the layout root's target and skip parked HUD
+@02ABCB34 # Pane::Draw: before DrawSelf, tag edge HUD so it is not clipped to 16:9
+@02ABCB38 # Pane::Draw: clear that tag before the child walk

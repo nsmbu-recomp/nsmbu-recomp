@@ -1,7 +1,0 @@
-// Frame allocator.
-
-{
-  "hooks": [
-    { "address": "02ACD218" } // FrameAllocator::grow: wait for the ring at this+0x4A8 on nested grow
-  ]
-}

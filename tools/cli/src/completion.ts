@@ -1,11 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { BUTTON_NAMES } from "./agent/buttons.ts";
-import { findRepoRoot } from "./repo.ts";
-import { flagName } from "./runtime_flags.ts";
-import { settingKeys } from "./settings.ts";
 
 type CommandSpec = {
     name: string;
@@ -21,7 +17,6 @@ const COMMANDS: CommandSpec[] = [
         flags: [
             { name: "release", description: "Release build" },
             { name: "sanitizer", description: "Sanitizer build" },
-            { name: "verbose", description: "Verbose cmake output" },
         ],
     },
     {
@@ -45,6 +40,14 @@ const COMMANDS: CommandSpec[] = [
         flags: [{ name: "release", description: "Release build" }],
     },
     {
+        name: "wine",
+        description: "Build Windows nsmbu.exe then launch under Wine",
+        flags: [
+            { name: "no-debug", description: "Release build without debug env" },
+            { name: "trace", description: "Trace launch" },
+        ],
+    },
+    {
         name: "game",
         description: "Set up / select dump, extract, optional recomp",
         noFiles: true,
@@ -63,24 +66,8 @@ const COMMANDS: CommandSpec[] = [
         description: "Convert save data to JSON and back",
         flags: [{ name: "output", description: "Write to PATH", takesFile: true }],
     },
-    {
-        name: "settings",
-        description: "Read or write settings.ini",
-        noFiles: true,
-        flags: [{ name: "file", description: "Settings file", takesFile: true }],
-    },
-    {
-        name: "profile",
-        description: "Fixed-scene frame digest, or CPU samples with --cpu",
-        flags: [
-            { name: "cpu", description: "Sample CPU stacks with perf" },
-            { name: "seconds", description: "Seconds of CPU samples" },
-            { name: "attach", description: "Sample a running game pid" },
-            { name: "exit-at", description: "Stop at this TV frame" },
-            { name: "load-at", description: "Load the save slot at this TV frame" },
-            { name: "log", description: "Log path", takesFile: true },
-        ],
-    },
+    { name: "profile", description: "Profiling helpers" },
+    { name: "perf", description: "Perf helpers" },
     {
         name: "installer",
         description: "Build the installer",
@@ -101,12 +88,9 @@ const COMMANDS: CommandSpec[] = [
             { name: "yes", description: "Skip prompts (needs --device if several devices)" },
         ],
     },
+    { name: "lint", description: "Build TypeScript mods and format the Lua", noFiles: true },
     { name: "recomp", description: "Run recomp only", noFiles: true },
-    {
-        name: "recomplauncher",
-        description: "Build a RecompLauncher folder at build/recomplauncher",
-        noFiles: true,
-    },
+    { name: "scripted", description: "Headless scripted boot", noFiles: true },
     {
         name: "test",
         description: "Run playtests",
@@ -114,26 +98,9 @@ const COMMANDS: CommandSpec[] = [
         flags: [
             { name: "list", description: "List playtests" },
             { name: "show", description: "Leave the game window on screen" },
-            { name: "jobs", description: "Parallel playtest jobs" },
         ],
     },
-    {
-        name: "scenario",
-        description: "Headless logic-step trace for run comparison",
-        noFiles: true,
-        flags: [
-            { name: "game", description: "Game dump directory" },
-            { name: "save", description: "Save directory" },
-            { name: "align", description: "Align scene (default Title)" },
-            { name: "steps", description: "Logic steps after alignment (default 300)" },
-            { name: "fixed-seed", description: "Fixed random seed (default 1)" },
-            { name: "bin", description: "nsmbu binary path" },
-            { name: "shader-cache", description: "Shader cache file" },
-            { name: "boot-tries", description: "Boot attempts (default 3)" },
-            { name: "boot-limit", description: "Boot poll limit (default 240)" },
-            { name: "run-limit", description: "Run poll limit (default 300)" },
-        ],
-    },
+    { name: "scenario", description: "Headless logic-step trace for run comparison", noFiles: true },
     {
         name: "compare-runs",
         description: "Diff two scenario output folders",
@@ -158,14 +125,7 @@ const COMMANDS: CommandSpec[] = [
     { name: "wait", description: "Wait for frame, step, scene, or cursor", noFiles: true },
     { name: "goto", description: "Open the title, file select, map, or a course", noFiles: true },
     { name: "ui", description: "Menu cursor and settings overlay", noFiles: true },
-    { name: "click", description: "Click the settings close button", noFiles: true },
     { name: "actors", description: "Player power and nearby actors", noFiles: true },
-    {
-        name: "eval",
-        description: "Call or read a named probe",
-        noFiles: true,
-        flags: [{ name: "list", description: "List probes" }],
-    },
     { name: "log", description: "Recent log lines from the running game", noFiles: true },
     { name: "picture", description: "Pixel delta across a few TV frames", noFiles: true },
     { name: "restart", description: "Rebuild if needed and reopen the same place", noFiles: true },
@@ -176,32 +136,6 @@ const COMMANDS: CommandSpec[] = [
 
 function fishEscape(s: string): string {
     return s.replace(/'/g, "\\'");
-}
-
-function gameFlagsFromHeader(): string[] {
-    const candidates: string[] = [];
-    try {
-        candidates.push(join(findRepoRoot(), "runtime", "src", "core", "env.h"));
-    } catch {
-        /* no repo from cwd */
-    }
-    const pkgRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-    candidates.push(join(pkgRoot, "..", "..", "runtime", "src", "core", "env.h"));
-    let headerPath: string | null = null;
-    for (const path of candidates) {
-        if (existsSync(path)) {
-            headerPath = path;
-            break;
-        }
-    }
-    if (!headerPath) return [];
-    const text = readFileSync(headerPath, "utf8");
-    const flags: string[] = [];
-    const re = /ENV\(\w+,\s*"([^"]+)"\)/g;
-    for (const m of text.matchAll(re)) {
-        if (m[1].startsWith("NSMBU_")) flags.push(flagName(m[1]));
-    }
-    return [...new Set(flags)].sort();
 }
 
 function fishCompletionScript(): string {
@@ -218,17 +152,9 @@ function fishCompletionScript(): string {
         "function __nsmbu_no_subcommand",
         "    set -l cmd (commandline -opc)",
         "    set -e cmd[1]",
-        "    set -l skip 0",
         "    for c in $cmd",
-        "        if test $skip -eq 1",
-        "            set skip 0",
-        "            continue",
-        "        end",
         "        switch $c",
-        "            case '-s' '--session'",
-        "                set skip 1",
-        "                continue",
-        "            case '--session=*' '-*'",
+        "            case '-*'",
         "                continue",
         "            case '*'",
         "                return 1",
@@ -239,7 +165,6 @@ function fishCompletionScript(): string {
         "",
         "complete -c nsmbu -f",
         "complete -c nsmbu -n '__nsmbu_no_subcommand' -l help -s h -d 'Show help'",
-        "complete -c nsmbu -s s -l session -r -f -d 'Session id'",
         "",
     ];
 
@@ -260,16 +185,6 @@ function fishCompletionScript(): string {
                 `complete -c nsmbu -n '__nsmbu_seen ${cmd.name}' -l ${flag.name}${file} -d '${fishEscape(flag.description)}'`,
             );
         }
-    }
-
-    const gameFlags = gameFlagsFromHeader();
-    if (gameFlags.length > 0) {
-        const listed = gameFlags.map((f) => fishEscape(f)).join(" ");
-        lines.push(
-            "",
-            `complete -c nsmbu -n '__nsmbu_seen run' -f -a '${listed}' -d 'Game flag'`,
-            `complete -c nsmbu -n '__nsmbu_seen launch' -f -a '${listed}' -d 'Game flag'`,
-        );
     }
 
     lines.push(
@@ -293,18 +208,11 @@ function fishCompletionScript(): string {
         "complete -c nsmbu -n '__nsmbu_seen actors' -l limit -r -f -d 'How many actors'",
         "complete -c nsmbu -n '__nsmbu_seen actors' -l radius -r -f -d 'Keep actors inside this distance'",
         "complete -c nsmbu -n '__nsmbu_seen log' -l tag -r -f -d 'Comma-separated log tags'",
-        "complete -c nsmbu -n '__nsmbu_seen log; and __fish_seen_argument -l tag' -f -a 'input scene open menu pause overlay screenshot boot agent gfx prof vulkan' -d 'Log tag'",
-        "complete -c nsmbu -n '__nsmbu_seen log' -l around -f -d 'Keep lines for the current screen'",
         "complete -c nsmbu -n '__nsmbu_seen log' -l lines -r -f -d 'How many lines'",
         "complete -c nsmbu -n '__nsmbu_seen picture' -l frames -r -f -d 'How many TV frames'",
         "complete -c nsmbu -n '__nsmbu_seen picture' -l rect -r -f -d 'TV rectangle x,y,w,h'",
         "",
         "complete -c nsmbu -n '__nsmbu_seen save' -r -F",
-        "",
-        "complete -c nsmbu -n '__nsmbu_seen settings; and not __nsmbu_seen list; and not __nsmbu_seen get; and not __nsmbu_seen set; and not __nsmbu_seen unset' -a 'list get set unset' -d 'Settings command'",
-        `complete -c nsmbu -n '__nsmbu_seen settings; and __nsmbu_seen get' -f -a '${settingKeys().map((key) => fishEscape(key)).join(" ")}' -d 'Setting'`,
-        `complete -c nsmbu -n '__nsmbu_seen settings; and __nsmbu_seen set' -f -a '${settingKeys().map((key) => fishEscape(key)).join(" ")}' -d 'Setting'`,
-        `complete -c nsmbu -n '__nsmbu_seen settings; and __nsmbu_seen unset' -f -a '${settingKeys().map((key) => fishEscape(key)).join(" ")}' -d 'Setting'`,
         "",
         "complete -c nsmbu -n '__nsmbu_seen screenshot' -r -F",
         "",

@@ -5,7 +5,6 @@ execution and the Android service/UI are supplied separately; this module never
 selects a desktop toolchain and never invokes the installer's destructive install().
 """
 from contextlib import contextmanager, redirect_stdout, redirect_stderr
-import errno
 import hashlib
 import importlib.util
 import io
@@ -43,37 +42,6 @@ def inventory(root, checkpoint=lambda: None):
             for path in sorted(root.rglob("*")) if path.is_file()}
 
 
-def sync_file(path):
-    """Flush file contents. A read-only descriptor cannot be synced on Windows."""
-    fd = os.open(path, os.O_RDWR)
-    try:
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-
-
-def sync_directory(path):
-    """Flush a directory entry. MSYS can refuse to open or sync a directory."""
-    unsupported = {errno.EACCES, errno.EPERM, errno.EBADF, errno.EINVAL}
-    if hasattr(errno, "ENOTSUP"):
-        unsupported.add(errno.ENOTSUP)
-    try:
-        directory = os.open(path, os.O_RDONLY)
-    except OSError as error:
-        if error.errno in unsupported:
-            return
-        raise
-    try:
-        try:
-            os.fsync(directory)
-        except OSError as error:
-            if error.errno in unsupported:
-                return
-            raise
-    finally:
-        os.close(directory)
-
-
 def atomic_json(path, value):
     temporary = path.with_suffix(".tmp")
     try:
@@ -82,7 +50,11 @@ def atomic_json(path, value):
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, path)
-        sync_directory(path.parent)
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -278,10 +250,9 @@ class Adapter:
                 raise RuntimeError("extraction produced no files")
             for path in sorted(ready.rglob("*"), reverse=True) + [ready]:
                 self.boundary()
-                if path.is_dir():
-                    sync_directory(path)
-                    continue
-                sync_file(path)
+                fd = os.open(path, os.O_RDONLY)
+                try: os.fsync(fd)
+                finally: os.close(fd)
             if game.exists():
                 shutil.rmtree(game)
             os.replace(ready, game)
@@ -355,6 +326,8 @@ class Adapter:
 
         A paused or killed translation restarts its incomplete generation;
         completed translation is reused only after hashing every output file.
+        The NSMBU_RECOMP_* switches setup.recompile passes to recomp.py are part
+        of the identity, so a different translation keeps its own generation.
         """
         self.boundary()
         game = Path(game).resolve()
@@ -363,9 +336,10 @@ class Adapter:
                   "rpx": self.hash_file(game / "code/red-pro2.rpx"),
                   "installer": self.hash_file(self.package / "installer/setup.py"),
                   "rpx_reader": self.hash_file(self.package / "tools/rpx/rpx.py"),
-                  "translator": self.hash_tree(self.package / "recomp")}
+                  "translator": self.hash_tree(self.package / "recomp"),
+                  "switches": {name: value for name, value in os.environ.items() if name.startswith("NSMBU_RECOMP_")}}
         inputs["translator"] = {name: value for name, value in inputs["translator"].items()
-                                if Path(name).suffix in (".py", ".json", ".jsonc")}
+                                if Path(name).suffix in (".py", ".txt", ".json")}
         identity = hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
         stage = self.storage / ("translation-" + identity)
         state = stage / "complete.json"
@@ -411,9 +385,11 @@ class Adapter:
             expected = self.package / "recomp/recomp.py"
             if len(command) != 5 or Path(command[1]).resolve() != expected or command[4] != "--progress":
                 raise RuntimeError("unexpected subprocess requested by translation")
-            argv, search = sys.argv, list(sys.path)
+            switches = {name: value for name, value in (env or {}).items() if name.startswith("NSMBU_RECOMP_")}
+            argv, search, saved = sys.argv, list(sys.path), {name: os.environ.get(name) for name in switches}
             output, code = Lines(), 0
             try:
+                os.environ.update(switches)
                 sys.argv = command[1:]
                 sys.path.insert(0, str(expected.parent))
                 with redirect_stdout(output), self.translation_control():
@@ -427,6 +403,11 @@ class Adapter:
             finally:
                 sys.argv = argv
                 sys.path[:] = search
+                for name, value in saved.items():
+                    if value is None:
+                        os.environ.pop(name, None)
+                    else:
+                        os.environ[name] = value
             if output.partial:
                 output.lines.append(output.partial)
             return SimpleNamespace(stdout=iter(output.lines), wait=lambda: code, returncode=code)
@@ -543,7 +524,8 @@ class Adapter:
                     return SimpleNamespace(returncode=code, stdout=output)
                 if not pending.is_file() or pending.stat().st_size == 0:
                     raise RuntimeError("compiler produced no object")
-                sync_file(pending)
+                with pending.open("rb") as stream:
+                    os.fsync(stream.fileno())
                 os.replace(pending, destination)
                 atomic_json(marker, {"identity": identity, "sha256": self.hash_file(destination)})
                 completed("compiled", source)
@@ -625,7 +607,8 @@ class Adapter:
                     self.setup.link_game(toolchain, manifest, objects, str(pending), str(candidate))
             if candidate.stat().st_size == 0:
                 raise RuntimeError("linker produced an empty library")
-            sync_file(candidate)
+            with candidate.open("rb") as stream:
+                os.fsync(stream.fileno())
             candidate.chmod(0o400)
             os.replace(candidate, library)
             atomic_json(marker, {"identity": identity, "sha256": self.hash_file(library)})

@@ -17,19 +17,21 @@ android {
         versionName providers.gradleProperty('nsmbuVersionName').getOrElse('0.1')
         ndk { abiFilters providers.gradleProperty('nsmbuAbi').getOrElse('arm64-v8a') }
     }
-    def signing = { String property -> providers.gradleProperty(property).orNull }
-    def releaseKeystore = signing('nsmbuKeystore')
+    def signing = { String env, String property ->
+        [providers.environmentVariable(env).orNull, providers.gradleProperty(property).orNull].find { it }
+    }
+    def releaseKeystore = signing('NSMBU_KEYSTORE', 'nsmbuKeystore')
     signingConfigs {
         if (releaseKeystore != null) {
             release {
-                def storePass = signing('nsmbuKeystorePassword')
-                def alias = signing('nsmbuKeyAlias')
+                def storePass = signing('NSMBU_KEYSTORE_PASSWORD', 'nsmbuKeystorePassword')
+                def alias = signing('NSMBU_KEY_ALIAS', 'nsmbuKeyAlias')
                 if (storePass == null || alias == null)
                     throw new GradleException('Release signing needs the keystore password and key alias too')
                 storeFile file(releaseKeystore)
                 storePassword storePass
                 keyAlias alias
-                keyPassword signing('nsmbuKeyPassword') ?: storePass
+                keyPassword signing('NSMBU_KEY_PASSWORD', 'nsmbuKeyPassword') ?: storePass
             }
         }
     }

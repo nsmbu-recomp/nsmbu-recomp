@@ -8,7 +8,6 @@
 #include <sys/stat.h>
 #include <ctime>
 
-#include "audio/audio_out.h"
 #include "hooks/interp.h"
 #include "save/savestate.h"
 #include "gfx/screenshot.h"
@@ -424,7 +423,6 @@ void menu_options_changed() { update_title(); }
 
 bool menu_hotkey(uint16_t code) {
     switch (code) {
-    case kVK_ANSI_M: audio::toggle_muted(); break;
     case kVK_ANSI_N: if (render::feature_available(render::kFeatureAniso)) render::set_aniso(!render::aniso()); break;
     case kVK_ANSI_6: interp::toggle_fps(60); break;
     case kVK_ANSI_8: if (render::feature_available(render::kFeatureFXAA)) render::set_fxaa(!render::fxaa()); break;
