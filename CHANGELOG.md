@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Press M to mute or unmute the game.
   The game keeps that choice for the next start.
 
+### Changed
+
+- The README lists more of the port's features.
+- The README lists the game program's command-line options.
+- The README credits [NSMBU-Headers](https://github.com/aboood40091/NSMBU-Headers) for the headers and the decompilation.
+
 ### Removed
 
 - The leftover Lua scripting runtime is gone.

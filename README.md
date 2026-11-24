@@ -10,19 +10,28 @@ The release includes the runtime, build tools, and installer.
 
 ## Features
 
-- [Windows](docs/user/windows/README.md), [macOS](docs/user/macos/README.md), [Linux](docs/user/linux/README.md), [Android](docs/user/android/README.md), and [iOS](docs/user/ios/README.md).
-- **[Save states](docs/user/portable-save-states.md)** for a course or the world map.
-- **[Mods](docs/modding/README.md)** Cemu level packs, and graphics packs.
+- Windows, macOS, Linux, Android, and iOS.
 - **Up to four players**, each with a controller.
+- **[Save states](docs/user/portable-save-states.md)**.
+- **[Mods](docs/modding/README.md)** for Cemu graphics packs and shader packs.
+- **GamePad screen** in its own window, over the TV picture, or hidden.
+- **On-screen controls** on Android and iOS.
+- **Screenshots** of the TV picture.
+- **Console language**, volume, and the TV or GamePad sound mix.
 
 Experimental:
 
 - **Higher frame rates.**
   Frame rate is under Settings → Graphics.
+  A rate above 60 draws extra pictures between the game steps.
   On Android, a high rate pauses when the device gets hot.
-  See [Higher frame rates and heat](docs/user/android/README.md#higher-frame-rates-and-heat).
-- **A wider picture.**
+  Heat guard is under Settings → Graphics.
+- **A wider or taller picture.**
   Aspect ratio is under Settings → Display.
+  Stretch fills that shape with the 16:9 picture.
+  Turn stretch off to show more of the level.
+- **Internal resolution**, anisotropic filtering, and edge smoothing.
+- **Async shader compile**, so a burst of new shaders does not freeze the picture.
 
 ### Controls
 
@@ -37,6 +46,9 @@ Experimental:
   <kbd>F1</kbd>–<kbd>F5</kbd> loads those slots.
 - **Screenshot.**
   <kbd>F10</kbd> saves the TV picture.
+- **Mute.**
+  Press <kbd>M</kbd> to mute or unmute the game.
+  The game keeps that choice.
 - **GamePad screen.**
   <kbd>Ctrl</kbd>+<kbd>G</kbd> shows or hides it.
   On macOS, <kbd>Cmd</kbd>+<kbd>G</kbd>.
@@ -103,6 +115,26 @@ The installer then builds the native game.
 The first start takes a few minutes.
 When it finishes, start the app again to play.
 
+## Command line
+
+These options belong to the game program.
+A release keeps that program in `data/bin/nsmbu` (`nsmbu.exe` on Windows).
+On macOS the same program is `NSMBU.app/Contents/MacOS/nsmbu`.
+`-h` or `--help` prints this list and exits.
+
+- `--game DIR` sets the folder that holds `code`, `content`, and `meta`.
+  The default folder is `game`.
+- `--save DIR` sets the save folder.
+  The default folder is `nsmbu/save`.
+- `--open W-C` opens that course and skips the intro.
+  `W-C` is one world digit and a course number, such as `1-1`.
+- `--renderer API` chooses `metal` or `vulkan` for this start.
+  `--renderer=vulkan` is the same option.
+- `--trace` writes each host library call to the log.
+- `--warm-shaders` fills the Metal shader cache and then exits.
+  With another renderer, the program prints an error and exits.
+- `--renderer-smoke` starts Vulkan, runs its smoke test, and then exits.
+
 ## More
 
 - [Repair or change the game](docs/user/repair.md)
@@ -121,6 +153,8 @@ Build from source, CLI commands, and developer docs are in [CONTRIBUTING.md](CON
 This repository was forked from the [Wind Waker HD recompilation](https://github.com/ZeldaWWHDRecomp/ZeldaWWHDRecomp).
 
 The Collision Viewer is based on the collision viewer from [Tsuru](https://github.com/Zenith-Team/Tsuru).
+
+The headers and the decompilation are from [aboood40091/NSMBU-Headers](https://github.com/aboood40091/NSMBU-Headers).
 
 > [!NOTE]
 > This project is made with the help of AI agents.
