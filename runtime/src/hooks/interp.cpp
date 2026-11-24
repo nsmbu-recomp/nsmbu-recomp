@@ -1,5 +1,6 @@
 #include "hooks/interp.h"
 #include "mods/packages.h"
+#include "mods/sdk/nsmbu.h"
 
 #include <algorithm>
 #include <atomic>
@@ -25,7 +26,6 @@
 #include "test/status_trace.h"
 
 #include "core/env.h"
-#include "input/input.h"
 extern "C" {
 void f_029C52CC_orig(Cpu* c);
 void f_029C4FE4_orig(Cpu* c);
@@ -1637,11 +1637,8 @@ std::string pass_cpu_report() {
 }
 }
 
-namespace interp { void keep_course_gamepad(); }
-
 extern "C" void hook_029C52CC(Cpu* c) {
     using namespace interp;
-    keep_course_gamepad();
     perf::game_frame();
     if (!enabled()) {
         static const uint64_t at = env::INTERP_AT_STEP.u64_or(0);
@@ -1900,15 +1897,6 @@ bool input_enabled() {
     const uint32_t mgr = ld32(GD(0x101D2DF8));
     if (!mgr) return false;
     return (ld8(mgr + 0x56Cu) & 0x80u) == 0 && ld8(mgr + 0x56Du) == 0;
-}
-
-// A door between areas clears MainGame+0x14. Controller id 0 only reaches
-// Mario while that GamePad flag stays set.
-void keep_course_gamepad() {
-    if (input::pro_controller() || !course_play_active()) return;
-    const uint32_t game = ld32(GD(0x101E7D7Cu));
-    if (!game || ld8(game + 0x14u) != 0) return;
-    st8(game + 0x14u, 1);
 }
 
 bool player_witness(float& x, float& y, float& z) {

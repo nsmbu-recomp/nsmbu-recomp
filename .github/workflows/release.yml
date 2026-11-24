@@ -147,8 +147,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Vendored libraries
-        run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
+      - name: LuaJIT submodule
+        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - name: Install build tools
         run: brew install ninja
@@ -164,7 +164,10 @@ jobs:
       - name: Unit tests
         run: |
           ctest --test-dir build/rel --output-on-failure
-          python3 -m unittest discover -s tests/py -p "test_*.py"
+          python3 installer/test_setup.py
+          python3 recomp/test_builds.py
+          python3 recomp/test_output.py
+          python3 recomp/test_pool.py
 
       - name: Package
         run: |
@@ -181,14 +184,13 @@ jobs:
           bash "./tools/Setup in Terminal.command" --yes --no-launch --gen-dir "$GITHUB_WORKSPACE/build/gen-stub" \
             --data-dir "$RUNNER_TEMP/data"
           # fatal dialogs block CI (macOS CFUserNotification); log only
-          "$RUNNER_TEMP/data/bin/nsmbu" --hidden-windows --game "$RUNNER_TEMP/nogame" > run.log 2>&1 || true
+          NSMBU_HIDDEN_WINDOWS=1 "$RUNNER_TEMP/data/bin/nsmbu" --game "$RUNNER_TEMP/nogame" > run.log 2>&1 || true
           cat run.log
           grep -q "Game folder not found" run.log
           # the graphical installer: starts setup.py through the launcher and renders its first screen
           SDL_VIDEO_DRIVER=offscreen "./NSMBU.app/Contents/MacOS/nsmbu-launcher" --self-test \
             --screenshots "$RUNNER_TEMP" --data-dir "$RUNNER_TEMP/data"
-          mkdir -p "$GITHUB_WORKSPACE/gui-shots"
-          cp "$RUNNER_TEMP"/selftest-*.png "$GITHUB_WORKSPACE/gui-shots/"
+          mkdir -p "$GITHUB_WORKSPACE/gui-shots" && cp "$RUNNER_TEMP"/selftest-*.png "$GITHUB_WORKSPACE/gui-shots/"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -236,17 +238,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Vendored libraries
-        run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
+      - name: LuaJIT submodule
+        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - name: Install dependencies
         run: |
@@ -322,7 +315,10 @@ jobs:
         run: |
           export LD_LIBRARY_PATH="$HOME/sdl3/lib"
           ctest --test-dir build/rel --output-on-failure
-          python3 -m unittest discover -s tests/py -p "test_*.py"
+          python3 installer/test_setup.py
+          python3 recomp/test_builds.py
+          python3 recomp/test_output.py
+          python3 recomp/test_pool.py
 
       - name: Package
         run: |
@@ -374,16 +370,15 @@ jobs:
           ./tools/setup-in-terminal.sh --yes --no-launch --gen-dir "$GITHUB_WORKSPACE/build/gen-stub" --data-dir "$RUNNER_TEMP/data"
           # the right architecture: the game the installer linked and the program a player starts
           want=$([ "$ARCH" = aarch64 ] && echo "ARM aarch64" || echo "x86-64")
-          file "$RUNNER_TEMP/data/bin/nsmbu" ./tools/nsmbu-launcher
+          file "$RUNNER_TEMP/data/bin/nsmbu" ./nsmbu-launcher
           file "$RUNNER_TEMP/data/bin/nsmbu" | grep -q "$want"
-          file ./tools/nsmbu-launcher | grep -q "$want"
+          file ./nsmbu-launcher | grep -q "$want"
           ldd "$RUNNER_TEMP/data/bin/nsmbu"
-          "$RUNNER_TEMP/data/bin/nsmbu" --hidden-windows --game "$RUNNER_TEMP/nogame" > run.log 2>&1 || true
+          NSMBU_HIDDEN_WINDOWS=1 "$RUNNER_TEMP/data/bin/nsmbu" --game "$RUNNER_TEMP/nogame" > run.log 2>&1 || true
           cat run.log
           grep -q "Game folder not found" run.log
-          ldd ./tools/nsmbu-launcher
-          perl -e 'alarm shift; exec @ARGV' 900 -- env SDL_VIDEO_DRIVER=offscreen \
-            ./tools/nsmbu-launcher --self-test --data-dir "$RUNNER_TEMP/data"
+          ldd ./nsmbu-launcher
+          SDL_VIDEO_DRIVER=offscreen ./nsmbu-launcher --self-test --data-dir "$RUNNER_TEMP/data"
 
       - name: Renderer smoke test of the installed executable (lavapipe)
         # the 22.04 runner's Mesa is old; a failure here is reported but does not block the release
@@ -434,8 +429,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Vendored libraries
-        run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
+      - name: LuaJIT submodule
+        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - name: Pinned llvm-mingw toolchain (installer/toolchains.json)
         run: |
@@ -485,7 +480,7 @@ jobs:
       - name: Unit tests
         run: |
           ctest --test-dir build/rel --output-on-failure
-          python -m unittest discover -s tests/py -p "test_*.py"
+          python installer/test_setup.py
 
       - name: Pinned embeddable Python, shipped in the release (installer/toolchains.json)
         # the setup runs with it (tools/python); the release itself downloads no Python (issue #58)
@@ -573,19 +568,14 @@ jobs:
           $exe = Join-Path $data 'bin\nsmbu.exe'
           if (-not (Test-Path (Join-Path $data 'bin\SDL3.dll'))) { throw "SDL3.dll was not installed" }
           # no game files: the executable must start and stop with "Game folder not found" (abort() may leave
-          # an error-reporting process around, so do not wait forever). nsmbu.exe is a GUI app: read its log file.
-          $nogame = Join-Path $env:RUNNER_TEMP 'nogame'
-          $bindir = Split-Path $exe -Parent
+          # an error-reporting process around, so do not wait forever)
           $env:NSMBU_HIDDEN_WINDOWS = '1'
-          $p = Start-Process -FilePath $exe -WorkingDirectory $bindir `
-            -ArgumentList '--game', $nogame -Wait -NoNewWindow -PassThru
+          $p = Start-Process -FilePath $exe -ArgumentList '--game', (Join-Path $env:RUNNER_TEMP 'nogame') `
+            -RedirectStandardError run.log -RedirectStandardOutput out.log -NoNewWindow -PassThru
+          if (-not $p.WaitForExit(120000)) { $p.Kill() }
           Remove-Item Env:NSMBU_HIDDEN_WINDOWS -ErrorAction SilentlyContinue
-          $log = Join-Path $data 'nsmbu\logs\nsmbu.log'
-          if (-not (Test-Path $log)) { throw "no log file at $log (exit $($p.ExitCode))" }
-          if (-not (Select-String -Path $log -Pattern 'Game folder not found' -Quiet)) {
-            Get-Content $log -Tail 40
-            throw "the installed executable did not start (exit $($p.ExitCode))"
-          }
+          Get-Content run.log, out.log
+          if (-not (Select-String -Path run.log, out.log -Pattern 'Game folder not found' -Quiet)) { throw "the installed executable did not start" }
           # the graphical installer (GUI subsystem: wait for it explicitly)
           $env:SDL_VIDEO_DRIVER = 'offscreen'
           $g = Start-Process -FilePath (Join-Path $pkg 'NSMBU.exe') `
@@ -639,14 +629,12 @@ jobs:
           if ($unpacked.Length -le 259) { throw "the test folder is not deep enough to cross MAX_PATH" }
           if (-not (Test-Path -LiteralPath ('\\?\' + (Join-Path $data "toolchain\$deepest")))) { throw "the deepest compiler file is missing" }
           if (Test-Path (Join-Path $data 'toolchain\unpack.tmp')) { throw "unpack.tmp was left behind" }
-          $deepLog = Join-Path $data 'nsmbu\logs\nsmbu.log'
-          $deepExe = Join-Path $data 'bin\nsmbu.exe'
           $env:NSMBU_HIDDEN_WINDOWS = '1'
-          $p = Start-Process -FilePath $deepExe -WorkingDirectory (Split-Path $deepExe -Parent) `
-            -ArgumentList '--game', (Join-Path $env:RUNNER_TEMP 'nogame') -Wait -NoNewWindow -PassThru
+          $p = Start-Process -FilePath (Join-Path $data 'bin\nsmbu.exe') -ArgumentList '--game', (Join-Path $env:RUNNER_TEMP 'nogame') `
+            -RedirectStandardError deep-run.log -RedirectStandardOutput deep-out.log -NoNewWindow -PassThru
+          if (-not $p.WaitForExit(120000)) { $p.Kill() }
           Remove-Item Env:NSMBU_HIDDEN_WINDOWS -ErrorAction SilentlyContinue
-          if (-not (Test-Path $deepLog)) { throw "no log file at $deepLog (exit $($p.ExitCode))" }
-          if (-not (Select-String -Path $deepLog -Pattern 'Game folder not found' -Quiet)) { throw "the game built in a deep folder did not start (exit $($p.ExitCode))" }
+          if (-not (Select-String -Path deep-run.log, deep-out.log -Pattern 'Game folder not found' -Quiet)) { throw "the game built in a deep folder did not start" }
           # one character deeper: setup stops at once with the plain message
           Expand-Archive -Path $zip -DestinationPath ($outer + 'x')
           $pkg = Join-Path ($outer + 'x') $name
@@ -686,8 +674,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Vendored libraries
-        run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
+      - name: LuaJIT submodule
+        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - uses: actions/setup-java@v5
         with:
@@ -738,15 +726,15 @@ jobs:
       - name: Release APK, signed with the project's key
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
-          ORG_GRADLE_PROJECT_nsmbuKeystorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ORG_GRADLE_PROJECT_nsmbuKeyAlias: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ORG_GRADLE_PROJECT_nsmbuKeyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          NSMBU_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          NSMBU_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          NSMBU_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           PUBLISHING: ${{ needs.version.outputs.publish }}
         run: |
           if [ -n "$KEYSTORE_B64" ]; then
-            export ORG_GRADLE_PROJECT_nsmbuKeystore="$RUNNER_TEMP/nsmbu-release.p12"
-            trap 'rm -f "$ORG_GRADLE_PROJECT_nsmbuKeystore"' EXIT
-            (umask 077 && printf '%s' "$KEYSTORE_B64" | base64 -d > "$ORG_GRADLE_PROJECT_nsmbuKeystore")
+            export NSMBU_KEYSTORE="$RUNNER_TEMP/nsmbu-release.p12"
+            trap 'rm -f "$NSMBU_KEYSTORE"' EXIT
+            (umask 077 && printf '%s' "$KEYSTORE_B64" | base64 -d > "$NSMBU_KEYSTORE")
           elif [ "$PUBLISHING" = true ]; then
             echo "::error::the signing secrets are missing: a published APK must carry the release key"; exit 1
           else
@@ -818,6 +806,7 @@ jobs:
           else
             python3 tools/release/notes.py README.md "$VERSION" > dist/notes.md
           fi
+          cat dist/notes.md
           python3 tools/release/guard.py dist
 
       - uses: actions/upload-artifact@v4

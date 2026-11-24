@@ -43,6 +43,7 @@ Each function comment in those headers has a guest address.
 
 These parts still need NSMBU-specific work.
 
+- Language packs and many mods still follow upstream Cemu pack folder names.
 - The build writes weak stubs for symbols the runtime still names from upstream.
   CMake runs `recomp/guest_stubs.py` and compiles the output.
 
@@ -69,7 +70,7 @@ Inside a version folder:
   Without it, a known USA or Europe base-disc RPX (title version 0) is allowed.
 - `code/`, `content/`, `meta/` — extract output (base disc, or base plus update for `*-1.3.0`)
 
-Keys: `game/keys.txt`, `common.key`, or `--common-key FILE` for the common key.
+Keys: `game/keys.txt`, or `WIIU_COMMON_KEY` for the common key only.
 
 `.gitignore` ignores all of `game/` except `game/README.md`.
 
@@ -81,7 +82,7 @@ See [builds.md](../builds.md) for the address map between those builds.
 `nsmbu build` configures `build/` in **Debug** and builds `nsmbu`.
 
 If the active dump has `code/red-pro2.rpx`, `nsmbu build` runs `recomp.py` into `build/gen` when the RPX is newer than the generated code.
-A change to the contents of a `recomp/hooks/*.jsonc` file does the same.
+A change to the contents of `hooks.txt` or a `hooks_*.txt` file does the same.
 
 Otherwise it runs `stubgen.py` so the tree links without your RPX.
 
@@ -92,10 +93,10 @@ Otherwise it runs `stubgen.py` so the tree links without your RPX.
 Clang needs a GNU `libstdc++` (for example `libstdc++-14-dev` on Ubuntu).
 `tools/build/build.py` adds the matching `-L` path when it finds `libstdc++.so` under `/usr/lib/gcc/`.
 
-The `nsmbu` CLI passes `--user-dir=<repo>/nsmbu` on dev commands.
+The `nsmbu` CLI exports `NSMBU_USER_DIR` to the gitignored `nsmbu/` folder on dev commands.
 `nsmbu launch` starts `build/debug/nsmbu` with `--game` set to `game/` and `--save nsmbu/save`.
-Default debug flags (`--profile`, `--vk-stats`, `--sync-stats`) are forwarded when launch does not pass them already.
-`--crash-recovery` is not one of them.
+Default debug env vars (`NSMBU_PROFILE`, `NSMBU_VK_STATS`, `NSMBU_SYNC_STATS`) are set when they are not already in the environment.
+`NSMBU_CRASH_RECOVERY` is not one of them.
 
 `nsmbu launch --no-debug` skips those debug defaults.
 It still uses `nsmbu/`.
@@ -127,7 +128,7 @@ The loading card needs the pending course, not the save's current course.
 That state is in [course-open.md](course-open.md).
 You cannot pass a slot and a course pack on one launch.
 
-`nsmbu profile` runs `build/debug/nsmbu` with the fixed-scene profile flags (`--no-audio`, profile and Vulkan stats, slow-swap log, log file under `.tmp/repro/`).
+`nsmbu profile` runs `build/debug/nsmbu` with the fixed-scene profile env (`NSMBU_NO_AUDIO`, profile and Vulkan stats, slow-swap log, log file under `.tmp/repro/`).
 Default load is slot 2 at TV frame 700; the run stops at TV frame 1100.
 Pass a slot number, or `--exit-at`, `--load-at`, or `--log`.
 Use a Release binary (`nsmbu build --release`) for hitch checks.

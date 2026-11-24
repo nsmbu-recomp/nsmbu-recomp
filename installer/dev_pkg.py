@@ -2,11 +2,10 @@
 """Build a local release-shaped package under .tmp/ so nsmbu-setup can install for real.
 
 Needs a Ninja Release build (package.py reads the link line with `ninja -t commands`).
-Default build dir is build/release (override with --build).
+Default build dir is build/release (override with NSMBU_INSTALLER_BUILD).
 
 Prints the package directory path.
 """
-import argparse
 import os
 import platform
 import shutil
@@ -14,6 +13,7 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BUILD = os.path.abspath(os.environ.get("NSMBU_INSTALLER_BUILD", os.path.join(ROOT, "build", "release")))
 OUT = os.path.join(ROOT, ".tmp", "installer-out")
 
 
@@ -58,24 +58,19 @@ def first_existing(paths):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--build", default=os.path.join(ROOT, "build", "release"),
-                    help="CMake build directory (default: build/release)")
-    args = ap.parse_args()
-    build = os.path.abspath(args.build)
-    plat, toolchain = host_platform(build)
+    plat, toolchain = host_platform(BUILD)
     exe = ".exe" if sys.platform == "win32" else ""
-    require(os.path.join(build, "build.ninja"), "Ninja build (package.py needs ninja -t commands)")
-    require(os.path.join(build, "nsmbu" + exe), "nsmbu")
-    require(os.path.join(build, "nsmbu-extract" + exe), "nsmbu-extract")
-    require(os.path.join(build, "nsmbu-setup" + exe), "nsmbu-setup")
-    require(os.path.join(build, "compile_commands.json"), "compile_commands.json")
-    require(os.path.join(build, "nsmbu-zstd.txt"), "bundled zstd marker")
+    require(os.path.join(BUILD, "build.ninja"), "Ninja build (package.py needs ninja -t commands)")
+    require(os.path.join(BUILD, "nsmbu" + exe), "nsmbu")
+    require(os.path.join(BUILD, "nsmbu-extract" + exe), "nsmbu-extract")
+    require(os.path.join(BUILD, "nsmbu-setup" + exe), "nsmbu-setup")
+    require(os.path.join(BUILD, "compile_commands.json"), "compile_commands.json")
+    require(os.path.join(BUILD, "nsmbu-zstd.txt"), "bundled zstd marker")
 
     sdl = first_existing([
-        os.path.join(build, "_deps", "sdl3-build", "libSDL3.so.0"),
-        os.path.join(build, "_deps", "sdl3-build", "libSDL3.dylib"),
-        os.path.join(build, "_deps", "sdl3-build", "Release", "SDL3.dll"),
+        os.path.join(BUILD, "_deps", "sdl3-build", "libSDL3.so.0"),
+        os.path.join(BUILD, "_deps", "sdl3-build", "libSDL3.dylib"),
+        os.path.join(BUILD, "_deps", "sdl3-build", "Release", "SDL3.dll"),
     ])
     vulkan = first_existing([
         "/usr/lib/x86_64-linux-gnu/libvulkan.so.1",
@@ -84,12 +79,12 @@ def main():
     ])
     licenses = [
         ("SDL3 (zlib)", first_existing([
-            os.path.join(build, "_deps", "sdl3-src", "LICENSE.txt"),
+            os.path.join(BUILD, "_deps", "sdl3-src", "LICENSE.txt"),
         ])),
-        ("zlib (zlib)", first_existing([os.path.join(build, "_deps", "zlib-src", "LICENSE")])),
-        ("LZ4 (BSD-2-Clause)", first_existing([os.path.join(build, "_deps", "lz4-src", "lib", "LICENSE")])),
+        ("zlib (zlib)", first_existing([os.path.join(BUILD, "_deps", "zlib-src", "LICENSE")])),
+        ("LZ4 (BSD-2-Clause)", first_existing([os.path.join(BUILD, "_deps", "lz4-src", "lib", "LICENSE")])),
         ("glslang (BSD-3-Clause and others)",
-         first_existing([os.path.join(build, "_deps", "glslang-src", "LICENSE.txt")])),
+         first_existing([os.path.join(BUILD, "_deps", "glslang-src", "LICENSE.txt")])),
     ]
     for name, path in licenses:
         if not path:
@@ -101,12 +96,12 @@ def main():
 
     cmd = [
         sys.executable, os.path.join(ROOT, "tools", "release", "package.py"),
-        "--build", build,
+        "--build", BUILD,
         "--platform", plat,
         "--version", "dev",
         "--out", OUT,
         "--toolchain", toolchain,
-        "--setup-gui", os.path.join(build, "nsmbu-setup" + exe),
+        "--setup-gui", os.path.join(BUILD, "nsmbu-setup" + exe),
         "--no-zip",
     ]
     if sdl:
@@ -116,7 +111,7 @@ def main():
     for name, path in licenses:
         cmd += ["--license", "%s=%s" % (name, path)]
 
-    print("packaging local installer from %s" % build, file=sys.stderr)
+    print("packaging local installer from %s" % BUILD, file=sys.stderr)
     subprocess.run(cmd, check=True, cwd=ROOT, stdout=sys.stderr)
     pkg = os.path.join(OUT, "NSMBU-dev-%s" % plat)
     if not os.path.isdir(pkg):

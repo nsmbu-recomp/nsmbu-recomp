@@ -6,29 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-### Added
+### Changed
 
-- RecompLauncher marks a matching Europe disc image as verified, including the Europe pack with New Super Luigi U (#84).
-- RecompLauncher asks for New Super Luigi U as an optional add-on.
-  The game folder stays the copy you pick first.
-- RecompLauncher asks for the 1.3.0 update as an optional folder.
-  Setup applies it to a base disc or a base game folder.
-  Skip it when the copy is already 1.3.0.
-
-### Fixed
-
-- Mario can walk again after going through a door in a course.
-- The game no longer closes when you take the cannon from the World 1 castle to the airship boss (#82).
-- Play from RecompLauncher finds the game folder in the install (#85).
-  When that folder is missing, the message shows the full path and asks you to run setup again.
-- RecompLauncher can find a USA or Europe copy, or the extracted game folder, in the player's folders.
-- Choosing the New Super Luigi U folder as the game tells you to pick the game folder, then add that folder as the add-on.
-- RecompLauncher setup no longer stops with "unrecognized arguments: --console-setup".
-  The installer runs that setup without its window and continues with the rest of the options.
-- RecompLauncher keeps settings, logs, and the shader cache in the install folder.
-- RecompLauncher Play starts the built game.
-  On Linux that is `nsmbu`, which runs `data/bin/nsmbu`.
-  It no longer opens the installer.
+- Reverted to 0.9.1.
 
 ## [0.10.0] - 2026-11-21
 

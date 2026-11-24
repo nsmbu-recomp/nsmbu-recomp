@@ -1,8 +1,0 @@
-// CourseSelectMenu::execute: place the cursor before it animates.
-// Base discs compile a different function at this address, so this site skips them.
-{
-  "builds": ["USA", "EU", "NSMBU_NSLU_USA", "NSMBU_NSLU_EU"],
-  "sites": [
-    { "address": "025A4C5C" } // CourseSelectMenu::execute: place the cursor before it animates
-  ]
-}

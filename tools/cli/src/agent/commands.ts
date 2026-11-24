@@ -3,50 +3,33 @@ import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "n
 import { isAbsolute, join } from "node:path";
 import { parseButtonBits } from "./buttons.ts";
 import { AgentClient, type AgentResponse } from "./client.ts";
-import { agentDir, agentPidPath, agentSession, agentSocketPath, agentUserDir } from "./paths.ts";
+import { agentDir, agentPidPath, agentSocketPath } from "./paths.ts";
 import { isPidAlive, readAgentPid, removeAgentArtifacts } from "./process.ts";
 import { arrived, cursorSelected, decodePng, delta, fnv, newerThan, placeKind, sample, tvRect, type Rect } from "./probe.ts";
-import { factsFrom, filterLog, formatScreen, logTags, pauseRowLabel, screenKind } from "./screen.ts";
-import { evalBody } from "./eval.ts";
 import { canConnectSocket, waitForSocket } from "./socket.ts";
 import { spawnPython } from "../run.ts";
 import { flagNumber, flagString, hasFlag, parseArgv } from "../parse.ts";
 
-function sessionLabel(): string {
-    const id = agentSession();
-    return id ? `session ${id}, ` : "";
-}
-
 async function ensureNotRunning(repo: string): Promise<void> {
-    const where = sessionLabel();
     const sock = agentSocketPath(repo);
     if (await canConnectSocket(sock)) {
-        throw new Error(`agent game already running (${where}control socket is active)`);
+        throw new Error("agent game already running (control socket is active)");
     }
     const pid = readAgentPid(repo);
     if (pid !== null && isPidAlive(pid)) {
-        throw new Error(`agent game already running (${where}pid ${pid})`);
+        throw new Error(`agent game already running (pid ${pid})`);
     }
     removeAgentArtifacts(repo);
-}
-
-export function agentLaunchArgs(repo: string): string[] {
-    const args = ["--agent-sock", agentSocketPath(repo), "--no-audio"];
-    const user = agentUserDir(repo);
-    if (user) args.push(`--user-dir=${user}`);
-    return args;
 }
 
 export async function cmdOpen(repo: string, rest: string[]): Promise<void> {
     await ensureNotRunning(repo);
     mkdirSync(agentDir(repo), { recursive: true });
     const sock = agentSocketPath(repo);
-    const user = agentUserDir(repo);
-    if (user) mkdirSync(user, { recursive: true });
-    const launchArgs = [...agentLaunchArgs(repo), ...rest];
-    const child = spawnPython(repo, "tools/run/launch.py", launchArgs, {
+    const child = spawnPython(repo, "tools/run/launch.py", rest, {
         detached: true,
         stdio: "ignore",
+        extraEnv: { NSMBU_AGENT_SOCK: sock },
     });
     child.unref();
     if (child.pid === undefined) {
@@ -54,12 +37,10 @@ export async function cmdOpen(repo: string, rest: string[]): Promise<void> {
     }
     writeFileSync(agentPidPath(repo), String(child.pid));
     await waitForSocket(sock, 60_000);
-    const label = agentSession();
-    const named = label ? `, session ${label}` : "";
-    console.log(`ready (pid ${child.pid}, socket ${sock}${named})`);
+    console.log(`ready (pid ${child.pid}, socket ${sock})`);
 }
 
-export function formatStatus(r: Awaited<ReturnType<AgentClient["status"]>>): string {
+function formatStatus(r: Awaited<ReturnType<AgentClient["status"]>>): string {
     const parts = [`frame=${r.frame ?? "?"}`, `step=${r.step ?? "?"}`];
     if (r.pid !== undefined) {
         parts.push(`pid=${r.pid}`);
@@ -108,7 +89,6 @@ export function formatStatus(r: Awaited<ReturnType<AgentClient["status"]>>): str
     } else {
         parts.push("player=none");
     }
-    parts.push(formatScreen(factsFrom(r, r)));
     return parts.join(" ");
 }
 
@@ -281,17 +261,7 @@ function num(n: number): string {
 function printUi(r: AgentResponse): void {
     const parts = [`overlay=${r.overlay ? 1 : 0}`];
     if (r.tab) parts.push(`tab=${r.tab}`);
-    if (r.close) {
-        const c = r.close;
-        parts.push(
-            `close=${c.x0.toFixed(3)},${c.y0.toFixed(3)} ${c.x1.toFixed(3)},${c.y1.toFixed(3)}`,
-        );
-    }
     parts.push(`menu=${r.menu ? 1 : 0}`);
-    if (r.pause) parts.push("pause=1");
-    const row = pauseRowLabel(r.pause_row, r.pause_index);
-    if (r.pause && row) parts.push(`row=${row}`);
-    if (r.controller) parts.push("controller=1");
     if (r.cursor !== undefined) parts.push(`cursor=${r.cursor}`);
     console.log(parts.join(" "));
     for (const b of r.buttons ?? []) {
@@ -300,21 +270,6 @@ function printUi(r: AgentResponse): void {
                 ? ` rect=${b.x0.toFixed(0)},${b.y0.toFixed(0)} ${b.x1.toFixed(0)},${b.y1.toFixed(0)}`
                 : "";
         console.log(`${b.index} name=${b.name} selected=${b.selected ? 1 : 0}${rect}`);
-    }
-}
-
-export async function cmdClick(repo: string, argv: string[]): Promise<void> {
-    const { positional } = parseArgv(argv, []);
-    if (positional[0] !== "close" || positional.length !== 1) {
-        throw new Error("usage: nsmbu click close");
-    }
-    const client = new AgentClient(repo);
-    try {
-        const r = await client.request({ cmd: "click", target: "close" });
-        if (!r.ok) throw new Error(r.error ?? "click failed");
-        console.log(`close ${r.x ?? "?"} ${r.y ?? "?"}`);
-    } finally {
-        client.close();
     }
 }
 
@@ -352,42 +307,18 @@ export async function cmdActors(repo: string, argv: string[]): Promise<void> {
     }
 }
 
-export async function cmdEval(repo: string, argv: string[]): Promise<void> {
-    const body = evalBody(argv);
-    const client = new AgentClient(repo);
-    try {
-        const r = await client.request(body);
-        if (!r.ok) throw new Error(r.error ?? "eval failed");
-        if (body.list) console.log(JSON.stringify({ evals: r.evals ?? [] }));
-        else console.log(JSON.stringify(r.value));
-    } finally {
-        client.close();
-    }
-}
-
 export async function cmdLog(repo: string, argv: string[]): Promise<void> {
-    const { flags } = parseArgv(argv, ["tag", "lines", "around"], ["tag", "lines"]);
-    const around = hasFlag(flags, "around");
+    const { flags } = parseArgv(argv, ["tag", "lines"]);
     const body: Record<string, unknown> = { cmd: "log" };
     const tag = flagString(flags, "tag");
-    if (tag && !around) body.tag = tag;
+    if (tag) body.tag = tag;
     const client = new AgentClient(repo);
     try {
-        let screen = "";
-        let tags: string[] | null = null;
-        if (around) {
-            const status = await client.status();
-            const facts = factsFrom(status, status);
-            screen = formatStatus(status);
-            tags = tag ? tag.split(",").map((t) => t.trim()).filter((t) => t.length > 0) : logTags(screenKind(facts));
-        }
         const r = await client.request(body);
         if (!r.ok) throw new Error(r.error ?? "log failed");
         const lines = r.lines ?? [];
         const n = hasFlag(flags, "lines") ? flagNumber(flags, "lines", 40) : 40;
-        const shown = tags ? filterLog(lines, tags, n) : lines.slice(-n);
-        if (screen) console.log(screen);
-        for (const line of shown) console.log(line);
+        for (const line of lines.slice(-n)) console.log(line);
     } finally {
         client.close();
     }

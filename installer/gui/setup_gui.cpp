@@ -1797,7 +1797,7 @@ static void send_import(bool replace) {
     std::string r = replace ? ",\"replace\":true" : "";
     if (A.save_kind == 2) request("import_existing", r.empty() ? "" : r.substr(1));
     else if (A.save_kind == 3) request("import_existing", "\"path\":" + jstr(A.save_path) + r);
-    else request("import_save", std::string("\"kind\":\"nsmbu\",\"path\":") + jstr(A.save_path) + r);
+    else request("import_save", std::string("\"kind\":\"hd\",\"path\":") + jstr(A.save_path) + r);
 }
 
 static void screen_save() {
@@ -1807,10 +1807,10 @@ static void screen_save() {
     if (kind == 4) kind = 3;
     else if (kind == 2 && !A.legacy) kind = 1;
     radio("Start with a new save", &kind, 0);
-    radio("NSMBU save (a folder with rp_personal_savedata.dat, from Cemu or a Wii U)", &kind, 1);
+    radio("NSMBU save (a folder with cking.sav, from Cemu or a Wii U)", &kind, 1);
     if (A.save_kind == 1) {
         ImGui::Indent();
-        if (button("Choose folder...##save")) choose_folder("save");
+        if (button("Choose folder...##hd")) choose_folder("save");
         if (!A.save_path.empty()) ImGui::SameLine(), ImGui::TextUnformatted(base_name(A.save_path).c_str());
         ImGui::Unindent();
     }
@@ -2092,12 +2092,10 @@ static std::string with_trailing_sep(std::string p) {
     return p;
 }
 
-static std::string g_pkg_path;
-
 static PackageSearch find_package() {
     PackageSearch r;
-    if (!g_pkg_path.empty()) {
-        r.pkg = with_trailing_sep(g_pkg_path);
+    if (const char* e = SDL_getenv("NSMBU_SETUP_PKG")) {
+        r.pkg = with_trailing_sep(e);
         r.start = r.pkg;
         r.checked = r.pkg + "installer/setup.py";
         return r;
@@ -2372,7 +2370,7 @@ static void automation_frame() {
             else if (k == "disc_mode") set_disc_mode(v == "paste" ? 1 : 0);
             else if (k == "common_mode") set_common_mode(v == "paste" ? 1 : 0);
             else if (k == "save_kind")
-                set_save_kind(v == "nsmbu" ? 1 : v == "legacy" ? 2 : v == "other" ? 3 : 0);
+                set_save_kind(v == "hd" ? 1 : v == "legacy" ? 2 : v == "other" ? 3 : 0);
             else if (k == "save_path") set_save_path(v);
         }
     }
@@ -2455,61 +2453,20 @@ static void use_user_libdecor_plugin() {
 static void use_user_libdecor_plugin() {}
 #endif
 
-static bool has_flag(int argc, char** argv, const char* flag) {
-    for (int i = 1; i < argc; i++)
-        if (!strcmp(argv[i], flag)) return true;
-    return false;
-}
-
-static std::vector<std::string> without_flag(int argc, char** argv, const char* flag) {
-    std::vector<std::string> out;
-    for (int i = 1; i < argc; i++)
-        if (strcmp(argv[i], flag)) out.emplace_back(argv[i]);
-    return out;
-}
-
-#ifndef _WIN32
-static int console_setup_posix(const std::string& pkg, const std::vector<std::string>& args) {
-    if (pkg.empty()) {
-        fprintf(stderr, "Setup could not start: the release files were not found. Keep this program in the release folder, next to installer/.\n");
-        return 1;
-    }
-    std::vector<std::string> cmd = {"python3", pkg + "installer/setup.py"};
-    cmd.insert(cmd.end(), args.begin(), args.end());
-    std::vector<char*> av;
-    av.reserve(cmd.size() + 1);
-    for (auto& s : cmd) av.push_back(s.data());
-    av.push_back(nullptr);
-    setenv("PYTHONDONTWRITEBYTECODE", "1", 1);
-    if (chdir(pkg.c_str()) != 0) {
-        fprintf(stderr, "Setup could not start: cannot open the release folder (%s).\n", strerror(errno));
-        return 1;
-    }
-    execvp(av[0], av.data());
-    fprintf(stderr, "Setup could not start python3 (%s).\n", strerror(errno));
-    return 1;
-}
-#endif
-
 int main(int argc, char** argv) {
-    if (has_flag(argc, argv, "--console-setup")) {
-        std::vector<std::string> rest = without_flag(argc, argv, "--console-setup");
 #ifdef _WIN32
-        return console_setup(find_package().pkg, rest);
-#else
-        return console_setup_posix(find_package().pkg, rest);
-#endif
+    if (argc > 1 && !strcmp(argv[1], "--console-setup")) {
+        return console_setup(find_package().pkg, std::vector<std::string>(argv + 2, argv + argc));
     }
+#endif
     std::string automate;
     bool want_setup = false;
     for (int i = 1; i < argc; i++) {
         std::string a = argv[i];
         if (a == "--automate" && i + 1 < argc) automate = argv[++i];
-        else if (a == "--pkg" && i + 1 < argc) g_pkg_path = argv[++i];
         else if (a == "--screenshots" && i + 1 < argc) A.shots_dir = argv[++i];
         else if (a == "--self-test") A.self_test = true;
         else if (a == "--setup") want_setup = true;
-        else if (a == "--console-setup") continue;
         else if (a.rfind("-psn_", 0) == 0) continue;
         else A.passthru.push_back(a);
     }

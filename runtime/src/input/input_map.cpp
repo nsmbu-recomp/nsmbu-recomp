@@ -141,7 +141,6 @@ int key_from_id(const std::string& id) {
 const char* reserved_key(int code) {
 
     switch (code) {
-    case kVK_ANSI_M: return "Audio › Mute";
     case kVK_ANSI_N: return "Graphics › Anisotropic filtering";
     case kVK_ANSI_6: return "Graphics › 60 fps: frame interpolation";
     case kVK_ANSI_8: return "Graphics › FXAA";

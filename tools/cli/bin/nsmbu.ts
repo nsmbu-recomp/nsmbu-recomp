@@ -10,15 +10,16 @@ import {
     cmdGame,
     cmdInstaller,
     cmdLaunch,
+    cmdLint,
+    cmdPerf,
     cmdProfile,
     cmdRecomp,
-    cmdRecomplauncher,
     cmdRun,
+    cmdScripted,
+    cmdWine,
 } from "../src/dev.ts";
 import {
     cmdActors,
-    cmdClick,
-    cmdEval,
     cmdGoto,
     cmdLeave,
     cmdLog,
@@ -35,22 +36,13 @@ import {
 } from "../src/agent/commands.ts";
 import { cmdCompletion } from "../src/completion.ts";
 import { cmdSave } from "../src/save.ts";
-import { cmdSettings } from "../src/settings.ts";
 import { cmdBench } from "../src/bench/cmd.ts";
 import { cmdTest } from "../src/playtest/cmd.ts";
 import { cmdCompareRuns } from "../src/gametest/compare-runs.ts";
 import { cmdScenario } from "../src/gametest/scenario.ts";
-import { applySession } from "../src/agent/session.ts";
 
 async function main(): Promise<void> {
-    let argv: string[];
-    try {
-        argv = applySession(process.argv.slice(2));
-    } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        console.error(msg);
-        process.exit(1);
-    }
+    const argv = process.argv.slice(2);
     if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
         console.log(HELP.trimEnd());
         return;
@@ -71,14 +63,8 @@ async function main(): Promise<void> {
     try {
         switch (cmd) {
             case "build": {
-                const { flags, positional } = parseArgv(rest, ["release", "sanitizer", "verbose"], []);
-                cmdBuild(
-                    repo,
-                    hasFlag(flags, "release"),
-                    hasFlag(flags, "sanitizer"),
-                    hasFlag(flags, "verbose"),
-                    positional,
-                );
+                const { flags, positional } = parseArgv(rest, ["release", "sanitizer"], []);
+                cmdBuild(repo, hasFlag(flags, "release"), hasFlag(flags, "sanitizer"), positional);
                 break;
             }
             case "launch": {
@@ -103,14 +89,23 @@ async function main(): Promise<void> {
                 cmdRun(repo, hasFlag(flags, "release"), positional);
                 break;
             }
+            case "wine": {
+                const { flags, positional } = parseArgv(rest, ["no-debug", "trace"], []);
+                cmdWine(
+                    repo,
+                    {
+                        noDebug: hasFlag(flags, "no-debug"),
+                        trace: hasFlag(flags, "trace"),
+                    },
+                    positional,
+                );
+                break;
+            }
             case "extract":
                 cmdExtract(repo, rest);
                 break;
             case "game":
                 await cmdGame(repo, rest);
-                break;
-            case "settings":
-                cmdSettings(repo, rest);
                 break;
             case "save": {
                 const { flags, positional } = parseArgv(rest, ["output"], ["output"]);
@@ -127,18 +122,29 @@ async function main(): Promise<void> {
             case "profile":
                 cmdProfile(repo, rest);
                 break;
+            case "perf":
+                cmdPerf(repo, rest);
+                break;
             case "installer":
                 cmdInstaller(repo, rest);
                 break;
             case "apk":
                 await cmdApk(repo, rest);
                 break;
+            case "lint":
+                cmdLint(repo);
+                break;
             case "recomp":
                 cmdRecomp(repo);
                 break;
-            case "recomplauncher":
-                cmdRecomplauncher(repo);
+            case "scripted": {
+                const [name, ...scriptRest] = rest;
+                if (!name) {
+                    throw new Error("usage: nsmbu scripted <name> […]");
+                }
+                cmdScripted(repo, name, scriptRest);
                 break;
+            }
             case "test":
                 await cmdTest(repo, rest);
                 break;
@@ -181,14 +187,8 @@ async function main(): Promise<void> {
             case "ui":
                 await cmdUi(repo);
                 break;
-            case "click":
-                await cmdClick(repo, rest);
-                break;
             case "actors":
                 await cmdActors(repo, rest);
-                break;
-            case "eval":
-                await cmdEval(repo, rest);
                 break;
             case "log":
                 await cmdLog(repo, rest);

@@ -2,7 +2,6 @@
 
 #include "app_title.h"
 #include "overlay.h"
-#include "overlay_click.h"
 #include "perf_average.h"
 #include "core/env.h"
 #ifdef __ANDROID__
@@ -58,6 +57,7 @@ namespace gfxvk { bool buffer_cache_enabled(); }
 #include "mobile_ui.h"
 #include "../mods/mods.h"
 #include "../mods/sdk/nsmbu.h"
+#include "../mods/lua_gui.h"
 #include "../mods/packages.h"
 #include "../input/motion/motion.h"
 #include "../platform/keycodes.h"
@@ -68,7 +68,6 @@ namespace gfxvk { bool buffer_cache_enabled(); }
 #include "hooks/collision_wireframe.h"
 #include "hooks/course_hot_reload.h"
 #include "hooks/map_menu_settings.h"
-#include "hooks/pause_menu_settings.h"
 #include "core/runtime.h"
 #include "save/savestate.h"
 #include "save/save_preview.h"
@@ -96,8 +95,9 @@ PerfAverage g_average;
 std::atomic<float> g_density{1.0f};
 std::atomic<bool> g_wait_release{false};
 std::atomic<double> g_last_frame{0};
-bool no_host_input() { return env::NO_HOST_INPUT() != nullptr; }
-bool no_host_keys() { return no_host_input() && !env::TEST_POST_KEYS(); }
+const bool g_no_host = env::NO_HOST_INPUT() != nullptr;
+
+const bool g_no_host_keys = g_no_host && !env::TEST_POST_KEYS();
 bool g_pad_b_used = false;
 
 struct Event {
@@ -111,11 +111,6 @@ struct Event {
 };
 std::mutex g_mu;
 std::vector<Event> g_events;
-struct CloseBox {
-    float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
-    bool have = false;
-};
-CloseBox g_close;
 std::atomic<int> g_capture_key{-2};
 std::atomic<bool> g_capturing_keys{false};
 
@@ -403,7 +398,7 @@ void test_pad(float* v) {
 
 void read_controller() {
     std::copy(std::begin(U.values), std::end(U.values), std::begin(U.prev));
-    if (no_host_input()) {
+    if (g_no_host) {
         std::fill(std::begin(U.values), std::end(U.values), 0.0f);
         if (g_wait_release.load()) g_wait_release = false;
         return;
@@ -455,10 +450,6 @@ void read_controller() {
     if (g_wait_release.load()) {
         bool any = false;
         for (int p = 1; p < kPadCount; p++) any |= U.values[p] > 0.3f;
-        // A keyboard Back is not in the controller values. Keep it from reaching the pause menu.
-        bool keys[256];
-        input::held_keys(keys);
-        any |= input_map::keyboard_state(input_map::current(), keys).buttons != 0;
         if (!any) g_wait_release = false;
     }
 }
@@ -994,8 +985,7 @@ void tab_audio() {
         hostui::post([v] { hostui::set("audioMute", v ? "1" : "0"); });
     }
     if (mute_locked) note("NSMBU_NO_AUDIO is set for this start and takes precedence.");
-    help("Off plays the game through the host speakers. On keeps the mix running with no sound.\n"
-         "Press M to mute or unmute. The game keeps that choice for the next start.");
+    help("Off plays the game through the host speakers. On keeps the mix running with no sound.");
 
     const bool vol_locked = audio::volume_env_override();
     float vol = audio::volume() * 100.0f;
@@ -1125,7 +1115,7 @@ void package_controls() {
     using namespace mods::packages;
     static std::string error;
 
-    static const char* test_enable = no_host_input() ? env::TEST_MOD_ENABLE() : nullptr;
+    static const char* test_enable = g_no_host ? env::TEST_MOD_ENABLE() : nullptr;
     {
         static double last_scan = -1;
         double now = ImGui::GetTime();
@@ -1151,7 +1141,7 @@ void package_controls() {
         bool expanded = ImGui::TreeNode("details", "%s · %s", mod.name.c_str(), mod.version.c_str());
         if (expanded) {
             note("%s · %s",
-                 mod.kind == "cemu" ? "Cemu graphics / shader pack" : mod.kind == "content" ? "File replacement pack" : "Unsupported package",
+                 mod.kind == "cemu" ? "Cemu graphics / shader pack" : "Unsupported package",
                  mod.pending_restart ? "Restart required" : mod.active ? "Active" : mod.enabled ? "Waiting for game update" : "Disabled");
             if (!mod.author.empty()) note("By %s", mod.author.c_str());
             ImGui::TextWrapped("%s", mod.description.c_str());
@@ -1741,12 +1731,7 @@ void tab_debug() {
         map_menu::set_enabled(v);
         hostui::post([v] { hostui::set("mapMenuSettings", v ? "1" : "0"); });
     }
-    help("Off until you turn it on. NSMBU_INGAME_SETTINGS=1 is also required, and that variable is off when it is unset. The button is added when the world map loads, so leave to the title and come back after a change. A or Enter on Settings opens this overlay. A restart restores the original menu.");
-    if (check("Settings button on the pause menu", pause_menu::enabled(), &v)) {
-        pause_menu::set_enabled(v);
-        hostui::post([v] { hostui::set("pauseMenuSettings", v ? "1" : "0"); });
-    }
-    help("On until you turn it off. Change Controller becomes Settings when a course loads, so leave the course and enter it again after a change. A or Enter on Settings opens this overlay. Continue and Quit stay as they are. The blue panel keeps its original height.");
+    help("Off until you turn it on. Open the world-map start menu again after a change. A or Enter on Settings opens this overlay. A restart restores the original menu.");
 
     heading("Course debug");
     const bool env_locked = env::COLLISION_VIEWER.present();
@@ -2125,23 +2110,11 @@ void perf_window(bool menu_open) {
     (void)menu_open;
 }
 
-static void note_close_button(float x0, float y0, float x1, float y1) {
-    std::lock_guard<std::mutex> lk(g_mu);
-    g_close.x0 = x0;
-    g_close.y0 = y0;
-    g_close.x1 = x1;
-    g_close.y1 = y1;
-    g_close.have = true;
-}
-
 static bool settings_close_button(bool& open, float size) {
     const float pad = ImGui::GetStyle().WindowPadding.x;
     const ImVec2 win = ImGui::GetWindowPos();
     const float lift = ImGui::GetStyle().FramePadding.y * 0.35f;
     const ImVec2 at(win.x + ImGui::GetWindowWidth() - size - pad, ImGui::GetCursorScreenPos().y - lift);
-    const ImVec2 ds = ImGui::GetIO().DisplaySize;
-    if (ds.x > 1.f && ds.y > 1.f)
-        note_close_button(at.x / ds.x, at.y / ds.y, (at.x + size) / ds.x, (at.y + size) / ds.y);
     ImGui::PushClipRect(win, ImVec2(win.x + ImGui::GetWindowWidth(), win.y + ImGui::GetWindowHeight()), false);
     ImGui::SetCursorScreenPos(at);
     ImGui::PushItemFlag(ImGuiItemFlags_NoNav, true);
@@ -2213,10 +2186,12 @@ void settings_window() {
     ImGui::SetNextWindowPos(ImVec2(ds.x * 0.5f, ds.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(size, ImGuiCond_Always);
     ImGuiWindowFlags fl = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
-                          ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar |
-                          ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus;
+                          ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar;
     bool open = true;
-    if (U.just_opened) U.just_opened = false;
+    if (U.just_opened) {
+        ImGui::SetNextWindowFocus();
+        U.just_opened = false;
+    }
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
     const bool begun = ImGui::Begin(app_title::kSettings, &open, fl);
     ImGui::PopStyleVar();
@@ -2225,7 +2200,6 @@ void settings_window() {
         const float close_sz = ImGui::GetFrameHeight();
         const float top = ImGui::GetCursorPosY();
         settings_close_button(open, close_sz);
-        if (take_agent_close()) open = false;
         ImGui::SetCursorPos(ImVec2(pad, top));
         ImGui::PushItemWidth(ImGui::GetWindowWidth() - close_sz - pad * 3.0f);
         if (U.cap_action < 0 && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId)) {
@@ -2311,11 +2285,7 @@ void set_open(bool open) {
     if (g_open.exchange(open) == open) return;
     for (auto& k : g_held_keys) k = false;
     input::release_keys();
-    if (!open) {
-        g_wait_release = true;
-        std::lock_guard<std::mutex> lk(g_mu);
-        g_close.have = false;
-    }
+    if (!open) g_wait_release = true;
     if (open) {
         mods::mouse_release();
         U.just_opened = true;
@@ -2355,7 +2325,7 @@ bool perf_overlay_active() {
 }
 
 bool key(int code, bool down, bool repeat, int mods) {
-    if (no_host_keys()) return false;
+    if (g_no_host_keys) return false;
 #ifdef __APPLE__
 
     if (code == kVK_ANSI_Comma && (mods & kSuper) && !g_capturing_keys.load()) {
@@ -2392,44 +2362,23 @@ bool key(int code, bool down, bool repeat, int mods) {
 }
 bool mouse_move(float nx, float ny, bool touch) {
     const bool tile = map_menu::pointer(nx, ny);
-    if (!captures() || no_host_input()) return tile;
+    if (!captures() || g_no_host) return tile;
     push({Event::MousePos, 0, false, nx, ny, 0, touch});
     return true;
 }
-bool close_button(float& x0, float& y0, float& x1, float& y1) {
-    std::lock_guard<std::mutex> lk(g_mu);
-    if (!g_close.have) return false;
-    x0 = g_close.x0;
-    y0 = g_close.y0;
-    x1 = g_close.x1;
-    y1 = g_close.y1;
-    return true;
-}
-
-bool click_close(float& x, float& y) {
-    float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
-    if (!is_open() || !close_button(x0, y0, x1, y1)) return false;
-    const OverlayClick hit = overlay_close_click(x0, y0, x1, y1);
-    if (!hit.ok) return false;
-    request_agent_close();
-    x = hit.x;
-    y = hit.y;
-    return true;
-}
-
 bool mouse_button(int button, bool down, bool touch) {
     if (button == 0 && down && map_menu::click()) return true;
-    if (!captures() || no_host_input()) return false;
+    if (!captures() || g_no_host) return false;
     push({Event::MouseButton, button, down, 0, 0, 0, touch});
     return true;
 }
 bool mouse_wheel(float dx, float dy) {
-    if (!captures() || no_host_input()) return false;
+    if (!captures() || g_no_host) return false;
     push({Event::Wheel, 0, false, dx, dy, 0});
     return true;
 }
 bool text(const char* utf8) {
-    if (!utf8 || !*utf8 || !is_open() || no_host_input()) return false;
+    if (!utf8 || !*utf8 || !is_open() || g_no_host) return false;
     Event e;
     e.kind = Event::Text;
     e.text = utf8;
@@ -2466,7 +2415,6 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
         if (!env::HOT_RELOAD_COURSES.present() && hostui::get("hotReloadCourses", v))
             course_hot_reload::set_enabled(v == "1");
         if (hostui::get("mapMenuSettings", v)) map_menu::set_enabled(v == "1");
-        if (hostui::get("pauseMenuSettings", v)) pause_menu::set_enabled(v == "1");
 
         if (env::PRO_CONTROLLER.on())
             hostui::post([] { hostui::set_pro_controller(true); });
@@ -2513,7 +2461,7 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
             }
             if (sscanf(spec.c_str(), "%d,%d", &w, &c) == 2 && render::frame_count() + 1 >= at) {
                 test_load_done = true;
-                mods::scene::request_load_story(w, c);
+                mods::lua_sdk::request_load_story(w, c);
                 LOG("[overlay] test load story %d-%d", w + 1, c + 1);
             }
         }
@@ -2550,17 +2498,18 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
     g_average.sample(t, gx2::flips_presented(), logic_steps, int(render::active()),
                      interp::mode(), interp::fps(), hostui::res_scale());
     read_controller();
-    if (map_menu::take_open() || pause_menu::take_open()) set_open(true);
+    if (map_menu::take_open()) set_open(true);
 
     const bool open = is_open(), perf = perf_overlay_active(), text = !open && text_entry::active();
     const bool coll = collision_wireframe::enabled();
+    const bool gui = mods::lua_gui::active();
     map_menu::prepare(pw, ph, open);
     const bool menu_tile = map_menu::visible();
     perf::set_demand(perf, open && U.tab == kGraphics);
 
     const std::string toast = open ? std::string() : ss::last_message();
     U.linearized = false;
-    if (!open && !perf && !text && toast.empty() && !coll && !menu_tile) {
+    if (!open && !perf && !text && toast.empty() && !coll && !gui && !menu_tile) {
         if (U.init) {
             std::lock_guard<std::mutex> lk(g_mu);
             g_events.clear();
@@ -2627,7 +2576,7 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
     if (text) {
         float pad[input_map::kPadCount];
         std::copy(std::begin(U.values), std::end(U.values), pad);
-        if (no_host_input()) test_pad(pad);
+        if (g_no_host) test_pad(pad);
         if (text_entry::draw(pad)) {
 
             for (auto& k : g_held_keys) k = false;
@@ -2636,9 +2585,10 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
     }
     if (perf) perf_window(open);
     if (menu_tile) map_menu::draw();
-    if (coll) {
+    if (coll || gui) {
         ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), ImVec2(1, 1), IM_COL32(0, 0, 0, 1));
-        collision_wireframe::draw(ImGui::GetForegroundDrawList(), io.DisplaySize.x, io.DisplaySize.y);
+        if (coll) collision_wireframe::draw(ImGui::GetForegroundDrawList(), io.DisplaySize.x, io.DisplaySize.y);
+        if (gui) mods::lua_gui::draw(ImGui::GetForegroundDrawList(), io.DisplaySize.x, io.DisplaySize.y);
     }
     if (!toast.empty()) {
         ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y - 24), ImGuiCond_Always, ImVec2(0.5f, 1.0f));

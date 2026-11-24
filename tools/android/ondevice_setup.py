@@ -4,14 +4,12 @@ The host supplies validated, installed tools and privately imported inputs. This
 worker builds a candidate; only AndroidGame may validate/load and activate it.
 """
 import argparse
+import fcntl
 import json
 import os
 from pathlib import Path
+import resource
 import sys
-try:
-    import resource
-except ImportError:
-    resource = None
 import threading
 import time
 from types import SimpleNamespace
@@ -64,7 +62,6 @@ def image_keys(setup, files):
 
 
 def run(configuration, package=None, native_run=None, adapter_factory=Adapter, key_files=None):
-    import fcntl
     configuration = Path(configuration).resolve()
     root = configuration.parent
     package = Path(package).resolve() if package else Path(__file__).resolve().parents[2]

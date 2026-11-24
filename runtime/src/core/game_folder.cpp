@@ -75,17 +75,8 @@ const char kFix[] =
     "Do not point at an Update / 0005000e… folder alone.\n"
     "Run setup again with both the game and the update.";
 
-const char kMissing[] = "Run setup again and choose your copy of the game.";
-
-std::string with_path(const std::string& head, const std::string& root, const char* fix) {
-    return head + "\n\nPath:\n" + root + "\n\n" + fix;
-}
-
-std::string shown_path(const fs::path& base) {
-    std::error_code ec;
-    const fs::path abs = fs::absolute(base, ec);
-    if (ec || abs.empty()) return base.string();
-    return abs.string();
+std::string with_path(const std::string& head, const std::string& root) {
+    return head + "\n\nPath:\n" + root + "\n\n" + kFix;
 }
 
 }
@@ -93,20 +84,20 @@ std::string shown_path(const fs::path& base) {
 std::string unusable_reason(const std::string& root) {
     const fs::path base(root);
     std::error_code ec;
-    if (!fs::is_directory(base, ec) || ec) return with_path("Game folder not found.", shown_path(base), kMissing);
-    if (!file_ci(base, {"code", "red-pro2.rpx"})) return with_path("Game folder is missing code/red-pro2.rpx.", root, kFix);
-    if (resolve_ci(base, {"content"}).empty()) return with_path("Game folder is missing content/.", root, kFix);
-    if (!file_ci(base, {"meta", "meta.xml"})) return with_path("Game folder is missing meta/meta.xml.", root, kFix);
+    if (!fs::is_directory(base, ec) || ec) return with_path("Game folder not found.", root);
+    if (!file_ci(base, {"code", "red-pro2.rpx"})) return with_path("Game folder is missing code/red-pro2.rpx.", root);
+    if (resolve_ci(base, {"content"}).empty()) return with_path("Game folder is missing content/.", root);
+    if (!file_ci(base, {"meta", "meta.xml"})) return with_path("Game folder is missing meta/meta.xml.", root);
 
     const std::string tid = meta_title_id(base);
     if (tid.size() == 16 && tid.compare(0, 8, "0005000e") == 0) {
         return with_path("This folder is only the 1.3.0 update (title " + format_title_id(tid) + "), not the full game.",
-                         root, kFix);
+                         root);
     }
     if (!file_ci(base, {"content", "Common", "course_res_pack", "1-1.szs"})) {
         return with_path("This game folder is incomplete (missing content/Common/course_res_pack/1-1.szs).\n"
                          "That usually means only the update was installed.",
-                         root, kFix);
+                         root);
     }
     return {};
 }

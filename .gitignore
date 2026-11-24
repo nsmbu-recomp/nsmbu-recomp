@@ -42,8 +42,6 @@ headstart.bin
 # local coordination board
 /task.md
 /.tmp/
-# local extract of references/headers; not a name source in git
-/recomp/headers_names.txt
 
 # iOS build output
 runtime/ios/build/

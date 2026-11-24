@@ -8,7 +8,6 @@
 #include <cstdlib>
 #include <ctime>
 
-#include "audio/audio_out.h"
 #include "core/runtime.h"
 #include "gfx/aspect.h"
 #include "gfx/display_modes.h"
@@ -103,7 +102,6 @@ void menu_options_changed() { save_prefs(); }
 // hardware keyboard shortcuts (input.mm), as the Mac's Graphics and Save States menus have them
 bool menu_hotkey(uint16_t code) {
     switch (code) {
-    case kVK_ANSI_M: audio::toggle_muted(); break;
     case kVK_ANSI_N: if (render::feature_available(render::kFeatureAniso)) render::set_aniso(!render::aniso()); break;
     case kVK_ANSI_6: interp::toggle_fps(60); break;
     case kVK_ANSI_8: if (render::feature_available(render::kFeatureFXAA)) render::set_fxaa(!render::fxaa()); break;

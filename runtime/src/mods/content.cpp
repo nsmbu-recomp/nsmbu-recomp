@@ -98,16 +98,20 @@ json::Value content_manifest_value(const fs::path& stage,const std::string& fold
     if(description.empty())description="Imported local content replacement. Requires restart. Model and archive compatibility must be checked in game.";
     if(!mapped.empty())description+=" Loose files placed at: "+mapped+".";
     if(!ignored.empty())description+=" Not used: "+ignored+".";
-    json::Value m;m["format_version"]=2;m["id"]=id;m["name"]=name;m["version"]=version;m["game_id"]="nsmbu-usa";m["kind"]="content";m["minimum_manager_version"]="1.0.0";
+    json::Value m;m["format_version"]=2;m["id"]=id;m["name"]=name;m["version"]=version;m["game_id"]="nsmbu-usa";m["kind"]="lua";m["minimum_manager_version"]="1.0.0";
     m["content_dir"]=content_dir.lexically_relative(stage).generic_string();
     m["description"]=description;
     return m;
 }
+void write_content_manifest(const fs::path& stage,const std::string& folder_name,const fs::path& content_dir,const Definition& def,const std::string& mapped,const std::string& ignored){
+    auto m=content_manifest_value(stage,folder_name,content_dir,def,mapped,ignored);
+    std::ofstream out(stage/"manifest.json");out<<json::dump(m)<<'\n';out.close();require(bool(out),"Cannot write imported manifest");
+}
 }
 
 const char* const kLanguagePacks[]={"permanent_2d_usenglish.pack","permanent_2d_usfrench.pack","permanent_2d_usspanish.pack",
-    "permanent_2d_euenglish.pack","permanent_2d_eufrench.pack","permanent_2d_euitalian.pack","permanent_2d_euspanish.pack",
-    "permanent_2d_jpjapanese.pack"};
+    "permanent_2d_euenglish.pack","permanent_2d_eufrench.pack","permanent_2d_eugerman.pack","permanent_2d_euitalian.pack",
+    "permanent_2d_euspanish.pack","permanent_2d_jpjapanese.pack"};
 bool known_pack(const std::string& filename){
     auto name=lower(filename);
     for(auto allowed:{"permanent_3d.pack","first_szs_permanent.pack","szs_permanent0.pack","szs_permanent1.pack","szs_permanent2.pack"})if(name==allowed)return true;
@@ -207,8 +211,7 @@ void import_legacy(const fs::path& stage,const std::string& source_name){
         candidates.push_back(stage/"content");
     }
     require(candidates.size()==1,"Select a single mod pack folder containing exactly one content/ directory");
-    auto m=content_manifest_value(stage,source_name,candidates.front(),def,mapped,ignored);
-    std::ofstream out(stage/"manifest.json");out<<json::dump(m)<<'\n';out.close();require(bool(out),"Cannot write imported manifest");
+    write_content_manifest(stage,source_name,candidates.front(),def,mapped,ignored);
 }
 Files index(const fs::path& directory){
     require(fs::is_directory(directory),"Content folder is missing");

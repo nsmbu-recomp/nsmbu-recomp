@@ -9,7 +9,6 @@
 #include "input/rumble.h"
 #include "core/runtime.h"
 #include "save/savestate.h"
-#include "audio/audio_out.h"
 #include "gfx/screenshot.h"
 #include "../gfx/vulkan/settings.h"
 #include "agent/agent_ctl.h"
@@ -410,13 +409,13 @@ static void open_controller(SDL_JoystickID id){
 void init(){
  input_map::load_startup();
 
- if(!SDL_InitSubSystem(SDL_INIT_GAMEPAD)){LOG("[input] SDL gamepad initialization: %s",SDL_GetError());return;}
  if(!env::NO_CONTROLLERS()) {
+  if(!SDL_InitSubSystem(SDL_INIT_GAMEPAD)){LOG("[input] SDL gamepad initialization: %s",SDL_GetError());return;}
   int count=0;auto* ids=SDL_GetGamepads(&count);for(int i=0;i<count;i++)open_controller(ids[i]);SDL_free(ids);
+  SDL_AddEventWatch(rumble_quit_watch,nullptr);
+  atexit(stop_rumble_now);
+  std::thread(rumble_watchdog).detach();
  }
- SDL_AddEventWatch(rumble_quit_watch,nullptr);
- atexit(stop_rumble_now);
- std::thread(rumble_watchdog).detach();
 }
 static std::string utf8(const std::u16string& text){
  std::string out;
@@ -511,7 +510,7 @@ void handle_event(const SDL_Event& event){
 #endif
  if(overlay::captures())mods::update_mouse();
  else if(mods::handle_mouse_event(event))return;
- if(event.type==SDL_EVENT_GAMEPAD_ADDED&&(!env::NO_CONTROLLERS()||SDL_IsJoystickVirtual(event.gdevice.which)))open_controller(event.gdevice.which);
+ if(event.type==SDL_EVENT_GAMEPAD_ADDED&&!env::NO_CONTROLLERS())open_controller(event.gdevice.which);
  if(event.type==SDL_EVENT_GAMEPAD_REMOVED){std::lock_guard lk(g_pads_mu);auto i=g_controllers.find(event.gdevice.which);if(i!=g_controllers.end()){SDL_CloseGamepad(i->second);g_controllers.erase(i);}const int slot=slot_of_locked(event.gdevice.which);if(slot>=0){g_slot[slot]=0;g_slot_name[slot].clear();}g_rumble_controllers.erase(event.gdevice.which);g_rumble_sent.erase(event.gdevice.which);g_accel.erase(event.gdevice.which);g_sensor_seen.erase(event.gdevice.which);g_sensor_kick.erase(event.gdevice.which);motion::controller_gone(event.gdevice.which);}
  if(event.type==SDL_EVENT_GAMEPAD_SENSOR_UPDATE){g_sensor_seen[event.gsensor.which]=SDL_GetTicks();if(!env::NO_HOST_INPUT()&&!overlay::blocks_input())sensor_event(event.gsensor);return;}
  if(event.type==SDL_EVENT_WINDOW_FOCUS_LOST)release_keys();
@@ -557,11 +556,10 @@ void handle_event(const SDL_Event& event){
  if((event.type==SDL_EVENT_KEY_DOWN||event.type==SDL_EVENT_KEY_UP) && g_prompt_window &&
     event.key.windowID==SDL_GetWindowID(g_prompt_window) &&
     !(event.key.mod&(SDL_KMOD_CTRL|SDL_KMOD_ALT|SDL_KMOD_GUI))){
-  if(event.key.scancode==SDL_SCANCODE_M){if(event.type==SDL_EVENT_KEY_DOWN&&!event.key.repeat)audio::toggle_muted();return;}
   char action=0;
   switch(event.key.scancode){
    case SDL_SCANCODE_O: action='O';break;
-   case SDL_SCANCODE_N: action='N';break;
+   case SDL_SCANCODE_M: action='M';break; case SDL_SCANCODE_N: action='N';break;
    case SDL_SCANCODE_8: action='8';break; case SDL_SCANCODE_6: action='6';break;
    case SDL_SCANCODE_7: action='7';break; default:break;
   }
@@ -915,93 +913,6 @@ static std::string buttons_text(uint32_t buttons) {
     }
     return text;
 }
-
-static std::string stick_text(float x, float y) {
-    char buf[64];
-    snprintf(buf, sizeof buf, "%.9g,%.9g", x, y);
-    return buf;
-}
-
-// Names the buttons and sticks that changed. The replay fields stay in front of this note.
-static std::string pad_note(const PadState& prev, const PadState& now) {
-    std::string note;
-    const uint32_t down = now.buttons & ~prev.buttons;
-    const uint32_t up = prev.buttons & ~now.buttons;
-    if (down) note += " down=" + buttons_text(down);
-    if (up) note += " up=" + buttons_text(up);
-    if (now.lx != prev.lx || now.ly != prev.ly) note += " lstick=" + stick_text(now.lx, now.ly);
-    if (now.rx != prev.rx || now.ry != prev.ry) note += " rstick=" + stick_text(now.rx, now.ry);
-    if (now.touch != prev.touch) note += now.touch ? " touch=1" : " touch=0";
-    return note;
-}
-
-#ifndef NDEBUG
-static bool pad_idle(const PadState& s) {
-    return !s.buttons && s.lx == 0 && s.ly == 0 && s.rx == 0 && s.ry == 0 && !s.touch;
-}
-
-// Development builds only. One course entry is a replay file body: header lines, then a pad line on each change.
-// Leaving the course logs `course clock reset` and the next entry starts again at step 0.
-// Outside a course the line starts with `frame` and the TV frame count.
-static void log_dev_pad(const PadState& s) {
-    if (env::REPLAY_INPUT()) return;
-    static PadState prev{};
-    static bool have = false;
-    static bool header = false;
-    static bool in_course = false;
-    static bool armed = false;
-    static uint64_t origin = 0;
-
-    const bool course = interp::course_play_active();
-    if (course != in_course) {
-        if (in_course) LOG("[input] course clock reset");
-        have = false;
-        header = false;
-        armed = false;
-        in_course = course;
-    }
-    if (course) {
-        if (!interp::input_enabled()) return;
-        const uint64_t now = interp::logic_steps();
-        if (!armed) {
-            armed = true;
-            origin = now;
-        }
-        if (have && pad_same(prev, s)) return;
-        if (!header) {
-            header = true;
-            LOG("[input] version=1");
-            LOG("[input] origin=control");
-            interp::PlayerSnapshot snap;
-            if (interp::player_snapshot(snap, 0)) {
-                LOG("[input] player=%d", snap.player);
-                LOG("[input] lives=%d", snap.lives);
-                LOG("[input] player_coins=%d", snap.coins);
-                LOG("[input] coins=%d", snap.course_coins);
-                if (const char* mode = player_mode_text(snap.mode))
-                    LOG("[input] mode=%s", mode);
-                else
-                    LOG("[input] mode=%d", snap.mode);
-            }
-        }
-        const std::string buttons = buttons_text(s.buttons);
-        const std::string note = pad_note(have ? prev : PadState{}, s);
-        prev = s;
-        have = true;
-        LOG("[input] %llu %s %.9g %.9g %.9g %.9g %d %.9g %.9g%s", (unsigned long long)(now - origin), buttons.c_str(),
-            s.lx, s.ly, s.rx, s.ry, s.touch ? 1 : 0, s.tx, s.ty, note.c_str());
-        return;
-    }
-    if (!have && pad_idle(s)) return;
-    if (have && pad_same(prev, s)) return;
-    const std::string buttons = buttons_text(s.buttons);
-    const std::string note = pad_note(have ? prev : PadState{}, s);
-    prev = s;
-    have = true;
-    LOG("[input] frame %llu %s %.9g %.9g %.9g %.9g %d %.9g %.9g%s", (unsigned long long)render::frame_count(),
-        buttons.c_str(), s.lx, s.ly, s.rx, s.ry, s.touch ? 1 : 0, s.tx, s.ty, note.c_str());
-}
-#endif
 
 static bool parse_start_line(const char* p, ReplayStart& start) {
     if (strncmp(p, "start", 5) != 0) return false;
@@ -1467,23 +1378,9 @@ static void apply_scenario(PadState& s) {
         if (t >= p.from && t < p.to) s.buttons |= p.bits;
 }
 
-static std::atomic<bool> g_pro{false};
-static std::atomic<bool> g_pro_defaulted{false};
-
-static void ensure_pro_default() {
-    if (g_pro_defaulted.exchange(true, std::memory_order_relaxed)) return;
-    g_pro.store(env::PRO_CONTROLLER.on(), std::memory_order_relaxed);
-}
-
-bool pro_controller() {
-    ensure_pro_default();
-    return g_pro.load(std::memory_order_relaxed);
-}
-void set_pro_controller(bool on) {
-    g_pro_defaulted.store(true, std::memory_order_relaxed);
-    g_pro = on;
-    LOG("[input] keyboard/controller act as %s", on ? "Pro Controller" : "GamePad");
-}
+static std::atomic<bool> g_pro{env::PRO_CONTROLLER.on()};
+bool pro_controller() { return g_pro.load(std::memory_order_relaxed); }
+void set_pro_controller(bool on) { g_pro = on; LOG("[input] keyboard/controller act as %s", on ? "Pro Controller" : "GamePad"); }
 
 PadState read(int player) {
     player = std::clamp(player, 0, input::kMaxPlayers - 1);
@@ -1527,17 +1424,12 @@ PadState read(int player) {
         static const bool log_buttons = env::LOG_BUTTONS() != nullptr;
         static uint32_t last_buttons = 0;
         if (log_buttons && s.buttons != last_buttons) {
-            const std::string note = pad_note(PadState{last_buttons, 0, 0, 0, 0, false, 0, 0}, PadState{s.buttons, 0, 0, 0, 0, false, 0, 0});
-            LOG("[input] frame %llu buttons %s%s", (unsigned long long)render::frame_count(), buttons_text(s.buttons).c_str(),
-                note.c_str());
+            LOG("[input] frame %llu buttons %04X", (unsigned long long)render::frame_count(), s.buttons);
             last_buttons = s.buttons;
         }
     }
     if (overlay::blocks_input()) s = PadState{};
     if (player == 0) record_pad(s);
-#ifndef NDEBUG
-    if (player == 0) log_dev_pad(s);
-#endif
     return s;
 }
 

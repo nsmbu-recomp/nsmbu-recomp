@@ -1,7 +1,7 @@
 """Disc and common keys for dumps under game/.
 
-Keys live in game/keys.txt (Cemu format) or common.key next to the image.
-Disc images sit next to keys.txt under game/, named by region.
+Keys live in game/keys.txt (Cemu format). Optional WIIU_COMMON_KEY still supplies the
+common key. Disc images sit next to keys.txt under game/, named by region.
 """
 import os
 import re
@@ -161,6 +161,12 @@ def find_common_key(image=None, game=None):
         game = parent if os.path.isfile(os.path.join(parent, "keys.txt")) else os.path.dirname(parent)
     else:
         game = None
+
+    env = os.environ.get("WIIU_COMMON_KEY")
+    if env:
+        key = setup.parse_key(env)
+        if key:
+            return key, "WIIU_COMMON_KEY"
 
     if game:
         found, path = _load_keys_txt(game)

@@ -1,38 +1,43 @@
 # Agent verification
 
-How agents check work in this repo: commands, CI mirrors, and gaps.
+How agents are expected to check work in this repo: policy, commands, CI mirrors, and gaps.
+
+For day-to-day finish rules, read the `verify` skill (`.agents/skills/verify/SKILL.md`) first.
+This document is the full inventory behind that skill.
 
 ## Policy stack
 
 Three layers apply on most changes.
 
-**`AGENTS.md`** — The Tests section names the suite for a behavior change.
+**`AGENTS.md`** — Before finishing, read the `verify` skill.
+Run every check a command, playtest, boot, or APK install can settle.
+When someone must play through a level, end the turn with explicit player steps.
 
 **Project skills** (`.agents/skills/`) — Routing table:
 
-- **`cli`** — Builds, dumps, playtests, benches, live look, replay.
-- **`file-select`**, **`world-map`**, **`course`** — How to open and operate that place (`.agents/skills/live/`).
-- **`release`** — Full `nsmbu test`, installer, tag workflow.
+- **`verify`** — Default host (Linux + `usa-1.3.0`), Android APK when relevant, player-step template.
+- **`nsmbu`** — Builds, dumps, playtests, benches, scripted boots, live look, replay.
+- **`scenes`** — Short boots to map, course, or title (`references/` recipes).
+- **`pre-release`** / **`release`** — Full `nsmbu test`, installer, tag workflow.
 - **`decompile`** — Decomp workflow only (no compile-time proof in NSMBU).
 - **`crash`** — Where run, crash, and setup logs are, and what each file contains.
 
-**Docs** — `docs/developer/automation.md`, `docs/developer/cli.md`, `docs/developer/flags.md`, boot recipes, issue ↔ test mapping in automation.
+**Docs** — `docs/developer/automation.md`, `docs/developer/cli.md`, `docs/developer/env.md`, boot recipes, issue ↔ test mapping in automation.
 
-### Checks
+### Decision rule (`verify` skill)
 
-Examples that can show a wrong result: unit test, `nsmbu test`, scene boot, screenshot, `nsmbu apk`.
+If a command can prove pass or fail in this turn, run it.
+Examples: unit test, `nsmbu test`, scene boot, screenshot, `nsmbu apk`.
 
-The `[input]` line layout is in [replay-format.md](replay-format.md).
-
-If someone must judge a level, end with Host, Place, Actions, and Pass, and call that part unverified.
+If someone must play a level, end with Host, Place, Actions, and Pass, and call that part unverified.
 
 ```mermaid
 flowchart TD
-  canCmd{Can a command settle it?}
+  done[Finishing a change]
+  done --> readVerify[Read verify skill]
+  readVerify --> canCmd{Can a command settle it?}
   canCmd -->|yes| runAll[Run all such checks]
-  canCmd -->|no| input{Can one play be logged?}
-  input -->|yes| relog[Ask, then rerun the input log]
-  input -->|no| player[Player steps template]
+  canCmd -->|no| player[Player steps template]
   runAll --> buildOnly[Build / ctest / Python tools]
   runAll --> gameNeed[Dump + nsmbu test / boot / screenshot]
   runAll --> android[nsmbu apk on device]
@@ -57,18 +62,17 @@ ctest --test-dir build/linux --output-on-failure
 The root `CMakeLists.txt` registers many tests: mods, input (`input_mapping`, issue #9), interpolation (`interp_picture`, `interp_joints`, `interp_pacing`), portable state, extract crypto, SDL host tests, Vulkan-only tests when enabled, and more.
 
 **Shortcut:** `nsmbu build` for a warm debug link after runtime-only edits.
-See the `cli` skill for when `--recomp` is required.
+See the `nsmbu` skill for when `--recomp` is required.
 
 ### Python tool tests (Linux CI, after `ctest`)
 
-```bash
-python3 -m unittest discover -s tests/py -p "test_*.py"
-```
-
-That directory holds the installer, recompiler, shader, benchmark, release, and Android Python tests.
-Issue #11 Windows paste coverage is `tests/py/installer/test_setup.py`.
-`npm test --prefix tools/cli` runs the Node unit tests in `tests/cli/`.
-Game playtests stay `tools/cli/test/playtests.test.ts` via `nsmbu test`.
+- `installer/test_setup.py` (includes issue #11 Windows paste test)
+- `recomp/test_builds.py`, `test_output.py`, `test_pool.py`
+- `tools/android/test_apk_cli.py`
+- `tools/lib/test_dev_game_icon.py`
+- `tools/test_shaderprep.py`
+- `python3 -m unittest discover -s tools/bench -p "test_*.py"`
+- `npm test --prefix tools/cli` (Node `node:test` unit tests under `tools/cli/test/`; game playtests are `tools/cli/test/playtests.test.ts` via `nsmbu test`)
 
 ### Vulkan renderer smoke (no gameplay)
 
@@ -81,10 +85,14 @@ Several variants run in `linux.yml`: default barriers, sync negative control, co
 
 Logs must contain `[renderer smoke] PASS:` and must not show validation errors (exact greps are in the workflow).
 
-### CLI typecheck
+### Mod and CLI lint
 
-`docs/developer/cli.md` mentions `tsc --noEmit` for the CLI itself.
-That is not wired into CI as a single mandatory agent step.
+```bash
+nsmbu lint
+```
+
+Builds modding TypeScript→Lua and runs stylua on examples.
+`docs/developer/cli.md` mentions `tsc --noEmit` for the CLI itself; that is not wired into the `verify` skill or CI as a single mandatory agent step.
 
 ### Scripted run comparison
 
@@ -98,14 +106,12 @@ Useful for comparing two builds without adding a new `PlayCase`.
 
 ### Git push hook
 
-`.githooks/pre_push.py` runs before a push when `core.hooksPath` is `.githooks`.
-The script builds and tests this checkout.
-It runs `ctest`, `python3 -m unittest discover -s tests/py -p "test_*.py"`, and `npm test --prefix tools/cli`.
-It does not run `nsmbu test`.
+`.githooks/pre_push.py` (see `pre-release` skill) builds a clean tree or worktree and runs full `ctest`, `test_setup.py`, and `test_builds.py`.
+It does **not** run `nsmbu test`.
 
 ## Tier B — Needs `game/` and a debug build
 
-Default dump: **`usa-1.3.0`**.
+Default dump per `verify`: **`usa-1.3.0`**.
 Use `nsmbu game --list` and `nsmbu game usa-1.3.0`.
 Do not run bare `nsmbu game` (TUI).
 
@@ -116,7 +122,7 @@ nsmbu test --list
 nsmbu test [--show] [name…]
 ```
 
-Cases run in parallel (default 2 jobs; override with `nsmbu test --jobs N`).
+Cases run in parallel (default 2 jobs; override with `NSMBU_TEST_JOBS`).
 Add cases under `tools/cli/src/playtest/cases/` and register in `cases/index.ts`.
 Helpers live in `tools/cli/src/playtest/helpers.ts`.
 
@@ -136,32 +142,32 @@ Each case uses `.tmp/playtest/<name>/` for save, control socket, log, and userda
 
 Playtests are **not** in GitHub CI (no game dump in CI).
 Agents with a local dump are the main line for game regressions.
-`release` requires full `nsmbu test` before a version tag.
+`pre-release` requires full `nsmbu test`.
 
 Issue coverage outside playtests (see `docs/developer/automation.md`):
 
 - #9 multiplayer bindings — `ctest -R input_mapping`
-- #11 Windows common-key paste — `tests/py/installer/test_setup.py`
+- #11 Windows common-key paste — `installer/test_setup.py`
 - #7 choppy gameplay — no deterministic playtest; shader precompile and Vulkan smoke cover mitigations
 - 0.6.2 mismatched color-target freeze — Vulkan renderer smoke (`mismatched_color_targets`)
 
-### Short boots (`file-select`, `world-map`, `course`)
+### Short scene boots (`scenes` skill)
 
-Recipes in `.agents/skills/live/*/SKILL.md`.
+Recipes in `.agents/skills/scenes/references/*.md`.
 Boot, poll `nsmbu wait` / `nsmbu status`, save `nsmbu screenshot .tmp/repro/…`.
 Checks that must keep passing belong in a `PlayCase`, not a one-off boot.
 
 ### Live look (while writing a case)
 
 `nsmbu open`, `status`, `press`, `stick`, `wait`, `screenshot`, `close`.
-The default session is one game and one socket under `.tmp/agent/`.
-`nsmbu -s <id>` is a second game with its own socket, save, and settings under `.tmp/agent/<id>/`.
-`nsmbu test` refuses to start while any of those live agents is up.
+One game, one socket under `.tmp/agent/`.
+`nsmbu test` refuses to start while the live agent is up.
 
-### Headless frame dumps
+### Scripted boots
 
-Set `NSMBU_EXIT_AT_FRAME`, `NSMBU_DUMP_FRAMES`, and pad env vars on `nsmbu launch`, or use the boot recipes in [automation.md](automation.md).
-Frame PNGs land in the working directory as `frame_<n>.png`.
+`nsmbu scripted <name>` wraps `tools/run/scripted-run.sh` with `NSMBU_EXIT_AT_FRAME`, `NSMBU_DUMP_FRAMES`, `NSMBU_PRESS`, and related vars.
+Frame PNGs land in `.tmp/<name>/`.
+Flicker checks: `python3 tools/frames/flicker.py`.
 
 ### Course replay playtests
 
@@ -185,18 +191,19 @@ Not a pass/fail regression harness like `nsmbu test`.
 
 | Situation | Command |
 | --- | --- |
-| Runtime-only C++ change | `nsmbu build` |
+| Runtime-only C++ / Lua port | `nsmbu build` |
 | Hooks / recomp / version switch | `nsmbu game <id> --recomp` then `nsmbu build` |
-| Interp pose / camera | `interp_picture_test` (ctest) plus the flag flow in `docs/developer/flags.md`; playtest `pose-direction-120` |
+| Interp pose / camera | `interp_picture_test` (ctest) plus env flow in `docs/developer/env.md`; playtest `pose-direction-120` |
 
 ### Special runtime checks
 
 - `nsmbu crash` — host crash path / crash log (Debug build)
-- `nsmbu installer --no-open` — release-style Linux package (`release`)
+- `nsmbu wine` — Windows binary under Wine (heavy; CI has `windows.yml`)
+- `nsmbu installer --no-open` — release-style Linux package (`pre-release`)
 
 ## Tier C — Android
 
-Android checks:
+From `verify`:
 
 - `nsmbu apk` — build release-style setup APK (no game inside), install via adb
 - `python3 tools/android/apk.py --list-devices`, `--device SERIAL` when multiple devices
@@ -208,7 +215,7 @@ No on-device gameplay in CI.
 
 ## Tier D — Human only
 
-Player steps name Host, Place, Actions, and Pass.
+Use the `verify` player-step block: Host, Place, Actions, Pass.
 Label **unverified** until a person completes those steps.
 
 Examples from docs:
@@ -249,19 +256,21 @@ WWHD’s `vendor/ZeldaWWHDRecomp/tools/verify/` harness is upstream reference, n
 
 **Strong today**
 
+- Finish rule in `AGENTS.md` plus `verify` skill
 - `nsmbu test` as canonical game regression API with docs in `automation.md`
 - Rich Tier A mirror in `linux.yml` that agents can replay locally
 
 **Fragmented or easy to miss**
 
+- `verify` mentions unit tests generically but not `ctest`, Python discovers, `--renderer-smoke`, or `nsmbu lint`
 - Playtests never run in CI; agents without `game/usa-1.3.0` cannot fully verify game changes
-- Three short-check paths overlap: `file-select` / `world-map` / `course`, live look — skill says lasting checks → playtest, nothing enforces it
-- `pre_push` and `release` run different command subsets
-- Android install is not gameplay automation
-- CLI TypeScript has no first-class “run before finish” step.
+- Three short-check paths overlap: `scenes`, live look, `nsmbu scripted` — skill says lasting checks → playtest, nothing enforces it
+- `pre_push` ≠ `verify` ≠ `pre-release` — different command subsets
+- Android verify is install-shaped, not gameplay automation
+- CLI TypeScript has no first-class “run before finish” step in `verify` (modding uses `nsmbu lint`).
 
 ## Related docs
 
-- [automation.md](automation.md) — playtests, headless dumps, gametest compare
+- [automation.md](automation.md) — playtests, scripted boots, gametest compare
 - [cli.md](cli.md) — full `nsmbu` command list
-- [flags.md](flags.md) — game flags and interpolation checks
+- [env.md](env.md) — `NSMBU_*` variables and interpolation checks

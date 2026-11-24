@@ -116,12 +116,7 @@ class Program:
         return count
 
     def _find_bctr_branch_islands(self):
-        """bctr into a run of `b` opcodes (often at the next function entry).
-
-        The shader ALU dispatcher at 0x027EBB5C is one of these islands.
-        Lowering that bctr through ppc_dispatch faults at guest address 4, because the interior slots are not function entries.
-        Unknown-branch diagnostics must not load r12+4 when r12 is 0.
-        """
+        """bctr into a run of `b` opcodes (often at the next function entry)."""
         for i, w in enumerate(self.words):
             if w != 0x4E800420:
                 continue

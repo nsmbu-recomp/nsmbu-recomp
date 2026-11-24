@@ -159,8 +159,9 @@ def device_abi(serial):
     return text or None
 
 
-def ensure_vendors():
+def ensure_luajit():
     needed = [
+        ("vendor/luajit", "Makefile"),
         ("vendor/fmt", "include/fmt/base.h"),
         ("vendor/imgui", "imgui.h"),
         ("vendor/xxHash", "xxhash.h"),
@@ -223,7 +224,7 @@ def fresh_dir(path):
 
 def build_apk(*, abi, jobs):
     sdk, ndk = sdk_and_ndk()
-    ensure_vendors()
+    ensure_luajit()
     compiler = ensure_compiler(abi)
     toolchain = os.path.join(ROOT, "build", "compiler", "apk-package")
     fresh_dir(toolchain)
