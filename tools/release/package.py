@@ -114,7 +114,9 @@ def add_setup_gui(pkg, platform, exe, version):
         os.chmod(os.path.join(pkg, "nsmbu-launcher"), 0o755)
         with open(os.path.join(pkg, SETUP_APP + ".desktop"), "w") as f:
             f.write(LINUX_SETUP_DESKTOP)
-        os.chmod(os.path.join(pkg, SETUP_APP + ".desktop"), 0o755)
+        # A menu entry, not a program. An executable bit makes RecompLauncher start this file
+        # instead of nsmbu-launcher: on Linux it matches NSMBU.exe to the shortest runnable NSMBU* file.
+        os.chmod(os.path.join(pkg, SETUP_APP + ".desktop"), 0o644)
 VENDORED_LICENSES = {
     "Cemu (MPL-2.0)": "vendor/cemu/LICENSE.txt",
     "Dear ImGui (MIT)": "vendor/imgui/LICENSE.txt",

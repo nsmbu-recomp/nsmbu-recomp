@@ -49,9 +49,10 @@
   ],
   "prepare": {
     "program": [
-      "NSMBU.exe",
-      "NSMBU.app/Contents/MacOS/nsmbu-launcher",
       "nsmbu-launcher",
+      "NSMBU.exe",
+      "NSMBU.app",
+      "NSMBU.app/Contents/MacOS/nsmbu-launcher",
       "NSMBU.AppImage"
     ],
     "args": [
@@ -73,9 +74,10 @@
   },
   "start": {
     "program": [
-      "NSMBU.exe",
-      "NSMBU.app/Contents/MacOS/nsmbu-launcher",
       "nsmbu-launcher",
+      "NSMBU.exe",
+      "NSMBU.app",
+      "NSMBU.app/Contents/MacOS/nsmbu-launcher",
       "NSMBU.AppImage"
     ],
     "args": ["--data-dir", "{install}/data"]
@@ -84,7 +86,23 @@
     {
       "id": "main",
       "format": "ini",
-      "file": [{ "path": "{install}/data/nsmbu/settings.ini" }]
+      "file": [{ "path": "{install}/data/nsmbu/settings.ini" }],
+      "new": {
+        "tvFullScreen": "0",
+        "resScale": "1",
+        "aspect": "16:9",
+        "fps60": "0",
+        "fpsCustom": "0",
+        "fpsUnlocked": "0",
+        "vkPresentMode": "0",
+        "vkPresentChosen": "1",
+        "fxaa": "0",
+        "aniso": "0",
+        "drcMode": "off",
+        "language": "1",
+        "audioVolume": "1",
+        "audioMute": "0"
+      }
     }
   ],
   "settings": [
