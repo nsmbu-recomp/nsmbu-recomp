@@ -14,6 +14,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   The page includes the picture, frame rate, and sound settings.
 - A raw disc image (`.iso`) is accepted the same way as a `.wud`.
 
+### Changed
+
+- Setup saves each compiler version in the temporary folder.
+  The next setup of that version skips the download.
+
 ## [0.10.1] - 2026-11-24
 
 ### Added

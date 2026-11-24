@@ -45,6 +45,7 @@ import subprocess
 import sys
 import struct
 import tarfile
+import tempfile
 import threading
 import time
 import urllib.request
@@ -752,6 +753,46 @@ def ensure_xcode_clt(ui):
         time.sleep(5)
     say("  Command Line Tools installed.")
 
+def compiler_cache_dir(tc):
+    """Unpacked compiler shared by every install: <tmp>/nsmbu/compiler/<version>.
+
+    The version is the pinned archive directory (for example zig-x86_64-linux-0.16.0). A later setup
+    with the same pin copies this tree and skips the download. NSMBU_TOOLCHAIN_CACHE replaces <tmp>/nsmbu/compiler
+    (tests)."""
+    root = os.environ.get("NSMBU_TOOLCHAIN_CACHE") or os.path.join(tempfile.gettempdir(), "nsmbu", "compiler")
+    return os.path.join(root, tc["dir"])
+
+def toolchain_ready(tdir, sha):
+    marker = os.path.join(tdir, ".nsmbu-toolchain")
+    try:
+        with open(longpath(marker), encoding="utf-8") as f:
+            return f.read().strip() == sha
+    except OSError:
+        return False
+
+def copy_toolchain(src, dst):
+    """Copy an unpacked compiler. The destination appears only when the copy finishes."""
+    os.makedirs(longpath(os.path.dirname(dst)), exist_ok=True)
+    partial = dst + ".partial"
+    shutil.rmtree(longpath(partial), ignore_errors=True)
+    shutil.rmtree(longpath(dst), ignore_errors=True)
+    shutil.copytree(longpath(src), longpath(partial), symlinks=True)
+    os.replace(longpath(partial), longpath(dst))
+
+def save_compiler_cache(tc, tdir):
+    cache = compiler_cache_dir(tc)
+    if toolchain_ready(cache, tc["sha256"]):
+        return
+    try:
+        if free_space(os.path.dirname(cache)) < tc.get("size", 0) * 6:
+            LOG.write("compiler cache: not enough free space in %s" % plain_path(os.path.dirname(cache)))
+            return
+        copy_toolchain(tdir, cache)
+    except OSError as e:
+        LOG.write("compiler cache: %s" % e)
+        shutil.rmtree(longpath(cache), ignore_errors=True)
+        shutil.rmtree(longpath(cache + ".partial"), ignore_errors=True)
+
 def get_toolchain(name, data_dir, ui):
     tcs = load_toolchains()["toolchains"]
     if name not in tcs:
@@ -770,37 +811,42 @@ def get_toolchain(name, data_dir, ui):
     root = os.path.join(data_dir, "toolchain")
     os.makedirs(root, exist_ok=True)
     tdir = os.path.join(root, tc["dir"])
-    marker = os.path.join(tdir, ".nsmbu-toolchain")
     if os.environ.get("NSMBU_TOOLCHAIN_DIR"):
         tdir = os.environ["NSMBU_TOOLCHAIN_DIR"]
-    elif not (os.path.isfile(marker) and open(marker).read().strip() == tc["sha256"]):
+    elif not toolchain_ready(tdir, tc["sha256"]):
+        cache = compiler_cache_dir(tc)
         need = tc.get("size", 0) * 6
         if free_space(root) < need:
             raise SetupError("not enough free disk space for the compiler (%s needed)" % human(need))
-        say("  Getting the compiler (%s, %s download, once)." % (tc["dir"], human(tc.get("size", 0))))
-        arc = os.path.join(root, os.path.basename(tc["url"].split("?")[0]))
-        download(tc["url"], arc, tc["sha256"], tc.get("size"), "compiler")
-        tmp = os.path.join(root, "unpack.tmp")
-        shutil.rmtree(longpath(tmp), ignore_errors=True)
-        os.makedirs(longpath(tmp))
-        say("  Unpacking...")
-        if arc.endswith(".zip"):
-            with zipfile.ZipFile(arc) as z:
-                z.extractall(longpath(tmp))
-        elif shutil.which("tar"):
-            run_logged(["tar", "-xf", arc, "-C", tmp], what="unpacking the compiler")
+        if toolchain_ready(cache, tc["sha256"]):
+            say("  Using the saved compiler (%s)." % tc["dir"])
+            copy_toolchain(cache, tdir)
         else:
-            with tarfile.open(arc) as t:
-                t.extractall(longpath(tmp))
-        src = os.path.join(tmp, tc["dir"])
-        if not os.path.isdir(longpath(src)):
-            raise SetupError("unexpected compiler archive layout")
-        shutil.rmtree(longpath(tdir), ignore_errors=True)
-        os.replace(longpath(src), longpath(tdir))
-        shutil.rmtree(longpath(tmp), ignore_errors=True)
-        os.remove(arc)
-        with open(marker, "w") as f:
-            f.write(tc["sha256"] + "\n")
+            say("  Getting the compiler (%s, %s download, once)." % (tc["dir"], human(tc.get("size", 0))))
+            arc = os.path.join(root, os.path.basename(tc["url"].split("?")[0]))
+            download(tc["url"], arc, tc["sha256"], tc.get("size"), "compiler")
+            tmp = os.path.join(root, "unpack.tmp")
+            shutil.rmtree(longpath(tmp), ignore_errors=True)
+            os.makedirs(longpath(tmp))
+            say("  Unpacking...")
+            if arc.endswith(".zip"):
+                with zipfile.ZipFile(arc) as z:
+                    z.extractall(longpath(tmp))
+            elif shutil.which("tar"):
+                run_logged(["tar", "-xf", arc, "-C", tmp], what="unpacking the compiler")
+            else:
+                with tarfile.open(arc) as t:
+                    t.extractall(longpath(tmp))
+            src = os.path.join(tmp, tc["dir"])
+            if not os.path.isdir(longpath(src)):
+                raise SetupError("unexpected compiler archive layout")
+            shutil.rmtree(longpath(tdir), ignore_errors=True)
+            os.replace(longpath(src), longpath(tdir))
+            shutil.rmtree(longpath(tmp), ignore_errors=True)
+            os.remove(arc)
+            with open(longpath(os.path.join(tdir, ".nsmbu-toolchain")), "w") as f:
+                f.write(tc["sha256"] + "\n")
+            save_compiler_cache(tc, tdir)
     if kind == "llvm-mingw":
         b = os.path.join(tdir, "bin")
         triple = tc.get("triple", "x86_64-w64-mingw32")

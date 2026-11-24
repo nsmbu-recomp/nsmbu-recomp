@@ -925,6 +925,7 @@ class LongPaths(unittest.TestCase):
                                               "sha256": sha, "size": os.path.getsize(arc), "dir": "llvm-mingw-test",
                                               "triple": "aarch64-w64-mingw32"}}}
         env = {k: v for k, v in os.environ.items() if k != "NSMBU_TOOLCHAIN_DIR"}
+        env["NSMBU_TOOLCHAIN_CACHE"] = os.path.join(top, "cache")
         fetch = lambda url, dst, *a, **k: shutil.copyfile(arc, dst)
         with mock.patch.object(setup, "load_toolchains", return_value=pins), mock.patch.object(setup, "download", fetch), \
                 mock.patch.dict(os.environ, env, clear=True), mock.patch.object(setup, "say"):
@@ -943,6 +944,41 @@ class LongPaths(unittest.TestCase):
         with mock.patch.object(setup, "say"):
             setup.remove_toolchain(data)
         self.assertFalse(os.path.exists(root))
+
+    def test_saved_compiler_skips_the_download(self):
+        import shutil
+        import zipfile
+        top = tempfile.mkdtemp()
+        self.addCleanup(lambda: shutil.rmtree(setup.longpath(top), ignore_errors=True))
+        arc = os.path.join(top, "src.zip")
+        with zipfile.ZipFile(arc, "w") as z:
+            z.writestr("llvm-mingw-test/bin/clang.exe", b"cc")
+        sha = setup.file_sha256(arc)
+        pins = {"toolchains": {"test-mingw": {"kind": "llvm-mingw", "url": "https://example.invalid/llvm-mingw-test.zip",
+                                              "sha256": sha, "size": os.path.getsize(arc), "dir": "llvm-mingw-test"}}}
+        calls = []
+
+        def fetch(url, dst, *a, **k):
+            calls.append(dst)
+            shutil.copyfile(arc, dst)
+
+        data1 = os.path.join(top, "a")
+        data2 = os.path.join(top, "b")
+        os.makedirs(data1)
+        os.makedirs(data2)
+        env = {k: v for k, v in os.environ.items() if k != "NSMBU_TOOLCHAIN_DIR"}
+        env["NSMBU_TOOLCHAIN_CACHE"] = os.path.join(top, "cache")
+        with mock.patch.object(setup, "load_toolchains", return_value=pins), mock.patch.object(setup, "download", fetch), \
+                mock.patch.dict(os.environ, env, clear=True), mock.patch.object(setup, "say"):
+            setup.get_toolchain("test-mingw", data1, setup.UI(False))
+            setup.get_toolchain("test-mingw", data2, setup.UI(False))
+        self.assertEqual(len(calls), 1)
+        cached = os.path.join(top, "cache", "llvm-mingw-test", "bin", "clang.exe")
+        copied = os.path.join(data2, "toolchain", "llvm-mingw-test", "bin", "clang.exe")
+        with open(cached, "rb") as f:
+            self.assertEqual(f.read(), b"cc")
+        with open(copied, "rb") as f:
+            self.assertEqual(f.read(), b"cc")
 
     def test_pinned_toolchains_name_their_triple(self):
         tcs = setup.load_toolchains()["toolchains"]
