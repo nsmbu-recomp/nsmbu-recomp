@@ -4,9 +4,11 @@
 #include "mods/packages.h"
 #include "mods/sdk/nsmbu.h"
 #include "guest_addr.h"
+#include "gfx/display_modes.h"
 #include "input/input.h"
 
 #include <cstdio>
+#include <cstdlib>
 
 extern "C" void f_02994164_orig(Cpu* c);
 extern "C" void nsmbu_note_scene_src(uint32_t src, uint32_t factory);
@@ -15,6 +17,8 @@ extern "C" void f_024BD86C_orig(Cpu* c);
 extern "C" void f_0252F900_orig(Cpu* c);
 extern "C" void f_0252D9C0_orig(Cpu* c);
 extern "C" void f_025CF020_orig(Cpu* c);
+extern "C" void f_024E25F4_orig(Cpu* c);
+extern "C" void f_024E29B8_orig(Cpu* c);
 extern "C" void f_024EFE58_orig(Cpu* c);
 extern "C" void f_024F009C_orig(Cpu* c);
 
@@ -166,6 +170,10 @@ static void seed_player_map_fields(uint32_t player, uint32_t node, uint8_t world
 }
 
 static bool g_left_course = false;
+static bool g_map_return_open = false;
+static int g_map_return_left = 0;
+static void release_directed_map(uint32_t task);
+static void sync_directed_controller();
 static bool g_directed_pose = false;
 static bool g_have_pack = false;
 static uint8_t g_directed_world = 0;
@@ -624,8 +632,10 @@ extern "C" void nsmbu_directed_open(uint8_t world, uint8_t course) {
 }
 
 extern "C" void nsmbu_map_pose_tick(void) {
+    if (g_left_course && ld32(kAreaTask) == 0) sync_directed_controller();
     if (!g_directed_pose) return;
     if (ld32(kAreaTask) != 0) return;
+    if (g_map_return_open) release_directed_map(ld32(GD(0x101CC96C)));
     seed_map_return_pose(0, false);
     if (!g_left_course) return;
     static int logged = 0;
@@ -729,6 +739,24 @@ extern "C" void hook_0252D9C0(Cpu* c) {
     f_0252D9C0_orig(c);
 }
 
+// Optional light pointers in the null page are absent. The copies compare
+// with zero and then skip the loads.
+extern "C" void hook_024E25F4(Cpu* c) {
+    if (!std::getenv("CANNON_RAW")) {
+        for (int i = 4; i <= 10; i++) {
+            if (c->r[i] < 0x10000u) c->r[i] = 0;
+        }
+    }
+    f_024E25F4_orig(c);
+}
+
+// Course exit can pass the null page to this teardown. The original returns
+// only when the object is exactly zero.
+extern "C" void hook_024E29B8(Cpu* c) {
+    if (!std::getenv("CANNON_RAW") && c->r[3] < 0x10000u) return;
+    f_024E29B8_orig(c);
+}
+
 static bool mii_model_drawable() {
     uint32_t central = ld32(kMiiCentral);
     if (!central) return false;
@@ -745,8 +773,38 @@ extern "C" void hook_024F009C(Cpu* c) {
     f_024F009C_orig(c);
 }
 
+// apply_save writes the host GamePad flag into MainGame+0x14.
+// A manual map leaves that flag clear. With the GamePad screen off, the set
+// flag is the TV ghost. Keep the flag clear and leave the host pad alone.
+static void sync_directed_controller() {
+    uint32_t game = ld32(kMainGame);
+    if (!in_mem2(game)) return;
+    if (gfx::g_mode.load(std::memory_order_relaxed) != gfx::kDrcOff) return;
+    st8(game + 0x14u, 0);
+}
+
+static void release_directed_map(uint32_t task) {
+    if (!g_map_return_open || !in_mem2(task)) return;
+    st8(task + 0xDC8u, 0);
+    st8(task + 0xDC9u, 0);
+    st8(task + 0xDCAu, 0);
+    st8(task + 0xDCBu, 1);
+    st8(task + 0xDCDu, 0);
+    st8(task + 0xDCEu, 0);
+}
+
 extern "C" void nsmbu_mark_course_left(void) {
     g_left_course = true;
+    if (!g_have_pack) return;
+    g_map_return_open = true;
+    g_map_return_left = 300;
+    sync_directed_controller();
+}
+
+extern "C" void site_024B814C(Cpu*) {
+    if (!g_have_pack) return;
+    nsmbu_mark_course_left();
+    seed_map_return_pose(0, false);
 }
 
 extern "C" void site_024B8324(Cpu* c) {
@@ -792,4 +850,54 @@ extern "C" void site_0227CCF4(Cpu* c) {
 
 extern "C" void site_0227E2A8(Cpu* c) {
     retarget_focus_node(c, 11);
+}
+
+extern "C" void site_02267C48(Cpu* c) {
+    if (!g_map_return_open) return;
+    uint32_t task = c->r[31];
+    release_directed_map(task);
+    if (!in_mem2(task)) return;
+    c->r[4] = GD(0x101FD3A4);
+}
+
+extern "C" void site_02267C4C(Cpu* c) {
+    if (!g_map_return_open) return;
+    release_directed_map(c->r[31]);
+    if (g_map_return_left > 0 && --g_map_return_left == 0)
+        g_map_return_open = false;
+}
+
+extern "C" void site_0228E0CC(Cpu* c) {
+    release_directed_map(c->r[3]);
+}
+
+extern "C" void site_0228E228(Cpu* c) {
+    if (!g_map_return_open) return;
+    c->r[26] = 0;
+}
+
+extern "C" void site_0228E234(Cpu* c) {
+    if (!g_map_return_open) return;
+    uint32_t player = c->r[29];
+    if (!in_mem2(player)) return;
+    st8(player + 0x623u, 1);
+}
+
+extern "C" void site_024DE2D0(Cpu* c) {
+    if (!g_map_return_open) return;
+    c->r[6] = 0;
+}
+
+extern "C" void site_022674E8(Cpu* c) {
+    release_directed_map(c->r[30]);
+}
+
+extern "C" void site_02267C70(Cpu* c) {
+    if (!g_map_return_open) return;
+    uint32_t task = c->r[3];
+    release_directed_map(task);
+    if (!in_mem2(task)) return;
+    st8(task + 0xDCAu, 1);
+    st8(task + 0xDCBu, 1);
+    st8(task + 0xDCDu, 0);
 }

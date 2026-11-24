@@ -22,6 +22,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The README lists the game program's command-line options.
 - The README credits [NSMBU-Headers](https://github.com/aboood40091/NSMBU-Headers) for the headers and the decompilation.
 
+### Fixed
+
+- Mario can walk again after going through a door in a course.
+- The game no longer closes when you take the cannon from the World 1 castle to the airship (#82).
+- Play finds the game folder in the install (#85).
+  When that folder is missing, the message shows the full path and asks you to run setup again.
+
 ### Removed
 
 - The leftover Lua scripting runtime is gone.
