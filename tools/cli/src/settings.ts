@@ -251,7 +251,6 @@ const SPECS: Spec[] = [
     boolSpec("rumble", "0 or 1"),
     direct("language", LANGUAGE_NAMES.join(", "), parseLanguage),
     boolSpec("mapMenuSettings", "0 or 1"),
-    boolSpec("pauseMenuSettings", "0 or 1"),
     boolSpec("collisionViewer", "0 or 1"),
     boolSpec("hotReloadCourses", "0 or 1"),
     boolSpec("perfOverlay", "0 or 1"),

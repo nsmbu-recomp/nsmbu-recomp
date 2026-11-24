@@ -397,11 +397,6 @@ The fifteen CPU paths that default on are set in `default_vulkan_cpu_paths`.
 - `--sched-stats` logs a scheduler report.
   `--sched-stats=2` also logs timed statistics.
 
-## In-game Settings
-
-- `--ingame-settings` shows Settings in the course pause menu and on the world-map start menu.
-  The button stays off when this flag is unset.
-
 ## Tests
 
 `nsmbu scenario` and `nsmbu compare-runs` use these flags.

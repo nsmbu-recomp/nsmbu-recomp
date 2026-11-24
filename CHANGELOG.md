@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Removed
+
+- The course pause menu keeps Change Controller.
+  Settings does not replace that button.
+  The pause overlay from that button, `--ingame-settings`, and the debug switch for that button are gone.
+- The world-map start menu Settings button is the 0.9.0 debug button.
+  That button does not need `--ingame-settings`.
+  The 0.10 cursor, click sound, and hidden-button behavior is gone.
+
 ### Added
 
 - RecompLauncher marks a matching Europe disc image as verified, including the Europe pack with New Super Luigi U (#84).

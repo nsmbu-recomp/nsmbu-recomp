@@ -36,7 +36,6 @@
 #endif
 #include "hooks/interp.h"
 #include "hooks/map_menu_settings.h"
-#include "hooks/pause_menu_settings.h"
 #include "mods/mod_json.h"
 #include "mods/sdk/nsmbu.h"
 #include "overlay/hostui.h"
@@ -217,12 +216,6 @@ void fill_picture(mods::json::Value& v) {
         v.object["cursor_name"] = menu.buttons[i].name;
         break;
     }
-    pause_menu::PauseProbe pause;
-    pause_menu::probe(pause);
-    v.object["pause"] = pause.shown;
-    v.object["controller"] = pause.controller;
-    if (pause.index >= 0) v.object["pause_index"] = pause.index;
-    if (pause.row[0]) v.object["pause_row"] = pause.row;
 }
 
 std::string handle_ui(int id) {

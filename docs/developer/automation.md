@@ -33,11 +33,6 @@ Issue links that the cases cover:
 - `opened-course` — 0.6.1 course-open / leave-to-map regressions
 - `replay-1-1`, `replay-2-1` — recorded course input; the run passes when the player path matches, and `[prof]` in the case log is the course measurement
 - `replay-bug-1` — intro skip into 2-1, then quit; the map player must stand on `W201`
-- `pause-settings` is manual.
-  It loads save slot 1, opens Settings, closes the overlay, presses Continue, and opens the pause menu again.
-  Shots stay in `.tmp/playtest/pause-settings/`.
-  Run `nsmbu test pause-settings --show`.
-  A bare `nsmbu test` does not run it.
 
 Closed-issue coverage outside playtests:
 

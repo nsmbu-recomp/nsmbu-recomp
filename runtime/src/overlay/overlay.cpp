@@ -68,7 +68,6 @@ namespace gfxvk { bool buffer_cache_enabled(); }
 #include "hooks/collision_wireframe.h"
 #include "hooks/course_hot_reload.h"
 #include "hooks/map_menu_settings.h"
-#include "hooks/pause_menu_settings.h"
 #include "core/runtime.h"
 #include "save/savestate.h"
 #include "save/save_preview.h"
@@ -1741,12 +1740,7 @@ void tab_debug() {
         map_menu::set_enabled(v);
         hostui::post([v] { hostui::set("mapMenuSettings", v ? "1" : "0"); });
     }
-    help("Off until you turn it on. NSMBU_INGAME_SETTINGS=1 is also required, and that variable is off when it is unset. The button is added when the world map loads, so leave to the title and come back after a change. A or Enter on Settings opens this overlay. A restart restores the original menu.");
-    if (check("Settings button on the pause menu", pause_menu::enabled(), &v)) {
-        pause_menu::set_enabled(v);
-        hostui::post([v] { hostui::set("pauseMenuSettings", v ? "1" : "0"); });
-    }
-    help("On until you turn it off. Change Controller becomes Settings when a course loads, so leave the course and enter it again after a change. A or Enter on Settings opens this overlay. Continue and Quit stay as they are. The blue panel keeps its original height.");
+    help("Off until you turn it on. Open the world-map start menu again after a change. A or Enter on Settings opens this overlay. A restart restores the original menu.");
 
     heading("Course debug");
     const bool env_locked = env::COLLISION_VIEWER.present();
@@ -2466,7 +2460,6 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
         if (!env::HOT_RELOAD_COURSES.present() && hostui::get("hotReloadCourses", v))
             course_hot_reload::set_enabled(v == "1");
         if (hostui::get("mapMenuSettings", v)) map_menu::set_enabled(v == "1");
-        if (hostui::get("pauseMenuSettings", v)) pause_menu::set_enabled(v == "1");
 
         if (env::PRO_CONTROLLER.on())
             hostui::post([] { hostui::set_pro_controller(true); });
@@ -2550,7 +2543,7 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
     g_average.sample(t, gx2::flips_presented(), logic_steps, int(render::active()),
                      interp::mode(), interp::fps(), hostui::res_scale());
     read_controller();
-    if (map_menu::take_open() || pause_menu::take_open()) set_open(true);
+    if (map_menu::take_open()) set_open(true);
 
     const bool open = is_open(), perf = perf_overlay_active(), text = !open && text_entry::active();
     const bool coll = collision_wireframe::enabled();

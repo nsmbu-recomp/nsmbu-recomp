@@ -68,13 +68,11 @@ The five game buttons are Star Coins, Number of Players, and Change Controller o
 Quick Save and Main Menu sit on the bottom row.
 From Quick Save, Up selects Star Coins and Down selects the button guide.
 Down from Number of Players selects Main Menu.
-From Settings, Up selects Change Controller and Left selects Main Menu.
 Inside Change Controller, Down stays on Switch to GamePad.
 Settings is a sixth tile under Change Controller when Settings, Debug, Settings button on the start menu is on.
 The game builds that tile when the map loads.
 Leave to the title, then come back, before you look for it.
 A on Settings opens the port overlay.
-The six buttons stay hidden while that overlay is open.
 
 Walk to the first course node with:
 

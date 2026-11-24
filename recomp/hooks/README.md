@@ -17,6 +17,5 @@ The name is the function declared in `vendor/decomp/include`.
 - `heap.jsonc` — frame allocator wait
 - `interp.jsonc` — frame interpolation and course-layer camera edges
 - `map_menu.jsonc` — world-map settings button
-- `pause_menu.jsonc` — course pause settings button
 - `map_menu_cursor.jsonc` — world-map cursor placement on 1.3.0 discs (`USA`, `EU`, and the Luigi U combos)
 - `save.jsonc` — save log and quick-record sites
