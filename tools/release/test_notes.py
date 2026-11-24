@@ -54,7 +54,7 @@ class Notes(unittest.TestCase):
         self.assertIn("Rolling change.", text)
         self.assertNotIn("Released change.", text)
         self.assertIn("Development build of main @ 0123abc: not a release.", text)
-        self.assertIn("native PC port, v0.2.0-devel.0123abcd**", text)
+        self.assertLess(text.index("Development build"), text.index("## Changelog"))
 
     def test_named_test_build_takes_the_unreleased_block(self):
         text = self.notes("v0.2.0-test.issue-60.0123abcd", "--test", "issue-60", "0123abcd" + "0" * 32)
@@ -64,8 +64,11 @@ class Notes(unittest.TestCase):
         self.assertIn("does not replace the development build", text)
         self.assertNotIn("Development build of main", text)
 
-    def test_windows_arm64_is_named(self):
-        self.assertIn("`windows-arm64`", self.notes("v0.2.0"))
+    def test_release_starts_at_the_changelog(self):
+        text = self.notes("v0.2.0")
+        self.assertTrue(text.startswith("## Changelog\n"))
+        self.assertNotIn("native PC port", text)
+        self.assertIn("Released change.", text)
 
 
 if __name__ == "__main__":
