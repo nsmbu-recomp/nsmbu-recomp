@@ -118,6 +118,12 @@ int main() {
     scale_guest_ortho(divided, 8, 1280, 720, ax, 1);
     check(same(divided[0], 2.0f / (1280.0f * ax)));
     check(same(divided[5], -2.0f / 720.0f));
+    // #43 A resolution above 1x still leaves a drawable tile matrix.
+    float tiles[8] = {2.0f / 1280.0f, 0, 0, 0, 0, 2.0f / 720.0f, -1, 1};
+    scale_guest_ortho(tiles, 8, 1280, 720, 1.5f, 1.5f);
+    check(same(tiles[0], 2.0f / (1280.0f * 1.5f)));
+    check(same(tiles[5], 2.0f / (720.0f * 1.5f)));
+    check(tiles[0] != 0.0f && tiles[5] != 0.0f);
 
     check(center_framebuffer_draw(true, true, false));
     check(!center_framebuffer_draw(true, true, true));

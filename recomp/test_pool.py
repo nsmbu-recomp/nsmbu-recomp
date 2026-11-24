@@ -48,5 +48,24 @@ class Pool(unittest.TestCase):
             builtins.__import__ = real_import
 
 
+class Jobs(unittest.TestCase):
+    def test_issue_66_one_job_stays_one(self):
+        old = os.environ.pop("NSMBU_RECOMP_JOBS", None)
+        try:
+            self.assertEqual(recomp._job_count(1), 1)
+            os.environ["NSMBU_RECOMP_JOBS"] = "1"
+            self.assertEqual(recomp._job_count(None), 1)
+            with self.assertRaises(SystemExit):
+                recomp._job_count(-1)
+            os.environ["NSMBU_RECOMP_JOBS"] = "no"
+            with self.assertRaises(SystemExit):
+                recomp._job_count(None)
+        finally:
+            if old is None:
+                os.environ.pop("NSMBU_RECOMP_JOBS", None)
+            else:
+                os.environ["NSMBU_RECOMP_JOBS"] = old
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

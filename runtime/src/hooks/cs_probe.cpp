@@ -1,4 +1,5 @@
 #include "core/runtime.h"
+#include "hooks/cannon_guard.h"
 #include "hooks/interp.h"
 #include "hooks/mii_draw.h"
 #include "mods/packages.h"
@@ -744,7 +745,7 @@ extern "C" void hook_0252D9C0(Cpu* c) {
 extern "C" void hook_024E25F4(Cpu* c) {
     if (!std::getenv("CANNON_RAW")) {
         for (int i = 4; i <= 10; i++) {
-            if (c->r[i] < 0x10000u) c->r[i] = 0;
+            if (cannon_guest_absent(c->r[i])) c->r[i] = 0;
         }
     }
     f_024E25F4_orig(c);
@@ -753,7 +754,7 @@ extern "C" void hook_024E25F4(Cpu* c) {
 // Course exit can pass the null page to this teardown. The original returns
 // only when the object is exactly zero.
 extern "C" void hook_024E29B8(Cpu* c) {
-    if (!std::getenv("CANNON_RAW") && c->r[3] < 0x10000u) return;
+    if (!std::getenv("CANNON_RAW") && cannon_guest_absent(c->r[3])) return;
     f_024E29B8_orig(c);
 }
 

@@ -29,7 +29,7 @@ int main() {
         gpu("NVIDIA GTX 1660 Ti", "10de:2184", kGpuDiscrete),
     };
     auto dedicated = choose_gpu(both, "", "");
-    check(dedicated.index == 1 && dedicated.reason == "dedicated", "default prefers dedicated");
+    check(dedicated.index == 1 && dedicated.reason == "dedicated", "issue 34 prefers the dedicated GPU");
     auto integrated = choose_gpu(both, "integrated", "");
     check(integrated.index == 0 && integrated.reason == "integrated", "saved integrated");
     auto named = choose_gpu(both, "10de:2184", "");

@@ -27,19 +27,58 @@ Shader cache and settings stay in the shared `nsmbu/` userdata.
 Issue links that the cases cover:
 
 - `startup` — [#6](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/6)
-- `opening-cinematic`, `save-roundtrip`, `course-enter`, `save-state` — [#14](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/14) (Quick Save / story map / high fps)
+- `opening-cinematic`, `save-roundtrip`, `course-enter`, `save-state` — [#12](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/12) and [#14](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/14) (Quick Save / story map / high fps)
 - `course-enter-120` — [#15](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/15) at 120 fps
-- `map-shadow-120` — [#20](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/20) at 120 fps (world map stays open)
+- `map-shadow-120` — [#20](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/20) and [#44](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/44) at 120 fps (world map stays open)
+- `logic-rate-120` — [#64](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/64)
 - `opened-course` — 0.6.1 course-open / leave-to-map regressions
 - `replay-1-1`, `replay-2-1` — recorded course input; the run passes when the player path matches, and `[prof]` in the case log is the course measurement
 - `replay-bug-1` — intro skip into 2-1, then quit; the map player must stand on `W201`
 
 Closed-issue coverage outside playtests:
 
+- [#6](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/6) update-only folder — `ctest -R game_folder` and `installer/test_setup.py` `PlayableGameFolder`.
+  The `startup` playtest checks that a prepared save stays up.
 - [#9](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/9) multiplayer bindings — `ctest -R input_mapping` (`test_issue_9_multiplayer_bindings`).
 - [#11](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/11) Windows common-key paste — `installer/test_setup.py` (`test_issue_11_windows_common_key_paste`).
-- [#7](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/7) choppy gameplay has no deterministic playtest; shader precompile and the Vulkan smoke suite cover the shipped mitigations.
+- [#31](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/31) copy saves from another folder — `installer/test_setup.py` `Issue31`.
+- [#35](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/35) render scale below native — `ctest -R res_presets`.
+- [#45](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/45) Boost Rush Mii draw — `ctest -R mii_draw`.
+- [#46](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/46) Android setup without `_multiprocessing` — `python3 recomp/test_pool.py`.
+- [#53](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/53), [#54](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/54), and [#67](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/67) base-disc setup — `python3 recomp/test_builds.py` `test_base_disc_stock_hud_hook`.
+- [#55](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/55) settings Controls tab on a short window — `ctest -R mobile_ui` (`controls_fit_scale`).
+- [#60](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/60) and [#42](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/42) old Intel title-screen path — `ctest -R rendering_path` (needs a Vulkan build).
+- [#63](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/63) Vulkan 1.1 without dynamic rendering — the same `rendering_path` test.
+- [#64](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/64) logic rate near 60 — playtest `logic-rate-120`.
+- [#82](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/82) World 1 castle cannon null page — `ctest -R cannon_guard`.
+  The issue is still open on GitHub.
+  The changelog records the fix.
+- [#84](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/84) verified copies — `installer/test_setup.py` `Issue84`.
+- [#85](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/85) missing game folder shows the full path — `ctest -R game_folder`.
+  The issue is still open on GitHub.
+  The changelog records the message fix.
+- [#7](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/7) shader warm before play — `installer/test_setup.py` `Issue7`.
+  The warm run is hidden, muted, and drops a stale shader cache.
+- [#12](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/12) quick save reads back — `ctest -R portable_state` and playtest `save-roundtrip`.
+- [#17](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/17) resolution, filtering, and FXAA in settings — `installer/test_setup.py` `Issue17` and `ctest -R res_presets`.
+- [#27](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/27) and [#33](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/33) Android application id — `python3 tools/android/test_apk_cli.py`.
+- [#34](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/34) dedicated GPU over Intel — `ctest -R gpu_choice`.
+- [#43](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/43) 1.5x tile matrix stays non-zero — `ctest -R aspect_view`.
+- [#44](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/44) map hold skips the extra shadow draw — `ctest -R interp_pacing` (`test_issue_44_map_shadow_draw`).
+- [#57](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/57) async shader compile stays off — `ctest -R '^env$'`.
+  The check locks that default.
+- [#59](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/59) present mode stays unset — the same `env` test.
+  `kPresentFifo` stays the vsync default.
+- [#66](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/66) one recompile job stays one — `python3 recomp/test_pool.py` `test_issue_66_one_job_stays_one`.
+- [#72](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/72) controller gyro uses the pad sensors — `ctest -R '^motion$'`.
+- [#24](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/24), [#30](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/30), and [#38](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/38) ultrawide layout — `ctest -R tv_stretch` and the `widescreen-title` / `widescreen-map-ui` playtests.
 - 0.6.2 mismatched color-target freeze — Vulkan renderer smoke (`mismatched_color_targets`).
+
+These closed reports have no separate regression:
+
+- [#39](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/39) has no repro.
+- [#52](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/52) is a Tears of the Kingdom report on the wrong repo.
+- [#86](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/86) has no camera-off code to lock.
 
 Map reads use the USA v1.3.0 addresses in `docs/developer/nsmbu/course-open.md` and `vendor/decomp/include/course_select/NOTES_map_spawn.md`.
 The run needs `game/` and a debug build.

@@ -345,6 +345,17 @@ static void test_hold_shed() {
     CHECK(logic_step_budget(4, 2) == 1);
 }
 
+static void test_issue_44_map_shadow_draw() {
+    CHECK(!skip_settled_map_draw(false, false, false));
+    CHECK(!skip_settled_map_draw(false, false, true));
+    CHECK(!skip_settled_map_draw(false, true, false));
+    CHECK(!skip_settled_map_draw(false, true, true));
+    CHECK(!skip_settled_map_draw(true, false, false));
+    CHECK(!skip_settled_map_draw(true, false, true));
+    CHECK(skip_settled_map_draw(true, true, false));
+    CHECK(!skip_settled_map_draw(true, true, true));
+}
+
 static void test_present_sample_order() {
     CHECK(present_sample_t(true, 1.f) == 1.f);
     CHECK(present_sample_t(false, 0.5f) == 0.5f);
@@ -436,6 +447,7 @@ int main() {
     test_present_gap();
     test_swap_align();
     test_hold_shed();
+    test_issue_44_map_shadow_draw();
     test_present_sample_order();
     test_camera_hold_stays_ahead();
     test_present_spacing();

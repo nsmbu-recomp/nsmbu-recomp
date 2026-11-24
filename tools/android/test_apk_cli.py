@@ -11,6 +11,15 @@ sys.path.insert(0, os.path.join(ROOT, "tools", "android"))
 import apk
 
 
+class AndroidApp(unittest.TestCase):
+    def test_issue_27_application_id(self):
+        path = os.path.join(ROOT, "runtime/android/app/build.gradle")
+        with open(path, encoding="utf-8") as f:
+            gradle = f.read()
+        self.assertIn('namespace = "org.nsmbrecomp.nsmbu"', gradle)
+        self.assertIn('applicationId "org.nsmbrecomp.nsmbu"', gradle)
+
+
 class JavaPick(unittest.TestCase):
     def test_java_major_from_version_text(self):
         self.assertEqual(apk.java_major_from_version_text('openjdk version "25.0.1"'), 25)

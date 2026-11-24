@@ -1,4 +1,8 @@
 #include "core/env.h"
+#include "gfx/vulkan/settings.h"
+
+static_assert(gfxvk::kPresentFifo == 0);
+static_assert(gfxvk::kPresentImmediate != gfxvk::kPresentFifo);
 
 #include <cstdio>
 #include <cstdlib>
@@ -49,6 +53,11 @@ int main() {
     check(std::strcmp(env::path(env::RECORD_INPUT), "/home/test/rec.txt") == 0, "path from env");
 #endif
     env::unset(env::RECORD_INPUT);
+
+    env::unset(env::VK_ASYNC_SHADERS);
+    check(!env::VK_ASYNC_SHADERS.present(), "issue 57 async shader compile stays off");
+    env::unset(env::VK_PRESENT_MODE);
+    check(!env::VK_PRESENT_MODE.present(), "issue 59 present mode is not forced");
 
     if (failures) return 1;
     std::printf("env_test: all checks passed\n");

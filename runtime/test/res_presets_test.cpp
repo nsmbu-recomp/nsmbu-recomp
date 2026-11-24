@@ -1,4 +1,10 @@
+#include "gfx/renderer.h"
 #include "gfx/res_presets.h"
+#include "gfx/vulkan/settings.h"
+
+static_assert(static_cast<int>(render::kFeatureAniso) == static_cast<int>(gfxvk::GraphicsFeature::Anisotropy));
+static_assert(static_cast<int>(render::kFeatureFXAA) == static_cast<int>(gfxvk::GraphicsFeature::FXAA));
+static_assert(static_cast<int>(render::kFeatureScaleFilter) == static_cast<int>(gfxvk::GraphicsFeature::ScaleFilter));
 
 #include <cmath>
 #include <cstdio>

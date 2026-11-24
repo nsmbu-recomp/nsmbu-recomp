@@ -1083,6 +1083,82 @@ class LauncherProgress(unittest.TestCase):
                 gen_dir=None, archive=None, image=None, game_dir=None)))
 
 
+class Issue31(unittest.TestCase):
+    def test_issue_31_offers_copy_when_no_earlier_install(self):
+        with tempfile.TemporaryDirectory() as d:
+            ui = mock.Mock()
+            ui.interactive = True
+            seen = {}
+
+            def choose(prompt, options):
+                seen["options"] = options
+                return 0
+
+            ui.choose = choose
+            with mock.patch.object(setup, "PORTABLE", False), \
+                    mock.patch.object(setup, "import_sources", return_value=(None, [])):
+                setup.maybe_import_save(ui, d)
+            self.assertIn("copy saves and settings from another NSMBU folder", seen["options"])
+
+    def test_issue_31_copies_save_from_another_folder(self):
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(d, "old", "nsmbu", "save", "user")
+            os.makedirs(src)
+            with open(os.path.join(src, "rp_personal_savedata.dat"), "wb") as f:
+                f.write(b"SAVE")
+            data = os.path.join(d, "data")
+            os.makedirs(data)
+            msg = setup.import_existing(data, os.path.join(d, "old"))
+            dest = os.path.join(data, "nsmbu", "save", "user", "rp_personal_savedata.dat")
+            with open(dest, "rb") as f:
+                self.assertEqual(f.read(), b"SAVE")
+            self.assertIn("Copied", msg)
+
+
+class Issue7(unittest.TestCase):
+    def test_shader_warm_starts_a_hidden_compile(self):
+        seen = {}
+
+        def popen(cmd, **kw):
+            seen["cmd"] = cmd
+            seen["env"] = kw["env"]
+            raise OSError("stop")
+
+        with mock.patch.dict(os.environ, {"NSMBU_SHADER_CACHE": "stale"}, clear=False):
+            with mock.patch.object(setup.subprocess, "Popen", side_effect=popen):
+                with self.assertRaises(OSError):
+                    setup.run_shader_warm("nsmbu", "game", "save", "stop", lambda *a: None)
+        self.assertEqual(seen["cmd"][:3], ["nsmbu", "--game", "game"])
+        self.assertEqual(seen["env"]["NSMBU_SHADER_WARM"], "stop")
+        self.assertEqual(seen["env"]["NSMBU_HIDDEN_WINDOWS"], "1")
+        self.assertEqual(seen["env"]["NSMBU_NO_AUDIO"], "1")
+        self.assertNotIn("NSMBU_SHADER_CACHE", seen["env"])
+
+
+class Issue17(unittest.TestCase):
+    def test_graphics_menu_lists_resolution_filtering_and_smoothing(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(root, "runtime/src/overlay/overlay.cpp")
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        for label in ("Internal resolution", "16x anisotropic filtering", "Edge smoothing (FXAA)"):
+            self.assertIn(label, text)
+
+
+class Issue84(unittest.TestCase):
+    def test_issue_84_verified_copies(self):
+        root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        with open(os.path.join(root, "recomplauncher.json"), encoding="utf-8") as f:
+            doc = json.load(f)
+        game = next(item for item in doc["inputs"] if item["id"] == "game")
+        self.assertGreaterEqual(len(game["dumps"]), 1)
+        for row in game["dumps"]:
+            self.assertTrue(row["name"])
+            self.assertIsInstance(row["size"], int)
+            self.assertGreater(row["size"], 0)
+            self.assertRegex(row["crc32"], r"^[0-9a-fA-F]{8}$")
+
+
 class NonInteractive(unittest.TestCase):
     def test_ui_refuses_to_prompt(self):
         ui = setup.UI(False)
