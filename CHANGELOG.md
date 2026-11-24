@@ -6,14 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-### Removed
-
-- The course pause menu keeps Change Controller.
-  Settings does not replace that button.
-  The pause overlay from that button, `--ingame-settings`, and the debug switch for that button are gone.
-- The world-map start menu Settings button is the 0.9.0 debug button.
-  That button does not need `--ingame-settings`.
-  The 0.10 cursor, click sound, and hidden-button behavior is gone.
+## [0.10.1] - 2026-11-24
 
 ### Added
 
@@ -24,6 +17,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   Setup applies it to a base disc or a base game folder.
   Skip it when the copy is already 1.3.0.
 
+### Removed
+
+- Change Controller is back on the course pause menu.
+  Settings no longer replaces that button, and that button no longer opens the overlay.
+- The world-map start menu Settings button is the debug switch from 0.9.0 again.
+  The special cursor, click sound, and hidden buttons from 0.10 are gone.
+
 ### Fixed
 
 - Mario can walk again after going through a door in a course.
@@ -32,11 +32,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   When that folder is missing, the message shows the full path and asks you to run setup again.
 - RecompLauncher can find a USA or Europe copy, or the extracted game folder, in the player's folders.
 - Choosing the New Super Luigi U folder as the game tells you to pick the game folder, then add that folder as the add-on.
-- RecompLauncher setup no longer stops with "unrecognized arguments: --console-setup".
-  The installer runs that setup without its window and continues with the rest of the options.
+- RecompLauncher setup continues when it starts without a window.
 - RecompLauncher keeps settings, logs, and the shader cache in the install folder.
 - RecompLauncher Play starts the built game.
-  On Linux that is `nsmbu`, which runs `data/bin/nsmbu`.
   It no longer opens the installer.
 
 ## [0.10.0] - 2026-11-21
@@ -569,7 +567,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - The TV and GamePad present together on one vsync.
 
-[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.4...v0.9.0
