@@ -111,9 +111,13 @@ to the release (like `tools/` and `sdk/`): the same place works for portable and
 installations and for `--data-dir`/`NSMBU_DATA_DIR`, and a newer release brings its own.
 
 `NSMBU.exe` starts `tools\python\python.exe installer\setup.py --gui-protocol` directly
-(`gui/console_setup_win.cpp`); `--console-setup ARGS` (the first argument; used by
-`tools\Setup in a console window.bat`) runs `setup.py ARGS` in the console it was started from. If
-`tools\python` is missing, both say that the release is incomplete and should be unzipped again. The program
+(`gui/console_setup_win.cpp`).
+`--console-setup ARGS` runs `setup.py ARGS` with no setup window.
+`tools\Setup in a console window.bat` uses it, and so does RecompLauncher on every system.
+On Windows that uses the bundled Python.
+On macOS and Linux it uses `python3`.
+If `tools\python` is missing, both say that the release is incomplete and should be unzipped again.
+The program
 contains no download code and starts no script host; `setup.py` uses the Windows API through ctypes for its
 file dialogs and shortcuts. Until 0.2.6 a PowerShell script started with `-ExecutionPolicy Bypass` removed
 the "mark of the web" from every file in the release folder and downloaded Python; antivirus heuristics read

@@ -23,6 +23,9 @@ Non-interactive use (tests, scripts):
   setup.py --yes --game-dir EXTRACTED_GAME [...]
   setup.py --yes --gen-dir GENERATED_C --no-launch   (build check with placeholder code, no game)
 
+--image also accepts a .wua, a raw .iso of the same disc, or the extracted game folder.
+RecompLauncher's setup step passes every copy that way, with --launcher-progress.
+
 Keys can also come from the WIIU_COMMON_KEY environment variable / IMAGE.key next to the image.
 A key file holds 16 raw bytes, one line of 32 hex digits, or the common/disc line of a Cemu keys.txt
 (UTF-8 or UTF-16, with a byte order mark or without).
@@ -224,6 +227,19 @@ class Protocol:
 
 GUI = None
 
+LAUNCHER_PROGRESS = False  # --launcher-progress: RecompLauncher's prepare step reads stdout
+LAUNCHER_STEP = {"n": 0, "total": 0}
+LAUNCHER_FINISHED = False
+
+def set_launcher_progress(on):
+    global LAUNCHER_PROGRESS
+    LAUNCHER_PROGRESS = bool(on)
+
+def launcher_progress(frac, text):
+    """One 'progress 0.42 Text' line. The fraction runs from 0 to 1."""
+    print("progress %.2f %s" % (min(max(frac, 0.0), 1.0), plain_text(text)), flush=True)
+    LOG.write("  progress %.2f %s" % (frac, text))
+
 def say(text=""):
     text = plain_text(text)
     if GUI:
@@ -233,8 +249,13 @@ def say(text=""):
     LOG.write(text)
 
 def step(n, total, text, sid=""):
+    LAUNCHER_STEP["n"], LAUNCHER_STEP["total"] = n, total
     if GUI:
         GUI.emit({"event": "step", "n": n, "total": total, "title": text, "id": sid})
+        LOG.write("[%d/%d] %s" % (n, total, text))
+        return
+    if LAUNCHER_PROGRESS:
+        launcher_progress((n - 1) / total if total else 0.0, text)
         LOG.write("[%d/%d] %s" % (n, total, text))
         return
     say("")
@@ -257,6 +278,11 @@ class Progress:
         self.last = now
         if GUI:
             GUI.emit({"event": "progress", "label": self.label, "done": done, "total": total, "detail": detail})
+        elif LAUNCHER_PROGRESS:
+            st = LAUNCHER_STEP
+            sub = done / total if total else 1.0
+            frac = (st["n"] - 1 + sub) / st["total"] if st["total"] else sub
+            launcher_progress(frac, "%s: %s" % (self.label, detail) if detail else self.label)
         elif self.tty:
             bar = "#" * (pct // 4) + "." * (25 - pct // 4)
             line = "  %s [%s] %3d%% %s" % (self.label, bar, pct, detail)
@@ -268,7 +294,7 @@ class Progress:
 
     def done(self, detail=""):
         self.update(1, 1, detail, force=True)
-        if self.tty and not GUI:
+        if self.tty and not GUI and not LAUNCHER_PROGRESS:
             sys.stdout.write("\n")
             sys.stdout.flush()
         LOG.write("  %s done %s" % (self.label, detail))
@@ -2137,7 +2163,7 @@ def install(ctx, source, keys=None, info=None, ui=None, check_keys=None):
 def main():
     ap = argparse.ArgumentParser(description="NSMBU setup", formatter_class=argparse.RawDescriptionHelpFormatter,
                                  epilog=__doc__)
-    ap.add_argument("--image", help="disc image (.wux or .wud; a .wua is taken as --archive)")
+    ap.add_argument("--image", help="disc image (.wux, .wud, or a raw .iso), a .wua archive, or an extracted game folder")
     ap.add_argument("--archive", help="Cemu Wii U archive (.wua): no keys needed")
     ap.add_argument("--disc-key", help="disc key file (default: IMAGE.key)")
     ap.add_argument("--common-key", help="Wii U common key file (or WIIU_COMMON_KEY)")
@@ -2159,11 +2185,16 @@ def main():
     ap.add_argument("--keep-work", action="store_true", help="keep the generated code and objects")
     ap.add_argument("--gui-protocol", action="store_true",
                     help="machine interface for the graphical installer (JSON lines; see installer/README.md)")
+    ap.add_argument("--launcher-progress", action="store_true",
+                    help="machine progress for a launcher setup step: 'progress 0.42 Text' lines on stdout")
+    ap.add_argument("--console-setup", action="store_true",
+                    help="accepted and ignored; the launcher program consumes this before setup.py runs")
     args = ap.parse_args()
     try:
         sys.stdout.reconfigure(errors="replace")
     except AttributeError:
         pass
+    set_launcher_progress(args.launcher_progress)
     if args.gui_protocol:
         return gui_main(args)
     interactive = not (args.yes or os.environ.get("NSMBU_SETUP_NONINTERACTIVE")) and sys.stdin.isatty()
@@ -2179,12 +2210,28 @@ def main():
     except KeyboardInterrupt:
         say("\nSetup cancelled. Run it again to continue; nothing that was finished is lost.")
         rc = 130
+    if LAUNCHER_PROGRESS and rc == 0 and not LAUNCHER_FINISHED:
+        launcher_progress(1.0, "Done")
     if interactive and (IS_WIN or IS_MAC):
         try:
             input("\nPress Enter to close this window.")
         except (EOFError, KeyboardInterrupt):
             pass
     return rc
+
+def source_from_args(args):
+    """The copy named on the command line, or None.
+    --image is a disc image, a .wua, or an extracted folder, so one flag covers every copy."""
+    image = args.image
+    if args.gen_dir:
+        return ("gen", os.path.abspath(args.gen_dir))
+    if args.archive or (image and not os.path.isdir(image) and image.lower().endswith(".wua")):
+        return ("archive", os.path.abspath(args.archive or image))
+    if args.game_dir or (image and os.path.isdir(image)):
+        return ("folder", os.path.abspath(args.game_dir or image))
+    if image:
+        return ("image", os.path.abspath(image))
+    return None
 
 def run(args, ui):
     ctx = Ctx(args)
@@ -2194,16 +2241,8 @@ def run(args, ui):
     say("Install folder: %s" % data_dir)
     state = ctx.state()
     installed = ctx.installed()
-    source = None
-    if args.gen_dir:
-        source = ("gen", os.path.abspath(args.gen_dir))
-    elif args.archive or (args.image and args.image.lower().endswith(".wua")):
-        source = ("archive", os.path.abspath(args.archive or args.image))
-    elif args.image:
-        source = ("image", os.path.abspath(args.image))
-    elif args.game_dir:
-        source = ("folder", os.path.abspath(args.game_dir))
-    elif args.repair:
+    source = source_from_args(args)
+    if source is None and args.repair:
         if not valid_game_folder(game_dir):
             raise SetupError("no installed game files to repair from; run setup with your disc image")
         source = ("installed", game_dir)
@@ -2231,7 +2270,12 @@ def run(args, ui):
             if i == 1:
                 source = ("installed", game_dir)
     elif installed and not ui.interactive and state.get("version") == version:
-        say("Already installed (%s)." % version)
+        global LAUNCHER_FINISHED
+        if LAUNCHER_PROGRESS:
+            launcher_progress(1.0, "Already built")
+            LAUNCHER_FINISHED = True
+        else:
+            say("Already installed (%s)." % version)
         if not args.no_launch:
             launch(state, data_dir)
         return 0
@@ -2243,14 +2287,14 @@ def run(args, ui):
         else:
             say("")
             i = ui.choose("What do you have?", [
-                "a disc image (.wux or .wud) with its keys (1.3.0 update folder optional)",
+                "a disc image (.wux, .wud, or raw .iso) with its keys (1.3.0 update folder optional)",
                 "a Cemu Wii U archive (.wua; no keys needed; USA 64 or 0, Europe 80 or 0, or a combo pack)",
                 "an already extracted game folder (code, content, meta; 1.3.0 update optional)",
             ])
             if i in (0, 1):
-                p = ui.pick_path("Choose your NSMBU disc image (.wux or .wud)" if i == 0 else
+                p = ui.pick_path("Choose your NSMBU disc image (.wux, .wud, or .iso)" if i == 0 else
                                  "Choose your NSMBU Cemu archive (.wua)",
-                                 filetypes=[("Wii U disc image (*.wux;*.wud)", "*.wux;*.wud")] if i == 0 else
+                                 filetypes=[("Wii U disc image (*.wux;*.wud;*.iso)", "*.wux;*.wud;*.iso")] if i == 0 else
                                  [("Cemu Wii U archive (*.wua)", "*.wua")])
 
                 source = ("archive" if p.lower().endswith(".wua") else "image", p)
@@ -2456,7 +2500,7 @@ KEY_MESSAGES = {
     "disc_key_wrong": "The disc key does not match this disc image. It must be the key dumped together with this disc.",
     "common_key_bad": "That is not a Wii U common key: it must be 16 raw bytes or 32 hex digits.",
     "common_key_wrong": "The Wii U common key is not correct (it is the same 16 bytes on every Wii U).",
-    "image_bad": "This file is not a readable Wii U disc image (.wux or .wud).",
+    "image_bad": "This file is not a readable Wii U disc image (.wux, .wud, or raw .iso).",
     "archive_bad": "This file is not a readable Cemu Wii U archive (.wua).",
     "image_damaged": "The disc image is damaged.",
 }
@@ -2537,9 +2581,9 @@ def gui_main(args):
             return reply(req, kind="archive", path=p, title=title, title_id=tid, title_id_text=format_title_id(tid),
                          update_version=ver, folder=folder, bytes=int(info.get("bytes", 0)),
                          message=" ".join([msg] + notes))
-        if not p.lower().endswith((".wux", ".wud")):
-            return fail(req, "invalid", "Choose a .wux or .wud disc image, a .wua Cemu archive, or an extracted game "
-                        "folder.")
+        if not p.lower().endswith((".wux", ".wud", ".iso")):
+            return fail(req, "invalid", "Choose a .wux, .wud, or raw .iso disc image, a .wua Cemu archive, or an "
+                        "extracted game folder.")
         disc_key = find_sidecar_disc_key(p)
         src, common = find_common_key(p)
         upd = find_sidecar_update(p)

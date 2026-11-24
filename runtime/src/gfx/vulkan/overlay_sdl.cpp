@@ -93,7 +93,16 @@ void load_locked() {
     while (std::getline(in, line)) {
         if (line.empty() || line[0] == '#') continue;
         size_t eq = line.find('=');
-        if (eq != std::string::npos) g_values[line.substr(0, eq)] = line.substr(eq + 1);
+        if (eq == std::string::npos) continue;
+        auto trim = [](std::string s) {
+            size_t a = 0;
+            while (a < s.size() && (s[a] == ' ' || s[a] == '\t' || s[a] == '\r')) a++;
+            size_t b = s.size();
+            while (b > a && (s[b - 1] == ' ' || s[b - 1] == '\t' || s[b - 1] == '\r')) b--;
+            return s.substr(a, b - a);
+        };
+        std::string key = trim(line.substr(0, eq));
+        if (!key.empty()) g_values[key] = trim(line.substr(eq + 1));
     }
 }
 void save_locked() {

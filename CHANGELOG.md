@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- RecompLauncher can set the game up and start it.
+  Pick your own copy on the game's page.
+  Setup runs once without a window, then Play starts the game.
+  The page includes the picture, frame rate, and sound settings.
+- A raw disc image (`.iso`) is accepted the same way as a `.wud`.
+
 ## [0.10.1] - 2026-11-24
 
 ### Added

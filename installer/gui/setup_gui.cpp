@@ -312,7 +312,7 @@ static bool run_quick(const std::vector<std::string>& args) {
 
 static std::string g_exe, g_game_dir, g_data_dir;
 
-static bool launch_game() {
+static int launch_game() {
     std::string save = g_data_dir + "/nsmbu/save";
 #ifdef _WIN32
     auto wide = [](const std::string& u) {
@@ -326,15 +326,24 @@ static bool launch_game() {
     PROCESS_INFORMATION pi = {};
     std::wstring cwd = wide(g_data_dir);
     if (!CreateProcessW(wide(g_exe).c_str(), cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, cwd.c_str(), &si, &pi))
-        return false;
+        return -1;
+    const char* from_launcher = std::getenv("RECOMPLAUNCHER");
+    if (from_launcher && *from_launcher && std::strcmp(from_launcher, "0") != 0) {
+        WaitForSingleObject(pi.hProcess, INFINITE);
+        DWORD code = 1;
+        GetExitCodeProcess(pi.hProcess, &code);
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+        return (int)code;
+    }
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
-    return true;
+    return 0;
 #else
-    if (chdir(g_data_dir.c_str()) != 0) return false;
+    if (chdir(g_data_dir.c_str()) != 0) return -1;
     const char* argv[] = {g_exe.c_str(), "--game", g_game_dir.c_str(), "--save", save.c_str(), nullptr};
     execv(g_exe.c_str(), (char* const*)argv);
-    return false;
+    return -1;
 #endif
 }
 
@@ -1344,7 +1353,7 @@ static void screen_welcome() {
     ImGui::Spacing();
     ImGui::TextUnformatted("You need:");
     ImGui::Bullet();
-    ImGui::TextWrapped("your NSMBU (USA, Europe, or an NSMBU + NSLU pack): a disc image (.wud/.wux), a Cemu archive "
+    ImGui::TextWrapped("your NSMBU (USA, Europe, or an NSMBU + NSLU pack): a disc image (.wud, .wux, or raw .iso), a Cemu archive "
                        "at that title version (USA 64 or 0, Europe 80 or 0, or combo 0), or an extracted folder (code, content, "
                        "meta);");
     ImGui::Bullet();
@@ -1423,10 +1432,10 @@ static std::string base_name(const std::string& p);
 
 static void screen_source() {
     page_header("Choose your game",
-                "A Wii U disc image (.wux or .wud), optionally with the 1.3.0 update, a Cemu archive (.wua) at USA "
+                "A Wii U disc image (.wux, .wud, or raw .iso), optionally with the 1.3.0 update, a Cemu archive (.wua) at USA "
                 "title version 64 or 0, Europe 80 or 0, or combo version 0, or an already extracted game folder.");
-    static const SDL_DialogFileFilter filters[] = {{"Wii U disc image or Cemu archive (.wux, .wud, .wua)", "wux;wud;wua"},
-                                                   {"Wii U disc image (.wux, .wud)", "wux;wud"},
+    static const SDL_DialogFileFilter filters[] = {{"Wii U disc image or Cemu archive (.wux, .wud, .iso, .wua)", "wux;wud;iso;wua"},
+                                                   {"Wii U disc image (.wux, .wud, .iso)", "wux;wud;iso"},
                                                    {"Cemu Wii U archive (.wua)", "wua"},
                                                    {"All files", "*"}};
     float half = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
@@ -2453,12 +2462,47 @@ static void use_user_libdecor_plugin() {
 static void use_user_libdecor_plugin() {}
 #endif
 
-int main(int argc, char** argv) {
-#ifdef _WIN32
-    if (argc > 1 && !strcmp(argv[1], "--console-setup")) {
-        return console_setup(find_package().pkg, std::vector<std::string>(argv + 2, argv + argc));
+static bool has_flag(int argc, char** argv, const char* flag) {
+    for (int i = 1; i < argc; i++)
+        if (!strcmp(argv[i], flag)) return true;
+    return false;
+}
+
+static std::vector<std::string> without_flag(int argc, char** argv, const char* flag) {
+    std::vector<std::string> out;
+    for (int i = 1; i < argc; i++)
+        if (strcmp(argv[i], flag)) out.emplace_back(argv[i]);
+    return out;
+}
+
+#ifndef _WIN32
+static int console_setup_posix(const std::string& pkg, const std::vector<std::string>& args) {
+    if (pkg.empty()) {
+        fprintf(stderr, "Setup could not start: the release files were not found. Keep this program in the release folder, next to installer/.\n");
+        return 1;
     }
+    std::vector<std::string> cmd = {"python3", pkg + "installer/setup.py"};
+    cmd.insert(cmd.end(), args.begin(), args.end());
+    std::vector<char*> av;
+    av.reserve(cmd.size() + 1);
+    for (auto& s : cmd) av.push_back(s.data());
+    av.push_back(nullptr);
+    setenv("PYTHONDONTWRITEBYTECODE", "1", 1);
+    execvp(av[0], av.data());
+    fprintf(stderr, "Setup could not start python3 (%s).\n", strerror(errno));
+    return 1;
+}
 #endif
+
+int main(int argc, char** argv) {
+    if (has_flag(argc, argv, "--console-setup")) {
+        std::vector<std::string> rest = without_flag(argc, argv, "--console-setup");
+#ifdef _WIN32
+        return console_setup(find_package().pkg, rest);
+#else
+        return console_setup_posix(find_package().pkg, rest);
+#endif
+    }
     std::string automate;
     bool want_setup = false;
     for (int i = 1; i < argc; i++) {
@@ -2482,7 +2526,10 @@ int main(int argc, char** argv) {
 
     if (!want_setup && automate.empty() && !A.self_test && !shift_held()) {
         std::string pkg = find_package().pkg;
-        if (!pkg.empty() && game_ready(pkg, A.passthru) && launch_game()) return 0;
+        if (!pkg.empty() && game_ready(pkg, A.passthru)) {
+            int code = launch_game();
+            if (code >= 0) return code;
+        }
     }
 
     SDL_SetHint(SDL_HINT_APP_NAME, "NSMBU");
@@ -2667,7 +2714,7 @@ int main(int argc, char** argv) {
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(g_window);
     SDL_Quit();
-    if (A.exec_game && !launch_game()) {
+    if (A.exec_game && launch_game() < 0) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "NSMBU", ("Could not start " + g_exe).c_str(), nullptr);
         return 1;
     }

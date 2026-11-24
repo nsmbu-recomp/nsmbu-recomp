@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Unit tests for the installer's helpers (no game files, no network): python3 test_setup.py"""
+import argparse
 import hashlib
+import io
 import json
 import os
 import sys
@@ -1019,6 +1021,30 @@ class BracketsInInstallFolder(unittest.TestCase):
 
             with mock.patch.object(setup.subprocess, "Popen", return_value=FakeProc()):
                 self.assertEqual(setup.recompile(os.path.join(temporary, "game"), gen_dir), 2)
+
+
+class LauncherProgress(unittest.TestCase):
+    def test_progress_line(self):
+        with mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            setup.launcher_progress(0.4, "Extracting the game files")
+        self.assertEqual(out.getvalue(), "progress 0.40 Extracting the game files\n")
+
+    def test_image_routes_a_folder_an_archive_and_a_disc(self):
+        with tempfile.TemporaryDirectory() as d:
+            folder = os.path.join(d, "game")
+            os.makedirs(folder)
+            disc = os.path.join(d, "game.wux")
+            open(disc, "w").close()
+            archive = os.path.join(d, "game.wua")
+            open(archive, "w").close()
+            self.assertEqual(setup.source_from_args(argparse.Namespace(
+                gen_dir=None, archive=None, image=folder, game_dir=None))[0], "folder")
+            self.assertEqual(setup.source_from_args(argparse.Namespace(
+                gen_dir=None, archive=None, image=archive, game_dir=None))[0], "archive")
+            self.assertEqual(setup.source_from_args(argparse.Namespace(
+                gen_dir=None, archive=None, image=disc, game_dir=None))[0], "image")
+            self.assertIsNone(setup.source_from_args(argparse.Namespace(
+                gen_dir=None, archive=None, image=None, game_dir=None)))
 
 
 class NonInteractive(unittest.TestCase):

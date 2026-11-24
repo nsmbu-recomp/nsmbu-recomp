@@ -1,0 +1,261 @@
+{
+  "$schema": "https://recomplauncher.com/schema/recomplauncher.json",
+  "format": 1,
+  "name": "New Super Mario Bros. U",
+  "repo": "nsmbu-recomp/nsmbu-recomp",
+  "inputs": [
+    {
+      "id": "game",
+      "label": "Your copy of New Super Mario Bros. U for Wii U. A Cemu archive (.wua) needs no keys. A disc image (.wud, .wux, or a raw .iso) needs its disc key as a file named like the image with .key next to it, and the Wii U common key. Or the extracted game folder (code, content, and meta). This is the game, not the New Super Luigi U add-on.",
+      "formats": [
+        { "type": "file", "extensions": ["wua"] },
+        { "type": "folder" },
+        { "type": "file", "extensions": ["wud", "wux", "iso"], "requires": ["common"] }
+      ],
+      "check": {
+        "file": "code/red-pro2.rpx",
+        "ids": [
+          "0005000010101d00",
+          "0005000010101e00",
+          "000500001014b700",
+          "000500001014b800"
+        ]
+      },
+      "dumps": [
+        { "name": "Europe", "size": 25025314816, "crc32": "b2e2cb84" },
+        { "name": "Europe + New Super Luigi U", "size": 25025314816, "crc32": "d069637e" }
+      ]
+    },
+    {
+      "id": "common",
+      "label": "Wii U common key. Needed for a .wud, .wux, or raw .iso. Not needed for a .wua or an extracted folder.",
+      "role": "key",
+      "shared": "wiiu.common-key"
+    },
+    {
+      "id": "update",
+      "label": "The 1.3.0 update, when the copy is the base disc or the base folder. A folder with code, content, and meta. Skip this when the copy is already 1.3.0.",
+      "role": "update",
+      "optional": true,
+      "formats": [{ "type": "folder" }]
+    },
+    {
+      "id": "luigi",
+      "label": "New Super Luigi U, if you have it. The add-on folder (content/0010), not the game folder.",
+      "role": "dlc",
+      "optional": true,
+      "formats": [{ "type": "folder" }]
+    }
+  ],
+  "prepare": {
+    "program": [
+      "NSMBU.exe",
+      "NSMBU.app/Contents/MacOS/nsmbu-launcher",
+      "nsmbu-launcher",
+      "NSMBU.AppImage"
+    ],
+    "args": [
+      "--console-setup",
+      "--launcher-progress",
+      "--yes",
+      "--no-launch",
+      "--no-shortcuts",
+      "--data-dir",
+      "{install}/data",
+      "--image={input:game}",
+      "--common-key={input:common}",
+      "--update-dir={input:update}",
+      "--dlc-dir={input:luigi}"
+    ],
+    "label": "Extracts your copy and builds the game from it. The longest step takes a few minutes.",
+    "done": ["{install}/data/install.json"],
+    "keeps_copy": true
+  },
+  "start": {
+    "program": [
+      "NSMBU.exe",
+      "NSMBU.app/Contents/MacOS/nsmbu-launcher",
+      "nsmbu-launcher",
+      "NSMBU.AppImage"
+    ],
+    "args": ["--data-dir", "{install}/data"]
+  },
+  "config": [
+    {
+      "id": "main",
+      "format": "ini",
+      "file": [{ "path": "{install}/data/nsmbu/settings.ini" }]
+    }
+  ],
+  "settings": [
+    {
+      "id": "window",
+      "label": "Window",
+      "group": "Picture",
+      "help": "Fullscreen fills the screen. Windowed keeps a resizable window.",
+      "choices": [
+        { "label": "Fullscreen", "set": { "tvFullScreen": "1" } },
+        { "label": "Windowed", "set": { "tvFullScreen": "0" } }
+      ],
+      "defaults": { "tvFullScreen": "0" }
+    },
+    {
+      "id": "resolution",
+      "label": "Resolution",
+      "group": "Picture",
+      "help": "What the game draws at. 720p is the console's own. 1440p and 4K are sharper and need a faster graphics card.",
+      "choices": [
+        { "label": "720p", "set": { "resScale": "1" } },
+        { "label": "1440p", "set": { "resScale": "2" } },
+        { "label": "4K", "set": { "resScale": "3" } }
+      ],
+      "defaults": { "resScale": "1" }
+    },
+    {
+      "id": "aspect",
+      "label": "Aspect ratio",
+      "group": "Picture",
+      "help": "The shape of the picture. 16:9 is the console's own. Wider shapes are experimental and show more of the level.",
+      "choices": [
+        { "label": "16:9 (console)", "set": { "aspect": "16:9" } },
+        { "label": "Match window", "set": { "aspect": "window" } },
+        { "label": "16:10", "set": { "aspect": "16:10" } },
+        { "label": "21:9", "set": { "aspect": "21:9" } },
+        { "label": "32:9", "set": { "aspect": "32:9" } }
+      ],
+      "defaults": { "aspect": "16:9" }
+    },
+    {
+      "id": "frame_rate",
+      "label": "Frame rate",
+      "group": "Picture",
+      "help": "60 is the Wii U rate. 120 draws extra pictures between game steps. Uncapped draws as fast as the PC can. The game logic stays at 60.",
+      "choices": [
+        { "label": "60 fps (console)", "set": { "fps60": "0", "fpsCustom": "0", "fpsUnlocked": "0" } },
+        { "label": "120 fps", "set": { "fps60": "1", "fpsCustom": "1", "interpFps": "120", "fpsUnlocked": "0" } },
+        { "label": "Uncapped", "set": { "fps60": "0", "fpsCustom": "0", "fpsUnlocked": "1" } }
+      ],
+      "defaults": { "fps60": "0", "fpsCustom": "0", "fpsUnlocked": "0" }
+    },
+    {
+      "id": "vsync",
+      "label": "V-Sync",
+      "group": "Picture",
+      "help": "On waits for the screen refresh. Low latency shows each picture as soon as it is ready. Off can tear. Metal always waits for the refresh.",
+      "choices": [
+        { "label": "On", "set": { "vkPresentMode": "0", "vkPresentChosen": "1" } },
+        { "label": "Low latency", "set": { "vkPresentMode": "1", "vkPresentChosen": "1" } },
+        { "label": "Off", "set": { "vkPresentMode": "2", "vkPresentChosen": "1" } }
+      ],
+      "defaults": { "vkPresentMode": "0", "vkPresentChosen": "1" }
+    },
+    {
+      "id": "fxaa",
+      "label": "Anti-aliasing",
+      "group": "Picture",
+      "help": "FXAA smooths edges.",
+      "choices": [
+        { "label": "Off", "set": { "fxaa": "0" } },
+        { "label": "FXAA", "set": { "fxaa": "1" } }
+      ],
+      "defaults": { "fxaa": "0" }
+    },
+    {
+      "id": "aniso",
+      "label": "Texture filtering",
+      "group": "Picture",
+      "help": "Anisotropic filtering keeps textures sharp at shallow angles.",
+      "choices": [
+        { "label": "Off", "set": { "aniso": "0" } },
+        { "label": "On", "set": { "aniso": "1" } }
+      ],
+      "defaults": { "aniso": "0" }
+    },
+    {
+      "id": "drc",
+      "label": "GamePad screen",
+      "group": "Picture",
+      "help": "The Wii U GamePad picture, in its own window or in a corner of the TV picture.",
+      "choices": [
+        { "label": "Off", "set": { "drcMode": "off" } },
+        { "label": "Second window", "set": { "drcMode": "window" } },
+        { "label": "Picture in picture", "set": { "drcMode": "pip" } },
+        { "label": "Automatic", "set": { "drcMode": "auto" } }
+      ],
+      "defaults": { "drcMode": "off" }
+    },
+    {
+      "id": "language",
+      "label": "Language",
+      "group": "Game",
+      "help": "The language the game uses, as on the console.",
+      "choices": [
+        { "label": "Japanese", "set": { "language": "0" } },
+        { "label": "English", "set": { "language": "1" } },
+        { "label": "French", "set": { "language": "2" } },
+        { "label": "German", "set": { "language": "3" } },
+        { "label": "Italian", "set": { "language": "4" } },
+        { "label": "Spanish", "set": { "language": "5" } },
+        { "label": "Chinese", "set": { "language": "6" } },
+        { "label": "Korean", "set": { "language": "7" } },
+        { "label": "Dutch", "set": { "language": "8" } },
+        { "label": "Portuguese", "set": { "language": "9" } },
+        { "label": "Russian", "set": { "language": "10" } },
+        { "label": "Chinese (Taiwan)", "set": { "language": "11" } }
+      ],
+      "defaults": { "language": "1" }
+    },
+    {
+      "id": "volume",
+      "label": "Volume",
+      "group": "Sound",
+      "help": "The game's sound level, before the system volume.",
+      "slider": { "key": "audioVolume", "min": 0, "max": 1, "step": 0.05, "format": "%.2f" },
+      "defaults": { "audioVolume": "1" }
+    },
+    {
+      "id": "mute",
+      "label": "Mute",
+      "group": "Sound",
+      "help": "On keeps the mix running with no sound. The game remembers this.",
+      "choices": [
+        { "label": "Off", "set": { "audioMute": "0" } },
+        { "label": "On", "set": { "audioMute": "1" } }
+      ],
+      "defaults": { "audioMute": "0" }
+    }
+  ],
+  "saves": [
+    "{install}/data/nsmbu/save",
+    "{install}/data/nsmbu/settings.ini",
+    "{install}/data/nsmbu/controls.json"
+  ],
+  "folders": {
+    "saves": [{ "path": "{install}/data/nsmbu/save" }],
+    "logs": [{ "path": "{install}/data/nsmbu/logs" }, { "path": "{install}/data" }],
+    "game": [{ "path": "{install}/data" }],
+    "cache": [{ "path": "{install}/data/nsmbu" }]
+  },
+  "actions": [
+    { "id": "saves", "label": "Saves", "help": "Your save data.", "open": "saves" },
+    { "id": "logs", "label": "Logs", "help": "The log from the last run, and the setup log.", "open": "logs" },
+    {
+      "id": "cache",
+      "label": "Clear shader cache",
+      "help": "Shaders the game has built. Clearing only helps if the picture looks wrong after an update.",
+      "clear": "cache/shadercache"
+    }
+  ],
+  "exit_codes": {
+    "1": "The game closed because it could not start. Open Logs, or set the game up again from its page."
+  },
+  "looks": {
+    "allowed": false,
+    "reason": "This port draws with its own Vulkan or Metal renderer, so the launcher's picture looks do not apply."
+  },
+  "system": {
+    "windows": { "version": "10", "graphics": { "vulkan": "1.1" } },
+    "linux": { "glibc": "2.35", "graphics": { "vulkan": "1.1" } },
+    "macos": { "version": "14" }
+  }
+}

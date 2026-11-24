@@ -8,6 +8,8 @@ The release includes the runtime, build tools, and installer.
 > You need your own legally dumped copy of the game.
 > Nothing in this repo, in any release, or in the build process contains or downloads Nintendo IP.
 
+<a href="https://recomplauncher.com/game/nsmbu-recomp"><picture><source media="(prefers-color-scheme: dark)" srcset="https://recomplauncher.com/assets/press/launcher/badge-light.svg"><img alt="Get it on RecompLauncher" src="https://recomplauncher.com/assets/press/launcher/badge-dark.svg" height="48"></picture></a>
+
 ## Features
 
 - Windows, macOS, Linux, Android, and iOS.
@@ -85,7 +87,7 @@ The installer accepts the versions in the table above.
 Give it one of these:
 
 1. **Disc image.**
-   Use a `.wux` or `.wud` file and its keys.
+   Use a `.wux`, `.wud`, or raw `.iso` file and its keys.
    A matching 1.3.0 update is optional.
 2. **Cemu archive.**
    Use a `.wua` file.
