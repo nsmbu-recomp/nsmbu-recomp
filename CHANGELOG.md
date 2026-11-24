@@ -6,11 +6,116 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- RecompLauncher marks a matching Europe disc image as verified, including the Europe pack with New Super Luigi U (#84).
+- RecompLauncher asks for New Super Luigi U as an optional add-on.
+  The game folder stays the copy you pick first.
+- RecompLauncher asks for the 1.3.0 update as an optional folder.
+  Setup applies it to a base disc or a base game folder.
+  Skip it when the copy is already 1.3.0.
+
+### Fixed
+
+- Mario can walk again after going through a door in a course.
+- The game no longer closes when you take the cannon from the World 1 castle to the airship boss (#82).
+- Play from RecompLauncher finds the game folder in the install (#85).
+  When that folder is missing, the message shows the full path and asks you to run setup again.
+- RecompLauncher can find a USA or Europe copy, or the extracted game folder, in the player's folders.
+- Choosing the New Super Luigi U folder as the game tells you to pick the game folder, then add that folder as the add-on.
+- RecompLauncher setup no longer stops with "unrecognized arguments: --console-setup".
+  The installer runs that setup without its window and continues with the rest of the options.
+- RecompLauncher keeps settings, logs, and the shader cache in the install folder.
+- RecompLauncher Play starts the built game.
+  On Linux that is `nsmbu`, which runs `data/bin/nsmbu`.
+  It no longer opens the installer.
+
 ### Removed
 
 - Reverted the 0.10.0 changes.
   RecompLauncher support, the course pause Settings overlay, press M to mute, and the other player-facing 0.10.0 notes are undone.
   Lua mods load again.
+
+## [0.10.0] - 2026-11-21
+
+### Added
+
+- Press M to mute or unmute the game.
+  The game keeps that choice for the next start.
+- RecompLauncher support: a `recomplauncher.json` in every release.
+  The launcher checks the player's copy, runs the setup once without a window
+  (extracting the game files and building the game code from them), shows the
+  port's settings on the game's page, and starts the game directly.
+  The copy can be a Cemu archive (.wua), a disc image (.wud or .wux), or the
+  extracted game folder; the setup takes a folder through `--image` too.
+  An extracted folder stays where it is, and Play still opens that folder.
+  An update runs the setup again so the game is built for that release.
+  The setup prints `progress` lines for the launcher's setup screen
+  (`installer/setup.py --launcher-progress`, also used with `--console-setup`
+  on Windows and `installer/recomplauncher-prepare.sh` on macOS and Linux).
+- The README links to the game's page on RecompLauncher.
+- On the course pause menu, Change Controller is Settings.
+  A or Enter plays the pause click and the button press, then opens this overlay.
+  The pause buttons stay hidden until the overlay closes.
+  Closing the overlay returns to the pause menu.
+  Start the game with `--ingame-settings` and that press hides the pause menu.
+  Closing the overlay shows the pause menu again, including its buttons.
+  Continue from that menu returns to the course, and Settings opens this overlay again.
+  The blue panel keeps its original height.
+  Settings → Debug can turn that button off.
+
+### Changed
+
+- `nsmbu open` starts with the sound off.
+- The README lists more of the port's features.
+- The README lists the game program's command-line options.
+- The README credits [NSMBU-Headers](https://github.com/aboood40091/NSMBU-Headers) for the headers and the decompilation.
+- The New Super Luigi U story-map notice appears again when that add-on is installed.
+
+### Fixed
+
+- Mario takes the controller in a course opened with `nsmbu run 1-1`.
+- Dying or quitting a course opened with `nsmbu open 1-1` returns you to that course on the world map with Mario's normal model.
+- Settings opens again after that overlay closes, and again from the next pause menu.
+- After Settings, Continue returns to the course without the controller page or the broken cursor.
+  The yellow cursor stays the size of the selected button, and the stick moves that cursor.
+  The player stays still while the pause menu is open.
+  Closing that menu and opening it again shows one panel with Continue, Quit, and Settings.
+- Back closes the pause-menu settings overlay and leaves that pause menu up.
+  The yellow cursor does not stay on the course.
+  Up and Down move the selection again after that close.
+  That close leaves the normal pause menu.
+  Continue then returns to the course.
+- A or Enter on the pause menu Settings row opens this overlay.
+  It does not open the controller menu.
+  Closing the overlay does not open that menu either.
+- Pressing Settings again after that overlay closes plays the click and the button press again.
+- The pause menu Settings click and the button press start together.
+- Closing that overlay fades the pause menu back in.
+- The installer save screen imports an NSMBU save folder that contains `rp_personal_savedata.dat`.
+- Settings → Debug → **Settings button on the start menu** adds that button under Change Controller when the world map loads.
+  The button stays off unless the game is started with `--ingame-settings`.
+- With that same option, the course pause Settings button opens this overlay and hides the pause menu.
+  That press does not open the controller menu.
+  Closing the overlay shows the pause menu again, and the course stays paused.
+  Continue from that menu returns to the course.
+  Settings opens this overlay again.
+- The world-map start menu still moves after you select that Settings button.
+- The world-map Settings button shows its label without the Main Menu icon.
+- Pressing that Settings button plays the same click as the other buttons, then opens the overlay.
+  Button Settings stays closed.
+- The six start-menu buttons stay hidden until the settings overlay closes.
+- The yellow selection cursor hides with those buttons, and it can move again after the overlay closes.
+- Left from Settings moves the yellow cursor onto Main Menu after that overlay closes.
+- A start-menu button drops its selected look when the cursor moves to another button.
+- The cursor plays its move sound when it lands on Settings.
+
+### Removed
+
+- The per-system pages under the user docs.
+- The terminal installer page.
+- The keys, files, and blocked-app pages under the user docs.
+- The leftover Lua scripting runtime is gone.
 
 ## [0.9.1] - 2026-11-07
 
@@ -461,7 +566,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - The TV and GamePad present together on one vsync.
 
-[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.4...v0.9.0
 [0.8.4]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.3...v0.8.4
