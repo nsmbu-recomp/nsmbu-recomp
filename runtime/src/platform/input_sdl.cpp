@@ -9,6 +9,7 @@
 #include "input/rumble.h"
 #include "core/runtime.h"
 #include "save/savestate.h"
+#include "audio/audio_out.h"
 #include "gfx/screenshot.h"
 #include "../gfx/vulkan/settings.h"
 #include "agent/agent_ctl.h"
@@ -556,10 +557,11 @@ void handle_event(const SDL_Event& event){
  if((event.type==SDL_EVENT_KEY_DOWN||event.type==SDL_EVENT_KEY_UP) && g_prompt_window &&
     event.key.windowID==SDL_GetWindowID(g_prompt_window) &&
     !(event.key.mod&(SDL_KMOD_CTRL|SDL_KMOD_ALT|SDL_KMOD_GUI))){
+  if(event.key.scancode==SDL_SCANCODE_M){if(event.type==SDL_EVENT_KEY_DOWN&&!event.key.repeat)audio::toggle_muted();return;}
   char action=0;
   switch(event.key.scancode){
    case SDL_SCANCODE_O: action='O';break;
-   case SDL_SCANCODE_M: action='M';break; case SDL_SCANCODE_N: action='N';break;
+   case SDL_SCANCODE_N: action='N';break;
    case SDL_SCANCODE_8: action='8';break; case SDL_SCANCODE_6: action='6';break;
    case SDL_SCANCODE_7: action='7';break; default:break;
   }

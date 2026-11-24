@@ -125,7 +125,7 @@ static void test_names() {
 }
 
 static void test_reserved() {
-    for (int k : std::initializer_list<int>{kVK_ANSI_N, kVK_ANSI_6, kVK_ANSI_8, kVK_ANSI_9, kVK_ANSI_P,
+    for (int k : std::initializer_list<int>{kVK_ANSI_M, kVK_ANSI_N, kVK_ANSI_6, kVK_ANSI_8, kVK_ANSI_9, kVK_ANSI_P,
                   kVK_F12, kVK_Escape})
         CHECK(reserved_key(k) != nullptr);
     CHECK(reserved_key(kVK_ANSI_R) == nullptr);
