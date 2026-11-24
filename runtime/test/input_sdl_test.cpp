@@ -64,6 +64,7 @@ static void set_env(const env::Var& name, const char* value) {
 }
 int main(){
  SDL_SetHint(SDL_HINT_VIDEO_DRIVER,"dummy");
+ SDL_SetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT,"0x0001/0x0001");
  assert(SDL_Init(SDL_INIT_EVENTS|SDL_INIT_VIDEO));
  input::init();input_map::set_current(input_map::Mapping::defaults(),false);
  auto key=[](SDL_Scancode code,bool down){SDL_Event e{};e.type=down?SDL_EVENT_KEY_DOWN:SDL_EVENT_KEY_UP;e.key.scancode=code;input::handle_event(e);};
@@ -144,7 +145,7 @@ int main(){
 
  static std::atomic<Uint16> motorLow{0},motorHigh{0};static std::atomic<int> motorCalls{0};
  SDL_VirtualJoystickDesc desc;SDL_INIT_INTERFACE(&desc);
- desc.type=SDL_JOYSTICK_TYPE_GAMEPAD;desc.naxes=SDL_GAMEPAD_AXIS_COUNT;desc.nbuttons=SDL_GAMEPAD_BUTTON_COUNT;desc.name="rumble test pad";
+ desc.type=SDL_JOYSTICK_TYPE_GAMEPAD;desc.vendor_id=0x0001;desc.product_id=0x0001;desc.naxes=SDL_GAMEPAD_AXIS_COUNT;desc.nbuttons=SDL_GAMEPAD_BUTTON_COUNT;desc.name="rumble test pad";
  desc.Rumble=[](void*,Uint16 low,Uint16 high){motorLow=low;motorHigh=high;++motorCalls;return true;};
  const SDL_JoystickID padId=SDL_AttachVirtualJoystick(&desc);assert(padId);
  for(SDL_Event e;SDL_PollEvent(&e);)input::handle_event(e);
@@ -174,7 +175,7 @@ int main(){
  rumble::reset();
  {
   SDL_VirtualJoystickDesc second;SDL_INIT_INTERFACE(&second);
-  second.type=SDL_JOYSTICK_TYPE_GAMEPAD;second.naxes=SDL_GAMEPAD_AXIS_COUNT;second.nbuttons=SDL_GAMEPAD_BUTTON_COUNT;second.name="second test pad";
+  second.type=SDL_JOYSTICK_TYPE_GAMEPAD;second.vendor_id=0x0001;second.product_id=0x0001;second.naxes=SDL_GAMEPAD_AXIS_COUNT;second.nbuttons=SDL_GAMEPAD_BUTTON_COUNT;second.name="second test pad";
   const SDL_JoystickID pad2=SDL_AttachVirtualJoystick(&second);assert(pad2);
   for(SDL_Event e;SDL_PollEvent(&e);)input::handle_event(e);
   assert(input::controller_connected(0)&&input::controller_connected(1));
