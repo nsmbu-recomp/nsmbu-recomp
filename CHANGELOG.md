@@ -6,32 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-24
+
 ### Added
 
-- Press M to mute or unmute the game.
-  The game keeps that choice for the next start.
 - The settings menu has a Cheats tab next to Mods.
   Turn cheats off with Enable cheats to stop every cheat and gray out the tab.
   Infinite lives keeps Mario at 99 lives.
   Invincible stops hits from hurting him.
   Click a power-up in a course to give that power-up to Mario.
 
-### Changed
+### Removed
 
-- The README lists more of the port's features.
-- The README lists the game program's command-line options.
-- The README credits [NSMBU-Headers](https://github.com/aboood40091/NSMBU-Headers) for the headers and the decompilation.
+- RecompLauncher is not in this release.
+- The course pause menu no longer has a Settings button.
 
 ### Fixed
 
-- Mario can walk again after going through a door in a course.
 - The game no longer closes when you take the cannon from the World 1 castle to the airship (#82).
-- Play finds the game folder in the install (#85).
-  When that folder is missing, the message shows the full path and asks you to run setup again.
-
-### Removed
-
-- The leftover Lua scripting runtime is gone.
+- Mario can walk again after going through a door in a course.
+- When Play cannot find the game folder, the message shows the full path and asks you to run setup again (#85).
 
 ## [0.10.0] - 2026-11-21
 
@@ -563,7 +557,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - The TV and GamePad present together on one vsync.
 
-[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.8.4...v0.9.0
