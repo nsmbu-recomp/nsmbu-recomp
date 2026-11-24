@@ -29,6 +29,7 @@ export type PlayStatus = {
     map_lock?: number;
     map_title?: number;
     map_players?: number;
+    banner?: string;
     player?: { x: number; y: number; z: number } | null;
     sound_ready?: boolean;
     audio_buffered?: number;
@@ -282,6 +283,7 @@ export class Session {
             map_lock: r.map_lock,
             map_title: r.map_title,
             map_players: r.map_players,
+            banner: r.banner,
             player: r.player,
             sound_ready: r.sound_ready,
             audio_buffered: r.audio_buffered,
@@ -295,10 +297,9 @@ export class Session {
         if (!r.ok) throw new Error(r.error ?? "leave failed");
     }
 
-    async eval(code: string, timeoutMs = 8000): Promise<string> {
-        const r = await withTimeout(this.live().request({ cmd: "eval", code, timeout: timeoutMs }), timeoutMs + 5000, "eval");
-        if (!r.ok) throw new Error(r.error ?? "eval failed");
-        return (r.output ?? "").trim();
+    async goto(place: string): Promise<void> {
+        const r = await withTimeout(this.live().request({ cmd: "goto", place }), 20_000, "goto");
+        if (!r.ok) throw new Error(r.error ?? "goto failed");
     }
 
     async screenshot(path: string, opts?: { drc?: boolean }): Promise<void> {

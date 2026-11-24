@@ -76,7 +76,6 @@ Manifest manifest(const fs::path& path,Value v){
     require(m.kind!="guest","Guest mods are not supported");
     require(m.kind!="native","Native mods are not supported");
     require(m.kind!="settings","Settings mods are not supported");
-    require(m.kind!="lua","Lua mods are not supported");
     require(m.kind!="content","Content mods are not supported");
     require(m.kind=="cemu","Unsupported mod kind");
     const auto& fv=v.get("format_version");

@@ -111,7 +111,7 @@ Each case uses `.tmp/playtest/<name>/` (save, control socket, userdata).
 Selected cases run in parallel (default 2; override with `NSMBU_TEST_JOBS`).
 Cases start in fast forward (`NSMBU_UNCAPPED=1`).
 The frame-rate cases set `NSMBU_UNCAPPED=0`.
-Scene moves that need guest Lua stay inside the case through `Session` helpers.
+Scene moves stay inside the case through `Session` helpers (`goto`, `leave`, `status`).
 Map place and the course quit use `status` and `leave`.
 
 ## Run comparison (not playtests)

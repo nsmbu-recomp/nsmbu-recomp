@@ -705,7 +705,7 @@ extern "C" void hook_029CBBB4(Cpu*) {}
 extern "C" void hook_02632418(Cpu*) {}
 
 extern "C" void hook_024BD86C(Cpu* c) {
-    if (mods::lua_sdk::story_leave_pending()) return;
+    if (mods::scene::story_leave_pending()) return;
     interp::begin_course_setup();
     f_024BD86C_orig(c);
     interp::end_course_setup();

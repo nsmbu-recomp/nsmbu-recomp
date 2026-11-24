@@ -31,8 +31,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: LuaJIT submodule
-        run: git submodule update --init vendor/luajit vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
+      - name: Vendored libraries
+        run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
       - uses: actions/setup-java@v4
         with:

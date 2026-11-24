@@ -57,7 +57,7 @@ No HTTP server.
 
 ### Input model
 
-Live pad overlay merged in `input::read()` in `runtime/src/platform/input_sdl.cpp` (same layering idea as `mods::lua_press`).
+Live pad overlay merged in `input::read()` in `runtime/src/platform/input_sdl.cpp` (same layering idea as `mods::pad_inject`).
 Hold bits or stick axes until released or until a short pulse duration (default about 20 frames).
 Does not write replay files.
 Course recordings are the `replay-*` playtests.
@@ -85,7 +85,7 @@ The CLI exports `NSMBU_CLI=1` and `NSMBU_USER_DIR=<repo>/nsmbu` on every dev com
 | `nsmbu profile` / `perf` | profiling helpers |
 | `nsmbu installer [--version VERSION] [--no-open]` | builds this Linux host's GitHub Release folder (the zip contents) at `build/installer` with the pinned zig toolchain, SDL3, and Vulkan-Headers from the tree, then opens that folder's setup window; `--no-open` returns after the package is ready; does not publish |
 | `nsmbu apk` | builds the same setup APK as a release: Python, the compiler and the extractor are inside, and the game code is not. Installs it on a USB device (`adb`). `--build-only` skips adb. `--install-only` installs the last APK. |
-| `nsmbu lint` / `recomp` | TypeScript mod build, recomp only |
+| `nsmbu recomp` | Recomp only |
 | `nsmbu scripted <name>` | wraps `tools/run/scripted-run.sh` |
 | `nsmbu test [--list] [--show] [name…]` | boots a game per playtest and runs selected cases in parallel ([automation.md](automation.md)); `--show` leaves the window on screen and runs one case at a time |
 | `nsmbu scenario OUT [VAR=value …]` | headless logic-step trace for build-to-build comparison ([automation.md](automation.md)) |

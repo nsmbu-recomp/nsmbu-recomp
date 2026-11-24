@@ -1,10 +1,10 @@
-#include "lua_press.h"
+#include "pad_inject.h"
 
 #include <algorithm>
 #include <mutex>
 #include <vector>
 
-namespace mods::lua_press {
+namespace mods::pad_inject {
 namespace {
 
 struct Entry {

@@ -88,7 +88,6 @@ const COMMANDS: CommandSpec[] = [
             { name: "yes", description: "Skip prompts (needs --device if several devices)" },
         ],
     },
-    { name: "lint", description: "Build TypeScript mods and format the Lua", noFiles: true },
     { name: "recomp", description: "Run recomp only", noFiles: true },
     { name: "scripted", description: "Headless scripted boot", noFiles: true },
     {

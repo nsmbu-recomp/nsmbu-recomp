@@ -10,7 +10,6 @@ import {
     cmdGame,
     cmdInstaller,
     cmdLaunch,
-    cmdLint,
     cmdPerf,
     cmdProfile,
     cmdRecomp,
@@ -130,9 +129,6 @@ async function main(): Promise<void> {
                 break;
             case "apk":
                 await cmdApk(repo, rest);
-                break;
-            case "lint":
-                cmdLint(repo);
                 break;
             case "recomp":
                 cmdRecomp(repo);

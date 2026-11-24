@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <string>
 
-namespace mods::lua_guest {
+namespace mods::guest {
 
 void set_base(uint8_t* base);
 uint8_t* base();

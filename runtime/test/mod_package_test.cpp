@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
             {"native","Native mods are not supported"},
             {"guest","Guest mods are not supported"},
             {"settings","Settings mods are not supported"},
-            {"lua","Lua mods are not supported"},
+            {"lua","Unsupported mod kind"},
             {"content","Content mods are not supported"}}){
         auto rejected_kind=root/(std::string("rejected-")+kind);fs::create_directories(rejected_kind);
         std::ofstream(rejected_kind/"manifest.json")<<"{\"format_version\":1,\"id\":\"rejected-"<<kind<<"\",\"name\":\"Rejected\",\"version\":\"1.0.0\",\"game_id\":\"nsmbu-usa\",\"kind\":\""<<kind<<"\"}";
@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
     std::ofstream(plain/"content"/"Common"/"a.bin")<<"x";
     std::ofstream(plain/"manifest.json")<<R"({"format_version":2,"id":"plain","name":"Plain","version":"1.0.0","game_id":"nsmbu-usa","kind":"lua","content_dir":"content"})";
     assert(!install(plain.string(),error));
-    assert(error.find("Lua mods are not supported")!=std::string::npos);
+    assert(error.find("Unsupported mod kind")!=std::string::npos);
     assert(list().empty());
     auto graphics=root/"CemuResolution";fs::create_directories(graphics);
     std::ofstream(graphics/"rules.txt")<<"[Definition]\nname=Resolution\ntitleIds=0005000010101d00\nversion=4\n[Preset]\nname=Normal\n$scale=1\n[Preset]\nname=Double\n$scale=2\n[TextureRedefine]\nwidth=1280\nheight=720\noverwriteWidth=1280*$scale\noverwriteHeight=720*$scale\n";

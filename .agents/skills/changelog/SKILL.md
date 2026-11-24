@@ -5,7 +5,7 @@ description: "Clean Unreleased into a player-facing version block when cutting a
 
 # Changelog
 
-`CHANGELOG.md` and `modding/examples/CHANGELOG.md` follow [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 GitHub Release bodies copy the matching version block from `CHANGELOG.md` via `tools/release/notes.py`.
 
 Day-to-day appends belong under `## [Unreleased]` per `AGENTS.md` (commit message or short change note, rough wording is fine).
@@ -14,8 +14,6 @@ This skill runs only at release cleanup, when the `pre-release` skill (or an exp
 ## Which file
 
 `CHANGELOG.md` is the game, installer, and Mods tab.
-`modding/examples/CHANGELOG.md` is the example mods in that folder.
-A note about one example mod's behaviour goes only in the examples changelog.
 A note about loading packages, the Mods tab, or install stays in `CHANGELOG.md`.
 
 ## When this skill runs
@@ -92,7 +90,7 @@ Keep each published bullet to one outcome plus at most one short supporting sent
 
 ## Steps
 
-1. Read `## [Unreleased]` in the right file (`CHANGELOG.md` or `modding/examples/CHANGELOG.md`).
+1. Read `## [Unreleased]` in `CHANGELOG.md`.
 2. Drop or rewrite notes that are not player-facing using Audience.
 3. Place remaining notes under the right `###` section using Sections and Wording.
 4. Re-sort each section so importance order still holds.

@@ -20,7 +20,7 @@ The `release` skill commits and pushes that changelog, tags `main`, and watches 
    Leave other open pull requests as they are.
    When the branch has diverged, stop and report that.
 3. Follow the `changelog` skill on this branch.
-   Clean `CHANGELOG.md` and, when its Unreleased block has notes, `modding/examples/CHANGELOG.md`.
+   Clean `CHANGELOG.md`.
    Move the cleaned game block under `## [X.Y.Z] - YYYY-MM-DD` and leave `## [Unreleased]` empty above it.
    `tools/release/notes.py` copies that block when the tag workflow publishes, so the heading has to be in the commit a person tags.
 4. From this checkout, run `nsmbu test`, then `nsmbu installer --no-open`.
