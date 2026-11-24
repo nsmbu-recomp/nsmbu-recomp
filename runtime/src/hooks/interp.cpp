@@ -1,3 +1,4 @@
+#include "hooks/cheats.h"
 #include "hooks/interp.h"
 #include "mods/packages.h"
 
@@ -1658,6 +1659,7 @@ extern "C" void hook_029C52CC(Cpu* c) {
             g_interp_present = false;
             g_wake_hold = false;
             g_skip_map_draw = false;
+            cheats::before_logic(c);
             f_029C52CC_orig(c);
             nsmbu_align_map_camera();
             finish_logic_pass();
@@ -1701,6 +1703,7 @@ extern "C" void hook_029C52CC(Cpu* c) {
         g_tile_proj_n = 0;
         c->r[3] = self;
         PassTimer timer(0);
+        cheats::before_logic(c);
         f_029C52CC_orig(c);
     }
     nsmbu_align_map_camera();

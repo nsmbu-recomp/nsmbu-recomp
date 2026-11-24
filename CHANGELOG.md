@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Press M to mute or unmute the game.
   The game keeps that choice for the next start.
+- The settings menu has a Cheats tab next to Mods.
+  Turn cheats off with Enable cheats to stop every cheat and gray out the tab.
+  Infinite lives keeps Mario at 99 lives.
+  Invincible stops hits from hurting him.
+  Click a power-up in a course to give that power-up to Mario.
 
 ### Changed
 

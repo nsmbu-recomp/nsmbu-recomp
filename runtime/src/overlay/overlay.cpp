@@ -66,6 +66,7 @@ namespace gfxvk { bool buffer_cache_enabled(); }
 #include "hooks/interp_pacing.h"
 #include "hooks/collision_wireframe.h"
 #include "hooks/course_hot_reload.h"
+#include "hooks/cheats.h"
 #include "hooks/map_menu_settings.h"
 #include "core/runtime.h"
 #include "save/savestate.h"
@@ -153,17 +154,17 @@ ImGuiKey imgui_key(int code) {
     }
 }
 
-enum Tab { kControls, kGraphics, kDisplay, kAudio, kSaves, kMods, kAbout, kDebug,
+enum Tab { kControls, kGraphics, kDisplay, kAudio, kSaves, kMods, kCheats, kAbout, kDebug,
 #ifdef __ANDROID__
            kAndroid,
 #endif
            kTabs };
 #ifdef __ANDROID__
-const char* const kTabNames[kTabs] = {"Controls", "Graphics", "Display", "Audio", "Saves", "Mods", "Language", "Debug", "Android"};
-const char* const kTabIds[kTabs] = {"controls", "graphics", "display", "audio", "saves", "mods", "about", "debug", "android"};
+const char* const kTabNames[kTabs] = {"Controls", "Graphics", "Display", "Audio", "Saves", "Mods", "Cheats", "Language", "Debug", "Android"};
+const char* const kTabIds[kTabs] = {"controls", "graphics", "display", "audio", "saves", "mods", "cheats", "about", "debug", "android"};
 #else
-const char* const kTabNames[kTabs] = {"Controls", "Graphics", "Display", "Audio", "Saves", "Mods", "Language", "Debug"};
-const char* const kTabIds[kTabs] = {"controls", "graphics", "display", "audio", "saves", "mods", "about", "debug"};
+const char* const kTabNames[kTabs] = {"Controls", "Graphics", "Display", "Audio", "Saves", "Mods", "Cheats", "Language", "Debug"};
+const char* const kTabIds[kTabs] = {"controls", "graphics", "display", "audio", "saves", "mods", "cheats", "about", "debug"};
 #endif
 
 struct Ui {
@@ -1219,6 +1220,52 @@ void package_controls() {
     }
 }
 
+void power_button(const char* label, int mode, int current, bool enabled) {
+    const bool on = current == mode;
+    if (on) {
+        const ImVec4 face = ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive);
+        ImGui::PushStyleColor(ImGuiCol_Button, face);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, face);
+    }
+    ImGui::BeginDisabled(!enabled);
+    if (ImGui::Button(label)) cheats::request_power(mode);
+    ImGui::EndDisabled();
+    if (on) ImGui::PopStyleColor(2);
+}
+
+void tab_cheats() {
+    bool v = false;
+    heading("Cheats");
+    if (check("Enable cheats", cheats::enabled(), &v)) {
+        cheats::set_enabled(v);
+        hostui::post([v] { hostui::set("cheatsEnabled", v ? "1" : "0"); });
+    }
+    help("Turn off to stop every cheat and gray out the controls below.");
+    const bool on = cheats::enabled();
+    if (check("Infinite lives", cheats::infinite_lives(), &v, on)) {
+        cheats::set_infinite_lives(v);
+        hostui::post([v] { hostui::set("infiniteLives", v ? "1" : "0"); });
+    }
+    help("Keeps Mario at 99 lives.");
+    if (check("Invincible", cheats::invincible(), &v, on)) {
+        cheats::set_invincible(v);
+        hostui::post([v] { hostui::set("invincible", v ? "1" : "0"); });
+    }
+    help("Hits do not hurt Mario while this is on.");
+
+    heading("Power-up");
+    note("Click a power-up to give it to Mario in a course.");
+    static const char* labels[] = {
+        "Small", "Super", "Fire", "Mini", "Propeller", "Penguin", "Ice", "Squirrel", "P-Acorn",
+    };
+    const int pending = cheats::pending_power();
+    const int current = pending >= 0 ? pending : cheats::power();
+    for (int i = 0; i < 9; i++) {
+        if (i) flow::next(flow::button(labels[i]));
+        power_button(labels[i], i, current, on);
+    }
+}
+
 void tab_mods() {
     heading("Mod manager");
     auto path = mods::packages::directory();
@@ -2223,6 +2270,7 @@ void settings_window() {
         case kAudio: tab_audio(); break;
         case kSaves: tab_saves(); break;
         case kMods: tab_mods(); break;
+        case kCheats: tab_cheats(); break;
         case kAbout: tab_about(); break;
         case kDebug: tab_debug(); break;
         case kAndroid: tab_android(); break;
@@ -2245,6 +2293,7 @@ void settings_window() {
                     case kAudio: tab_audio(); break;
                     case kSaves: tab_saves(); break;
                     case kMods: tab_mods(); break;
+                    case kCheats: tab_cheats(); break;
                     case kAbout: tab_about(); break;
                     case kDebug: tab_debug(); break;
                     }
@@ -2414,6 +2463,9 @@ ImDrawData* frame(float pw, float ph, void (*renderer_init)()) {
         if (!env::HOT_RELOAD_COURSES.present() && hostui::get("hotReloadCourses", v))
             course_hot_reload::set_enabled(v == "1");
         if (hostui::get("mapMenuSettings", v)) map_menu::set_enabled(v == "1");
+        if (hostui::get("cheatsEnabled", v)) cheats::set_enabled(v != "0");
+        if (hostui::get("infiniteLives", v)) cheats::set_infinite_lives(v == "1");
+        if (hostui::get("invincible", v)) cheats::set_invincible(v == "1");
 
         if (env::PRO_CONTROLLER.on())
             hostui::post([] { hostui::set_pro_controller(true); });
