@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Removed
+
+- Reverted the 0.10.0 changes.
+  RecompLauncher support, the course pause Settings overlay, press M to mute, and the other player-facing 0.10.0 notes are undone.
+  Lua mods load again.
+
 ## [0.9.1] - 2026-11-07
 
 ### Fixed
