@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-24
+
 ### Added
 
 - RecompLauncher can set the game up and start it.
@@ -17,8 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - The first start saves the default controls.
-- Setup saves each compiler version in the temporary folder.
-  The next setup of that version skips the download.
+- Setup keeps a compiler it has already downloaded.
+  The next setup of that version does not download it again.
 
 ## [0.10.1] - 2026-11-24
 
@@ -571,7 +573,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - The TV and GamePad present together on one vsync.
 
-[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.10.1...HEAD
+[Unreleased]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.10.1...v0.11.0
 [0.10.1]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/nsmbu-recomp/nsmbu-recomp/compare/v0.9.0...v0.9.1
