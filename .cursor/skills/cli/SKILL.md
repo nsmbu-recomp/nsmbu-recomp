@@ -26,9 +26,10 @@ A runtime-only edit compiles the changed `.cpp` and links.
 
 ## Live game
 
-`--mcp` is a flag on the debug executable.
-It is off in a release build.
-The process listens on `127.0.0.1` and writes the URL and bearer token to `.tmp/mcp.token`.
+`--mcp` is compiled into the debug executable only.
+A release build does not contain the server.
+The process listens on `127.0.0.1` and writes the URL to `.tmp/mcp.url`.
+There is no token.
 The game starts muted (`NSMBU_NO_AUDIO=1`).
 One game.
 Close it with the MCP tool `session_close`.

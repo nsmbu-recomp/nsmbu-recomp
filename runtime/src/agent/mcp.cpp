@@ -10,7 +10,6 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <mutex>
 #include <string>
 #include <system_error>
 #include <thread>
@@ -24,40 +23,15 @@
 #endif
 
 namespace agent_mcp {
+#ifndef NDEBUG
 namespace {
 
 std::atomic<bool> g_stop{false};
 std::thread g_thread;
 int g_listen = -1;
-std::string g_token;
 int g_port = 0;
-std::mutex g_mu;
 
 constexpr int kPort0 = 47616;
-
-std::string hex_token() {
-    unsigned char bytes[32];
-    std::ifstream urandom("/dev/urandom", std::ios::binary);
-    urandom.read(reinterpret_cast<char*>(bytes), sizeof bytes);
-    if (!urandom) return {};
-    static const char* hex = "0123456789abcdef";
-    std::string out;
-    out.resize(64);
-    for (int i = 0; i < 32; i++) {
-        out[i * 2] = hex[bytes[i] >> 4];
-        out[i * 2 + 1] = hex[bytes[i] & 15];
-    }
-    return out;
-}
-
-bool token_ok(const std::string& header) {
-    const std::string prefix = "Bearer ";
-    if (header.size() != prefix.size() + g_token.size()) return false;
-    if (header.compare(0, prefix.size(), prefix) != 0) return false;
-    unsigned diff = 0;
-    for (size_t i = 0; i < g_token.size(); i++) diff |= unsigned(header[prefix.size() + i] ^ g_token[i]);
-    return diff == 0;
-}
 
 std::string b64(const std::string& raw) {
     static const char* tbl = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -383,7 +357,7 @@ void serve(int fd) {
     const std::string head = buf.substr(0, hdr_end);
     std::string body = buf.substr(hdr_end + 4);
     size_t length = 0;
-    std::string host, auth;
+    std::string host;
     std::string method, target;
     {
         const auto line_end = head.find("\r\n");
@@ -408,7 +382,6 @@ void serve(int fd) {
             for (char& c : key) if (c >= 'A' && c <= 'Z') c = char(c - 'A' + 'a');
             if (key == "content-length") length = size_t(std::strtoul(val.c_str(), nullptr, 10));
             else if (key == "host") host = val;
-            else if (key == "authorization") auth = val;
         }
         if (nl == head.size()) break;
         pos = nl + 2;
@@ -425,8 +398,6 @@ void serve(int fd) {
         out = http_response(404, "{\"error\":\"not found\"}");
     else if (!host_ok(host))
         out = http_response(403, "{\"error\":\"host\"}");
-    else if (!token_ok(auth))
-        out = http_response(401, "{\"error\":\"token\"}");
     else {
         try {
             const mods::json::Value msg = mods::json::parse(body);
@@ -479,11 +450,10 @@ void thread_main() {
     std::error_code ec;
     std::filesystem::create_directories(".tmp", ec);
     {
-        std::ofstream token(".tmp/mcp.token", std::ios::trunc);
-        token << g_token << "\n";
-        token << "http://127.0.0.1:" << g_port << "/mcp\n";
+        std::ofstream url(".tmp/mcp.url", std::ios::trunc);
+        url << "http://127.0.0.1:" << g_port << "/mcp\n";
     }
-    LOG("[mcp] http://127.0.0.1:%d/mcp token file .tmp/mcp.token", g_port);
+    LOG("[mcp] http://127.0.0.1:%d/mcp", g_port);
     while (!g_stop.load()) {
         fd_set fds;
         FD_ZERO(&fds);
@@ -505,18 +475,9 @@ void thread_main() {
 }
 
 void start() {
-#ifdef NDEBUG
-    return;
-#else
     if (g_thread.joinable()) return;
     g_stop.store(false);
-    g_token = hex_token();
-    if (g_token.empty()) {
-        LOG("[mcp] could not read a token");
-        return;
-    }
     g_thread = std::thread(thread_main);
-#endif
 }
 
 void stop() {
@@ -526,5 +487,10 @@ void stop() {
 #endif
     if (g_thread.joinable()) g_thread.join();
 }
+
+#else
+void start() {}
+void stop() {}
+#endif
 
 }

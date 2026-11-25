@@ -32,10 +32,12 @@ A warm build, same compilers and flags, can run `cmake --build build/debug` only
 ## `--mcp`
 
 Debug builds only.
-`--mcp` turns on an HTTP MCP server on `127.0.0.1` and sets `NSMBU_NO_AUDIO=1`.
-The log line `[mcp]` names the URL.
-`.tmp/mcp.token` holds the bearer token on the first line and the URL on the second.
-Send `Authorization: Bearer <token>` to `POST /mcp`.
+`--mcp` is compiled into debug builds only.
+A release build has no MCP server, and `--mcp` prints that it is not in that build.
+The debug server listens on `127.0.0.1` only and sets `NSMBU_NO_AUDIO=1`.
+There is no token.
+The log line `[mcp]` names the URL, and `.tmp/mcp.url` holds that same URL.
+`POST /mcp` with no `Authorization` header.
 The host must be `127.0.0.1`, `localhost`, or `[::1]`.
 
 Tools:
