@@ -309,6 +309,13 @@ export class Session {
         if (!r.ok) throw new Error(r.error ?? "screenshot failed");
     }
 
+    async menu(): Promise<{ open: boolean; selected: string }> {
+        const r = await withTimeout(this.live().request({ cmd: "ui" }), 20_000, "ui");
+        if (!r.ok) throw new Error(r.error ?? "ui failed");
+        const selected = r.buttons?.find((b) => b.selected)?.name ?? "";
+        return { open: r.menu === true, selected };
+    }
+
     async press(button: string, frames = 20, tap = false): Promise<void> {
         const r = await withTimeout(
             this.live().request({ cmd: "press", bits: parseButtonBits(button), frames, tap }),

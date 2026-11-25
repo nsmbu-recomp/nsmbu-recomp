@@ -1638,11 +1638,12 @@ std::string pass_cpu_report() {
 }
 }
 
-namespace interp { void keep_course_gamepad(); }
+namespace interp { void keep_course_gamepad(); void keep_map_gamepad(); }
 
 extern "C" void hook_029C52CC(Cpu* c) {
     using namespace interp;
     keep_course_gamepad();
+    keep_map_gamepad();
     perf::game_frame();
     if (!enabled()) {
         static const uint64_t at = env::INTERP_AT_STEP.u64_or(0);
@@ -1909,6 +1910,19 @@ bool input_enabled() {
 // Mario while that GamePad flag stays set.
 void keep_course_gamepad() {
     if (input::pro_controller() || !course_play_active()) return;
+    const uint32_t game = ld32(GD(0x101E7D7Cu));
+    if (!game || ld8(game + 0x14u) != 0) return;
+    st8(game + 0x14u, 1);
+}
+
+extern "C" bool nsmbu_map_return_active(void);
+
+// The world map uses the same flag. With the GamePad screen off the game
+// leaves it clear, and then neither the stick nor Plus reaches the map.
+// The course-return path keeps the flag clear while it places Mario.
+void keep_map_gamepad() {
+    if (input::pro_controller() || course_play_active() || nsmbu_map_return_active()) return;
+    if (!ld32(GD(0x101CC96Cu))) return;
     const uint32_t game = ld32(GD(0x101E7D7Cu));
     if (!game || ld8(game + 0x14u) != 0) return;
     st8(game + 0x14u, 1);

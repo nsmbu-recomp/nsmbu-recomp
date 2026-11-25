@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-## [0.11.0] - 2026-11-24
+## [0.11.0] - 2026-11-25
 
 ### Added
 
@@ -21,6 +21,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The first start saves the default controls.
 - Setup keeps a compiler it has already downloaded.
   The next setup of that version does not download it again.
+
+### Fixed
+
+- On the world map, the stick and + work while the GamePad screen is off.
+- Quick Save on the world map keeps the spot you saved (#14).
 
 ## [0.10.1] - 2026-11-24
 

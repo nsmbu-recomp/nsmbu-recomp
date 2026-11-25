@@ -1,5 +1,6 @@
 #include "core/runtime.h"
 #include "guest_addr.h"
+#include "hooks/interp.h"
 #include "input/input.h"
 
 #include <cstdio>
@@ -244,9 +245,22 @@ extern "C" void hook_029D8270(Cpu* c) {
     f_029D8270_orig(c);
 }
 
+static int g_fill_quick;
+static uint32_t g_fill_file;
+
 extern "C" void hook_029D8304(Cpu* c) {
     uint32_t mgr = save_mgr();
     uint32_t buf = savedata_buf(mgr);
+    if (g_fill_quick) {
+        g_fill_quick = 0;
+        uint32_t file = g_fill_file;
+        uint32_t main_off = kMainRecordBase + file * kSaveSlotSize;
+        uint32_t quick_off = kBackupRecordBase + file * kSaveSlotSize;
+        if (file < 6u && in_mem2(buf) && buf + quick_off + kSaveSlotSize < mem::kMem2End) {
+            for (uint32_t i = 0; i < kSaveSlotSize; i++) st8(buf + quick_off + i, ld8(buf + main_off + i));
+            LOG("[save] map quick save node %u", (unsigned)ld8(buf + quick_off + 6));
+        }
+    }
     char exists[48];
     format_exists(exists, sizeof exists, buf);
     uint8_t last = in_mem2(buf) && buf + 8u < mem::kMem2End ? ld8(buf + 7) : 0xFF;
@@ -310,6 +324,16 @@ extern "C" void hook_029D8C10(Cpu* c) {
 }
 
 extern "C" void site_029D8C48(Cpu*) {
+    // Map Save snapshots the story record and then clears the quick record.
+    // Keep that snapshot in the quick slot so the file select can resume it.
+    if (!interp::course_play_active() && ld32(GD(0x101CC96Cu))) {
+        uint32_t savedata = savedata_buf(save_mgr());
+        uint8_t file = in_mem2(savedata) && savedata + 8u < mem::kMem2End ? ld8(savedata + 7) : 0xFF;
+        if (file < 6u) {
+            g_fill_quick = 1;
+            g_fill_file = file;
+        }
+    }
     if (!g_promote) return;
     g_promote = 0;
     if (!in_mem2(g_main_ea) || g_main_ea + kSaveSlotSize >= mem::kMem2End) return;

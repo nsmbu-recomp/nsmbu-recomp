@@ -794,6 +794,10 @@ static void release_directed_map(uint32_t task) {
     st8(task + 0xDCEu, 0);
 }
 
+extern "C" bool nsmbu_map_return_active(void) {
+    return g_left_course && g_map_return_open;
+}
+
 extern "C" void nsmbu_mark_course_left(void) {
     g_left_course = true;
     if (!g_have_pack) return;

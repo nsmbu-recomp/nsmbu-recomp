@@ -93,13 +93,41 @@ async function hold(session: Session, frames: number, run: () => Promise<void>):
     await session.wait((s) => (s.step ?? 0) >= mark + frames, 30);
 }
 
-async function walk(session: Session, x: number, y: number): Promise<MapView | null> {
+function courseReady(view: MapView): boolean {
+    return isCourseNode(view.name) && view.title >= 0 && view.players >= 1;
+}
+
+async function stepDir(session: Session, x: number, y: number, frames: number): Promise<MapView | null> {
     const before = await mapView(session);
-    await hold(session, 180, () => session.stick(x, y, 180));
+    if (!before) return null;
+    await hold(session, frames + 20, () => session.stick(x, y, frames));
     const after = await mapView(session);
-    if (!before || !after || !moved(before, after)) return null;
-    await hold(session, 240, () => session.stick(x, y, 240));
-    return (await mapView(session)) ?? after;
+    if (!after || !moved(before, after)) return null;
+    return after;
+}
+
+async function walk(session: Session, x: number, y: number): Promise<MapView | null> {
+    const origin = await mapView(session);
+    if (!origin) return null;
+    let current = origin;
+    let still = 0;
+    for (let hop = 0; hop < 8; hop++) {
+        const next = await stepDir(session, x, y, 15);
+        if (!next) {
+            still += 1;
+            if (courseReady(current) && current.node !== origin.node) return current;
+            if (still >= 2 && current.node === origin.node) return null;
+            continue;
+        }
+        still = 0;
+        current = next;
+        if (!courseReady(current)) continue;
+        await session.advance(30, 15);
+        const settled = await mapView(session);
+        if (settled && courseReady(settled)) return settled;
+        if (settled) current = settled;
+    }
+    return current.node !== origin.node ? current : null;
 }
 
 export async function waitUntilMoves(session: Session, timeoutSec: number): Promise<MapView> {
@@ -115,7 +143,6 @@ export async function waitUntilMoves(session: Session, timeoutSec: number): Prom
         await session.advance(60, 15);
         const settled = await mapView(session);
         if (!settled || moved(before, settled)) continue;
-        await hold(session, 20, () => session.press("A", 12));
         for (const [x, y] of [
             [1, 0],
             [0, 1],
@@ -125,7 +152,7 @@ export async function waitUntilMoves(session: Session, timeoutSec: number): Prom
             const stepped = await walk(session, x, y);
             if (!stepped) continue;
             last = stepped.raw;
-            if (isCourseNode(stepped.name) && stepped.title >= 0 && stepped.players >= 1) return stepped;
+            if (courseReady(stepped)) return stepped;
         }
     }
     throw new Error(`map did not take control on a course node: ${last} ${session.last}`);
@@ -255,11 +282,19 @@ export async function enterCourse(session: Session): Promise<string> {
         await session.advance(90, 20);
     }
     const start = Date.now();
-    while (Date.now() - start < 90_000) {
+    while (Date.now() - start < 45_000) {
         const s = await session.status();
         if (inCourse(s)) return s.pack ?? "";
+        if (s.node_name !== undefined && !isCourseNode(s.node_name)) break;
         if (!s.entering) await session.press("A", 25);
-        await session.advance(60, 20);
+        await session.advance(40, 15);
+    }
+    const again = await mapView(session);
+    if (again && courseReady(again)) {
+        await session.press("A", 25);
+        await session.wait((s) => inCourse(s), 45);
+        const s = await session.status();
+        if (inCourse(s)) return s.pack ?? "";
     }
     throw new Error(`course did not start: ${session.last}`);
 }
@@ -324,9 +359,21 @@ export async function walkToOtherNode(session: Session, from: number | undefined
             [0, 1],
             [0, -1],
         ] as const) {
-            await hold(session, 180, () => session.stick(x, y, 180));
-            const s = await session.status();
-            if (onMap(s) && s.node !== undefined && s.node !== from) return s;
+            for (let hop = 0; hop < 12; hop++) {
+                await hold(session, 40, () => session.stick(x, y, 30));
+                const s = await session.status();
+                if (!onMap(s) || s.node === undefined || s.node === from) continue;
+                if (
+                    s.map_x !== undefined &&
+                    s.map_y !== undefined &&
+                    s.node_x !== undefined &&
+                    s.node_y !== undefined &&
+                    Math.abs(s.map_x - s.node_x) < 2 &&
+                    Math.abs(s.map_y - s.node_y) < 2
+                ) {
+                    return s;
+                }
+            }
         }
     }
     throw new Error(`map node did not change: ${session.last}`);
@@ -441,20 +488,51 @@ export function assertFileSelectQuick(session: Session, saved: HostRecord, file 
     }
 }
 
+async function settledOnNode(session: Session): Promise<boolean> {
+    const s = await session.status();
+    if (!onMap(s) || s.map_x === undefined || s.map_y === undefined || s.node_x === undefined || s.node_y === undefined) {
+        return false;
+    }
+    return Math.abs(s.map_x - s.node_x) < 2 && Math.abs(s.map_y - s.node_y) < 2;
+}
+
+async function waitSettled(session: Session): Promise<PlayStatus> {
+    const start = Date.now();
+    while (Date.now() - start < 15_000) {
+        if (await settledOnNode(session)) {
+            await session.advance(20, 10);
+            if (await settledOnNode(session)) return session.status();
+        }
+        await session.advance(15, 10);
+    }
+    throw new Error(`map player did not settle: ${session.last}`);
+}
+
 export async function quickSaveHere(session: Session): Promise<number> {
-    await session.advance(120, 30);
-    const here = await session.status();
-    if (!onMap(here) || here.node === undefined) throw new Error(`not on the map: ${session.last}`);
+    const here = await waitSettled(session);
+    if (here.node === undefined) throw new Error(`not on the map: ${session.last}`);
     const node = here.node;
-    await session.press("Plus", 20);
-    await session.advance(45, 15);
-    await session.press("Down", 15);
-    await session.advance(30, 15);
-    await session.press("A", 20);
-    await session.advance(60, 15);
-    await session.press("Right", 15);
-    await session.advance(30, 15);
-    await session.press("A", 20);
+    const openUntil = Date.now() + 10_000;
+    let menu = await session.menu();
+    while (!menu.open && Date.now() < openUntil) {
+        await session.press("Plus", 3);
+        await session.advance(20, 10);
+        menu = await session.menu();
+    }
+    if (!menu.open) throw new Error(`start menu did not open: ${session.last}`);
+    const moveUntil = Date.now() + 10_000;
+    while (menu.selected !== "Pa_SaveBtn_00" && Date.now() < moveUntil) {
+        await session.press("Down", 6);
+        await session.advance(15, 10);
+        menu = await session.menu();
+        if (!menu.open) throw new Error(`start menu closed before Quick Save: ${session.last}`);
+    }
+    if (menu.selected !== "Pa_SaveBtn_00") throw new Error(`Quick Save was not selected (${menu.selected})`);
+    await session.press("A", 12);
+    await session.advance(30, 10);
+    await session.press("Right", 8);
+    await session.advance(15, 10);
+    await session.press("A", 12);
     const start = Date.now();
     let host = hostQuickNode(session.saveDir);
     while (Date.now() - start < 30_000) {
