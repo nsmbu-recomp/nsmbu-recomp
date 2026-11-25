@@ -4,14 +4,19 @@ description: Declares one NSMBU game function. Use when decompiling a function. 
 model: composer-2.5
 ---
 
-You decompile one PowerPC function from NSMBU into C++ that matches `vendor/decomp`.
-You are the only one who edits `vendor/decomp`.
-
+You decompile one PowerPC function from NSMBU into C++ in `vendor/decomp`.
+You are the only writer of `vendor/decomp`.
+One run covers one function.
 The parent hands you an address, a symbol, or both.
-Start with the function name, its parameters, and a description of what it does.
+
+Write the declaration on every run.
 Write the body only when the parent asks for the body.
-Your final message to the parent is the declaration as written.
-When you also wrote the body, add that body under the declaration.
+Your final message is the declaration.
+When you also write the body, put that body under the declaration.
+
+This repo cannot prove a function with generated inputs.
+The check is the `ppcdis.py` listing against the C++.
+A game check belongs to the port docs.
 
 Copy this list into TodoWrite before step 1.
 Keep exactly one item `in_progress`.
@@ -24,38 +29,58 @@ Cancel `Write the body` unless the parent asked for the body.
 - [ ] Write the body
 - [ ] Commit the function, then the gitlink
 
-1. Name the function and its parameters.
+1. Resolve the address, the symbol, and the parameters.
    An address is `0x` plus eight hex digits.
-   A symbol resolves through `vendor/decomp` and `recomp/headers_names.txt` when that file exists.
-   Read the declaration and the nearby functions already in `vendor/decomp`.
-   Run `python3 tools/rpx/ppcdis.py func ADDR` for the range, then read the prologue for the parameters.
-   Done when you have one address, the symbol to use, and the parameter list, or `sub_` plus the address when no name exists.
+   Read the neighbors already in `vendor/decomp`.
+   Read `recomp/headers_names.txt` when that file exists.
+   Run `python3 tools/rpx/ppcdis.py ADDR [COUNT] [RPX]`.
+   `ADDR` is the function entry.
+   `COUNT` is the instruction count.
+   The default `COUNT` is 32.
+   Raise `COUNT` until the listing shows the last instruction of the function.
+   Pass `RPX` only for a dump other than the `game/active` choice.
+   Read the prologue for the parameters.
+   Done when you have one address, one symbol, and the parameter list.
+   When no name exists, the symbol is `sub_` plus the address.
 
 2. Describe what the function does.
-   Read enough of the listing to name the behavior, any side effect, and any requirement for calling it.
-   Done when that description is one or two sentences.
+   Read enough of the listing to name the behavior.
+   Name a side effect when the listing shows one.
+   Name a call requirement when the listing shows one.
+   Write this description before you edit a file.
+   Done when the description is one or two sentences and `vendor/decomp` stays unchanged.
 
-3. Write the declaration into `vendor/decomp/include`, beside the neighbor you read.
-   Put the description in a comment above the declaration.
+3. Put the declaration in the header under `vendor/decomp/include`, beside the neighbor you read.
+   Put the description comment above the declaration.
    Put `// Address: 0xXXXXXXXX` on the line above the declaration.
-   Match that neighbor: four-space indent, and the opening brace on the declaration line when the neighbor uses one.
-   That declaration comment is the record.
-   Done when the comment and the declaration are in `vendor/decomp/include`.
+   Match the neighbor for indent and for the brace on that line.
+   Done when that header has the description comment, the address comment, and the declaration.
 
 4. Write the body only when the parent asked for the body.
-   Run `python3 tools/rpx/ppcdis.py START INSNS` for the `func` range.
-   Run `python3 tools/rpx/ppcdis.py callers ADDR` for the direct `b` and `bl` sites.
-   For one field, run `python3 tools/rpx/ppcdis.py access OFFSET START END`.
-   `START` is inclusive and `END` is exclusive.
-   For a string, run `python3 tools/rpx/ppcdis.py xref TEXT`.
+   Run `python3 tools/rpx/ppcdis.py ADDR COUNT`.
+   Read the instructions for this function.
+   Read each `b` and each `bl`.
+   Read each load and each store.
+   Read each address the listing shows for data or for a string.
+   The tool annotates an import call.
+   The tool annotates a target named in `recomp/headers_names.txt`.
    Each call target is a named function or `sub_` plus its address.
-   Write the definition beside the neighbor in the matching source file.
-   Match that neighbor: four-space indent, the opening brace on the declaration line, and `// Address: 0xXXXXXXXX` on the line above the definition.
+   Write the definition beside the neighbor in the source file for that function.
+   Match the neighbor for indent and for the brace on the definition line.
+   Put `// Address: 0xXXXXXXXX` on the line above the definition.
    Done when the parent did not ask for the body, or the full function is in `vendor/decomp`.
 
-5. Commit that function in `vendor/decomp`, then commit the `vendor/decomp` gitlink in this repo.
-   The message is `Declare <symbol>.` when you wrote only the declaration, and `Decompile <symbol>.` when you wrote the body.
-   Stage only the files for this function, then only the gitlink.
-   Leave every other path untouched.
+5. Commit that function in `vendor/decomp`, then commit the gitlink in this repo.
+   Use `Declare <symbol>.` when you wrote only the declaration.
+   Use `Decompile <symbol>.` when you wrote the body.
+   Stage only the files for this function.
+   Then stage only the gitlink.
+   Stage no other path.
+   Stop after the gitlink commit.
    Do not push.
    Done when both commits exist and the final message is the declaration, plus the body when you wrote it.
+
+Parallel workers follow the same steps.
+One worker takes one function.
+One worker owns a shared header.
+Leave a header that another worker owns.

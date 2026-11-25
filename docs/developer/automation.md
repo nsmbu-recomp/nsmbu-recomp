@@ -1,7 +1,13 @@
 # Automation runs
 
-Issue and release game regressions belong in playtests.
-Use `nsmbu scripted` when you need exit-at-frame dumps or a fixed `NSMBU_PRESS` timeline without a playtest case.
+The TypeScript `nsmbu` CLI is gone.
+A scripted boot is `tools/run/scripted-run.sh` with `NSMBU_EXIT_AT_FRAME` set.
+A live look is the debug executable with `--mcp` (`docs/developer/cli.md`).
+The sections below still name the old `nsmbu test` runner.
+Use them for the environment variables and the pass conditions, not as commands to run.
+
+Issue and release game regressions used to belong in playtests.
+Use `tools/run/scripted-run.sh` when you need exit-at-frame dumps or a fixed `NSMBU_PRESS` timeline.
 A recorded course pad log is a playtest (`replay-1-1`, `replay-2-1`).
 `replay-bug-1` checks the intro-skip quit lands on `W201`.
 
@@ -334,7 +340,7 @@ These are separate from `scripted-run.sh` and appear in benches and device check
 
 ## Course replay playtests
 
-`replay-1-1` and `replay-2-1` play the pad logs in `tools/cli/src/playtest/replays/`.
+`replay-1-1` and `replay-2-1` play the pad logs in `tools/replay/`.
 Each of those cases opens the `course=` pack, sets `NSMBU_REPLAY_INPUT` to that file, and copies `nsmbu/shadercache` into the case user folder when it exists.
 `replay-bug-1` opens `2-1` with the intro skip, quits with `leave`, and requires the map player to stand on `W201`.
 The run passes when the log reports `player state matched`.

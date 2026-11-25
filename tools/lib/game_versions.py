@@ -196,13 +196,13 @@ def active_dir(root=None):
         path = version_dir(game, aid)
         if os.path.isdir(path):
             return path
-        raise GameVersionsError("game/active is %r but game/%s is missing; run nsmbu game" % (aid, aid))
+        raise GameVersionsError("game/active is %r but game/%s is missing; run just game" % (aid, aid))
     if len(versions) == 1:
         return version_dir(game, versions[0])
     if not versions:
         return game
     raise GameVersionsError(
-        "no active dump; run nsmbu game (have: %s)" % ", ".join(versions)
+        "no active dump; run just game (have: %s)" % ", ".join(versions)
     )
 
 
@@ -267,8 +267,8 @@ def resolve_for_select(game, version_id=None, interactive=False, ask_migrate=Non
             return migrate_flat(game, version_id)
         if not interactive:
             raise GameVersionsError(
-                "game/ still uses a flat code/ layout; run `nsmbu game` in a terminal to migrate, "
-                "or `nsmbu game <id>` to migrate into that folder"
+                "game/ still uses a flat code/ layout; run `just game` in a terminal to migrate, "
+                "or `just game <id>` to migrate into that folder"
             )
         if ask_migrate is None or not ask_migrate():
             raise GameVersionsError("migration cancelled")
@@ -277,7 +277,7 @@ def resolve_for_select(game, version_id=None, interactive=False, ask_migrate=Non
     if not dumps:
         raise GameVersionsError(
             "no version folders under game/ "
-            "(drop a .wux into game/ and run nsmbu game, or add game/usa-1.3.0/ with code/red-pro2.rpx)"
+            "(drop a .wux into game/ and run just game, or add game/usa-1.3.0/ with code/red-pro2.rpx)"
         )
 
     if version_id is not None:
@@ -290,7 +290,7 @@ def resolve_for_select(game, version_id=None, interactive=False, ask_migrate=Non
 
     if not interactive:
         raise GameVersionsError(
-            "usage: nsmbu game <id>  (non-interactive; ids: %s)"
+            "usage: just game <id>  (non-interactive; ids: %s)"
             % ", ".join(dumps or extracted)
         )
 

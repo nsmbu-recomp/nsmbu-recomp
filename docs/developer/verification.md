@@ -1,46 +1,32 @@
 # Agent verification
 
-How agents are expected to check work in this repo: policy, commands, CI mirrors, and gaps.
+Commands, CI mirrors, and gaps for checks in this repo.
 
-For day-to-day finish rules, read the `verify` skill (`.agents/skills/verify/SKILL.md`) first.
-This document is the full inventory behind that skill.
+For the day-to-day decision, read the `debug` skill (`.cursor/skills/debug/SKILL.md`).
+The loop inventory is [agent-debug.md](agent-debug.md).
 
 ## Policy stack
 
-Three layers apply on most changes.
+**`AGENTS.md`** — Before a live check, a scenario compare, or a decompile, read the `debug` skill.
 
-**`AGENTS.md`** — Before finishing, read the `verify` skill.
-Run every check a command, playtest, boot, or APK install can settle.
-When someone must play through a level, end the turn with explicit player steps.
+**`debug` skill** (`.cursor/skills/debug/SKILL.md`) — Pick the smallest loop that can fail the change, then run it.
 
-**Project skills** (`.agents/skills/`) — Routing table:
+**Docs** — [agent-debug.md](agent-debug.md) lists the four loops.
+[automation.md](automation.md) names `nsmbu scenario` and `nsmbu compare-runs`.
+The tiers below are the command list and the CI mirrors.
 
-- **`verify`** — Default host (Linux + `usa-1.3.0`), Android APK when relevant, player-step template.
-- **`nsmbu`** — Builds, dumps, playtests, benches, scripted boots, live look, replay.
-- **`scenes`** — Short boots to map, course, or title (`references/` recipes).
-- **`pre-release`** / **`release`** — Full `nsmbu test`, installer, tag workflow.
-- **`decompile`** — Decomp workflow only (no compile-time proof in NSMBU).
-- **`crash`** — Where run, crash, and setup logs are, and what each file contains.
+### Decision rule
 
-**Docs** — `docs/developer/automation.md`, `docs/developer/cli.md`, `docs/developer/env.md`, boot recipes, issue ↔ test mapping in automation.
-
-### Decision rule (`verify` skill)
-
-If a command can prove pass or fail in this turn, run it.
-Examples: unit test, `nsmbu test`, scene boot, screenshot, `nsmbu apk`.
-
-If someone must play a level, end with Host, Place, Actions, and Pass, and call that part unverified.
+Read the `debug` skill.
+Pick the smallest loop in [agent-debug.md](agent-debug.md) that can fail the change.
+Run that loop.
 
 ```mermaid
 flowchart TD
-  done[Finishing a change]
-  done --> readVerify[Read verify skill]
-  readVerify --> canCmd{Can a command settle it?}
-  canCmd -->|yes| runAll[Run all such checks]
-  canCmd -->|no| player[Player steps template]
-  runAll --> buildOnly[Build / ctest / Python tools]
-  runAll --> gameNeed[Dump + nsmbu test / boot / screenshot]
-  runAll --> android[nsmbu apk on device]
+  done[Checking a change]
+  done --> readDebug[Read the debug skill]
+  readDebug --> pick[Pick the smallest loop that can fail]
+  pick --> run[Run that loop]
 ```
 
 ## Tier A — No game dump
@@ -61,8 +47,8 @@ ctest --test-dir build/linux --output-on-failure
 
 The root `CMakeLists.txt` registers many tests: mods, input (`input_mapping`, issue #9), interpolation (`interp_picture`, `interp_joints`, `interp_pacing`), portable state, extract crypto, SDL host tests, Vulkan-only tests when enabled, and more.
 
-**Shortcut:** `nsmbu build` for a warm debug link after runtime-only edits.
-See the `nsmbu` skill for when `--recomp` is required.
+**Shortcut:** `python3 tools/build/build.py` for a warm debug link after runtime-only edits.
+See the `cli` skill for when a recompile is required.
 
 ### Python tool tests (Linux CI, after `ctest`)
 
@@ -72,7 +58,6 @@ See the `nsmbu` skill for when `--recomp` is required.
 - `tools/lib/test_dev_game_icon.py`
 - `tools/test_shaderprep.py`
 - `python3 -m unittest discover -s tools/bench -p "test_*.py"`
-- `npm test --prefix tools/cli` (Node `node:test` unit tests under `tools/cli/test/`; game playtests are `tools/cli/test/playtests.test.ts` via `nsmbu test`)
 
 ### Vulkan renderer smoke (no gameplay)
 
@@ -108,19 +93,13 @@ It does **not** run `nsmbu test`.
 ## Tier B — Needs `game/` and a debug build
 
 Default dump per `verify`: **`usa-1.3.0`**.
-Use `nsmbu game --list` and `nsmbu game usa-1.3.0`.
-Do not run bare `nsmbu game` (TUI).
+The active dump is the `game/active` file described in `game/README.md`.
 
-### Playtests (canonical game regressions)
+### Playtests
 
-```bash
-nsmbu test --list
-nsmbu test [--show] [name…]
-```
-
-Cases run in parallel (default 2 jobs; override with `NSMBU_TEST_JOBS`).
-Add cases under `tools/cli/src/playtest/cases/` and register in `cases/index.ts`.
-Helpers live in `tools/cli/src/playtest/helpers.ts`.
+The TypeScript playtest runner is gone.
+Scripted checks use `tools/run/scripted-run.sh`.
+A live look uses `--mcp` on the debug executable.
 
 Registered cases (run `--list` for summaries):
 
@@ -156,18 +135,18 @@ Checks that must keep passing belong in a `PlayCase`, not a one-off boot.
 ### Live look (while writing a case)
 
 `nsmbu open`, `status`, `press`, `stick`, `wait`, `screenshot`, `close`.
-One game, one socket under `.tmp/agent/`.
-`nsmbu test` refuses to start while the live agent is up.
+One debug game with `--mcp`.
+Close it with `session_close` before a scripted boot.
 
 ### Scripted boots
 
-`nsmbu scripted <name>` wraps `tools/run/scripted-run.sh` with `NSMBU_EXIT_AT_FRAME`, `NSMBU_DUMP_FRAMES`, `NSMBU_PRESS`, and related vars.
+`tools/run/scripted-run.sh` reads `NSMBU_EXIT_AT_FRAME`, `NSMBU_DUMP_FRAMES`, `NSMBU_PRESS`, and related vars.
 Frame PNGs land in `.tmp/<name>/`.
 Flicker checks: `python3 tools/frames/flicker.py`.
 
 ### Course replay playtests
 
-`nsmbu test replay-1-1` and `replay-2-1` play the pad logs in `tools/cli/src/playtest/replays/`.
+`NSMBU_REPLAY_INPUT` plays the pad logs in `tools/replay/`.
 `replay-bug-1` opens `2-1` with the intro skip, quits with `leave`, and checks the map player stands on `W201`.
 The case passes on a position match.
 `[prof]` in `.tmp/playtest/<name>/nsmbu.log` is the course measurement.
@@ -243,10 +222,20 @@ These do not replace tests.
 
 ## Decomp (separate from the port)
 
-The `decompile` skill writes C++ under `vendor/decomp`.
-Decomp is not compiled in NSMBU builds.
-Verification there is review and disassembly (`ppcdis.py`), not `ctest` or `nsmbu test`.
-WWHD’s `vendor/ZeldaWWHDRecomp/tools/verify/` harness is upstream reference, not NSMBU agent workflow.
+Decomp source is the submodule `vendor/decomp`.
+The decompile agent is the only writer of that tree.
+Read [decomp.md](decomp.md) for the one-function loop.
+The procedure is [`.cursor/agents/decompile.md`](../../.cursor/agents/decompile.md).
+The check is the `python3 tools/rpx/ppcdis.py` listing against the C++.
+This repo cannot prove a function with generated inputs.
+The port compile omits `vendor/decomp`.
+Wind Waker HD has these decomp checks.
+This repo has none of them.
+
+- a generated-input harness (`tools/verify` and `verify.py`)
+- recorded taps (`mktap`)
+- a decomp-build bisect (`WWHD_DECOMP`)
+- a decomp build that swaps a guest function
 
 ## Gaps and cleanup targets
 

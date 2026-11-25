@@ -93,7 +93,7 @@ def wait_loaded(log, timeout):
             text = ""
         if "Loaded slot" in text:
             return True
-        if ("missing " in text and "states/slot" in text) or "run: nsmbu extract" in text:
+        if ("missing " in text and "states/slot" in text) or "run: just extract" in text:
             fail("the profile run did not start; see " + GAME_LOG)
         time.sleep(0.5)
     return False

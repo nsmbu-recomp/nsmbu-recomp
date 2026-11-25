@@ -58,7 +58,7 @@ default, with a maximum of two mid-frame submissions. Explicit values of
 
 A full course measurement is `nsmbu test replay-1-1`.
 The log is `.tmp/playtest/replay-1-1/nsmbu.log`.
-That case plays `tools/cli/src/playtest/replays/1-1.replay` on the debug build in fast forward, with immediate present and resolution scale 1.
+That case plays `tools/replay/1-1.replay` on the debug build in fast forward, with immediate present and resolution scale 1.
 Pass `--show` to leave the window on screen.
 It passes when the log contains `player state matched`.
 `[prof]` in that log is the course trace.
@@ -413,7 +413,7 @@ That path decodes straight into the staging buffer when the fast untile applies,
 
 The renderer smoke test covers a one-page thin1 change, a wide change, and the page update after that wide change.
 
-Release `tools/cli/src/playtest/replays/1-1.replay` on the same machine as the note (i5-12600KF, Arc B580, Mesa 26.2.4), 2x, FXAA, anisotropy, GamePad off, FIFO:
+Release `tools/replay/1-1.replay` on the same machine as the note (i5-12600KF, Arc B580, Mesa 26.2.4), 2x, FXAA, anisotropy, GamePad off, FIFO:
 
 | | before | after (TV frame 2760) |
 | --- | ---: | ---: |
@@ -432,7 +432,7 @@ The replay still reports 7 position mismatches, first at step 1036.
 `perf` needs `perf_event_paranoid` at 1 or lower, which this machine does not allow.
 The numbers below come from a `SIGPROF` leaf sampler on the thread CPU clock (1 ms) attached with `LD_PRELOAD`, plus the `[prof]` windows of `nsmbu replay --release --uncapped`.
 
-A replay with its position columns stops at the first divergence, so the uncapped runs use a copy of `tools/cli/src/playtest/replays/1-1.replay` without those columns; it plays all 2420 steps.
+A replay with its position columns stops at the first divergence, so the uncapped runs use a copy of `tools/replay/1-1.replay` without those columns; it plays all 2420 steps.
 The machine and build match the note above, with a warm shader cache.
 
 The render thread was the largest CPU user (about 55% of samples).
@@ -506,7 +506,7 @@ A generated callee loads `c->r[0]`, `c->r[11]` and `c->r[12]` in its prologue, a
 A callee with calls of its own writes those registers back at its own calls, so skipping the reload leaves the caller a stale copy (SIGSEGV at guest address `00000019`, `lr=02000278`).
 In a plain (struct form) recomp, 0 of 84,509 functions read r12 before writing it and 40 read r0 or r11, but a sound skip needs the callee's live-in set at each call site for about 15% of what the live pass already saves.
 
-Release `tools/cli/src/playtest/replays/1-1.replay`, uncapped copy without the position columns, frames 1200-3240, median of the 18 120-frame `[prof]` windows, three runs each:
+Release `tools/replay/1-1.replay`, uncapped copy without the position columns, frames 1200-3240, median of the 18 120-frame `[prof]` windows, three runs each:
 
 | | 2x off | 2x on | 1x off | 1x on |
 | --- | ---: | ---: | ---: | ---: |
@@ -609,7 +609,7 @@ Frame time still moves with how many draws the window has.
 
 ## Uncapped 1-1 register and shader lookup (2026-11-06)
 
-Release `tools/cli/src/playtest/replays/1-1.replay`, 1x, immediate present, uncapped, `NSMBU_PROFILE=1`.
+Release `tools/replay/1-1.replay`, 1x, immediate present, uncapped, `NSMBU_PROFILE=1`.
 Windows are the 120-frame `[prof]` reports from TV frame 1440 through the end of the course.
 The player path matched on every run.
 

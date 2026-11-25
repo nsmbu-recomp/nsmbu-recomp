@@ -122,7 +122,7 @@ def ensure_vulkan(mingw):
 
 def main():
     if sys.platform == "win32":
-        sys.exit("tools/build/build_windows.py is for cross-building on Linux; use nsmbu build on Windows")
+        sys.exit("tools/build/build_windows.py is for cross-building on Linux; use just build on Windows")
     parser = argparse.ArgumentParser(description="Cross-build nsmbu.exe for Windows (llvm-mingw)")
     parser.add_argument("-j", "--jobs", type=int, default=os.cpu_count() or 4)
     parser.add_argument("--release", action="store_true")

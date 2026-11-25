@@ -12,7 +12,7 @@ if [ ! -d "$user" ] && [ -d "$root/user" ]; then
 fi
 save_src="$user/save"
 if [ ! -d "$save_src" ]; then
-    echo "missing $root/nsmbu/save; run: nsmbu launch once, or copy a save there" >&2
+    echo "missing $root/nsmbu/save; run: just launch once, or copy a save there" >&2
     exit 2
 fi
 run="$root/.tmp/$name"
@@ -43,7 +43,7 @@ for base in "$root/build/debug" "$root/build/release" "$root/build/rel" "$root/b
     fi
 done
 if [ -z "$nsmbu_bin" ]; then
-    echo "missing $root/build/debug/nsmbu; run: nsmbu build" >&2
+    echo "missing $root/build/debug/nsmbu; run: just build" >&2
     exit 2
 fi
 exec "$nsmbu_bin" --game "$root/game" --save "$run/save"

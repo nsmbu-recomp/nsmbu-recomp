@@ -10,7 +10,7 @@ It is not the world-map start menu.
 The `world-map` skill owns that start menu.
 The `course` skill gets a course on screen.
 
-`nsmbu status` names this menu in `screen=`.
+`status` names this menu in `screen=`.
 `screen=pause` names the selected row.
 `screen=settings` is the overlay on top of it.
 `behind=` names the page under that overlay.
@@ -21,7 +21,7 @@ Change Controller stays in the layout and is hidden.
 The blue panel keeps its original height.
 Continue returns to the course.
 Quit leaves the course.
-`nsmbu leave` is that quit.
+`leave` is that quit.
 Done when status shows `scene=CourseSelect` and `map=1`.
 
 That Settings row starts on.
@@ -38,16 +38,12 @@ Closing the overlay shows this pause menu again.
 The course stays paused.
 Continue returns to the course.
 A or Enter on Settings opens the overlay again.
-`nsmbu click close` clicks the X in the top right of this overlay.
+The X in the top right of this overlay closes it.
 
 ## Visual check
 
-`nsmbu test pause-settings --show` loads save slot 1.
-It opens Settings, closes that overlay, then presses Continue.
-It opens the pause menu again.
-Close a live game first.
-`nsmbu test` refuses while that game is up.
-The shots stay in `.tmp/playtest/pause-settings/`.
+Start the debug game with `--mcp` on a course, open the pause menu, and use `screenshot`.
+Close that game with `session_close` before you relink the executable.
 `04-after-close.png` is the pause menu after the overlay closes.
 `06-continue-a-window.png` is the screen just after Continue.
 `08-pause-again.png` is the next pause menu.

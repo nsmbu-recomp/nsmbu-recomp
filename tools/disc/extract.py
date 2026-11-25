@@ -53,7 +53,7 @@ def nsmbu_extract_path(root):
         path = os.path.join(base, name)
         if os.path.isfile(path):
             return path
-    sys.exit("%s not found under build/; run `nsmbu build` first" % name)
+    sys.exit("%s not found under build/; run `just build` first" % name)
 
 
 def run_disc_extract(image, disc, common, out):

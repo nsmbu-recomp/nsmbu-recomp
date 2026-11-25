@@ -30,7 +30,7 @@ def main():
         sys.exit(str(e))
     exe = os.path.join(ROOT, "build", "debug", "nsmbu")
     if not os.path.isfile(exe):
-        sys.exit(f"missing {exe}; run: nsmbu build")
+        sys.exit(f"missing {exe}; run: just build")
     env = os.environ.copy()
     _, save = devdata.apply_env(env, ROOT)
     child_env = {"NSMBU_USER_DIR": env["NSMBU_USER_DIR"]}

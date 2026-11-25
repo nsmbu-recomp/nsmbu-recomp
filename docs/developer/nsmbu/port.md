@@ -135,7 +135,7 @@ Use a Release binary (`nsmbu build --release`) for hitch checks.
 
 `nsmbu recomp` runs `recomp.py` only.
 
-Install the CLI with `cd tools/cli && npm link`; see [cli.md](../cli.md).
+Build and launch are in [cli.md](../cli.md).
 
 Put an extracted game you own under `game/<id>/` and run `nsmbu game` to activate it.
 

@@ -6,12 +6,9 @@ description: "Open the save-file menu and tell the GamePad popup from the three 
 # File select
 
 Boot order is `Boot`, then `Flow`, then `FileSelect`, then `Title`.
-`nsmbu status` includes `screen=gamepad` for the GamePad popup.
-That popup is `scene=FileSelect`.
+The GamePad popup is `scene=FileSelect`.
 The title is the next scene.
-`screen=title` is the title.
-`screen=saves` is the three save files.
-That menu is `scene=Menu`.
+The three save files are `scene=Menu`.
 One A on the title opens the save-file menu.
 That menu is `MenuScene`, so status reads `scene=Menu`.
 The menu shows three save files.
@@ -21,27 +18,27 @@ One more A there opens the world map.
 The `world-map` skill owns that map.
 `scene=SaveSelect` is the challenge menu.
 That menu is not the three story files.
-`nsmbu goto file` stops on `scene=FileSelect`.
+`goto` with `target` `file` stops on `scene=FileSelect`.
 That stop is the popup.
 
-`nsmbu open` uses the repo `nsmbu/` settings and the active dump.
-That is the default session.
-`nsmbu -s <id>` uses `.tmp/agent/<id>/user` instead.
+`python3 tools/run/launch.py -- --mcp` uses the repo `nsmbu/` settings and the active dump.
+That is the one live game.
+The control files live under `.tmp/agent/`.
 A `*-base` dump only boots.
 A scene check needs a `*-1.3.0` dump, such as `usa-1.3.0`.
-If open reports a game already running, that session is taken.
-`nsmbu -s <id> open` starts another game.
-Use that same id on `status` and `close`.
-`nsmbu bench` and `nsmbu game … --recomp` also refuse while that game is running.
+If a game is already running, that game is already up.
+Call `status` on it.
+`session_close` stops it.
+Close it before a build that relinks the executable.
 
 ```bash
-nsmbu open
-nsmbu wait --scene Title --timeout 120
-nsmbu press A --frames 20
-nsmbu wait --scene Menu --timeout 60
-nsmbu status
-nsmbu screenshot .tmp/repro/file-select.png
+python3 tools/run/launch.py -- --mcp
 ```
+
+Poll `status` until `scene=Title`.
+Then `press` with `button` `A`.
+Poll `status` until `scene=Menu`.
+Then `screenshot` with `path` `.tmp/repro/file-select.png`.
 
 The first `scene=Title` can still be the iris.
 Mario and Luigi run in before the logo and the "Press 2!" line.

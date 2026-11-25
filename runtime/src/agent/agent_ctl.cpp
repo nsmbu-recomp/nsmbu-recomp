@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
@@ -12,6 +13,8 @@
 #include <string>
 #include <thread>
 #include <vector>
+
+#include "agent/mcp.h"
 
 #ifndef _WIN32
 #include <fcntl.h>
@@ -45,8 +48,10 @@ namespace {
 
 std::atomic<bool> g_active{false};
 std::mutex g_mu;
+std::condition_variable g_cv;
 std::thread g_thread;
 bool g_stop = false;
+bool g_want_mcp = false;
 
 #ifndef _WIN32
 int g_listen = -1;
@@ -109,6 +114,7 @@ struct ServiceGuard {
 void queue_line(const std::string& line) {
     std::lock_guard<std::mutex> lk(g_mu);
     g_out_lines.push_back(line);
+    g_cv.notify_all();
 }
 
 std::string response_ok(int id) {
@@ -126,6 +132,25 @@ std::string response_err(int id, const std::string& error) {
     v.object["ok"] = false;
     v.object["error"] = error;
     return mods::json::dump(v);
+}
+
+std::string take_response(int id, int timeout_ms) {
+    std::unique_lock<std::mutex> lk(g_mu);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+    for (;;) {
+        for (auto it = g_out_lines.begin(); it != g_out_lines.end(); ++it) {
+            try {
+                const mods::json::Value v = mods::json::parse(*it);
+                if (v.get("id").type == mods::json::Value::Number && int(v.get("id").number) == id) {
+                    std::string line = *it;
+                    g_out_lines.erase(it);
+                    return line;
+                }
+            } catch (const std::exception&) {
+            }
+        }
+        if (g_cv.wait_until(lk, deadline) == std::cv_status::timeout) return response_err(id, "timeout");
+    }
 }
 
 int request_id(const mods::json::Value& req) {
@@ -455,9 +480,10 @@ void flush_writes() {
     std::deque<std::string> lines;
     {
         std::lock_guard<std::mutex> lk(g_mu);
+        if (g_client < 0) return;
         lines.swap(g_out_lines);
     }
-    if (g_client < 0 || lines.empty()) return;
+    if (lines.empty()) return;
     std::lock_guard<std::mutex> write_lk(g_write_mu);
     for (const auto& line : lines) {
         std::string out = line;
@@ -581,24 +607,29 @@ void expire_pad(uint64_t frame) {
 
 void init() {
     const char* sock = env::AGENT_SOCK();
-    if (!sock || !*sock) return;
+    const bool sock_on = sock && *sock;
+    if (!sock_on && !g_want_mcp) return;
 #ifdef NDEBUG
-    LOG("[agent] control socket is disabled in release builds");
+    LOG("[agent] control is disabled in release builds");
     return;
 #else
-    std::string path = sock;
-    std::error_code ec;
-    std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
     g_active.store(true);
     g_stop = false;
-    LOG("[agent] control enabled (%s)", path.c_str());
-    g_thread = std::thread([path] { thread_main(path); });
+    if (sock_on) {
+        std::string path = sock;
+        std::error_code ec;
+        std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
+        LOG("[agent] control enabled (%s)", path.c_str());
+        g_thread = std::thread([path] { thread_main(path); });
+    }
+    if (g_want_mcp) agent_mcp::start();
 #endif
 }
 
 void shutdown() {
     if (!g_active.load()) return;
     g_stop = true;
+    agent_mcp::stop();
 #ifndef _WIN32
     if (g_listen >= 0) ::shutdown(g_listen, SHUT_RDWR);
 #endif
@@ -711,6 +742,7 @@ void service() {
 #ifndef _WIN32
     flush_writes();
 #endif
+    g_cv.notify_all();
 }
 
 namespace {
@@ -820,5 +852,19 @@ void apply_pad(input::PadState& pad) {
 }
 
 bool active() { return g_active.load(); }
+
+void use_mcp(bool on) { g_want_mcp = on; }
+
+std::string exchange(const std::string& request_json, int timeout_ms) {
+    try {
+        const mods::json::Value req = mods::json::parse(request_json);
+        const int id = request_id(req);
+        if (id < 0) return response_err(0, "missing id");
+        handle_request(req);
+        return take_response(id, timeout_ms);
+    } catch (const std::exception& e) {
+        return response_err(0, e.what());
+    }
+}
 
 }

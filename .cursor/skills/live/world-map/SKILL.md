@@ -5,12 +5,10 @@ description: "Open the world map, move between nodes, and use the start menu. Us
 
 # World map
 
-`nsmbu status` includes `screen=world-map` for this map.
-`screen=world-map-iris` means the iris still covers it.
 The world map is `scene=CourseSelect` or `scene=Map` with `map=1`.
 The repo save starts on node `W1M0` in world 0 (Acorn Plains).
 Status names that node in `name=`.
-`nsmbu goto map` applies save file 0 and opens the map.
+`goto` with `target` `map` applies save file 0 and opens the map.
 From `scene=Menu`, one A confirms file 0 and opens the same map.
 The `file-select` skill owns that menu.
 
@@ -22,27 +20,27 @@ The `course` skill owns that enter and the quit back to the map.
 This boot keeps `nsmbu/settings.ini` (frame cap, resolution, present mode).
 Leave `--interp-fps`, `--res-scale`, `--vk-present-mode`, and `--hidden-windows` off when the check is that session.
 
-`nsmbu open` uses the repo `nsmbu/` settings and the active dump.
-That is the default session.
-`nsmbu -s <id>` uses `.tmp/agent/<id>/user` instead.
+`python3 tools/run/launch.py -- --mcp` uses the repo `nsmbu/` settings and the active dump.
+That is the one live game.
+The control files live under `.tmp/agent/`.
 A `*-base` dump only boots.
 A scene check needs a `*-1.3.0` dump, such as `usa-1.3.0`.
-If open reports a game already running, that session is taken.
-`nsmbu -s <id> open` starts another game.
-Use that same id on `status` and `close`.
-`nsmbu bench` and `nsmbu game … --recomp` also refuse while that game is running.
+If a game is already running, that game is already up.
+Call `status` on it.
+`session_close` stops it.
+Close it before a build that relinks the executable.
 
 ```bash
-nsmbu open
-nsmbu goto map
-nsmbu status
+python3 tools/run/launch.py -- --mcp
 ```
 
-`nsmbu goto map` waits until the map is current.
+Then `goto` with `target` `map`, then `status`.
+
+`goto` with `target` `map` waits until the map is current.
 Done when status shows `map=1` and `scene=CourseSelect` or `scene=Map`.
 The map iris can still be up on that line.
 A picture then misses Map View and Items.
-Wait until those labels are drawn, then save `nsmbu screenshot .tmp/repro/overworld.png`.
+Wait until those labels are drawn, then call `screenshot` with `path` `.tmp/repro/overworld.png`.
 On a 21:9 map the world name reads Acorn Plains.
 A map with no Luigi U add-on can show "Check out New Super Luigi U" and an eShop question.
 No stores that notice in the save.
@@ -60,9 +58,9 @@ The `pause-menu` skill owns that menu.
 Plus opens the start menu.
 Plus closes it.
 Plus during the map iris leaves the map up and the menu closed.
-`nsmbu status` includes `screen=start-menu` and the selected button.
-`nsmbu ui` lists the buttons and the selected name.
-`nsmbu wait --cursor Settings` waits for that button.
+`status` includes `screen=start-menu` and the selected button.
+`ui` lists the buttons and the selected name.
+`wait` with `cursor` `Settings` waits for that button.
 
 The five game buttons are Star Coins, Number of Players, and Change Controller on the top row.
 Quick Save and Main Menu sit on the bottom row.
@@ -78,9 +76,9 @@ The six buttons stay hidden while that overlay is open.
 
 Walk to the first course node with:
 
-```bash
-nsmbu stick 1 0 --frames 40
-nsmbu status
+```text
+stick { "x": 1, "y": 0, "frames": 40 }
+status
 ```
 
 Done when status shows `name=W101`.

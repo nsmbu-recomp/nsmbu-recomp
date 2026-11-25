@@ -15,6 +15,8 @@ Notes for building, profiling, and changing the port.
 | Performance measurements | [performance.md](performance.md) |
 | Replay file format | [replay-format.md](replay-format.md) |
 | Agent verification inventory | [verification.md](verification.md) |
+| Check a change | [agent-debug.md](agent-debug.md) |
+| Decomp | [decomp.md](decomp.md) |
 | Port and course runtime | [nsmbu/](nsmbu/) |
 | Android engineer notes | [android/](android/) |
 

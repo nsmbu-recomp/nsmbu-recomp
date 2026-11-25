@@ -1,7 +1,7 @@
 # Replay file format
 
 A `.replay` file in this repo is a plain text input log, not the game's binary `RPRH` replay.
-The course playtests point `NSMBU_REPLAY_INPUT` at the files under `tools/cli/src/playtest/replays/`.
+The course playtests point `NSMBU_REPLAY_INPUT` at the files under `tools/replay/`.
 `NSMBU_RECORD_INPUT` still writes the same format when that variable is set.
 There is no `nsmbu record` or `nsmbu replay` command.
 

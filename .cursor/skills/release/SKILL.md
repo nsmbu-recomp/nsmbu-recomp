@@ -46,7 +46,7 @@ Continue through the tag when the user asked to publish or tag.
    When `## [X.Y.Z]` is absent from `CHANGELOG.md` on `main`, stop and report that the version block is still on the other branch.
    When `CHANGELOG.md` has local changes and every other path is clean, commit that file and push `main`.
    The commit message is `Release X.Y.Z`.
-   The push runs `.githooks/pre_push.py` (`ctest`, `python3 -m unittest discover -s tests/py -p "test_*.py"`, and `npm test --prefix tools/cli`).
+   The push runs `.githooks/pre_push.py` (`ctest` and `python3 -m unittest discover -s tests/py -p "test_*.py"`).
    When that hook fails, fix the failure and make a new commit.
    When any other path is modified, stop and report those paths.
    Done when `HEAD` equals `origin/main` and that commit contains `## [X.Y.Z]`.

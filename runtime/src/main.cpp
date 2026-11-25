@@ -383,6 +383,7 @@ static void print_help(const char* argv0) {
            "  --trace               Log HLE calls\n"
            "  --renderer API        metal or vulkan (also --renderer=API)\n"
            "  --open W-C            Boot into a course pack with the native intro skip (e.g. 1-1)\n"
+           "  --mcp                 Debug build: MCP on 127.0.0.1 (muted). Token in .tmp/mcp.token\n"
 #ifdef NSMBU_HAS_METAL
            "  --warm-shaders        Fill the Metal shader cache and exit\n"
 #endif
@@ -467,6 +468,10 @@ int main(int argc, char** argv) {
         else if (!strcmp(argv[i], "--game") && i + 1 < argc) config::game_dir = argv[++i];
         else if (!strcmp(argv[i], "--save") && i + 1 < argc) config::save_dir = argv[++i];
         else if (!strcmp(argv[i], "--trace")) g_trace_hle = true;
+        else if (!strcmp(argv[i], "--mcp")) {
+            agent_ctl::use_mcp(true);
+            setenv("NSMBU_NO_AUDIO", "1", 1);
+        }
         else if (!strcmp(argv[i], "--warm-shaders")) warm_shaders = true;
         else if (!strcmp(argv[i], "--open") && i + 1 < argc) {
             const char* pack = argv[++i];

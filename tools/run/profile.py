@@ -51,13 +51,13 @@ def main():
         slot_num = 1
     exe = nsmbu_exe()
     if not os.path.isfile(exe):
-        sys.exit(f"missing {exe}; run: nsmbu build")
+        sys.exit(f"missing {exe}; run: just build")
     try:
         game = gv.active_dir()
     except gv.GameVersionsError as e:
         sys.exit(str(e))
     if not os.path.isdir(game) or not os.path.isfile(os.path.join(game, "code", "red-pro2.rpx")):
-        sys.exit("missing active dump; run: nsmbu extract / nsmbu game")
+        sys.exit("missing active dump; run: just extract / just game")
     os.makedirs(os.path.dirname(args.log), exist_ok=True)
     env = os.environ.copy()
     _, save = devdata.apply_env(env, ROOT)

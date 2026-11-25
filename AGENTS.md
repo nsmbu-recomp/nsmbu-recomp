@@ -3,8 +3,9 @@
 ## Rules
 
 - Never commit any game files to the repo they must always be gitignored.
-- Always `nsmbu close` the running game session once finished.
-- Always start nsmbu muted.
+- Always close a live game with the MCP tool `session_close` when finished.
+- Start that game from the debug executable with `--mcp` (it is muted).
+- Before a live check or a decompile, read the debug skill.
 
 ## Changelog
 

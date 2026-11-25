@@ -119,13 +119,13 @@ def main(argv=None):
             dump = gv.active_dir(game)
             if not run_recomp(dump):
                 return 1
-            say("recomp done; run `nsmbu build` if the binary must match the new gen")
+            say("recomp done; run `just build` if the binary must match the new gen")
             return 0
 
         if len(argv) == 1 and not argv[0].startswith("-"):
             selected = gv.resolve_for_select(game, version_id=argv[0], interactive=False)
             if selected is None:
-                raise gv.GameVersionsError("usage: nsmbu game <id>")
+                raise gv.GameVersionsError("usage: just game <id>")
             say("active: game/%s (%s)" % (selected["id"], selected["label"]))
             return 0
 
@@ -134,7 +134,7 @@ def main(argv=None):
                 "usage: game_select.py --list | --create <id> | --import <image> <id> | "
                 "--activate <id> | --migrate [id] | --recomp | <id>"
             )
-        sys.exit("usage: nsmbu game [id]")
+        sys.exit("usage: just game <id>")
     except gv.GameVersionsError as e:
         sys.exit(str(e))
     return 0
