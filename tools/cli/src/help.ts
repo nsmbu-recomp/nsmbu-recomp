@@ -32,6 +32,7 @@ Agent control (single game instance):
   nsmbu stick <x> <y> [--frames N]
   nsmbu rstick <x> <y> [--frames N]
   nsmbu screenshot [path]
+  nsmbu cloud-room [path]
   nsmbu wait --frame N | --step N | --scene NAME | --cursor NAME [--timeout SEC]
   nsmbu goto <title|file|map|W-C> [--timeout SEC]
   nsmbu ui

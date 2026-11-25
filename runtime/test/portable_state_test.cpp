@@ -316,6 +316,26 @@ int main() {
         CHECK(why.find("save data checksum") != std::string::npos);
     }
 
+    {
+        State course;
+        header(course);
+        course.place = "course";
+        course.file_slot = 0;
+        course.world = 0;
+        course.course = 0;
+        course.stage = "1-1";
+        course.savedata = nsmbu_image(3);
+        course.savedata[7] = 0;
+        CHECK(!nsmbu_savedata_ok(course.savedata));
+        seal_nsmbu_savedata(course.savedata);
+        CHECK(nsmbu_savedata_ok(course.savedata));
+        std::string t = write(course, why);
+        CHECK(!t.empty());
+        State back;
+        CHECK(read(t, back, why));
+        CHECK(back.file_slot == 0 && back.savedata[7] == 0);
+    }
+
     CHECK(crc32("123456789", 9) == 0xCBF43926u);
     if (failures) {
         fprintf(stderr, "%d failure(s)\n", failures);

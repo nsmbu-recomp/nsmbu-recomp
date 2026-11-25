@@ -547,6 +547,9 @@ namespace LatteDecompiler
 			decompilerContext->hasUniformVarBlock = true;
 		if (decompilerContext->shaderType == LatteConst::ShaderType::Pixel && decompilerContext->analyzer.hasFragCoordAccess)
 			decompilerContext->hasUniformVarBlock = true;
+		if (decompilerContext->shaderType == LatteConst::ShaderType::Pixel &&
+		    g_renderer && g_renderer->GetType() == RendererAPI::Vulkan)
+			decompilerContext->hasUniformVarBlock = true;
 		if (decompilerContext->shaderType == LatteConst::ShaderType::Vertex && decompilerContext->analyzer.outputPointSize && decompilerContext->analyzer.writesPointSize == false)
 			decompilerContext->hasUniformVarBlock = true;
 		if (decompilerContext->shaderType == LatteConst::ShaderType::Geometry && decompilerContext->analyzer.outputPointSize && decompilerContext->analyzer.writesPointSize == false)

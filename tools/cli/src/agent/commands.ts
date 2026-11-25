@@ -22,14 +22,14 @@ async function ensureNotRunning(repo: string): Promise<void> {
     removeAgentArtifacts(repo);
 }
 
-export async function cmdOpen(repo: string, rest: string[]): Promise<void> {
+export async function cmdOpen(repo: string, rest: string[], extraEnv: Record<string, string> = {}): Promise<void> {
     await ensureNotRunning(repo);
     mkdirSync(agentDir(repo), { recursive: true });
     const sock = agentSocketPath(repo);
     const child = spawnPython(repo, "tools/run/launch.py", rest, {
         detached: true,
         stdio: "ignore",
-        extraEnv: { NSMBU_AGENT_SOCK: sock },
+        extraEnv: { NSMBU_AGENT_SOCK: sock, ...extraEnv },
     });
     child.unref();
     if (child.pid === undefined) {

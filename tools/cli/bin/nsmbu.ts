@@ -33,6 +33,7 @@ import {
     cmdUi,
     cmdWait,
 } from "../src/agent/commands.ts";
+import { cmdCloudRoom } from "../src/agent/cloud-room.ts";
 import { cmdCompletion } from "../src/completion.ts";
 import { cmdSave } from "../src/save.ts";
 import { cmdBench } from "../src/bench/cmd.ts";
@@ -173,6 +174,9 @@ async function main(): Promise<void> {
                 break;
             case "screenshot":
                 await cmdScreenshot(repo, rest);
+                break;
+            case "cloud-room":
+                await cmdCloudRoom(repo, rest);
                 break;
             case "wait":
                 await cmdWait(repo, rest);

@@ -86,7 +86,7 @@ uint64_t hash_bytes(const void* bytes, size_t size, uint64_t hash = 0x9E3779B97F
     return hash^(hash>>29);
 }
 
-constexpr char cacheRecipe[] = "WWVKSC02:glsl450:vk1.1:spv1.3:noopt:resources1:strictmul1:"
+constexpr char cacheRecipe[] = "WWVKSC03:glsl450:vk1.1:spv1.3:noopt:resources1:strictmul1:"
     GLSLANG_VERSION_FLAVOR;
 constexpr size_t maxCacheBytes = diskcache::kMaxBytes;
 constexpr size_t maxSourceBytes = diskcache::kMaxSourceBytes;
@@ -532,6 +532,67 @@ bool same_output(const Shader& a, const Shader& b) {
            !std::memcmp(&a.descriptorRanks, &b.descriptorRanks, sizeof a.descriptorRanks);
 }
 
+bool color_target_unorm8(const uint32_t* regs, int index) {
+    uint32_t info = regs[mmCB_COLOR0_INFO + index];
+    uint32_t fmt = (info >> 2) & 0x3F;
+    uint32_t numberType = (info >> 12) & 7;
+    bool narrow = fmt == 0x1 || fmt == 0x7 || fmt == 0x1A;
+    return narrow && (numberType == 0 || numberType == 6);
+}
+
+// Ordered dither hides 8-bit steps once a gradient covers many pixels.
+// uf_fragCoordScale.z is 1 above 1x and 0 at the Wii U picture size.
+void dither_unorm8_exports(std::string& glsl, const uint32_t* regs) {
+    bool target[8] = {};
+    bool any = false;
+    for (int i = 0; i < 8; i++) {
+        target[i] = color_target_unorm8(regs, i);
+        any = any || target[i];
+    }
+    if (!any || glsl.find("passPixelColor") == std::string::npos) return;
+    bool wrapped = false;
+    for (size_t pos = 0; (pos = glsl.find("passPixelColor", pos)) != std::string::npos; ) {
+        size_t digit = pos + sizeof("passPixelColor") - 1;
+        if (digit >= glsl.size() || glsl[digit] < '0' || glsl[digit] > '7') { pos = digit; continue; }
+        int index = glsl[digit] - '0';
+        size_t eq = glsl.find('=', digit);
+        if (eq == std::string::npos || eq - digit > 4) { pos = digit + 1; continue; }
+        size_t expr = eq + 1;
+        while (expr < glsl.size() && glsl[expr] == ' ') expr++;
+        bool scalar = glsl.compare(expr, 6, "float(") == 0;
+        bool vector = glsl.compare(expr, 5, "vec2(") == 0 || glsl.compare(expr, 5, "vec3(") == 0 ||
+                      glsl.compare(expr, 5, "vec4(") == 0;
+        if (!target[index] || (!scalar && !vector)) { pos = expr; continue; }
+        int depth = 0;
+        size_t end = expr;
+        for (; end < glsl.size(); end++) {
+            if (glsl[end] == '(') depth++;
+            else if (glsl[end] == ')') depth--;
+            else if (glsl[end] == ';' && depth == 0) break;
+        }
+        if (end >= glsl.size()) break;
+        glsl.insert(expr, "nsmbuQuant8(");
+        end += sizeof("nsmbuQuant8(") - 1;
+        glsl.insert(end, ", gl_FragCoord.xy)");
+        wrapped = true;
+        pos = end + sizeof(", gl_FragCoord.xy)") - 1;
+    }
+    if (!wrapped) return;
+    auto main = glsl.find("void main(");
+    if (main == std::string::npos) return;
+    glsl.insert(main,
+        "float nsmbuBand(vec2 p) {\n"
+        "  int x = int(p.x) & 3;\n"
+        "  int y = int(p.y) & 3;\n"
+        "  const int b[16] = int[](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);\n"
+        "  return uf_fragCoordScale.z * ((float(b[x + 4 * y]) + 0.5) / 16.0 - 0.5) / 255.0;\n"
+        "}\n"
+        "float nsmbuQuant8(float c, vec2 p) { return c + nsmbuBand(p); }\n"
+        "vec2 nsmbuQuant8(vec2 c, vec2 p) { return c + vec2(nsmbuBand(p)); }\n"
+        "vec3 nsmbuQuant8(vec3 c, vec2 p) { return c + vec3(nsmbuBand(p)); }\n"
+        "vec4 nsmbuQuant8(vec4 c, vec2 p) { c.rgb += nsmbuBand(p); return c; }\n");
+}
+
 std::mutex decompilerMutex;
 bool decompile(Shader& shader, const uint32_t* regs, bool vertex, LatteFetchShader* fetch,
                uint32_t address, uint32_t size, uint64_t base, bool packReplacement, const PsLink& link,
@@ -620,6 +681,7 @@ bool decompile(Shader& shader, const uint32_t* regs, bool vertex, LatteFetchShad
                 accepted?"applied":"rejected: ",accepted?"":error.c_str());
         }
     }
+    if (!vertex) dither_unorm8_exports(shader.glsl, regs);
     if (shader.dec && shader.dec->strBuf_shaderSource) {
         delete shader.dec->strBuf_shaderSource;
         shader.dec->strBuf_shaderSource = nullptr;
@@ -1324,7 +1386,8 @@ void pack_uniforms_into(const uint32_t* regs, const Shader& shader,
         put(offsets.offset_windowSpaceToClipSpaceTransform + 4, height != 0 ? 2.0f / height : 0);
     }
     if (offsets.offset_fragCoordScale >= 0) {
-        float scale[] = {scaleX != 0 ? 1.0f / scaleX : 1.0f, scaleY != 0 ? 1.0f / scaleY : 1.0f, 0, 0};
+        float amp = (scaleX > 1.01f || scaleY > 1.01f) ? 1.0f : 0.0f;
+        float scale[] = {scaleX != 0 ? 1.0f / scaleX : 1.0f, scaleY != 0 ? 1.0f / scaleY : 1.0f, amp, 0};
         copy(offsets.offset_fragCoordScale, scale, sizeof scale);
     }
     for (int unit = 0; unit < LATTE_NUM_MAX_TEX_UNITS; ++unit) {

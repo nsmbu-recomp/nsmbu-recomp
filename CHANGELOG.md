@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The 3D cloud wall stays smooth at higher internal resolutions (#69).
+  The 8-bit color target dithers those steps when the picture is larger than the Wii U size.
+- A portable save made during play loads again.
+  The story-save header checksum is refreshed when that save is captured.
+- A portable save in a course puts you back at the saved spot.
+  The course entrance no longer replaces that spot.
+
 ## [0.11.0] - 2026-11-25
 
 ### Added

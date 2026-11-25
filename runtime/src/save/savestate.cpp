@@ -64,6 +64,36 @@ namespace dispatch { std::vector<std::pair<uint32_t, std::string>> host_function
 
 namespace interp { uint64_t logic_steps(); }
 extern "C" bool nsmbu_apply_map_pose(int32_t world, int32_t section, int32_t node, int32_t course);
+
+namespace {
+struct ArrivalPeek {
+    bool course = false;
+    float x = 0, y = 0, z = 0;
+} g_peek;
+}
+
+extern "C" void f_028FD4C0_orig(Cpu* c);
+extern "C" void hook_028FD4C0(Cpu* c) {
+    uint32_t src = c->r[4];
+    static bool logged = false;
+    if (g_peek.course) {
+        static uint32_t buf = 0;
+        if (!buf) buf = mem::host_alloc(16, 4);
+        stf32(buf, g_peek.x);
+        stf32(buf + 4, g_peek.y);
+        stf32(buf + 8, g_peek.z);
+        c->r[4] = buf;
+        if (!logged) {
+            LOG("[savestate] portable load: spawn at %.1f %.1f %.1f", g_peek.x, g_peek.y, g_peek.z);
+            logged = true;
+        }
+    } else {
+        logged = false;
+    }
+    f_028FD4C0_orig(c);
+    c->r[4] = src;
+}
+
 namespace ss {
 namespace {
 
@@ -586,6 +616,7 @@ bool do_load(const std::shared_ptr<Snapshot>& s) {
 }
 
 const uint32_t kCourseTask = GD(0x101D15F0);
+const uint32_t kAreaTask = GD(0x101D1598);
 const uint32_t kCourseSelect = GD(0x101CC96C);
 const uint32_t kPlayerMgr = GD(0x101E6994);
 const uint32_t kCourseInfo = GD(0x101D18EC);
@@ -599,6 +630,9 @@ const uint32_t kCreatorSaveSelect = GC(0x024C11F4);
 const uint32_t kCreatorMenu = GC(0x0202B61C);
 constexpr uint32_t kPlayerActor = 0x20;
 constexpr uint32_t kPosX = 0x6C, kPosY = 0x70, kPosZ = 0x74;
+constexpr uint32_t kSpeedX = 0x78, kSpeedY = 0x7C, kSpeedZ = 0x80;
+// PlayerBase::setPosAndDir copies the position to these actor offsets.
+constexpr uint32_t kPosCopies[] = {0x6C, 0x240, 0x258, 0x298, 0x2110};
 constexpr uint32_t kSaveDataOff = 0x24;
 constexpr uint32_t kSceneCreator = 0x58;
 constexpr uint32_t kSceneNext = 0x5C;
@@ -795,7 +829,15 @@ struct Arrival {
     float pos[3]{};
     int world = 0, course = 0, section = 0, node = 0;
     uint64_t frame = 0;
+    uint32_t actor = 0;
+    int held = 0;
 } g_arrival;
+
+// The entrance spawn runs after the first player actor exists. Hold the saved
+// spot once the course is playing so that spawn does not put the player back
+// at the entrance. 120 render frames is one second at the default pace.
+constexpr int kArrivalHold = 120;
+constexpr uint64_t kArrivalTimeout = 120 * 60;
 
 bool capture_portable(Cpu* c, pstate::State& s, std::string& why) {
     (void)c;
@@ -804,6 +846,8 @@ bool capture_portable(Cpu* c, pstate::State& s, std::string& why) {
     if (!describe_place(why, retry, live)) return false;
     (void)retry;
     if (!copy_savedata(s.savedata, why)) return false;
+    // The live story save keeps a stale header checksum after the selected file changes.
+    pstate::seal_nsmbu_savedata(s.savedata);
     s.file_slot = s.savedata[7];
     s.place = live.where == Where::Course ? "course" : "map";
     s.world = live.world;
@@ -840,6 +884,15 @@ void arm_arrival(const pstate::State& s) {
     g_arrival.pos[1] = s.pos[1];
     g_arrival.pos[2] = s.pos[2];
     g_arrival.frame = render::frame_count();
+    g_peek.course = g_arrival.place == "course";
+    g_peek.x = g_arrival.pos[0];
+    g_peek.y = g_arrival.pos[1];
+    g_peek.z = g_arrival.pos[2];
+}
+
+void clear_arrival() {
+    g_arrival = Arrival{};
+    g_peek.course = false;
 }
 
 bool apply_portable(Cpu* c, const pstate::State& s, std::string& why, bool& retry) {
@@ -1006,33 +1059,60 @@ void service_portable_load(Cpu* c) {
     g_pload = PendingPortable{};
 }
 
+void place_course_actor(uint32_t actor) {
+    if ((uint64_t)actor + 0x2118u >= mem::kMem2End) return;
+    for (uint32_t off : kPosCopies) {
+        stf32(actor + off, g_arrival.pos[0]);
+        stf32(actor + off + 4, g_arrival.pos[1]);
+        stf32(actor + off + 8, g_arrival.pos[2]);
+    }
+    stf32(actor + kSpeedX, 0);
+    stf32(actor + kSpeedY, 0);
+    stf32(actor + kSpeedZ, 0);
+}
+
+bool course_arrival_ready(Cpu* c, uint32_t& actor) {
+    if (mods::scene::story_leave_pending()) return false;
+    if (ld32(kCourseTask) == 0 || ld32(kAreaTask) == 0) return false;
+    uint32_t info = ld32(kCourseInfo);
+    if (!in_mem2(info)) return false;
+    if (ld8(info + 0x10) != g_arrival.world || ld8(info + 0x11) != g_arrival.course) return false;
+    std::string why;
+    if (!fader_idle(c, why)) return false;
+    uint32_t mgr = ld32(kPlayerMgr);
+    actor = mgr ? ld32(mgr + kPlayerActor) : 0;
+    return in_mem2(actor);
+}
+
 void watch_arrival(Cpu* c) {
     if (g_arrival.place.empty()) return;
     uint64_t now = render::frame_count();
     if (now <= g_arrival.frame) return;
-    if (now - g_arrival.frame > 30 * 60) {
+    if (now - g_arrival.frame > kArrivalTimeout) {
         LOG("[savestate] portable load: did not arrive (%s)", g_arrival.place.c_str());
-        g_arrival = Arrival{};
+        clear_arrival();
         return;
     }
     if (g_arrival.place == "course") {
-        uint32_t task = ld32(kCourseTask);
-        uint32_t mgr = ld32(kPlayerMgr);
-        uint32_t actor = mgr ? ld32(mgr + kPlayerActor) : 0;
-        if (task == 0 || !in_mem2(actor)) return;
-        stf32(actor + kPosX, g_arrival.pos[0]);
-        stf32(actor + kPosY, g_arrival.pos[1]);
-        stf32(actor + kPosZ, g_arrival.pos[2]);
-        LOG("[savestate] portable load: course %d-%d at %.1f %.1f %.1f", g_arrival.world + 1, g_arrival.course + 1, g_arrival.pos[0],
-            g_arrival.pos[1], g_arrival.pos[2]);
-        g_arrival = Arrival{};
+        uint32_t actor = 0;
+        if (!course_arrival_ready(c, actor)) return;
+        if (actor != g_arrival.actor) {
+            g_arrival.actor = actor;
+            g_arrival.held = 0;
+        }
+        place_course_actor(actor);
+        if (g_arrival.held == 0)
+            LOG("[savestate] portable load: course %d-%d at %.1f %.1f %.1f", g_arrival.world + 1, g_arrival.course + 1,
+                g_arrival.pos[0], g_arrival.pos[1], g_arrival.pos[2]);
+        if (++g_arrival.held < kArrivalHold) return;
+        clear_arrival();
         return;
     }
     std::string why;
     if (!fader_idle(c, why) || ld32(kCourseSelect) == 0) return;
     if (!nsmbu_apply_map_pose(g_arrival.world, g_arrival.section, g_arrival.node, g_arrival.course)) return;
     LOG("[savestate] portable load: map world %d section %d node %d", g_arrival.world + 1, g_arrival.section, g_arrival.node);
-    g_arrival = Arrival{};
+    clear_arrival();
 }
 
 int g_full_setting = -1;

@@ -124,8 +124,9 @@ The load runs on the game thread at a frame boundary.
 
 A course load starts the story course change.
 If the game is leaving a course, or the scene is busy, the load waits and tries again.
-When the new player actor exists, the load writes the saved position.
-The load does not write that position in the frame that leaves the old course.
+When the new course is playing, the load writes the saved position and keeps it there for a short time.
+That wait lets the course finish its entrance spawn.
+The load does not write that position while the old course is leaving.
 
 A map load opens Course Select.
 The load then writes the saved world, section, path node, and course tag.

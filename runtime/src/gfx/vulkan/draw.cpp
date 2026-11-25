@@ -1982,6 +1982,34 @@ StageResources bind_stage(const uint32_t *r, vk::Shader *sh,
                            VK_ACCESS_SHADER_READ_BIT);
         integerSampler = s->fmt.kind != FormatInfo::FLOAT;
         allowAniso = !s->gpuWritten && s->mips > 1;
+        const uint32_t hwFmt = s->format & 0x3F;
+        if (env::LOG_TEXCHECK() && (hwFmt == 0x33 || hwFmt == 0x31 || s->gpuWritten) && s->width >= 64) {
+          static uint32_t seen[300]{};
+          static int seenN = 0;
+          bool known = false;
+          for (int n = 0; n < seenN; n++) if (seen[n] == s->addr) known = true;
+          if (!known && seenN < 300) {
+            seen[seenN++] = s->addr;
+            Latte::LATTE_SQ_TEX_SAMPLER_WORD0_0 sw;
+            Latte::LATTE_SQ_TEX_SAMPLER_WORD1_0 sw1;
+            std::memcpy(&sw, samplerWords, 4);
+            std::memcpy(&sw1, samplerWords + 1, 4);
+            Latte::LATTE_SQ_TEX_RESOURCE_WORD5_N rw5;
+            std::memcpy(&rw5, texWords + 5, 4);
+            char line[240];
+            snprintf(line, sizeof line,
+                     "[texcheck] %08X %ux%u mips %u/%u fmt %02X gpu %u tile %u mag %u min %u mip %u bias %d minLod %u maxLod %u anisoRatio %u allowAniso %u\n",
+                     s->addr, s->width, s->height, s->mips, uint32_t(rw5.get_LAST_LEVEL()) + 1, s->format, s->gpuWritten,
+                     s->tileMode, uint32_t(sw.get_XY_MAG_FILTER()), uint32_t(sw.get_XY_MIN_FILTER()),
+                     uint32_t(sw.get_MIP_FILTER()), int(sw1.get_LOD_BIAS()), uint32_t(sw1.get_MIN_LOD()),
+                     uint32_t(sw1.get_MAX_LOD()), uint32_t(sw.get_MAX_ANISO_RATIO()), allowAniso);
+            LOG("%s", line);
+            if (FILE* f = fopen("/home/econn/git/nsmbu-recomp/.tmp/texcheck.log", "a")) {
+              fputs(line, f);
+              fclose(f);
+            }
+          }
+        }
       }
       sampledSampler = sampler(samplerWords, depthCompare, integerSampler, allowAniso);
       if (aliases || (s && s->gpuWritten)) {

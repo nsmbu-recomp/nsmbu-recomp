@@ -194,6 +194,10 @@ Use them for a short look while writing a playtest case; lasting coverage stays 
 - `nsmbu press A` / `press 8000` — short pulse (configurable frames).
 - `nsmbu stick <x> <y> [--frames N]` / `rstick …`
 - `nsmbu screenshot [path]` — wait until PNG written; print path.
+- `nsmbu cloud-room [path]` loads portable slot 1, opens 1-1, and jumps into the pipe under the coin bridge.
+  It waits until the third Star Coin room is up, then writes a screenshot.
+  The default path is `.tmp/cloud-room.png`.
+  The command needs `nsmbu/states/slot1.nsstate`.
 - `nsmbu wait --frame N` / `wait --step N` / `wait --scene NAME` / `wait --cursor NAME` — poll until every bound is met.
   `--scene` matches the scene name (`Boot`, `Flow`, `FileSelect`, `SaveSelect`, `Title`, `Menu`, `Map`, `CourseTask`, `CourseSelect`).
   `--cursor` matches the selected world-map menu button name, such as `Settings`.

@@ -86,7 +86,14 @@ namespace LatteDecompilerGLSL
 		bool compatNeedFragCoordScalePadding = false;
 		if (shader->shaderType == LatteConst::ShaderType::Pixel)
 		{
-			if (!decompilerContext->analyzer.hasFragCoordAccess)
+			if (rendererType == RendererAPI::Vulkan)
+			{
+				uniformCurrentOffset = (uniformCurrentOffset + 15)&~15;
+				shaderSrc->add("uniform vec4 uf_fragCoordScale;" _CRLF);
+				uniformOffsets.offset_fragCoordScale = uniformCurrentOffset;
+				uniformCurrentOffset += 16;
+			}
+			else if (!decompilerContext->analyzer.hasFragCoordAccess)
 			{
 
 				compatNeedFragCoordScalePadding = true;
