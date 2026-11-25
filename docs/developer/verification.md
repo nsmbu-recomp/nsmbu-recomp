@@ -230,12 +230,14 @@ The check is the `python3 tools/rpx/ppcdis.py` listing against the C++.
 This repo cannot prove a function with generated inputs.
 The port compile omits `vendor/decomp`.
 Wind Waker HD has these decomp checks.
-This repo has none of them.
+This repo has neither of the first two.
 
 - a generated-input harness (`tools/verify` and `verify.py`)
 - recorded taps (`mktap`)
-- a decomp-build bisect (`WWHD_DECOMP`)
-- a decomp build that swaps a guest function
+
+The decomp build swaps a verified C++ body in for the recompiled function.
+That build is not in this tree yet.
+The procedure is the `decomp-build` skill (`.cursor/skills/decomp-build/SKILL.md`).
 
 ## Gaps and cleanup targets
 
