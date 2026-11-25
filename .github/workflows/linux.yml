@@ -13,16 +13,39 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       SDL3_VERSION: release-3.4.18
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_COMPRESS: "1"
+      CCACHE_MAXSIZE: 500M
+      CCACHE_COMPILERCHECK: content
+      CCACHE_SLOPPINESS: time_macros
     steps:
       - uses: actions/checkout@v4
 
       - name: Vendored libraries
         run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
+      # The Ubuntu mirror sent 75 MB at about 200 KB/s (6 minutes) on the 2026-11-25 run.
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: .apt
+          key: linux-apt-${{ hashFiles('.github/workflows/linux.yml') }}
+          restore-keys: linux-apt-
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: linux-ccache-${{ github.sha }}
+          restore-keys: linux-ccache-
+
       - name: Install dependencies
         run: |
+          mkdir -p .apt/partial
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config zlib1g-dev liblz4-dev \
+          sudo apt-get install -y -o Dir::Cache::archives="$PWD/.apt" -o APT::Keep-Downloaded-Packages=true \
+            clang cmake ninja-build ccache pkg-config zlib1g-dev liblz4-dev \
             libvulkan-dev glslang-dev glslang-tools mesa-vulkan-drivers vulkan-validationlayers xvfb \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev libxfixes-dev libxtst-dev \
             libxkbcommon-dev libwayland-dev libasound2-dev libpulse-dev libudev-dev libdbus-1-dev
@@ -46,15 +69,19 @@ jobs:
       - name: Configure
         run: |
           python3 recomp/stubgen.py build/gen-stub
+          ccache -z
           cmake -S . -B build/linux -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DGEN_DIR="$PWD/build/gen-stub" -DCMAKE_PREFIX_PATH="$HOME/sdl3" -DNSMBU_SETUP_GUI=ON
 
       - name: Build
-        run: cmake --build build/linux
+        run: |
+          cmake --build build/linux
+          ccache -s
 
       - name: Unit tests
         run: |
-          ctest --test-dir build/linux --output-on-failure
+          ctest --test-dir build/linux --output-on-failure --parallel "$(nproc)"
           python3 installer/test_setup.py
           python3 recomp/test_builds.py
           python3 recomp/test_output.py

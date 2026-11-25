@@ -28,6 +28,14 @@ jobs:
       NDK_VERSION: 30.0.16248370
       SDK_PLATFORM: platforms;android-36
       SDK_BUILD_TOOLS: build-tools;35.0.0
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_COMPRESS: "1"
+      CCACHE_MAXSIZE: 500M
+      CCACHE_COMPILERCHECK: content
+      CCACHE_SLOPPINESS: time_macros
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     steps:
       - uses: actions/checkout@v4
 
@@ -46,14 +54,26 @@ jobs:
         timeout-minutes: 15  # a stalled download fails fast instead of hanging until GitHub's 6 h limit
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build
+          sudo apt-get install -y ninja-build ccache
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" "$SDK_PLATFORM" "$SDK_BUILD_TOOLS"
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: android-ccache-${{ env.NDK_VERSION }}-${{ github.sha }}
+          restore-keys: android-ccache-${{ env.NDK_VERSION }}-
 
       - name: Native library (placeholder game code)
         run: |
           python3 recomp/stubgen.py build/gen-stub
+          ccache -z
           GEN_DIR="$PWD/build/gen-stub" ANDROID_SDK="$ANDROID_HOME" JOBS=4 runtime/android/build_native.sh
+          ccache -s
+
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: APK
         working-directory: runtime/android

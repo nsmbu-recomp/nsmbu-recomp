@@ -32,23 +32,48 @@ jobs:
             mingw-w64-clang-x86_64-sdl3
             mingw-w64-clang-x86_64-lz4
             mingw-w64-clang-x86_64-zlib
+            mingw-w64-clang-x86_64-ccache
             make
 
       - name: Vendored libraries
         shell: pwsh
         run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: windows-ccache-${{ github.sha }}
+          restore-keys: windows-ccache-
+
       - name: Configure
         run: |
           python recomp/stubgen.py build/gen-stub
+          # ccache.exe is a Windows program. It does not accept an MSYS path.
+          export CCACHE_DIR="$(cygpath -m "$PWD/.ccache")"
+          export CCACHE_BASEDIR="$(cygpath -m "$PWD")"
+          export CCACHE_COMPRESS=1
+          export CCACHE_MAXSIZE=500M
+          export CCACHE_COMPILERCHECK=content
+          export CCACHE_SLOPPINESS=time_macros
+          ccache -z
           cmake -S . -B build/windows -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DGEN_DIR="$PWD/build/gen-stub"
 
       - name: Build
-        run: cmake --build build/windows
+        run: |
+          export CCACHE_DIR="$(cygpath -m "$PWD/.ccache")"
+          export CCACHE_BASEDIR="$(cygpath -m "$PWD")"
+          export CCACHE_COMPRESS=1
+          export CCACHE_MAXSIZE=500M
+          export CCACHE_COMPILERCHECK=content
+          export CCACHE_SLOPPINESS=time_macros
+          cmake --build build/windows
+          ccache -s
 
       - name: Unit tests
-        run: ctest --test-dir build/windows --output-on-failure
+        run: ctest --test-dir build/windows --output-on-failure --parallel
 
       - uses: actions/setup-node@v4
         with:
