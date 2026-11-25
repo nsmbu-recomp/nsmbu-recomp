@@ -27,7 +27,7 @@ Scene moves stay inside the case through `Session` helpers (`goto`, `leave`, `st
 `nsmbu test --list` prints the case names and summaries (the live list).
 `nsmbu test opened-course` runs one case.
 `--show` leaves the game window on screen and runs one case at a time.
-Each case uses `.tmp/playtest/<name>/` for its save, control socket, and log file, so `nsmbu/save` and the live agent socket stay unread.
+Each case uses `.tmp/playtest/<name>/` for its save and log file, so `nsmbu/save` stays unread.
 Shader cache and settings stay in the shared `nsmbu/` userdata.
 
 Issue links that the cases cover:

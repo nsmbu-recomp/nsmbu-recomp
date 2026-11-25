@@ -113,7 +113,7 @@ Registered cases (run `--list` for summaries):
 - `replay-bug-1` — intro skip into 2-1, then quit onto `W201`
 - `widescreen-map-ui`, `widescreen-title` — 21:9 UI (skipped in `nsmbu test` until screenshot/replay timing is stable)
 
-Each case uses `.tmp/playtest/<name>/` for save, control socket, log, and userdata (`NSMBU_USER_DIR` under that folder).
+Each case uses `.tmp/playtest/<name>/` for save, log, and userdata (`NSMBU_USER_DIR` under that folder).
 
 Playtests are **not** in GitHub CI (no game dump in CI).
 Agents with a local dump are the main line for game regressions.

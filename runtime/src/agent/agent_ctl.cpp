@@ -3,24 +3,16 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
-#include <cerrno>
 #include <cstdlib>
-#include <cstring>
-#include <cstdio>
 #include <deque>
 #include <filesystem>
 #include <mutex>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include "agent/mcp.h"
 
 #ifndef _WIN32
-#include <fcntl.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/un.h>
 #include <unistd.h>
 #else
 #include <windows.h>
@@ -30,7 +22,6 @@
 #include <SDL3/SDL.h>
 #endif
 
-#include "core/env.h"
 #include "gfx/renderer.h"
 #ifdef NSMBU_VULKAN
 #include "gfx/vulkan/api.h"
@@ -49,18 +40,7 @@ namespace {
 std::atomic<bool> g_active{false};
 std::mutex g_mu;
 std::condition_variable g_cv;
-std::thread g_thread;
-bool g_stop = false;
 bool g_want_mcp = false;
-
-#ifndef _WIN32
-int g_listen = -1;
-int g_client = -1;
-std::mutex g_write_mu;
-#else
-HANDLE g_pipe = INVALID_HANDLE_VALUE;
-bool g_win_logged = false;
-#endif
 
 struct PadOverlay {
     uint32_t buttons = 0;
@@ -466,139 +446,6 @@ void handle_request(const mods::json::Value& req) {
     queue_line(response_err(id, "unknown cmd"));
 }
 
-void dispatch_line(const std::string& line) {
-    if (line.empty()) return;
-    try {
-        handle_request(mods::json::parse(line));
-    } catch (const std::exception& e) {
-        queue_line(response_err(0, e.what()));
-    }
-}
-
-#ifndef _WIN32
-void flush_writes() {
-    std::deque<std::string> lines;
-    {
-        std::lock_guard<std::mutex> lk(g_mu);
-        if (g_client < 0) return;
-        lines.swap(g_out_lines);
-    }
-    if (lines.empty()) return;
-    std::lock_guard<std::mutex> write_lk(g_write_mu);
-    for (const auto& line : lines) {
-        std::string out = line;
-        out += '\n';
-        size_t off = 0;
-        while (off < out.size()) {
-            ssize_t n = write(g_client, out.data() + off, out.size() - off);
-            if (n <= 0) return;
-            off += size_t(n);
-        }
-    }
-}
-
-void close_client() {
-    if (g_client >= 0) {
-        close(g_client);
-        g_client = -1;
-    }
-}
-
-void serve_client(int fd) {
-    g_client = fd;
-    std::string buf;
-    char chunk[4096];
-    for (;;) {
-        flush_writes();
-        ssize_t n = read(fd, chunk, sizeof chunk);
-        if (n <= 0) break;
-        buf.append(chunk, chunk + n);
-        for (;;) {
-            auto pos = buf.find('\n');
-            if (pos == std::string::npos) break;
-            std::string line = buf.substr(0, pos);
-            buf.erase(0, pos + 1);
-            dispatch_line(line);
-            flush_writes();
-        }
-    }
-    close_client();
-}
-
-void listen_loop(const std::string& path) {
-    g_listen = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (g_listen < 0) {
-        LOG("[agent] socket: %s", strerror(errno));
-        return;
-    }
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    if (path.size() >= sizeof addr.sun_path) {
-        LOG("[agent] socket path too long");
-        close(g_listen);
-        g_listen = -1;
-        return;
-    }
-    std::memcpy(addr.sun_path, path.c_str(), path.size() + 1);
-    unlink(path.c_str());
-    if (bind(g_listen, reinterpret_cast<sockaddr*>(&addr), sizeof addr) < 0) {
-        LOG("[agent] bind %s: %s", path.c_str(), strerror(errno));
-        close(g_listen);
-        g_listen = -1;
-        return;
-    }
-    chmod(path.c_str(), 0666);
-    if (listen(g_listen, 4) < 0) {
-        LOG("[agent] listen: %s", strerror(errno));
-        close(g_listen);
-        g_listen = -1;
-        unlink(path.c_str());
-        return;
-    }
-    LOG("[agent] listening on %s", path.c_str());
-    while (!g_stop) {
-        fd_set fds;
-        FD_ZERO(&fds);
-        FD_SET(g_listen, &fds);
-        timeval tv{0, 200000};
-        int r = select(g_listen + 1, &fds, nullptr, nullptr, &tv);
-        if (r < 0) {
-            if (errno == EINTR) continue;
-            break;
-        }
-        if (r == 0) {
-            flush_writes();
-            continue;
-        }
-        int fd = accept(g_listen, nullptr, nullptr);
-        if (fd < 0) continue;
-        close_client();
-        serve_client(fd);
-    }
-    close_client();
-    if (g_listen >= 0) {
-        close(g_listen);
-        g_listen = -1;
-    }
-    unlink(path.c_str());
-}
-#else
-void listen_loop(const std::string&) {
-    if (!g_win_logged) {
-        g_win_logged = true;
-        LOG("[agent] named pipe control is not implemented; set NSMBU_AGENT_SOCK only on Unix hosts");
-    }
-}
-#endif
-
-void thread_main(std::string path) {
-#ifndef _WIN32
-    listen_loop(path);
-#else
-    listen_loop(path);
-#endif
-}
-
 void expire_pad(uint64_t frame) {
     if (g_pad.until && g_pad.until <= frame) g_pad = {};
 }
@@ -606,42 +453,24 @@ void expire_pad(uint64_t frame) {
 }
 
 void init() {
-    const char* sock = env::AGENT_SOCK();
-    const bool sock_on = sock && *sock;
-    if (!sock_on && !g_want_mcp) return;
+    if (!g_want_mcp) return;
 #ifdef NDEBUG
     LOG("[agent] control is disabled in release builds");
     return;
 #else
     g_active.store(true);
-    g_stop = false;
-    if (sock_on) {
-        std::string path = sock;
-        std::error_code ec;
-        std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
-        LOG("[agent] control enabled (%s)", path.c_str());
-        g_thread = std::thread([path] { thread_main(path); });
-    }
-    if (g_want_mcp) agent_mcp::start();
+    agent_mcp::start();
 #endif
 }
 
 void shutdown() {
     if (!g_active.load()) return;
-    g_stop = true;
     agent_mcp::stop();
-#ifndef _WIN32
-    if (g_listen >= 0) ::shutdown(g_listen, SHUT_RDWR);
-#endif
-    if (g_thread.joinable()) g_thread.join();
     g_active.store(false);
 }
 
 void service() {
     if (!g_active.load()) return;
-#ifndef _WIN32
-    flush_writes();
-#endif
     {
         std::lock_guard<std::mutex> lk(g_mu);
         expire_pad(interp::logic_steps());
@@ -739,9 +568,6 @@ void service() {
                 ++it;
         }
     }
-#ifndef _WIN32
-    flush_writes();
-#endif
     g_cv.notify_all();
 }
 
