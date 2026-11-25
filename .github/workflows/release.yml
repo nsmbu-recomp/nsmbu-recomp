@@ -55,6 +55,8 @@ env:
   VULKAN_HEADERS_SHA256: cbaf687d3c59b9666fe080e7f8396b6b4f4d344a768ee6b337c59852f4526b68
   VULKAN_DEF_URL: https://raw.githubusercontent.com/KhronosGroup/Vulkan-Loader/vulkan-sdk-1.4.363.0/loader/vulkan-1.def
   VULKAN_DEF_SHA256: 9ba339b7f5ee2df28487698a6840ecf095fac58b415c2c89ad9f161e9d316378
+  # Level 9 deflate made the Linux package step about 50s. The archive is mostly binaries.
+  NSMBU_ZIP_LEVEL: "1"
 
 jobs:
   version:
@@ -144,26 +146,43 @@ jobs:
     runs-on: macos-15
     env:
       VERSION: ${{ needs.version.outputs.version }}
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_COMPRESS: "1"
+      CCACHE_MAXSIZE: 500M
+      CCACHE_COMPILERCHECK: content
+      CCACHE_SLOPPINESS: time_macros
     steps:
       - uses: actions/checkout@v4
 
       - name: Vendored libraries
         run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
 
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: release-macos-${{ github.sha }}
+          restore-keys: |
+            release-macos-
+
       - name: Install build tools
-        run: brew install ninja
+        run: brew install ninja ccache
 
       - name: Build runtime (Release, Metal) against placeholder guest code
         run: |
           python3 recomp/stubgen.py build/gen-stub
+          ccache -z
           cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DNSMBU_VERSION="$VERSION" -DNSMBU_RENDERER=METAL \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 -DGEN_DIR="$PWD/build/gen-stub" -DNSMBU_SETUP_GUI=ON \
-            -DNSMBU_BUNDLED_ZSTD=ON
+            -DNSMBU_BUNDLED_ZSTD=ON \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build build/rel
+          ccache -s
 
       - name: Unit tests
         run: |
-          ctest --test-dir build/rel --output-on-failure
+          ctest --test-dir build/rel --output-on-failure --parallel
           python3 installer/test_setup.py
           python3 recomp/test_builds.py
           python3 recomp/test_output.py
@@ -226,8 +245,8 @@ jobs:
       ARCH: ${{ matrix.arch }}
       TOOLCHAIN: ${{ matrix.toolchain }}
       # A fresh zig has an empty global cache, and the first compile then spends about a minute
-      # identifying the compiler. ccache keeps the object files. Both paths stay under the
-      # workspace so the cache key does not follow a random runner temp directory.
+      # identifying the compiler. ccache keeps the object files. ziglang.org serves the 53 MB pin
+      # at about 100 KB/s from these runners, so the unpacked compiler is cached under $HOME.
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       CCACHE_COMPRESS: "1"
@@ -261,6 +280,7 @@ jobs:
           path: |
             .ccache
             .zig-cache
+            /home/runner/zig-toolchain
           key: release-linux-${{ matrix.arch }}-${{ env.TOOLCHAIN }}-${{ github.sha }}
           restore-keys: |
             release-linux-${{ matrix.arch }}-${{ env.TOOLCHAIN }}-
@@ -271,12 +291,28 @@ jobs:
           import json, os; t=json.load(open('installer/toolchains.json'))['toolchains'][os.environ['TOOLCHAIN']]
           print(t['url'], t['sha256'], t['dir'], t['target'])")
           # A stable compiler path keeps the ccache key the same on the next tag.
+          # GitHub-hosted Ubuntu runners use this home. The wrappers embed the path.
           ROOT="$HOME/zig-toolchain"
           mkdir -p "$ROOT"
           echo "ZIG_DIR=$ROOT/$DIR" >> "$GITHUB_ENV"
-          curl -fsSL -o "$RUNNER_TEMP/zig.tar.xz" "$URL"
-          echo "$SUM  $RUNNER_TEMP/zig.tar.xz" | sha256sum -c -
-          tar -xf "$RUNNER_TEMP/zig.tar.xz" -C "$ROOT"
+          if [[ ! -x "$ROOT/$DIR/zig" ]]; then
+            base=$(basename "$URL")
+            ver=$(printf '%s\n' "$base" | sed -n 's/.*-\([0-9][0-9.]*\)\.tar\.xz$/\1/p')
+            mirror="https://github.com/ctaggart/zig/releases/download/v${ver}/${base}"
+            rm -f "$RUNNER_TEMP/zig.tar.xz"
+            # Same bytes as toolchains.json. The checksum rejects a mirror that drifted.
+            if curl -fL --retry 3 --retry-all-errors -o "$RUNNER_TEMP/zig.tar.xz" "$mirror" \
+                && echo "$SUM  $RUNNER_TEMP/zig.tar.xz" | sha256sum -c -; then
+              echo "zig from $mirror"
+            else
+              echo "mirror missed; downloading $URL"
+              curl -fL --retry 5 --retry-all-errors -o "$RUNNER_TEMP/zig.tar.xz" "$URL"
+              echo "$SUM  $RUNNER_TEMP/zig.tar.xz" | sha256sum -c -
+            fi
+            tar -xf "$RUNNER_TEMP/zig.tar.xz" -C "$ROOT"
+          else
+            echo "zig restored from cache ($DIR)"
+          fi
           ZIG="$ROOT/$DIR/zig"
           mkdir -p "$ROOT/bin"
           printf '#!/bin/sh\nexec "%s" cc -target %s "$@"\n' "$ZIG" "$TARGET" > "$ROOT/bin/zcc"
@@ -311,17 +347,17 @@ jobs:
           cmake --build build/rel
           ccache -s
 
-      - name: Unit tests
+      - name: Unit tests and package
         run: |
           export LD_LIBRARY_PATH="$HOME/sdl3/lib"
-          ctest --test-dir build/rel --output-on-failure
-          python3 installer/test_setup.py
-          python3 recomp/test_builds.py
-          python3 recomp/test_output.py
-          python3 recomp/test_pool.py
-
-      - name: Package
-        run: |
+          (
+            ctest --test-dir build/rel --output-on-failure --parallel "$(nproc)"
+            python3 installer/test_setup.py
+            python3 recomp/test_builds.py
+            python3 recomp/test_output.py
+            python3 recomp/test_pool.py
+          ) > "$RUNNER_TEMP/unit-tests.log" 2>&1 &
+          tests=$!
           python3 tools/release/package.py --build build/rel --platform "linux-$ARCH" --version "$VERSION" \
             --out dist --toolchain "$TOOLCHAIN" --setup-gui build/rel/nsmbu-setup \
             --runtime-file "$HOME/sdl3/lib/libSDL3.so.0" \
@@ -332,6 +368,11 @@ jobs:
             --license "zlib (zlib)=$PWD/build/rel/_deps/zlib-src/LICENSE" \
             --license "LZ4 (BSD-2-Clause)=$PWD/build/rel/_deps/lz4-src/lib/LICENSE" \
             --license "LLVM libc++ (Apache-2.0 WITH LLVM-exception)=$ZIG_DIR/lib/libcxx/LICENSE.TXT"
+          if ! wait "$tests"; then
+            cat "$RUNNER_TEMP/unit-tests.log"
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/unit-tests.log"
 
       - name: Guard (no game code, game files or keys)
         run: python3 tools/release/guard.py dist/*.zip
@@ -363,11 +404,14 @@ jobs:
           test ! -e "$GITHUB_WORKSPACE/dist/portable.txt"
           chmod -R u+w "$RUNNER_TEMP"/squashfs-root && rm -rf "$RUNNER_TEMP"/squashfs-root
 
-      - name: Installer self-test (unzipped release, placeholder code, toolchain download)
+      - name: Installer self-test (unzipped release, placeholder code)
         run: |
           mkdir -p "$RUNNER_TEMP/unz" && cd "$RUNNER_TEMP/unz" && unzip -q "$GITHUB_WORKSPACE"/dist/*.zip
           cd NSMBU-*
-          ./tools/setup-in-terminal.sh --yes --no-launch --gen-dir "$GITHUB_WORKSPACE/build/gen-stub" --data-dir "$RUNNER_TEMP/data"
+          # The pin was already checked and unpacked above. Downloading it again from ziglang.org
+          # took about 9 minutes on the 0.11.0 run and does not exercise a different compiler.
+          NSMBU_TOOLCHAIN_DIR="$ZIG_DIR" ./tools/setup-in-terminal.sh --yes --no-launch \
+            --gen-dir "$GITHUB_WORKSPACE/build/gen-stub" --data-dir "$RUNNER_TEMP/data"
           # the right architecture: the game the installer linked and the program a player starts
           want=$([ "$ARCH" = aarch64 ] && echo "ARM aarch64" || echo "x86-64")
           file "$RUNNER_TEMP/data/bin/nsmbu" ./nsmbu-launcher
@@ -426,11 +470,25 @@ jobs:
       TOOLCHAIN: ${{ matrix.toolchain }}
       TRIPLE: ${{ matrix.triple }}
       PY_PIN: ${{ matrix.python }}
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_COMPRESS: "1"
+      CCACHE_MAXSIZE: 500M
+      CCACHE_COMPILERCHECK: content
+      CCACHE_SLOPPINESS: time_macros
     steps:
       - uses: actions/checkout@v4
 
       - name: Vendored libraries
         run: git submodule update --init vendor/fmt vendor/imgui vendor/xxHash vendor/metal-cpp
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: release-windows-${{ matrix.arch }}-${{ matrix.toolchain }}-${{ github.sha }}
+          restore-keys: |
+            release-windows-${{ matrix.arch }}-${{ matrix.toolchain }}-
 
       - name: Pinned llvm-mingw toolchain (installer/toolchains.json)
         run: |
@@ -446,6 +504,15 @@ jobs:
           "$T/$DIR/bin/$TRIPLE-clang.exe" --version
           pip install ninja
           ninja --version
+          case "${{ matrix.arch }}" in
+            arm64) ccache_arch=aarch64 ;;
+            *) ccache_arch=x86_64 ;;
+          esac
+          curl -fsSL -o "$T/ccache.zip" "https://github.com/ccache/ccache/releases/download/v4.14.3/ccache-4.14.3-windows-${ccache_arch}.zip"
+          unzip -q "$T/ccache.zip" -d "$T/ccache-pkg"
+          cp "$T/ccache-pkg"/ccache-*/ccache.exe "$T/ccache.exe"
+          echo "CCACHE=$T/ccache.exe" >> "$GITHUB_ENV"
+          "$T/ccache.exe" --version
 
       - name: Vulkan headers and import library
         run: |
@@ -468,18 +535,21 @@ jobs:
       - name: Build runtime (Release, Vulkan + SDL3) with llvm-mingw against placeholder guest code
         run: |
           python recomp/stubgen.py build/gen-stub
+          "$CCACHE" -z
           cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DNSMBU_VERSION="$VERSION" -DGEN_DIR="$(cygpath -m "$PWD/build/gen-stub")" \
             -DCMAKE_C_COMPILER="$LLVM_MINGW/bin/$TRIPLE-clang.exe" \
             -DCMAKE_CXX_COMPILER="$LLVM_MINGW/bin/$TRIPLE-clang++.exe" \
             -DCMAKE_RC_COMPILER="$LLVM_MINGW/bin/$TRIPLE-windres.exe" \
+            -DCMAKE_C_COMPILER_LAUNCHER="$CCACHE" -DCMAKE_CXX_COMPILER_LAUNCHER="$CCACHE" \
             -DCMAKE_EXE_LINKER_FLAGS=-static -DNSMBU_BUNDLED_DEPS=ON -DNSMBU_SETUP_GUI=ON \
             -DCMAKE_PREFIX_PATH="$SDL3_PREFIX" \
             -DVulkan_INCLUDE_DIR="$VULKAN_DIR/include" -DVulkan_LIBRARY="$VULKAN_DIR/libvulkan-1.a"
           ninja -C build/rel -d keeprsp
+          "$CCACHE" -s
 
       - name: Unit tests
         run: |
-          ctest --test-dir build/rel --output-on-failure
+          ctest --test-dir build/rel --output-on-failure --parallel
           python installer/test_setup.py
 
       - name: Pinned embeddable Python, shipped in the release (installer/toolchains.json)
@@ -671,6 +741,14 @@ jobs:
       NDK_VERSION: 30.0.16248370
       CERT_SHA256: ${{ vars.ANDROID_CERT_SHA256 }}
       APK: dist/NSMBU-${{ needs.version.outputs.version }}-android-${{ matrix.name }}.apk
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_COMPRESS: "1"
+      CCACHE_MAXSIZE: 500M
+      CCACHE_COMPILERCHECK: content
+      CCACHE_SLOPPINESS: time_macros
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     steps:
       - uses: actions/checkout@v5
 
@@ -689,9 +767,17 @@ jobs:
         timeout-minutes: 15
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build
+          sudo apt-get install -y ninja-build ccache
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: release-android-${{ matrix.name }}-${{ env.NDK_VERSION }}-${{ github.sha }}
+          restore-keys: |
+            release-android-${{ matrix.name }}-${{ env.NDK_VERSION }}-
 
       - name: Compiler that runs on Android (android-clang release)
         uses: ./.github/actions/android-compiler
@@ -704,7 +790,9 @@ jobs:
       - name: Runtime, extractor and runtime SDK (placeholder game code, only to build the runtime)
         run: |
           python3 recomp/stubgen.py build/gen-stub
+          ccache -z
           GEN_DIR="$PWD/build/gen-stub" ANDROID_SDK="$ANDROID_HOME" ABI="$ABI" JOBS=4 runtime/android/build_native.sh
+          ccache -s
           cmake --build runtime/android/build/game --target nsmbu-extract --parallel 4
           NDK="$ANDROID_HOME/ndk/$NDK_VERSION"
           python3 tools/android/package_extractor.py --build runtime/android/build/game --ndk "$NDK" --abi "$ABI" --out build/extractor-apk
@@ -723,6 +811,9 @@ jobs:
           python3 tools/android/prepare_python.py --abi "$ABI" --ndk "$ANDROID_HOME/ndk/$NDK_VERSION" \
             --out build/embedded-python --runtime-sdk build/runtime-sdk
 
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Release APK, signed with the project's key
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
@@ -740,10 +831,17 @@ jobs:
           else
             echo "::warning::no signing secrets (fork or dry run): the APK is signed with a throwaway debug key"
           fi
-          runtime/android/gradlew -p runtime/android --no-daemon -PnsmbuAbi="$ABI" -PnsmbuVersionName="${VERSION#v}" \
-            -PnsmbuVersionCode="${{ github.run_number }}" \
-            -PnsmbuPythonDir="$PWD/build/embedded-python/package" -PnsmbuToolchainDir="$PWD/build/compiler/apk-package" \
-            -PnsmbuExtractorDir="$PWD/build/extractor-apk" assembleRelease
+          for attempt in 1 2 3; do
+            if runtime/android/gradlew -p runtime/android --no-daemon -PnsmbuAbi="$ABI" -PnsmbuVersionName="${VERSION#v}" \
+              -PnsmbuVersionCode="${{ github.run_number }}" \
+              -PnsmbuPythonDir="$PWD/build/embedded-python/package" -PnsmbuToolchainDir="$PWD/build/compiler/apk-package" \
+              -PnsmbuExtractorDir="$PWD/build/extractor-apk" assembleRelease; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            echo "::warning::Gradle failed (attempt $attempt); Maven rate limits look like this"
+            sleep $((attempt * 20))
+          done
           mkdir -p dist
           cp runtime/android/app/build/outputs/apk/release/app-release.apk "$APK"
           ls -la dist

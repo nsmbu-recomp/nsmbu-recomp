@@ -28,6 +28,10 @@ out="${OUT:-$here/build}/game"
 cpu="${CPU:-generic}"
 flags=()
 if [ "$cpu" != generic ]; then flags=("-DCMAKE_C_FLAGS=-mcpu=$cpu" "-DCMAKE_CXX_FLAGS=-mcpu=$cpu"); fi
+if [ -n "${CMAKE_C_COMPILER_LAUNCHER:-}" ]; then
+    flags+=("-DCMAKE_C_COMPILER_LAUNCHER=$CMAKE_C_COMPILER_LAUNCHER")
+    flags+=("-DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER:-$CMAKE_C_COMPILER_LAUNCHER}")
+fi
 
 gen="${GEN_DIR:-$root/build/gen}"
 if [ "$gen" = stub ] || ! compgen -G "$gen/code_*.c" > /dev/null; then

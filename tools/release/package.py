@@ -308,9 +308,21 @@ def copy(src, dst):
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     shutil.copy2(src, dst)
 
+def zip_level():
+    """Deflate level for the release zip. CI sets NSMBU_ZIP_LEVEL=1 so packaging is not the slow step."""
+    raw = os.environ.get("NSMBU_ZIP_LEVEL", "9")
+    try:
+        level = int(raw)
+    except ValueError:
+        level = 0
+    if not 1 <= level <= 9:
+        sys.exit("NSMBU_ZIP_LEVEL must be from 1 to 9 (got %r)" % raw)
+    return level
+
 def make_zip(src_dir, zip_path):
     base = os.path.basename(src_dir)
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+    level = zip_level()
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=level) as z:
         for dirpath, dirnames, filenames in os.walk(src_dir):
             dirnames.sort()
             for fn in sorted(filenames):
@@ -321,7 +333,7 @@ def make_zip(src_dir, zip_path):
                 info.external_attr = (stat.S_IFREG | (0o755 if mode & 0o111 or fn.endswith((".command", ".sh")) else 0o644)) << 16
                 info.compress_type = zipfile.ZIP_DEFLATED
                 with open(full, "rb") as f:
-                    z.writestr(info, f.read(), compresslevel=9)
+                    z.writestr(info, f.read(), compresslevel=level)
 
 def sdk_manifest(version, platform, toolchain, exe, driver, cflags, link, runtime_files=()):
     """sdk/manifest.json: what the installer replays to compile and link the player's game code."""
