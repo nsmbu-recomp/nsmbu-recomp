@@ -20,4 +20,5 @@ Notes for building, profiling, and changing the port.
 | Port and course runtime | [nsmbu/](nsmbu/) |
 | Android engineer notes | [android/](android/) |
 
-Player guides are in [user/](../user/).
+Player feature guides are in [features/](../features/).
+Install and platform notes are in [user/](../user/).

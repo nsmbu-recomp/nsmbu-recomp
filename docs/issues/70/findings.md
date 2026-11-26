@@ -21,7 +21,7 @@ The only comment tells the reporter to update graphics drivers.
 ## Code and changelog
 
 The Windows build uses Vulkan only; there is no OpenGL renderer in `runtime/src/gfx/`.
-`docs/user/windows/README.md` states the port uses Vulkan.
+`docs/user/windows.md` states the port uses Vulkan.
 `renderer.h` exposes only Metal and Vulkan backends.
 This failure happens before any GPU feature check.
 `runtime/src/gfx/vulkan/backend.cpp` throws when `SDL_Vulkan_LoadLibrary` cannot load `vulkan-1.dll`.

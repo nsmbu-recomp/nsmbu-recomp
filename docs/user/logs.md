@@ -4,7 +4,7 @@ Attach the newest useful log when you open a GitHub issue.
 Prefer the crash log after a crash, the run log for graphics or gameplay problems, and the setup log when install or start fails.
 Never attach full save states (`slotN.bin`).
 They contain game code and data.
-Portable states and save files are covered in [portable-save-states.md](portable-save-states.md).
+Portable states and save files are covered in [portable-save-states.md](../features/portable-save-states.md).
 
 ## Which file to attach
 

@@ -18,13 +18,13 @@ Each later start launches the game.
 The installer uses the system file chooser.
 You can also drag a file into the window and press Enter.
 
-If macOS blocks the app, see [If the system blocks the app](../blocked-app.md).
+If macOS blocks the app, see [If the system blocks the app](blocked-app.md).
 
-Player paths, logs, and setup files are in [logs.md](../logs.md).
+Player paths, logs, and setup files are in [logs.md](logs.md).
 
 ## Build from source
 
-Set up the game on this Mac ([game/README.md](../../../game/README.md)), then:
+Set up the game on this Mac ([game/README.md](../../game/README.md)), then:
 
 ```bash
 nsmbu game usa-1.3.0 --recomp
@@ -32,17 +32,17 @@ nsmbu build
 nsmbu run
 ```
 
-Architecture and recompilation overview: [how-it-works.md](../../developer/how-it-works.md).
+Architecture and recompilation overview: [how-it-works.md](../developer/how-it-works.md).
 
-MoltenVK behaviour, menus, and macOS-specific Vulkan defaults: [vulkan.md](../../developer/vulkan.md).
+MoltenVK behaviour, menus, and macOS-specific Vulkan defaults: [vulkan.md](../developer/vulkan.md).
 
 ## iOS from this Mac
 
 The iPhone and iPad app is built on the same machine after `build/gen` exists.
 
-See [../ios/README.md](../ios/README.md).
+See [ios.md](ios.md).
 
 ## Related
 
-- [../linux/README.md](../linux/README.md) — Vulkan/SDL desktop
-- [../android/README.md](../android/README.md) — Android APK
+- [linux.md](linux.md) — Vulkan/SDL desktop
+- [android.md](android.md) — Android APK

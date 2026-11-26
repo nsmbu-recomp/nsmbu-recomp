@@ -6,4 +6,4 @@
 | [device-checklist.md](device-checklist.md) | Real-device checks still pending |
 | [gpu.md](gpu.md) | Adreno and Mali texture paths |
 
-Player setup is in [user/android/README.md](../../user/android/README.md).
+Player setup is in [user/android.md](../../user/android.md).

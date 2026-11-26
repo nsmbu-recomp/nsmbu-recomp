@@ -16,6 +16,6 @@ Each later start launches the game.
 The installer uses the system file chooser.
 You can also drag a file into the window and press Enter.
 
-If SmartScreen blocks the app, see [If the system blocks the app](../blocked-app.md).
+If SmartScreen blocks the app, see [If the system blocks the app](blocked-app.md).
 
-Player paths, logs, and setup files are in [logs.md](../logs.md).
+Player paths, logs, and setup files are in [logs.md](logs.md).

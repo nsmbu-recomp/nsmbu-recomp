@@ -12,28 +12,22 @@ The release includes the runtime, build tools, and installer.
 
 ## Features
 
-- Windows, macOS, Linux, Android, and iOS.
+- Windows, macOS, Linux, Android, and iOS — [per-system notes](docs/user/).
 - **Up to four players**, each with a controller.
-- **[Save states](docs/user/portable-save-states.md)**.
+- **[Save states](docs/features/portable-save-states.md)** — <kbd>Shift</kbd>+<kbd>F1</kbd>–<kbd>F5</kbd> saves, <kbd>F1</kbd>–<kbd>F5</kbd> loads.
 - **[Mods](docs/modding/README.md)** for Cemu graphics packs and shader packs.
-- **GamePad screen** in its own window, over the TV picture, or hidden.
-- **On-screen controls** on Android and iOS.
-- **Screenshots** of the TV picture.
-- **Console language**, volume, and the TV or GamePad sound mix.
+- **[GamePad screen](docs/features/gamepad-screen.md)** in its own window, over the TV picture, or hidden.
+- **[On-screen controls](docs/features/on-screen-controls.md)** on Android and iOS.
+- **[Screenshots](docs/features/screenshots.md)** of the TV picture — <kbd>F10</kbd> by default.
+- **[Sound and language](docs/features/audio.md)** — volume, mute, and console language.
+- **[Gyro aiming](docs/features/gyro.md)** with supported controllers.
 
-Experimental:
+Experimental — each has a page under [docs/features](docs/features/):
 
-- **Higher frame rates.**
-  Frame rate is under Settings → Graphics.
-  A rate above 60 draws extra pictures between the game steps.
-  On Android, a high rate pauses when the device gets hot.
-  Heat guard is under Settings → Graphics.
-- **A wider or taller picture.**
-  Aspect ratio is under Settings → Display.
-  Stretch fills that shape with the 16:9 picture.
-  Turn stretch off to show more of the level.
-- **Internal resolution**, anisotropic filtering, and edge smoothing.
-- **Async shader compile**, so a burst of new shaders does not freeze the picture.
+- **[Higher frame rates](docs/features/frame-rate.md)** — Settings → Graphics.
+- **[Wider or taller picture](docs/features/aspect-ratio.md)** — Settings → Display.
+- **[Internal resolution and image filters](docs/features/internal-resolution.md)**.
+- **[Async shader compile](docs/features/async-shaders.md)**.
 
 ### Controls
 
@@ -139,12 +133,14 @@ On macOS the same program is `NSMBU.app/Contents/MacOS/nsmbu`.
 
 ## More
 
+- [Feature guides](docs/features/)
+- [Keys](docs/user/keys.md)
 - [Repair or change the game](docs/user/repair.md)
 - [Where files live](docs/user/files.md)
 - [If the system blocks the app](docs/user/blocked-app.md)
 - [Terminal installer](docs/user/terminal-installer.md)
 - [Logs for bug reports](docs/user/logs.md)
-- [Other guides](docs/user/)
+- [Install and platform guides](docs/user/)
 
 ## Contributing
 

@@ -5,14 +5,14 @@ It is not an emulator.
 The game's own code is recompiled for ARM processors and draws with Vulkan.
 You need your own copy of the Wii U game; this project never provides game files, game code or keys.
 
-Engineer notes: [implementation.md](../../developer/android/implementation.md), [device-checklist.md](../../developer/android/device-checklist.md), [gpu.md](../../developer/android/gpu.md).
+Engineer notes: [implementation.md](../developer/android/implementation.md), [device-checklist.md](../developer/android/device-checklist.md), [gpu.md](../developer/android/gpu.md).
 
-Other platforms: [../README.md](../README.md).
+Other platforms: [README.md](README.md).
 
 ## What you need
 
 - A 64-bit Android device with Android 13 or newer and Vulkan 1.1 or newer.
-- A custom driver such as Mesa Turnip if your Adreno driver is too old (see [Android GPU support](../../developer/android/gpu.md)).
+- A custom driver such as Mesa Turnip if your Adreno driver is too old (see [Android GPU support](../developer/android/gpu.md)).
 - A few GB of free storage while setup runs.
 - Your own New Super Mario Bros. U for Wii U, as an extracted game folder, a Cemu `.wua` archive, or a `.wud`/`.wux` disc image with its keys.
 
@@ -90,20 +90,7 @@ The game that you can already play stays until the new one is ready.
 
 ## Higher frame rates and heat
 
-The game runs at 60 frames a second.
-Higher rates in **Settings > Graphics > Frame rate** add in-between frames, so the device works harder and gets warmer.
-When the device says that it is close to getting too hot, the in-between frames pause and the game keeps 60 fps.
-When the device has cooled down, the higher rate comes back by itself.
-
-Handhelds with a cooling fan (AYANEO, KONKR, AYN, Retroid) wait longer than phones before they pause.
-**Settings > Graphics > Heat guard** changes this:
-
-- **Normal** (default): the limit for your kind of device.
-- **Relaxed**: waits longer before it pauses, on any device.
-- **Off**: never pauses for heat.
-
-Relaxed and Off keep the higher rate longer, but a hot device slows itself down, which can make the game stutter.
-If that happens, go back to Normal.
+Higher frame rates and **Heat guard** are in [frame-rate.md](../features/frame-rate.md).
 
 ## Files and logs
 
@@ -130,7 +117,7 @@ The on-screen controls cover the whole GamePad.
 
 **Is it normal that my device gets hot?**
 The game is demanding at higher frame rates.
-See [Higher frame rates and heat](#higher-frame-rates-and-heat) for the Heat guard setting.
+See [frame-rate.md](../features/frame-rate.md) for the Heat guard setting.
 
 **Something does not work.**
 Open an [issue](https://github.com/nsmbu-recomp/nsmbu-recomp/issues) with your device model, Android version and what happened, and attach the shared log.

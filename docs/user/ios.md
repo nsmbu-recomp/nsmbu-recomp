@@ -6,7 +6,7 @@ The recompiled game is built into the app, so the app is built on a Mac for one 
 
 ## Build
 
-1. Set up the game on the Mac as for the macOS build ([game/README.md](../../../game/README.md) and [../macos/README.md](../macos/README.md)), with `--recomp`.
+1. Set up the game on the Mac as for the macOS build ([game/README.md](../../game/README.md) and [macos.md](macos.md)), with `--recomp`.
    That fills `build/gen`.
 2. Run `runtime/ios/build_ios.sh`.
    It writes `runtime/ios/build/NSMBU.app` and an unsigned `runtime/ios/build/New Super Mario Bros. U.ipa`.
@@ -51,23 +51,13 @@ Without a usable `game` folder the app shows what is missing and quits.
 
 ## Controls
 
-On-screen controls are drawn over the picture.
-They act as player 1's controller, with Wii U button labels.
-The stick appears where a finger lands on the left side of the screen.
-A finger that slides from one button to another presses the button it is on.
-They hide while a game controller is connected.
-`NSMBU_TOUCH_CONTROLS=1` always shows them, `0` always hides them.
-
-The two buttons at the top centre open the settings overlay (⚙) and switch the GamePad picture (picture-in-picture, GamePad only, off).
-While the settings overlay is open, one finger is its mouse.
-A touch on the GamePad picture is a GamePad touch.
-
+On-screen controls and the GamePad picture modes are in [on-screen-controls.md](../features/on-screen-controls.md) and [gamepad-screen.md](../features/gamepad-screen.md).
 Game controllers work as on macOS (GameController framework).
 A hardware keyboard uses the keyboard layout and hotkeys of the macOS build.
 
 ## Differences from macOS
 
-- The GamePad picture has no window of its own. It starts off; picture-in-picture goes in the top right corner.
+- GamePad screen limits on iOS are in [gamepad-screen.md](../features/gamepad-screen.md).
 - A GPU without BC texture compression (the Simulator, some iPhones) gets BC1–5 textures decoded to RGBA8 on upload.
 - The game pauses whenever the app is not active, because iOS does not let apps use the GPU in the background.
 - Presentation always waits for the display, so the uncapped debug mode only uncaps the game.

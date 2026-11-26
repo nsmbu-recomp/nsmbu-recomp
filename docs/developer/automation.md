@@ -336,7 +336,7 @@ These are separate from `scripted-run.sh` and appear in benches and device check
 - `NSMBU_REPLAY_TRACE` — log the replay clock arming, control gate, and early step positions
 - `NSMBU_TEST_ORIGIN`, `NSMBU_TEST_PRESS`, `NSMBU_TEST_STICK`, `NSMBU_TEST_RSTICK`, `NSMBU_TEST_MODE`, `NSMBU_TEST_END` — timed scenarios after a logic-step origin
 - `NSMBU_DUMP_PRESENT`, `NSMBU_DUMP_LOAD_FRAMES`, `NSMBU_CAPTURE` — present / load-path captures (see [vulkan.md](vulkan.md))
-- `NSMBU_STATE_LOAD_AT`, `NSMBU_PORTABLE_SAVE_AT` — save-state load points (see [portable-save-states.md](../user/portable-save-states.md))
+- `NSMBU_STATE_LOAD_AT`, `NSMBU_PORTABLE_SAVE_AT` — save-state load points (see [portable-save-states.md](../features/portable-save-states.md))
 
 ## Course replay playtests
 
