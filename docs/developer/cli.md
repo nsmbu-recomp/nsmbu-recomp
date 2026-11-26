@@ -11,8 +11,13 @@ Agents talk to a running debug game with `--mcp`.
 ```bash
 just build
 just launch
+just decomp
 just mcp --open 1-1
 ```
+
+`just decomp` starts `build/decomp-debug/nsmbu`.
+`python3 tools/run/launch.py --decomp` is the same command.
+`just decomp -- --mcp` starts that binary muted, with MCP.
 
 The same scripts, without `just`:
 

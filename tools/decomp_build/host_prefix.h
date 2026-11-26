@@ -11,3 +11,4 @@
 #include <cafe/gx2.h>
 #include <cafe/fs.h>
 #include <prim/seadPtrUtil.h>
+#include <decomp_guest.h>

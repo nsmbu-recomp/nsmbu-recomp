@@ -65,6 +65,7 @@ def wine_win_path(wine, path):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--decomp", action="store_true", help="run build/decomp-debug/nsmbu")
     parser.add_argument("--no-debug", action="store_true")
     parser.add_argument("--gdb", action="store_true")
     parser.add_argument("--lldb", action="store_true")
@@ -75,12 +76,21 @@ def main():
     args = parser.parse_args()
     if args.wine and (args.gdb or args.lldb):
         sys.exit("--wine cannot be combined with --gdb or --lldb")
+    if args.decomp and args.wine:
+        sys.exit("--decomp cannot be combined with --wine")
     slot_num, course_pack, args.run_args = slot.take_args(args.run_args)
     use_debug_env = not args.no_debug
     if args.wine:
         exe = nsmbu_windows_exe(prefer_release=args.no_debug)
         if not os.path.isfile(exe):
             sys.exit(f"missing {exe}; run: just wine")
+    elif args.decomp:
+        exe = os.path.join(ROOT, "build", "decomp-debug", "nsmbu")
+        if not os.path.isfile(exe):
+            sys.exit(
+                f"missing {exe}; run: python3 tools/build/build.py --dir build/decomp-debug"
+                " -- -DNSMBU_DECOMP=ON -DGEN_DIR=$PWD/build/gen-decomp"
+            )
     else:
         exe = nsmbu_exe(prefer_release=args.no_debug)
         if not os.path.isfile(exe):

@@ -6,7 +6,9 @@ description: "Build, launch, and script the native NSMBU executable with just. U
 # Native game
 
 There is no TypeScript CLI.
-`just` with no arguments lists the common commands (`build`, `launch`, `mcp`, `game`, `extract`, `recomp`, `scripted`).
+`just` with no arguments lists the common commands (`build`, `launch`, `decomp`, `mcp`, `game`, `extract`, `recomp`, `scripted`).
+`just decomp` starts `build/decomp-debug/nsmbu`.
+`just decomp -- --mcp` is the muted MCP launch of that binary.
 Read `docs/developer/cli.md`.
 Read `docs/developer/flags.md` when you add, rename, or pass a game setting flag.
 A new setting is one `ENV` line in `runtime/src/core/env.h`, passed as a `--flag` on the game binary.

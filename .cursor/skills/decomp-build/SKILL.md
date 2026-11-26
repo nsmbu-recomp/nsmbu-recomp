@@ -30,7 +30,9 @@ The build is in the tree.
 3. Build `build/decomp-debug`.
    `python3 tools/build/build.py --dir build/decomp-debug -- -DNSMBU_DECOMP=ON -DGEN_DIR=$PWD/build/gen-decomp`
    The binary is `build/decomp-debug/nsmbu`.
-   `tools/run/scripted-run.sh` picks `build/debug/nsmbu` first, so name this binary yourself.
+   `just decomp` starts that binary.
+   `just decomp -- --mcp` starts it muted, with MCP.
+   `tools/run/scripted-run.sh` still picks `build/debug/nsmbu` first.
    Done when that binary exists.
 
 4. Check with two hidden boots from `docs/developer/agent-debug.md` loop 3.
@@ -48,9 +50,10 @@ A value other than `all` turns every slot off.
 `none` wins over `NSMBU_DECOMP_FUNCS`.
 
 A source in `drop.txt` stays recompiled.
-A call from a compiled body to a function this build does not provide hits `decomp_missing`.
-That prints `decomp: missing` and aborts.
-Turn that slot off, or name the function before you add a guest trampoline.
+A declaration with an address and no body calls the recompiled function at that address.
+A guest word load or store in a compiled body is a 4-byte big-endian access.
+A call with no address still prints `decomp: missing` and returns 0.
+Name that function before you add a different trampoline.
 
 The frame loop (`seadGameFrameworkCafeFrameLoop.cpp`) calls guest function pointers as host pointers.
 Those calls fault while that slot is on.

@@ -467,7 +467,7 @@ def build_call(sig, class_scope):
             "self->~%s();" % cls.split("::")[-1],
         ], "dtor"
     if is_method or (scope and not static and name == "operator()"):
-        call = "self->%s(%s)" % (name, arglist)
+        call = "self->%s%s(%s)" % (qual, name, arglist)
         pre = ["auto* self = reinterpret_cast<%s*>((void*)(uintptr_t)c->r[3]);" % scope]
     elif scope and static:
         call = "%s%s(%s)" % (qual, name, arglist)
@@ -575,6 +575,281 @@ def collect(root, hooks_dir):
     return unique, skipped
 
 
+_SCALAR = {
+    "u8", "u16", "u32", "u64", "s8", "s16", "s32", "s64",
+    "f32", "f64", "float", "double", "bool", "int", "char", "short",
+    "unsigned", "unsigned int", "long", "unsigned long",
+    "size_t", "uintptr_t", "intptr_t", "uint32_t", "int32_t",
+}
+
+
+def _param_is_guest(part):
+    typ, _nm = _split_name(part)
+    typ = " ".join(typ.split())
+    if typ.endswith("&"):
+        return False
+    if "*" in typ:
+        return "<" not in typ.split("*", 1)[1]
+    base = typ
+    for word in ("const", "volatile"):
+        base = base.replace(word, "")
+    base = " ".join(base.split())
+    return base in _SCALAR
+
+
+def _return_ok(ret):
+    kind = _return_kind(ret)
+    if kind in ("ref", "u64"):
+        return False
+    if kind in ("void", "float", "ptr"):
+        return True
+    if "<" in ret or "::" in ret:
+        return False
+    return True
+
+
+def _named_signature(sig, params):
+    named = []
+    for n, part in enumerate(params):
+        typ, nm = _split_name(part)
+        if not nm:
+            nm = "a%d" % n
+            part = ("%s %s" % (typ, nm)).strip()
+        named.append(part)
+    depth = 0
+    start = end = None
+    for i, ch in enumerate(sig):
+        if ch == "(":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                end = i
+    if start is None or end is None:
+        raise ValueError("no parameter list")
+    return sig[:start + 1] + ", ".join(named) + sig[end:]
+
+
+def _trampoline(addr, sig):
+    _static, ret, _scope, _name, params_s = _parse_head(sig)
+    params = _split_params(params_s)
+    if not _return_ok(ret) or any(not _param_is_guest(part) for part in params):
+        raise ValueError("parameter is not a guest word")
+    sig = _named_signature(sig, params)
+    names = []
+    for n, part in enumerate(params):
+        _typ, nm = _split_name(part)
+        if not nm:
+            nm = "a%d" % n
+        names.append(nm)
+    kind = _return_kind(ret)
+    call_args = "0x%08Xu" % addr
+    if names:
+        call_args += ", " + ", ".join(names)
+    if kind == "void":
+        stmt = "decomp::call<void>(%s);" % call_args
+    elif kind == "float":
+        stmt = "return decomp::call<float>(%s);" % call_args
+    else:
+        stmt = "return decomp::call<%s>(%s);" % (ret, call_args)
+    if not sig.lstrip().startswith("inline "):
+        sig = "inline " + sig.lstrip()
+    return "%s {\n    %s\n}" % (sig, stmt)
+
+
+def _add_trampolines(text, defined):
+    """A declaration with an address and no body calls the recompiled function."""
+    lines = text.splitlines(keepends=True)
+    out = []
+    i = 0
+    seen = set()
+    while i < len(lines):
+        match = ADDR_RE.match(lines[i])
+        if not match:
+            out.append(lines[i])
+            i += 1
+            continue
+        addr = int(match.group(1), 16)
+        kind, sig, nxt = _gather(lines, i)
+        nxt = max(nxt, i + 1)
+        if kind != "decl" or addr in defined or addr in seen:
+            out.extend(lines[i:nxt])
+            i = nxt
+            continue
+        try:
+            body = _trampoline(addr, sig)
+        except ValueError:
+            out.extend(lines[i:nxt])
+            i = nxt
+            continue
+        seen.add(addr)
+        out.append(lines[i] if lines[i].endswith("\n") else lines[i] + "\n")
+        out.append(body + "\n")
+        i = nxt
+    return "".join(out)
+
+
+def _type_only_args(args):
+    if not args or args == "void":
+        return ""
+    parts = []
+    for part in _split_params(args):
+        typ, _nm = _split_name(part)
+        parts.append(typ if typ else part)
+    return ", ".join(parts)
+
+
+def _rewrite_fn_ptrs(text):
+    """A guest function pointer is an address. Call it through the recompiled function."""
+    aliases = []
+    for match in re.finditer(r"using\s+(\w+)\s*=\s*([^\n;]+);", text):
+        typ = " ".join(match.group(2).split())
+        found = re.match(r"^(.*)\(\s*\*\s*\)\s*\((.*)\)\s*$", typ)
+        if found:
+            aliases.append((match.end(), match.group(1), found.group(1).strip(), _type_only_args(found.group(2).strip())))
+    if not aliases:
+        return text
+    pattern = re.compile(r"(?:auto\s+(\w+)|(\w+)\s+(\w+))\s*=\s*reinterpret_cast<(\w+)>\((.*)\)\s*;")
+    out = []
+    last = 0
+    for match in pattern.finditer(text):
+        if match.group(1):
+            var = match.group(1)
+            alias_name = match.group(4)
+        elif match.group(2) == match.group(4):
+            var = match.group(3)
+            alias_name = match.group(4)
+        else:
+            continue
+        chosen = None
+        for end, alias, ret, args in aliases:
+            if alias == alias_name and end <= match.start():
+                chosen = (ret, args)
+        if chosen is None:
+            continue
+        ret, args = chosen
+        targ = ret if not args else ret + ", " + args
+        expr = match.group(5).strip()
+        inner = _deref_inner(expr)
+        if inner is None:
+            addr = "decomp::as_fn(%s)" % expr
+        else:
+            addr = "decomp::fn_addr(%s)" % inner
+        out.append(text[last:match.start()])
+        out.append("auto %s = decomp::make_fn<%s>(%s);" % (var, targ, addr))
+        last = match.end()
+    out.append(text[last:])
+    return "".join(out)
+
+
+def _deref_inner(expr):
+    prefix = "*reinterpret_cast<"
+    if not expr.startswith(prefix):
+        return None
+    depth = 1
+    i = len(prefix)
+    while i < len(expr) and depth:
+        if expr[i] == "<":
+            depth += 1
+        elif expr[i] == ">":
+            depth -= 1
+        i += 1
+    if depth or i >= len(expr) or expr[i] != "(":
+        return None
+    depth = 0
+    start = i
+    while i < len(expr):
+        if expr[i] == "(":
+            depth += 1
+        elif expr[i] == ")":
+            depth -= 1
+            if depth == 0:
+                if expr[i + 1:].strip():
+                    return None
+                return expr[start + 1:i]
+        i += 1
+    return None
+
+
+_WORD = {"u32", "s32", "uint32_t", "unsigned", "unsignedint", "uintptr_t"}
+_HALF = {"u16", "s16", "uint16_t"}
+_FLOAT = {"f32", "float"}
+
+
+def _load_repl(typ, expr):
+    if "(*)" in typ or not typ.endswith("*"):
+        return None
+    pointee = typ[:-1].strip()
+    bare = "".join(pointee.replace("const", "").replace("volatile", "").split())
+    if bare in _WORD:
+        return "decomp::be32(%s)" % expr
+    if bare in _HALF:
+        return "decomp::be16(%s)" % expr
+    if bare in _FLOAT:
+        return "decomp::bef32(%s)" % expr
+    if "*" in pointee:
+        return "decomp::beptr<%s>(%s)" % (pointee, expr)
+    return None
+
+
+def _rewrite_guest_loads(text):
+    """Guest words are 4 bytes and big-endian. A host load of those words is the wrong value."""
+    key = "*reinterpret_cast<"
+    changed = True
+    while changed:
+        changed = False
+        i = 0
+        while True:
+            j = text.find(key, i)
+            if j < 0:
+                break
+            depth = 1
+            t = j + len(key)
+            while t < len(text) and depth:
+                if text[t] == "<":
+                    depth += 1
+                elif text[t] == ">":
+                    depth -= 1
+                t += 1
+            if depth or t >= len(text) or text[t] != "(":
+                i = j + len(key)
+                continue
+            typ = " ".join(text[j + len(key):t - 1].split())
+            depth = 0
+            p = t
+            while p < len(text):
+                if text[p] == "(":
+                    depth += 1
+                elif text[p] == ")":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                p += 1
+            if depth:
+                break
+            expr = text[t + 1:p]
+            if key in expr:
+                i = j + len(key)
+                continue
+            repl = _load_repl(typ, expr)
+            if repl is None:
+                i = p + 1
+                continue
+            text = text[:j] + repl + text[p + 1:]
+            changed = True
+            i = j + len(repl)
+    return text
+
+
+def _prepare_source(text, defined):
+    text = _add_trampolines(text, defined)
+    text = _rewrite_fn_ptrs(text)
+    text = _rewrite_guest_loads(text)
+    return _widen_narrow_casts(text)
+
+
 _NARROW = {"u32", "s32", "u16", "s16", "u8", "s8"}
 
 
@@ -615,10 +890,10 @@ def _widen_narrow_casts(text):
     return "".join(out)
 
 
-def _include_path(out, path):
+def _include_path(out, path, defined):
     with open(path, encoding="utf-8", errors="replace") as handle:
         text = handle.read()
-    widened = _widen_narrow_casts(text)
+    widened = _prepare_source(text, defined)
     if widened == text:
         return path.replace("\\", "/")
     filt = os.path.join(out, "filt")
@@ -628,12 +903,12 @@ def _include_path(out, path):
     return os.path.abspath(dest).replace("\\", "/")
 
 
-def _wrap_text(out, path, funcs):
+def _wrap_text(out, path, funcs, defined):
     lines = [
         "// Generated by tools/decomp_build/gen.py. Do not edit.",
         "#define private public",
         "#define protected public",
-        '#include "%s"' % _include_path(out, path),
+        '#include "%s"' % _include_path(out, path, defined),
         "#undef private",
         "#undef protected",
         "#undef static_assert",
@@ -645,6 +920,7 @@ def _wrap_text(out, path, funcs):
         lines.append('extern "C" void f_%08X_orig(Cpu*);' % func.addr)
         lines.append('extern "C" void hook_%08X(Cpu* c) {' % func.addr)
         lines.append("    if (!decomp::on(%d)) { f_%08X_orig(c); return; }" % (func.index, func.addr))
+        lines.append("    decomp::bind(c);")
         for stmt in func.call:
             lines.append("    %s" % stmt)
         lines.append("}")
@@ -668,10 +944,11 @@ def write(out, funcs, skipped, src_root, drop):
         if path not in sources:
             sources.append(path)
     sources = sorted(set(sources) - set(drop))
+    defined = set(func.addr for func in funcs)
     written = []
     for n, path in enumerate(sources):
         wrap = os.path.join(out, "wrap_%03d.cpp" % n)
-        text = _wrap_text(out, path, by_path.get(path, []))
+        text = _wrap_text(out, path, by_path.get(path, []), defined)
         _write_if_changed(wrap, text)
         written.append(wrap)
     for name in os.listdir(out) if os.path.isdir(out) else []:

@@ -7,6 +7,8 @@
 
 #include "core/env.h"
 #include "core/runtime.h"
+#include "decomp_guest.h"
+#include "ppc.h"
 
 extern "C" {
 extern const uint32_t g_recomp_decomp_kept[];
@@ -49,6 +51,61 @@ void init() {
         enabled += on;
     }
     LOG("[decomp] %u functions, %u on, %u kept", g_slot_count, enabled, g_recomp_decomp_kept_count);
+}
+
+namespace {
+thread_local Cpu* g_cpu;
+}
+
+void bind(Cpu* cpu) { g_cpu = cpu; }
+
+uint32_t guest_gpr(int index) {
+    if (!g_cpu || index < 0 || index > 31) return 0;
+    return g_cpu->r[index];
+}
+
+uint32_t guest_lr() { return g_cpu ? g_cpu->lr : 0; }
+
+CallFrame call_begin() {
+    CallFrame frame{};
+    if (!g_cpu) return frame;
+    frame.lr = g_cpu->lr;
+    frame.ctr = g_cpu->ctr;
+    frame.sp = g_cpu->r[1];
+    frame.live = true;
+    g_cpu->r[1] -= 0x40;
+    st32(g_cpu->r[1], frame.sp);
+    return frame;
+}
+
+void arg_u32(int slot, uint32_t value) {
+    if (g_cpu && slot >= 0 && slot < 8) g_cpu->r[3 + slot] = value;
+}
+
+void arg_f32(int slot, float value) {
+    if (!g_cpu || slot < 0 || slot >= 8) return;
+    g_cpu->f[1 + slot].ps0 = value;
+    g_cpu->f[1 + slot].ps1 = value;
+}
+
+static void finish(CallFrame frame, uint32_t fn) {
+    if (!frame.live || !g_cpu) return;
+    g_cpu->lr = 0;
+    g_cpu->pc = fn;
+    ppc_dispatch(g_cpu);
+    g_cpu->r[1] = frame.sp;
+    g_cpu->lr = frame.lr;
+    g_cpu->ctr = frame.ctr;
+}
+
+uint32_t call_end(CallFrame frame, uint32_t fn) {
+    finish(frame, fn);
+    return g_cpu ? g_cpu->r[3] : 0;
+}
+
+float call_end_f32(CallFrame frame, uint32_t fn) {
+    finish(frame, fn);
+    return g_cpu ? static_cast<float>(g_cpu->f[1].ps0) : 0;
 }
 
 }

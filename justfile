@@ -19,6 +19,10 @@ sanitizer *args:
 launch *args:
     python3 tools/run/launch.py {{ args }}
 
+# Start the decomp-debug game. Same flags as launch. Example: just decomp -- --mcp
+decomp *args:
+    python3 tools/run/launch.py --decomp {{ args }}
+
 # Debug build, then launch.
 run *args:
     python3 tools/build/build.py
