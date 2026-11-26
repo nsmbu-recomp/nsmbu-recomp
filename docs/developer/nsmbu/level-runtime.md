@@ -111,7 +111,10 @@ existing safe transition:
    the course.
 
 While that leave is pending, course setup `f_024BD86C` is skipped.
-TitleScene bring-up then does not run setup against a torn-down `InputMgr`.
+The task manager still runs the next course-enter steps, `f_024BE4FC` and `f_024BFA50`.
+Those are skipped too.
+`f_024BE4FC` calls `InputMgr::setupCourseControllers_`, and `f_024BFA50` reads `InputMgr` at offset `0x574`.
+TitleScene bring-up then does not run those steps against a torn-down `InputMgr`.
 The course HUD (`f_0252F900`, `f_0252D9C0` on a base disc, `f_025CF020`) returns when `AreaTask` is null.
 
 The reload does not patch live guest state.
