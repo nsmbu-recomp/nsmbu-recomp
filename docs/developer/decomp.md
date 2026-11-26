@@ -37,9 +37,12 @@ This repo has neither of the first two.
 - recorded taps (`mktap`)
 
 The decomp build swaps a verified C++ body in for the recompiled function.
-That build is not in this tree yet.
+Configure it with `-DNSMBU_DECOMP=ON` and `-DGEN_DIR` pointed at `build/gen-decomp`.
+The normal build stays the default.
 The procedure is the `decomp-build` skill (`.cursor/skills/decomp-build/SKILL.md`).
-The bisect switches are `NSMBU_DECOMP`, `NSMBU_DECOMP_FUNCS`, and `NSMBU_DECOMP_EXCLUDE` in that skill.
+`NSMBU_DECOMP=none` runs the recompiled body for every listed function.
+`NSMBU_DECOMP_FUNCS` is a comma-separated address list, and only those functions stay on.
+`NSMBU_DECOMP_EXCLUDE` is a comma-separated address list, and those functions stay off.
 
 ## Parallel workers
 

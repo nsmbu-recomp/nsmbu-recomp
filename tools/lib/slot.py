@@ -61,6 +61,9 @@ def take_args(args):
         if arg.startswith("--save="):
             rest.append(arg)
             continue
+        if arg.startswith("-"):
+            rest.append(arg)
+            continue
         if arg.lower().endswith(".szs") or "/" in arg or "\\" in arg:
             found = course_file_pack(arg)
             if pack is not None:

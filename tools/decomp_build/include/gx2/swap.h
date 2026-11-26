@@ -1,0 +1,6 @@
+#pragma once
+#include <stdint.h>
+extern "C" {
+void GX2SwapScanBuffers();
+void GX2GetSwapStatus(uint32_t* a, uint32_t* b, uint32_t* c, uint32_t* d);
+}

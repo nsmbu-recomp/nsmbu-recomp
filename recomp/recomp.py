@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Statically recompile a Wii U RPX into C.
 
-usage: recomp.py game/code/red-pro2.rpx OUTDIR [--insns-per-file N] [--build NAME] [--jobs N]
+usage: recomp.py game/code/red-pro2.rpx OUTDIR [--insns-per-file N] [--build NAME] [--jobs N] [--decomp-hooks FILE]
 
 --jobs N (default: the CPU count) translates in that many processes. 0 and NSMBU_RECOMP_JOBS select
 the same count. 1 stays on one process. Windows, and NSMBU_RECOMP_SPAWN=1, start fresh workers;
@@ -35,6 +35,11 @@ Output:
   OUTDIR/imports.c       weak default implementations of imported functions
   OUTDIR/imports.json    import slot addresses (for the runtime loader)
   OUTDIR/report.txt      statistics and unhandled instructions
+
+--decomp-hooks FILE: translate for the decomp build. Each listed function is f_ADDR, which calls
+hook_ADDR. The game body is f_ADDR_orig. FILE is copied to OUTDIR/decomp_hooks.txt. An address that
+is not a function entry stays recompiled. A function that contains an instruction hook stays
+recompiled. Those addresses are g_recomp_decomp_kept in table.c.
 """
 import argparse
 import bisect
@@ -43,6 +48,7 @@ import io
 import json
 import os
 import re
+import shutil
 import sys
 import time
 
@@ -271,7 +277,7 @@ DATA_IMPORT_BASE = 0xC1000000
 DATA_IMPORT_STRIDE = 0x1000
 
 class Recompiler:
-    def __init__(self, path, build=None):
+    def __init__(self, path, build=None, decomp_hooks=None):
         """`build` is which build of the game `path` is (recomp/builds.py); by default it is
         identified by its SHA-256, and an rpx that is none of them is refused."""
         self.build = build or game_builds.identify(path)
@@ -298,6 +304,35 @@ class Recompiler:
         for site, canon, addr, _ in hook_entries:
             self.canon_of[addr] = canon
             (self.sites if site else self.hooks).add(addr)
+        self.decomp_hooks_file = decomp_hooks
+        self.decomp, self.decomp_kept = set(), []
+        if decomp_hooks:
+            self._decomp_hooks(decomp_hooks)
+
+    def _decomp_hooks(self, path):
+        """Listed functions call hook_ADDR. The game body is f_ADDR_orig. See --decomp-hooks."""
+        if not self.build.canonical:
+            raise SystemExit("--decomp-hooks: the decomp build is made from the USA game only (this is the %s "
+                             "build); the decompiled code uses the USA build's addresses" % self.build.name)
+        entries, _skipped = game_builds.read_hooks([path], self.build)
+        if not entries:
+            raise SystemExit("--decomp-hooks: %s lists no functions" % path)
+        sites = sorted(self.sites)
+        for site, canon, addr, where, _same in entries:
+            if site:
+                raise SystemExit("%s: instruction-level entries are not allowed in a decomp hook list" % where)
+            if addr in self.hooks:
+                raise SystemExit("%s: %08X is already a runtime hook; leave it out of the decomp list" % (where, canon))
+            if addr not in self.entries:
+                self.decomp_kept.append((addr, "not a function entry"))
+                continue
+            i = bisect.bisect_left(sites, addr)
+            if i < len(sites) and sites[i] < self.func_end(addr):
+                self.decomp_kept.append((addr, "contains instruction hook @%08X" % sites[i]))
+                continue
+            self.canon_of[addr] = canon
+            self.decomp.add(addr)
+        self.hooks |= self.decomp
 
     def _check_hooks(self, hook_entries):
         """A hook is written against the canonical code, so check that it can mean the same thing in
@@ -773,6 +808,10 @@ class Recompiler:
         progress(len(files), len(files), "writing headers")
         _log("recomp: writing headers")
         self.write_headers(outdir)
+        if not self.decomp_hooks_file:
+            marker = os.path.join(outdir, "decomp_hooks.txt")
+            if os.path.isfile(marker):
+                os.remove(marker)
         self.write_report(outdir, len(files))
         with _Output(os.path.join(outdir, "hook-inputs.txt")) as f:
             f.write(game_builds.hook_inputs_stamp())
@@ -804,6 +843,10 @@ class Recompiler:
             f.write("\n/* hooked functions: hook_X is implemented in the runtime, f_X_orig is the game's code */\n")
             for e in sorted(self.sym(a) for a in self.hooks):
                 f.write("void f_%08X_orig(Cpu* __restrict c);%s\nvoid hook_%08X(Cpu* c);\n" % (e, comment(e), e))
+            if self.decomp_kept:
+                f.write("\n/* decomp build: listed functions kept recompiled (table.c g_recomp_decomp_kept) */\n")
+                for a, _why in self.decomp_kept:
+                    f.write("void f_%08X_orig(Cpu* __restrict c);\n" % self.sym(a))
             f.write("\n/* instruction-level hooks (\"@ADDR\" in hooks.txt), run before the instruction at ADDR */\n")
             for e in sorted(self.sym(a) for a in self.sites):
                 f.write("void site_%08X(Cpu* c);\n" % e)
@@ -827,6 +870,8 @@ class Recompiler:
             f.write("};\nconst unsigned g_recomp_import_count = %d;\n" % len(self.imports))
             f.write("const uint32_t g_recomp_entry_point = 0x%08Xu;\n" % self.p.entry)
             self.write_build_map(f)
+            if self.decomp_hooks_file:
+                self.write_decomp(f, outdir)
         with _Output(os.path.join(outdir, "imports.c")) as f:
             f.write('#include "funcs.h"\n\nvoid hle_unimplemented(Cpu* c, const char* lib, const char* name);\n\n')
             for s in func_slots:
@@ -856,6 +901,23 @@ class Recompiler:
         f.write("const GuestChanged g_guest_changed_code[] = {%s};\n" % (changed or "{0u, 0u}"))
         f.write("const unsigned g_guest_changed_code_count = %d;\n" % len(b.differing))
 
+    def write_decomp(self, f, outdir):
+        """Kept listed functions still define f_ADDR_orig so a generated hook can link."""
+        f.write("\n/* decomp build (--decomp-hooks): %d functions decompiled, %d kept */\n" % (
+            len(self.decomp), len(self.decomp_kept)))
+        for a, why in self.decomp_kept:
+            if a in self.entries:
+                f.write("void f_%08X_orig(Cpu* __restrict c) { f_%08X(c); }  /* %s */\n" % (
+                    self.sym(a), self.sym(a), why))
+            else:
+                f.write("void f_%08X_orig(Cpu* __restrict c) { ppc_unimplemented(c, 0x%08Xu, 0); }  /* %s */\n" % (
+                    self.sym(a), a, why))
+        kept = sorted(self.canon_of.get(a, a) for a, _why in self.decomp_kept)
+        body = ", ".join("0x%08Xu" % a for a in kept) or "0u"
+        f.write("const uint32_t g_recomp_decomp_kept[] = {%s};\n" % body)
+        f.write("const unsigned g_recomp_decomp_kept_count = %d;\n" % len(kept))
+        shutil.copyfile(self.decomp_hooks_file, os.path.join(outdir, "decomp_hooks.txt"))
+
     def write_report(self, outdir, nfiles):
         with _Output(os.path.join(outdir, "report.txt")) as f:
             f.write("build: %s (title %s)\n" % (self.build.name, self.build.title_id))
@@ -866,6 +928,10 @@ class Recompiler:
                     canon, addr, where))
             for where, canon in self.hooks_missing:
                 f.write("hook skipped, function not in this build: %08X (%s)\n" % (canon, where))
+            if self.decomp_hooks_file:
+                f.write("decomp build: %d functions decompiled, %d kept\n" % (len(self.decomp), len(self.decomp_kept)))
+                for a, why in self.decomp_kept:
+                    f.write("  decomp kept: %08X %s\n" % (a, why))
             f.write("functions: %d\nfiles: %d\nfixpoint rounds: %d\n" % (len(self.sorted_entries), nfiles, self.fixpoint_rounds))
             f.write("functions with a name from nsmbu/headers: %d of %d\n" % (
                 sum(1 for e in self.sorted_entries if self.names.get(self.sym(e))), len(self.sorted_entries)))
@@ -895,6 +961,7 @@ if __name__ == "__main__":
                     help="print 'progress DONE TOTAL detail' lines for the installer")
     ap.add_argument("--build", help="which build the rpx is, when it should not be identified by "
                                     "its SHA-256 (%s)" % ", ".join(b.name for b in game_builds.all_builds()))
+    ap.add_argument("--decomp-hooks", help="function list for the decomp build (tools/decomp_build/gen.py)")
     a = ap.parse_args()
     build = None
     if a.build:
@@ -908,4 +975,5 @@ if __name__ == "__main__":
 
     if a.progress:
         print("progress 0 1 reading game code", flush=True)
-    Recompiler(a.rpx, build).run(a.outdir, a.insns_per_file, on_progress=on_progress, jobs=_job_count(a.jobs))
+    Recompiler(a.rpx, build, decomp_hooks=a.decomp_hooks).run(
+        a.outdir, a.insns_per_file, on_progress=on_progress, jobs=_job_count(a.jobs))

@@ -236,7 +236,7 @@ This repo has neither of the first two.
 - recorded taps (`mktap`)
 
 The decomp build swaps a verified C++ body in for the recompiled function.
-That build is not in this tree yet.
+Configure it with `-DNSMBU_DECOMP=ON` and a separate `GEN_DIR` (`build/gen-decomp`).
 The procedure is the `decomp-build` skill (`.cursor/skills/decomp-build/SKILL.md`).
 
 ## Gaps and cleanup targets

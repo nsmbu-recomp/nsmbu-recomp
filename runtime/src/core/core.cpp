@@ -28,6 +28,14 @@
 
 #include "recomp_table.h"
 #include "core/runtime.h"
+#if defined(NSMBU_DECOMP) && !defined(__APPLE__) && !defined(_WIN32)
+#include <stdio.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#ifndef MAP_FIXED_NOREPLACE
+#define MAP_FIXED_NOREPLACE 0x100000
+#endif
+#endif
 
 bool g_trace_hle = false;
 namespace config {
@@ -156,6 +164,46 @@ void init() {
 #ifdef __ANDROID__
 
     void* p = mmap(PPC_MEM_BASE,0x100000000ull,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_NORESERVE,-1,0);
+#elif defined(NSMBU_DECOMP)
+    // Decompiled bodies use guest addresses as host pointers. Map the same pages at those addresses.
+    int fd = (int)syscall(SYS_memfd_create, "nsmbu-guest", 1);
+    if (fd < 0 || ftruncate(fd, (off_t)0x100000000ull) != 0)
+        fatal("decomp build: cannot create the guest memory file");
+    void* p = mmap(PPC_MEM_BASE, 0x100000000ull, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED | MAP_NORESERVE, fd, 0);
+    if (p != PPC_MEM_BASE) {
+        if (p != MAP_FAILED) munmap(p, 0x100000000ull);
+        fatal("cannot reserve guest address space at %p", PPC_MEM_BASE);
+    }
+    std::vector<std::pair<uint64_t, uint64_t>> used;
+    if (FILE* maps = fopen("/proc/self/maps", "r")) {
+        char line[512];
+        while (fgets(line, sizeof line, maps)) {
+            unsigned long a = 0, b = 0;
+            if (sscanf(line, "%lx-%lx", &a, &b) != 2) continue;
+            if (b <= 0x10000ul || a >= 0x100000000ull) continue;
+            if (a < 0x10000ul) a = 0x10000ul;
+            if (b > 0x100000000ull) b = 0x100000000ull;
+            used.push_back({a, b});
+        }
+        fclose(maps);
+    }
+    std::sort(used.begin(), used.end());
+    uint64_t cursor = 0x10000;
+    for (auto [lo, hi] : used) {
+        if (lo > cursor) {
+            void* q = mmap((void*)cursor, lo - cursor, PROT_READ | PROT_WRITE,
+                           MAP_SHARED | MAP_FIXED_NOREPLACE | MAP_NORESERVE, fd, (off_t)cursor);
+            if (q == MAP_FAILED) fatal("decomp build: cannot mirror guest memory at %p", (void*)cursor);
+        }
+        if (hi > cursor) cursor = hi;
+    }
+    if (cursor < 0x100000000ull) {
+        void* q = mmap((void*)cursor, 0x100000000ull - cursor, PROT_READ | PROT_WRITE,
+                       MAP_SHARED | MAP_FIXED_NOREPLACE | MAP_NORESERVE, fd, (off_t)cursor);
+        if (q == MAP_FAILED) fatal("decomp build: cannot mirror guest memory at %p", (void*)cursor);
+    }
+    close(fd);
+    LOG("[mem] decomp guest mirror uses the guest addresses");
 #else
     void* p = mmap(PPC_MEM_BASE,0x100000000ull,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
 #endif
