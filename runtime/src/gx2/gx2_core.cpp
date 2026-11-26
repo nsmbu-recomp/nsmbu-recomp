@@ -40,7 +40,6 @@
 #include "gfx/render_prof.h"
 #include "mods/packages.h"
 #include "hooks/collision_wireframe.h"
-#include "hooks/course_hot_reload.h"
 #include "hooks/interp.h"
 #include "hooks/interp_pacing.h"
 
@@ -1275,7 +1274,6 @@ HLE(gx2, GX2SwapScanBuffers) {
         mods::scene::native_intro_skip_tick(steps);
         agent_ctl::guest_service();
         collision_wireframe::capture(c);
-        course_hot_reload::tick();
     } else {
         agent_ctl::guest_observe();
     }

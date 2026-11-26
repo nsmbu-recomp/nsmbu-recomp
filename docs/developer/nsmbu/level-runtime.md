@@ -1,9 +1,9 @@
-# Level runtime and course hot reload
+# Level runtime
 
 [course-open.md](course-open.md) covers pack names and `CourseInfo`.
 [course-files.md](course-files.md) covers the course data blocks.
 This page covers the runtime side: how a course pack becomes a live level,
-what stays cached, and how the debug hot reload rebuilds it from disk.
+and what stays cached.
 
 All addresses are USA v1.3.0 `red-pro2.rpx`.
 
@@ -20,6 +20,15 @@ The normal story transition is:
    through `f_024D29A4`.
 6. `AreaTask` (`sInstance` `0x101D1598`) owns the active area and actors.
 7. Leaving the course destroys the course task and its heap.
+
+`Scene.load_pack` leaves the live course and re-enters it.
+While that leave is pending, course setup `f_024BD86C` is skipped.
+The task manager still runs the next course-enter steps, `f_024BE4FC` and `f_024BFA50`.
+Those are skipped too.
+`f_024BE4FC` calls `InputMgr::setupCourseControllers_`.
+`f_024BFA50` reads `InputMgr` at offset `0x574`.
+TitleScene bring-up then does not run those steps against a torn-down `InputMgr`.
+The course HUD (`f_0252F900`, `f_0252D9C0` on a base disc, `f_025CF020`) returns when `AreaTask` is null.
 
 `CourseTask::sInstance` is `0x101D15F0`.
 `CourseInfo::sInstance` is `0x101D18EC`.
@@ -94,76 +103,6 @@ already in `mResHolderTreeMap`.
 That is why actor edits inside the pack must refresh the course-scoped entry,
 not just the `actor/` file.
 
-## Hot reload
-
-The debug hot reload watches the active story pack and rebuilds it with the
-existing safe transition:
-
-1. Read the active world and course from `CourseInfo`.
-2. Build `course_res_pack/<world>-<course>.szs`.
-3. Resolve the host path through the content replacement map.
-4. Poll file size and modification time.
-5. After the file is stable for two polls, read it, hash it, and validate the
-   Yaz0 stream.
-6. If the content hash changed, call the same story transition that
-   `Scene.load_pack` uses, with the same world and course.
-7. `Scene.load_pack` leaves the live course to the title screen and re-enters
-   the course.
-
-While that leave is pending, course setup `f_024BD86C` is skipped.
-The task manager still runs the next course-enter steps, `f_024BE4FC` and `f_024BFA50`.
-Those are skipped too.
-`f_024BE4FC` calls `InputMgr::setupCourseControllers_`, and `f_024BFA50` reads `InputMgr` at offset `0x574`.
-TitleScene bring-up then does not run those steps against a torn-down `InputMgr`.
-The course HUD (`f_0252F900`, `f_0252D9C0` on a base disc, `f_025CF020`) returns when `AreaTask` is null.
-
-The reload does not patch live guest state.
-The course restarts at its entrance.
-The watcher runs on game logic steps, so it does not poll while the game is
-paused.
-A partial, truncated, or invalid SZS is rejected and the current course keeps
-running.
-
-The watcher is off by default.
-Use one of these:
-
-- `NSMBU_HOT_RELOAD_COURSES=1` for the session.
-- The settings debug tab: **Course hot reload**.
-- **Reload now** in the same tab for a one-off rebuild.
-
-`NSMBU_HOT_RELOAD_POLL_MS` changes the poll interval.
-The default is 250 ms; the accepted range is 50 to 5000 ms.
-
-Logs use the `[course-reload]` prefix.
-The debug tab shows the active pack, resolved file, and current status.
-
-## What this does not cover
-
-- Challenge mode, where `ChallengeResCacheMgr` can keep the archive on a cache
-  heap.
-- Resources on persistent heaps outside the course heap.
-- Edits to files that were not opened again by the course transition.
-- In-place patching of the running course.
-  Actors, tiles, collision, and models are rebuilt only by the course transition.
-
-## Verification
-
-1. Start the game with `NSMBU_HOT_RELOAD_COURSES=1`.
-2. Enter `1-21`.
-3. Replace `game/content/Common/course_res_pack/1-21.szs` with a valid edited
-   file.
-4. Watch for this sequence in `nsmbu/logs/nsmbu.log`:
-
-```text
-[course-reload] watching .../1-21.szs
-[course-reload] 1-21 changed, reloading
-[course-reload] 1-21 reloaded
-```
-
-5. Confirm the game returns to the course and keeps running.
-6. Truncate the file and confirm the log reports a rejected file and the
-   course is not torn down.
-
 ## Decompilation gaps
 
 The useful next targets are:
@@ -174,6 +113,5 @@ The useful next targets are:
 - The challenge cache path through `ChallengeResCacheMgr`.
 - Whether any persistent heap keeps a `ResHolder` for an actor or tileset.
 
-The runtime watcher can be tested without those answers.
 A matching decompilation only becomes necessary if stale archive entries are
 observed across a course transition.

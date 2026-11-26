@@ -1,8 +1,7 @@
 # Course data files
 
 [course-open.md](course-open.md) covers the pack name and `CourseInfo`.
-[level-runtime.md](level-runtime.md) covers the task graph, archive lifetimes,
-and course hot reload.
+[level-runtime.md](level-runtime.md) covers the task graph and archive lifetimes.
 This page covers the data the course itself is built from:
 which structs hold it, where they come from, and how a modified
 level file reaches the running game.
@@ -43,7 +42,8 @@ save device, not from the pack:
 
 1. The personal savedata root (`0x101E7D94`, fed from
    `save_act://rp_personal_savedata.dat`) keeps one record per
-   world-course. The record name is the pack name `world-course`
+   world-course.
+   The record name is the pack name `world-course`
    (built by the `%d-%d` site at `0x029CB3B0`, world and course + 1).
 2. Inside that record sit four files `course/course1.bin` .. `course4.bin`.
    The format string is at `0x100E600C`; the index passed to the sprintf
@@ -52,7 +52,8 @@ save device, not from the pack:
    into `0x101EB048` / `0x101EB04C` (ctor `0x0269A144`, static pool
    pre-cleanup at `0x02699394`).
 4. `CourseData::loadRecordCourseFiles` (`0x0269A244`) loops the four
-   slots. Each slot calls the per-file loader (`0x02699AD4`):
+   slots.
+   Each slot calls the per-file loader (`0x02699AD4`):
    - format the name,
    - ask the personal savedata manager (`0x029D33EC`, vtbl-based,
      name + out pointer) for the file image,
@@ -96,11 +97,12 @@ Two consumers are known today:
 Two working channels, in increasing invasiveness:
 
 1. Pack replacement: ship a new `Common/course_res_pack/<pack>.szs`.
-   The runtime file device already routes this. No save data involved.
+   The runtime file device already routes this.
+   No save data involved.
 2. The custom course record: put `course1.bin` under the
    `world-course` record the game asks for, and the game parses it into
-   a `CourseDataFile` slot with the above parser. Blocks are plain
-   memory images, no SARC wrapper, which makes this channel attractive
+   a `CourseDataFile` slot with the above parser.
+   Blocks are plain memory images, no SARC wrapper, which makes this channel attractive
    for writing game-side edits (the style the coin-edit feature uses).
 
 What is still open for 2:

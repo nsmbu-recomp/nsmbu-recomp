@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - At 60 fps, course drawing and character models do less extra work.
 
+### Removed
+
+- The debug settings no longer reload a course when its file changes.
+
 ### Fixed
 
 - After you leave a course, the world map no longer pins Mario to that course.
