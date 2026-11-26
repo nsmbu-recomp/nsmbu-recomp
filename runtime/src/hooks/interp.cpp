@@ -1005,6 +1005,23 @@ void keep_tile_proj(uint32_t addr) {
         g_tile_proj[g_tile_proj_n++] = addr;
     }
 }
+void set_tile_capture(uint32_t proj) {
+    if (proj) g_capture_proj = proj;
+}
+void clear_tile_capture() { g_capture_proj = 0; }
+bool note_tile_uniform(uint32_t values) {
+    if (!enabled() || !blend_enabled() || !course_play_active()) return false;
+    if (!unlocked() && output_fps() <= 60) return false;
+    const uint32_t prev = g_capture_proj;
+    if (!g_capture_proj) {
+        const uint32_t r = renderer_instance();
+        if (!r) return false;
+        g_capture_proj = r + kProjection;
+    }
+    const bool same = same_proj_matrix(values);
+    if (!prev) g_capture_proj = 0;
+    return same;
+}
 namespace {
 void record_model(Cpu* c);
 void reblend_held(Cpu* c);
@@ -1016,11 +1033,17 @@ extern "C" void hook_024F30DC(Cpu* c) {
     const uint32_t view = c->r[4];
     const uint32_t view_mtx = c->r[5];
     f_024F30DC_orig(c);
+    if (!interp::enabled() || (!interp::unlocked() && interp::output_fps() <= 60)) return;
     c->r[3] = model;
     c->r[4] = view;
     c->r[5] = view_mtx;
     interp::record_model(c);
     interp::reblend_held(c);
+}
+
+extern "C" void site_0269110C(Cpu* c) {
+    if (!interp::enabled() || (!interp::unlocked() && interp::output_fps() <= 60)) return;
+    interp::set_tile_capture(c->r[31]);
 }
 
 
@@ -1665,7 +1688,9 @@ extern "C" void hook_029C52CC(Cpu* c) {
             g_wake_hold = false;
             g_skip_map_draw = false;
             cheats::before_logic(c);
+            clear_tile_capture();
             f_029C52CC_orig(c);
+            clear_tile_capture();
             nsmbu_align_map_camera();
             finish_logic_pass();
             finish_wake();
@@ -1709,7 +1734,9 @@ extern "C" void hook_029C52CC(Cpu* c) {
         c->r[3] = self;
         PassTimer timer(0);
         cheats::before_logic(c);
+        clear_tile_capture();
         f_029C52CC_orig(c);
+        clear_tile_capture();
     }
     nsmbu_align_map_camera();
     if (course_play_active()) {
@@ -1828,51 +1855,6 @@ extern "C" void hook_024FBF6C(Cpu* c) {
     present_camera(c, r, cur, mgr, view, proj, true);
 }
 
-static void course_bg_draw(Cpu* c, uint32_t info, void (*orig)(Cpu*)) {
-    using namespace interp;
-    uint32_t proj = 0;
-    if (info && wwatch::readable(info + 0x18, 4)) {
-        proj = ld32(info + 0x18);
-        if (!proj || !wwatch::readable(proj + 0x44, 64)) proj = 0;
-    }
-    const uint32_t prev = g_capture_proj;
-    if (proj) g_capture_proj = proj;
-    orig(c);
-    g_capture_proj = prev;
-}
-
-#define COURSE_BG(addr, reg) \
-    extern "C" void f_##addr##_orig(Cpu* c); \
-    extern "C" void hook_##addr(Cpu* c) { course_bg_draw(c, c->reg, f_##addr##_orig); }
-
-COURSE_BG(024B47A8, r[6])
-COURSE_BG(024B47C8, r[6])
-COURSE_BG(026904D4, r[4])
-COURSE_BG(026905C0, r[4])
-COURSE_BG(02690680, r[4])
-COURSE_BG(0269083C, r[4])
-COURSE_BG(02691690, r[4])
-COURSE_BG(0269179C, r[4])
-COURSE_BG(026917E4, r[4])
-COURSE_BG(02691868, r[4])
-COURSE_BG(0269196C, r[4])
-COURSE_BG(02691970, r[4])
-COURSE_BG(026919A4, r[4])
-COURSE_BG(02691A8C, r[4])
-COURSE_BG(02691B74, r[4])
-COURSE_BG(02691DF0, r[4])
-COURSE_BG(02691EAC, r[4])
-COURSE_BG(0269206C, r[4])
-COURSE_BG(026920B0, r[4])
-COURSE_BG(02692194, r[4])
-COURSE_BG(0269222C, r[4])
-COURSE_BG(02692748, r[4])
-COURSE_BG(0269282C, r[4])
-COURSE_BG(026928C4, r[4])
-COURSE_BG(0269325C, r[5])
-
-#undef COURSE_BG
-
 namespace gx2 { uint64_t swap_count(); }
 
 namespace interp {
@@ -1919,7 +1901,6 @@ extern "C" bool nsmbu_map_return_active(void);
 
 // The world map uses the same flag. With the GamePad screen off the game
 // leaves it clear, and then neither the stick nor Plus reaches the map.
-// The course-return path keeps the flag clear while it places Mario.
 void keep_map_gamepad() {
     if (input::pro_controller() || course_play_active() || nsmbu_map_return_active()) return;
     if (!ld32(GD(0x101CC96Cu))) return;

@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- At 60 fps, course drawing and character models do less extra work.
+
+### Fixed
+
+- After you leave a course, the world map no longer pins Mario to that course.
+
 ## [0.11.0] - 2026-11-25
 
 ### Added

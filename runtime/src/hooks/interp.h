@@ -60,4 +60,7 @@ void set_present_vsync(bool on);
 
 bool same_proj_matrix(uint32_t values);
 void keep_tile_proj(uint32_t addr);
+void set_tile_capture(uint32_t proj);
+void clear_tile_capture();
+bool note_tile_uniform(uint32_t values);
 }

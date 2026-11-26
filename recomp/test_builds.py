@@ -82,32 +82,23 @@ class Hooks(unittest.TestCase):
             [(False, 0x02ACD218), (False, 0x024D752C), (True, 0x022A79C4), (False, 0x022A7760),
              (False, 0x029A6170), (False, 0x029B85C8), (False, 0x02A06818), (False, 0x02A061AC),
              (False, 0x02A062EC), (False, 0x02994164), (False, 0x029CBBB4), (False, 0x024BD86C),
-             (True, 0x024B8324), (False, 0x0226FBC4), (True, 0x0226FD14), (True, 0x0226FECC),
-             (True, 0x02270310), (True, 0x022703A4),              (True, 0x0227CCF4), (True, 0x0227E2A8),
-             (True, 0x02267C48), (True, 0x02267C4C), (True, 0x02267C70), (True, 0x022674E8), (True, 0x024DE2D0),
+             (False, 0x024BE4FC), (False, 0x024BFA50),
+             (True, 0x024B8324), (False, 0x0226FBC4),
              (False, 0x0252F900), (False, 0x025CF020), (False, 0x024E25F4), (False, 0x024E29B8),
              (False, 0x024EFE58), (False, 0x024F009C),
-             (False, 0x029C52CC), (False, 0x024FBF6C), (False, 0x024B47A8), (False, 0x024B47C8),
-             (False, 0x026904D4), (False, 0x026905C0), (False, 0x02690680), (False, 0x0269083C),
-             (False, 0x02691690), (False, 0x0269179C), (False, 0x026917E4), (False, 0x02691868),
-             (False, 0x0269196C), (False, 0x02691970), (False, 0x026919A4), (False, 0x02691A8C),
-             (False, 0x02691B74), (False, 0x02691DF0), (False, 0x02691EAC), (False, 0x0269206C),
-             (False, 0x026920B0), (False, 0x02692194), (False, 0x0269222C), (False, 0x02692748),
-             (False, 0x0269282C), (False, 0x026928C4), (False, 0x0269325C), (False, 0x0268B70C),
+             (False, 0x029C52CC), (False, 0x024FBF6C), (True, 0x0269110C), (False, 0x0268B70C),
              (False, 0x029C4FE4),
-             (False, 0x029FD94C), (False, 0x024F30DC), (False, 0x029D9E30),
-             (True, 0x029D94C0),
-             (False, 0x029D9560), (True, 0x029D9CB8), (True, 0x029D9E2C), (False, 0x029D8270),
-             (False, 0x029D8304), (False, 0x029D82D4), (False, 0x029D8394), (False, 0x029872BC),
-             (False, 0x029D8478), (False, 0x029D7648), (False, 0x029D8C10), (True, 0x029D8C48),
+             (False, 0x029FD94C), (False, 0x024F30DC),
+             (False, 0x029D8304),
+             (False, 0x029D8478), (False, 0x029D8C10), (True, 0x029D8C48),
              (True, 0x029D71A4), (True, 0x02631BE4), (True, 0x0263ADD8), (True, 0x02641A4C),
              (True, 0x026730C4), (True, 0x02AB7040), (True, 0x02682674),
              (False, 0x025A4218), (False, 0x025A42CC), (False, 0x025A4B98),
              (False, 0x02ABC054), (False, 0x02ABCAE8),              (True, 0x02ABCB34), (True, 0x02ABCB38),
-             (True, 0x024B814C), (True, 0x0228E0CC), (True, 0x0228E228), (True, 0x0228E234),
+             (True, 0x024B814C),
              (True, 0x025A4C5C), (False, 0x02632418)],
         )
-        same_addrs = {0x024D752C, 0x029CBBB4, 0x024BD86C, 0x029872BC}
+        same_addrs = {0x024D752C, 0x029CBBB4, 0x024BD86C}
         for site, canon, addr, where, same in entries:
             self.assertEqual(canon, addr, where)
             self.assertEqual(same, canon in same_addrs, where)
@@ -139,7 +130,7 @@ class Hooks(unittest.TestCase):
         self.assertEqual(by_canon[0x029CBBB4], 0x029CBC58)
         self.assertTrue(eu.body_differs(0x029CBBB4))
         same = [canon for _, canon, _, _, checked in entries if checked]
-        self.assertEqual(same, [0x024D752C, 0x029CBBB4, 0x024BD86C, 0x029872BC])
+        self.assertEqual(same, [0x024D752C, 0x029CBBB4, 0x024BD86C])
 
     def test_same_is_a_checked_wrap(self):
         self.assertEqual(builds.differing_hook(False, True, True), "keep")

@@ -15,6 +15,8 @@ extern "C" void f_02994164_orig(Cpu* c);
 extern "C" void nsmbu_note_scene_src(uint32_t src, uint32_t factory);
 extern "C" void f_0226FBC4_orig(Cpu* c);
 extern "C" void f_024BD86C_orig(Cpu* c);
+extern "C" void f_024BE4FC_orig(Cpu* c);
+extern "C" void f_024BFA50_orig(Cpu* c);
 extern "C" void f_0252F900_orig(Cpu* c);
 extern "C" void f_0252D9C0_orig(Cpu* c);
 extern "C" void f_025CF020_orig(Cpu* c);
@@ -171,9 +173,7 @@ static void seed_player_map_fields(uint32_t player, uint32_t node, uint8_t world
 }
 
 static bool g_left_course = false;
-static bool g_map_return_open = false;
-static int g_map_return_left = 0;
-static void release_directed_map(uint32_t task);
+static bool g_quit_view_done = false;
 static void sync_directed_controller();
 static bool g_directed_pose = false;
 static bool g_have_pack = false;
@@ -330,30 +330,30 @@ static bool nearest_world_bone(float tx, float ty, float tz, float* ox, float* o
     return found && best < 400.f * 400.f;
 }
 
-static void shift_quit_view() {
+static bool shift_quit_view() {
     uint32_t course_node = 0;
     uint32_t start_node = 0;
-    if (!opened_node(&course_node)) return;
-    if (!find_named_map_node("W2M0", &start_node)) return;
+    if (!opened_node(&course_node)) return false;
+    if (!find_named_map_node("W2M0", &start_node)) return false;
     const float cx = guest_f(course_node + 0x44u);
     const float cy = guest_f(course_node + 0x48u);
     const float cz = guest_f(course_node + 0x4Cu);
     const float sx = guest_f(start_node + 0x44u);
     const float sy = guest_f(start_node + 0x48u);
     const float sz = guest_f(start_node + 0x4Cu);
-    if (!world_coord(cx) || !world_coord(cy) || !world_coord(cz)) return;
-    if (!world_coord(sx) || !world_coord(sy) || !world_coord(sz)) return;
+    if (!world_coord(cx) || !world_coord(cy) || !world_coord(cz)) return false;
+    if (!world_coord(sx) || !world_coord(sy) || !world_coord(sz)) return false;
     const float dx = cx - sx;
     const float dy = cy - sy;
     const float dz = cz - sz;
-    if (dx * dx + dy * dy + dz * dz < 1.f) return;
+    if (dx * dx + dy * dy + dz * dz < 1.f) return true;
 
     uint32_t renderer = ld32(kAglRenderer);
-    if (!in_mem2(renderer)) return;
+    if (!in_mem2(renderer)) return false;
     uint32_t count = ld32(renderer + 0xDA8u);
     uint32_t table = ld32(renderer + 0xDACu);
     if (count > 48u) count = 48u;
-    if (!in_mem2(table)) return;
+    if (!in_mem2(table)) return false;
 
     const float ox = sx - cx;
     const float oy = sy - cy;
@@ -487,6 +487,7 @@ static void shift_quit_view() {
         LOG("[map] quit view shifted %d rail %d tag %u course7=(%.1f, %.1f) zcol %.3f",
             shifted, rail, tag, c7x, c7y, zcol);
     }
+    return true;
 }
 
 static void write_map_camera_pose(uint32_t game, uint32_t world, uint32_t section, uint32_t node_idx) {
@@ -633,12 +634,8 @@ extern "C" void nsmbu_directed_open(uint8_t world, uint8_t course) {
 }
 
 extern "C" void nsmbu_map_pose_tick(void) {
-    if (g_left_course && ld32(kAreaTask) == 0) sync_directed_controller();
     if (!g_directed_pose) return;
     if (ld32(kAreaTask) != 0) return;
-    if (g_map_return_open) release_directed_map(ld32(GD(0x101CC96C)));
-    seed_map_return_pose(0, false);
-    if (!g_left_course) return;
     static int logged = 0;
     if (logged >= 1) return;
     uint32_t course_node = 0;
@@ -690,8 +687,8 @@ extern "C" void nsmbu_map_pose_tick(void) {
 
 extern "C" void nsmbu_align_map_camera(void) {
     if (!g_left_course || ld32(kAreaTask) != 0) return;
-    seed_map_return_pose(0, false);
-    shift_quit_view();
+    if (g_quit_view_done) return;
+    g_quit_view_done = shift_quit_view();
 }
 
 extern "C" void hook_02994164(Cpu* c) {
@@ -720,6 +717,17 @@ extern "C" void hook_024BD86C(Cpu* c) {
     interp::begin_course_setup();
     f_024BD86C_orig(c);
     interp::end_course_setup();
+}
+
+// CourseTask enter steps after setup. The task manager still calls them when setup is skipped.
+extern "C" void hook_024BE4FC(Cpu* c) {
+    if (mods::scene::story_leave_pending()) return;
+    f_024BE4FC_orig(c);
+}
+
+extern "C" void hook_024BFA50(Cpu* c) {
+    if (mods::scene::story_leave_pending()) return;
+    f_024BFA50_orig(c);
 }
 
 extern "C" void hook_025CF020(Cpu* c) {
@@ -784,25 +792,14 @@ static void sync_directed_controller() {
     st8(game + 0x14u, 0);
 }
 
-static void release_directed_map(uint32_t task) {
-    if (!g_map_return_open || !in_mem2(task)) return;
-    st8(task + 0xDC8u, 0);
-    st8(task + 0xDC9u, 0);
-    st8(task + 0xDCAu, 0);
-    st8(task + 0xDCBu, 1);
-    st8(task + 0xDCDu, 0);
-    st8(task + 0xDCEu, 0);
-}
-
 extern "C" bool nsmbu_map_return_active(void) {
-    return g_left_course && g_map_return_open;
+    return false;
 }
 
 extern "C" void nsmbu_mark_course_left(void) {
     g_left_course = true;
+    g_quit_view_done = false;
     if (!g_have_pack) return;
-    g_map_return_open = true;
-    g_map_return_left = 300;
     sync_directed_controller();
 }
 
@@ -822,87 +819,4 @@ extern "C" void hook_0226FBC4(Cpu* c) {
     seed_map_return_pose(player, true);
     f_0226FBC4_orig(c);
     seed_map_return_pose(player, false);
-}
-
-extern "C" void site_0226FD14(Cpu* c) {
-    seed_map_return_pose(c->r[30], true);
-}
-
-extern "C" void site_0226FECC(Cpu* c) {
-    seed_map_return_pose(c->r[30], true);
-}
-
-extern "C" void site_02270310(Cpu* c) {
-    seed_map_return_pose(c->r[30], true);
-}
-
-extern "C" void site_022703A4(Cpu* c) {
-    seed_map_return_pose(c->r[30], true);
-}
-
-static void retarget_focus_node(Cpu* c, int copied_reg) {
-    if (!map_pose_override_active()) return;
-    seed_map_return_pose(0, false);
-    uint32_t node = 0;
-    if (!opened_node(&node)) return;
-    c->r[3] = node;
-    if (copied_reg >= 0) c->r[copied_reg] = ld32(node + 0x50u);
-}
-
-extern "C" void site_0227CCF4(Cpu* c) {
-    retarget_focus_node(c, 8);
-}
-
-extern "C" void site_0227E2A8(Cpu* c) {
-    retarget_focus_node(c, 11);
-}
-
-extern "C" void site_02267C48(Cpu* c) {
-    if (!g_map_return_open) return;
-    uint32_t task = c->r[31];
-    release_directed_map(task);
-    if (!in_mem2(task)) return;
-    c->r[4] = GD(0x101FD3A4);
-}
-
-extern "C" void site_02267C4C(Cpu* c) {
-    if (!g_map_return_open) return;
-    release_directed_map(c->r[31]);
-    if (g_map_return_left > 0 && --g_map_return_left == 0)
-        g_map_return_open = false;
-}
-
-extern "C" void site_0228E0CC(Cpu* c) {
-    release_directed_map(c->r[3]);
-}
-
-extern "C" void site_0228E228(Cpu* c) {
-    if (!g_map_return_open) return;
-    c->r[26] = 0;
-}
-
-extern "C" void site_0228E234(Cpu* c) {
-    if (!g_map_return_open) return;
-    uint32_t player = c->r[29];
-    if (!in_mem2(player)) return;
-    st8(player + 0x623u, 1);
-}
-
-extern "C" void site_024DE2D0(Cpu* c) {
-    if (!g_map_return_open) return;
-    c->r[6] = 0;
-}
-
-extern "C" void site_022674E8(Cpu* c) {
-    release_directed_map(c->r[30]);
-}
-
-extern "C" void site_02267C70(Cpu* c) {
-    if (!g_map_return_open) return;
-    uint32_t task = c->r[3];
-    release_directed_map(task);
-    if (!in_mem2(task)) return;
-    st8(task + 0xDCAu, 1);
-    st8(task + 0xDCBu, 1);
-    st8(task + 0xDCDu, 0);
 }

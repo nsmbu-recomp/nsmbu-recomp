@@ -294,8 +294,7 @@ static void uniform_regs(uint32 stageBase, uint32 offset, uint32 count, uint32 v
     set_regs(mmSQ_ALU_CONSTANT0_0 + stageBase + offset, tmp, count);
     if (stageBase == 0x400 && count == 16) {
         const uint32 end = gx2::recording_pos();
-        const bool same = interp::same_proj_matrix(values);
-        if (end && same) interp::keep_tile_proj(end - 64);
+        if (end && interp::note_tile_uniform(values)) interp::keep_tile_proj(end - 64);
     }
 }
 HLE(gx2, GX2SetVertexUniformReg) { uniform_regs(0x400, arg(c, 0), arg(c, 1), arg(c, 2)); }

@@ -51,6 +51,8 @@ A later present repeats that list.
 The port keeps the guest address of each recorded course-camera matrix.
 That matrix matches the course camera except the vertical scale, which the tile draw negates.
 The port writes the in-between camera into those words and keeps the negated vertical scale.
+One site in the shared tile upload (`0x0269110C`) names the projection for that compare.
+The individual course-layer draw functions are not hooked.
 The model pose is baked while that in-between camera is still installed.
 The logic box is restored before `procDraw_` runs.
 The port waits for the render thread to copy that picture before it writes those uniforms again.

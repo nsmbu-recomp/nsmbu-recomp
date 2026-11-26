@@ -322,14 +322,14 @@ A direct open can show a blank green number and the save's world name.
 
 The same skip means `FieldGameData::setCheckPoint` never runs before the course.
 Quitting back to `CourseSelectTask` then has `mCheckPoint.index == -1` and `MainGame` map pose `+0x19C/+0x1A0/+0x1A4` cleared, so `CourseSelectPlayer` fails to spawn on the opened node.
-The runtime seeds that checkpoint and pose from `CourseInfo` world/course when the checkpoint is still missing (course-out site `0x024B8324`, CourseSelectPlayer setup `0x0226FBC4` / `0x0226FD14`).
+The runtime seeds that checkpoint and pose once from `CourseInfo` world/course (course-out site `0x024B8324`, map entry `0x0226FBC4`).
 Node lookup uses `CourseSelectMgr` path entries by name (`W101` for pack `1-1`).
 Path node `+0x50/+0x54` are not a reliable world/course pair (many nodes share `0,0`), so name match is required.
 Live `CourseSelectPlayer+0x110` is a pointer after spawn.
 Writing node floats there crashes in the map sound path (`ld` at `+0xC` off a null vtable).
 Do not use the save `worldMapLocation` alone.
-The map camera copies its focus node at `0x0227CCF4` and `0x0227E2A8` from the path search, which still returns the world start after a directed open.
-Those sites replace that node with the opened course before the pose and position stores.
+The course-out hook and the map-entry hook write that pose once.
+They do not run again on later map frames.
 They stay out of the opening cinematic and out of loading a save from the file select.
 Both of those set a course-exit type without going through course-out, and the map keeps its own camera until it gives you control.
 See [course-open.md](../developer/nsmbu/course-open.md).
