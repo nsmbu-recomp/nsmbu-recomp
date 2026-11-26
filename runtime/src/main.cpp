@@ -46,6 +46,9 @@
 #include "mods/mods.h"
 #include "mods/packages.h"
 #include "core/runtime.h"
+#ifdef NSMBU_DECOMP
+#include "decomp/decomp.h"
+#endif
 #ifdef __ANDROID__
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -63,9 +66,9 @@ void mem_setup_heaps(uint32_t data_end);
 void trace_dump(FILE* f, unsigned last);
 void mem_init_data_imports(uint32_t alloc_slot, uint32_t alloc_ex_slot, uint32_t free_slot);
 
-static bool crash_cli_no_dialog() {
+static bool crash_dev_no_dialog() {
 #ifndef NDEBUG
-    return env::CLI.enabled();
+    return true;
 #else
     return false;
 #endif
@@ -178,7 +181,7 @@ static void crash_handler(int sig, siginfo_t* si, void* uctx) {
         if (f) { trace_dump(f, 3000); fclose(f); if (write(2, "[trace] wrote trace_dump.txt\n", 29) < 0) {} }
     }
     input::stop_rumble_now();
-    if (!crash_cli_no_dialog()) {
+    if (!crash_dev_no_dialog()) {
 #ifndef __ANDROID__
         if (fork() == 0) {
             std::string msg = "The game crashed.\n\nA crash log was written to:\n";
@@ -260,7 +263,7 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ex) {
     if(fd>=0){win_crash_log_only(fd,"\n--- last log lines ---\n",24); log_ring_write(fd,win_crash_log_only); _close(fd); fprintf(stderr,"[crash] wrote %s\n",path);}
     if(g_ppc_trace) { FILE* f=fopen("trace_dump.txt","w"); if(f){trace_dump(f,3000);fclose(f);} }
     input::stop_rumble_now();
-    if (crash_cli_no_dialog()) {
+    if (crash_dev_no_dialog()) {
         fflush(stderr);
         _exit(1);
     }
@@ -550,6 +553,9 @@ int main(int argc, char** argv) {
     if (const std::string why = game_folder::unusable_reason(config::game_dir); !why.empty()) game_folder::fail(why);
 #endif
     mem::init();
+#ifdef NSMBU_DECOMP
+    decomp::init();
+#endif
 
     LoadedModule m{};
     std::string rpx = config::rpx_path();
