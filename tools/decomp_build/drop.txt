@@ -61,6 +61,7 @@ src/graphics/Mii_Shader.cpp
 src/graphics/Mii_SlotMgr.cpp
 src/graphics/Model.cpp
 src/graphics/ModelFFL.cpp
+include/graphics/ModelFFL.h
 src/graphics/ModelG3d.cpp
 src/graphics/ModelResource.cpp
 src/graphics/ModelResourceMgr.cpp
