@@ -16,8 +16,6 @@ struct CallFrame {
 };
 
 void bind(Cpu* cpu);
-uint32_t guest_gpr(int index);
-uint32_t guest_lr();
 CallFrame call_begin();
 void arg_u32(int slot, uint32_t value);
 void arg_f32(int slot, float value);

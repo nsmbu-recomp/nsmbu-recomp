@@ -74,6 +74,8 @@ def main():
     parser.add_argument("--save", help="save directory passed to the game")
     parser.add_argument("run_args", nargs=argparse.REMAINDER)
     args = parser.parse_args()
+    if args.run_args[:1] == ["--"]:
+        args.run_args = args.run_args[1:]
     if args.wine and (args.gdb or args.lldb):
         sys.exit("--wine cannot be combined with --gdb or --lldb")
     if args.decomp and args.wine:

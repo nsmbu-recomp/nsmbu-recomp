@@ -59,13 +59,6 @@ thread_local Cpu* g_cpu;
 
 void bind(Cpu* cpu) { g_cpu = cpu; }
 
-uint32_t guest_gpr(int index) {
-    if (!g_cpu || index < 0 || index > 31) return 0;
-    return g_cpu->r[index];
-}
-
-uint32_t guest_lr() { return g_cpu ? g_cpu->lr : 0; }
-
 CallFrame call_begin() {
     CallFrame frame{};
     if (!g_cpu) return frame;

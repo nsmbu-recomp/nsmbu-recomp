@@ -15,8 +15,8 @@ just decomp
 just mcp --open 1-1
 ```
 
-`just decomp` starts `build/decomp-debug/nsmbu`.
-`python3 tools/run/launch.py --decomp` is the same command.
+`just decomp` refreshes the decomp function list, retranslates `build/gen-decomp` when that list differs, builds `build/decomp-debug`, then starts that game.
+`python3 tools/run/launch.py --decomp` starts the binary without building.
 `just decomp -- --mcp` starts that binary muted, with MCP.
 
 The same scripts, without `just`:

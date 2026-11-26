@@ -5,6 +5,10 @@ src/actor/ActorMgr.cpp
 src/actor/ActorState.cpp
 src/actor/Profile.cpp
 src/boss/Boss.cpp
+src/boss/BossDemo.cpp
+src/boss/FinalKoopaDemo.cpp
+src/boss/FinalKoopaJr.cpp
+src/container/seadPtrArray.cpp
 src/course_select/CourseSelectCacheMgr.cpp
 src/course_select/CourseSelectCamera.cpp
 src/course_select/CourseSelectCoursePoint.cpp
@@ -43,10 +47,12 @@ src/game/CourseTask.cpp
 src/game/CourseTimer.cpp
 src/game/FieldGameData.cpp
 src/game/PlayerCourseHud.cpp
+src/game/SelectCursor.cpp
 src/graphics/AnimExpDecayCalcRatio.cpp
 src/graphics/AnimModel.cpp
 src/graphics/CaptureRenderBuffer.cpp
 src/graphics/CullViewFrustum.cpp
+src/graphics/DrawQueue.cpp
 src/graphics/GfxParameter.cpp
 src/graphics/JointBlendModel.cpp
 src/graphics/LightMapMgr.cpp
@@ -61,6 +67,7 @@ src/graphics/Mii_Shader.cpp
 src/graphics/Mii_SlotMgr.cpp
 src/graphics/Model.cpp
 src/graphics/ModelFFL.cpp
+include/graphics/ModelFFL.h
 src/graphics/ModelG3d.cpp
 src/graphics/ModelResource.cpp
 src/graphics/ModelResourceMgr.cpp
@@ -79,6 +86,7 @@ src/layout/ChangePlayerNum.cpp
 src/layout/CommonWindow.cpp
 src/layout/CommonWindowMgr.cpp
 src/layout/PaCursor.cpp
+src/layout/PauseGame.cpp
 src/layout_sys/AnimLayout.cpp
 src/layout_sys/AnimLayoutBase.cpp
 src/layout_sys/Multi2D.cpp

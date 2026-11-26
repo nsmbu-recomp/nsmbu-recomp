@@ -12,7 +12,5 @@ extern Slot g_slots[];
 extern const unsigned g_slot_count;
 void init();
 void bind(Cpu* cpu);
-uint32_t guest_gpr(int index);
-uint32_t guest_lr();
 inline bool on(unsigned i) { return g_slots[i].on != 0; }
 }

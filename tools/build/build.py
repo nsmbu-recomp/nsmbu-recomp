@@ -82,6 +82,75 @@ def gen_is_stub(gen):
 def hooks_need_recomp(saved, current):
     return saved != current
 
+def read_file_bytes(path):
+    try:
+        with open(path, "rb") as handle:
+            return handle.read()
+    except OSError:
+        return None
+
+def decomp_tree_newer(build_dir):
+    stamp = os.path.join(build_dir, "decomp", "decomp_hooks.txt")
+    if not os.path.isfile(stamp):
+        return True
+    stamp_m = os.path.getmtime(stamp)
+    root = os.path.join(ROOT, "vendor", "decomp")
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [name for name in dirnames if name != ".git"]
+        for name in filenames:
+            if not name.endswith((".cpp", ".h", ".hpp")):
+                continue
+            if os.path.getmtime(os.path.join(dirpath, name)) > stamp_m:
+                return True
+    drop = os.path.join(ROOT, "tools", "decomp_build", "drop.txt")
+    return os.path.isfile(drop) and os.path.getmtime(drop) > stamp_m
+
+def ensure_decomp_translation(gen_dir, build_dir):
+    """Match GEN_DIR to the current decomp function list. Return true when cmake must run."""
+    try:
+        rpx = os.path.join(gv.active_dir(), "code", "red-pro2.rpx")
+    except gv.GameVersionsError as exc:
+        sys.exit(f"decomp build: {exc}")
+    if not os.path.isfile(rpx):
+        sys.exit(f"decomp build: missing {rpx}")
+    listing = os.path.join(ROOT, ".tmp", "decomp-kept")
+    os.makedirs(listing, exist_ok=True)
+    cmd = [
+        sys.executable,
+        os.path.join(ROOT, "tools", "decomp_build", "gen.py"),
+        "--out",
+        listing,
+        "--root",
+        os.path.join(ROOT, "vendor", "decomp"),
+        "--hooks",
+        os.path.join(ROOT, "recomp"),
+    ]
+    drop = os.path.join(ROOT, "tools", "decomp_build", "drop.txt")
+    if os.path.isfile(drop):
+        cmd.extend(["--drop", drop])
+    subprocess.run(cmd, check=True, cwd=ROOT)
+    fresh = os.path.join(listing, "decomp_hooks.txt")
+    want = read_file_bytes(fresh)
+    if not want or not want.strip():
+        sys.exit("decomp build: vendor/decomp has no // Address: function to swap in")
+    gen_dir = os.path.abspath(gen_dir)
+    have = read_file_bytes(os.path.join(gen_dir, "decomp_hooks.txt"))
+    if have != want:
+        subprocess.run(
+            [
+                sys.executable,
+                os.path.join(ROOT, "recomp", "recomp.py"),
+                rpx,
+                gen_dir,
+                "--decomp-hooks",
+                fresh,
+            ],
+            check=True,
+            cwd=ROOT,
+        )
+        return True
+    return decomp_tree_newer(build_dir)
+
 def link_compile_commands(build_dir):
     src = os.path.join(build_dir, "compile_commands.json")
     if not os.path.isfile(src):
@@ -277,7 +346,11 @@ def main():
         setup_gui=args.target == "nsmbu-setup"
         and not any(a.startswith("-DNSMBU_SETUP_GUI") for a in extra),
     )
-    if cmake_configure_needed(build_dir, ROOT, cache_entries, define_entries):
+    decomp_refresh = False
+    if define_entries.get("NSMBU_DECOMP") == "ON":
+        gen_dir = define_entries.get("GEN_DIR", os.path.join(ROOT, "build", "gen"))
+        decomp_refresh = ensure_decomp_translation(gen_dir, build_dir)
+    if decomp_refresh or cmake_configure_needed(build_dir, ROOT, cache_entries, define_entries):
         run_cmake(cmake, ROOT)
     link_compile_commands(build_dir)
     subprocess.run(

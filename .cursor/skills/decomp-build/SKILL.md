@@ -30,7 +30,7 @@ The build is in the tree.
 3. Build `build/decomp-debug`.
    `python3 tools/build/build.py --dir build/decomp-debug -- -DNSMBU_DECOMP=ON -DGEN_DIR=$PWD/build/gen-decomp`
    The binary is `build/decomp-debug/nsmbu`.
-   `just decomp` starts that binary.
+   `just decomp` refreshes the function list, retranslates `build/gen-decomp` when that list differs, builds that binary, then starts it.
    `just decomp -- --mcp` starts it muted, with MCP.
    `tools/run/scripted-run.sh` still picks `build/debug/nsmbu` first.
    Done when that binary exists.
