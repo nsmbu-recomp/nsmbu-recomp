@@ -226,8 +226,10 @@ Decomp source is the submodule `vendor/decomp`.
 The decompile agent is the only writer of that tree.
 Read [decomp.md](decomp.md) for the one-function loop.
 The procedure is [`.cursor/agents/decompile.md`](../../.cursor/agents/decompile.md).
-The check is the `python3 tools/rpx/ppcdis.py` listing against the C++.
-This repo cannot prove a function with generated inputs.
+Read the listing to write the function.
+Prove a written body with the decomp build.
+The steps are in the decompile agent.
+This repo has no generated-input harness.
 The port compile omits `vendor/decomp`.
 Wind Waker HD has these decomp checks.
 This repo has neither of the first two.

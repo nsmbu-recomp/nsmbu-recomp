@@ -21,8 +21,8 @@ The loop is done when the command exits and no game process is running.
 This loop can fail one guest function.
 Hand that function to the decompile subagent.
 The procedure is [decomp.md](decomp.md).
-The check is disassembly only.
-Do not boot the game to prove a function.
+A written body is checked with the decomp build.
+The decompile agent runs that check.
 
 ## 3. A behavior that should match another run
 

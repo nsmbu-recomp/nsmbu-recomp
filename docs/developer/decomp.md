@@ -18,14 +18,16 @@ Write the body only when the parent asks for the body.
 Take the body from that listing: the instructions, each call, each load and store, and each data address.
 Name each call target.
 When no name exists, write `sub_` plus the address.
+When you wrote the body, check it with the decomp build before the commit.
 Commit the function in the `vendor/decomp` submodule.
 Then commit the gitlink in this repo.
 
 ## Check
 
-This repo cannot prove a function with generated inputs.
-The check is the `ppcdis.py` listing against the C++.
-A game check belongs to the port docs.
+Read the listing to write the function.
+Prove a written body with the decomp build.
+Set `NSMBU_DECOMP_FUNCS` to that address.
+The steps are in [`.cursor/agents/decompile.md`](../../.cursor/agents/decompile.md).
 The port compile omits `vendor/decomp`.
 
 ## Wind Waker HD

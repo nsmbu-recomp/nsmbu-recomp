@@ -14,19 +14,20 @@ Write the body only when the parent asks for the body.
 Your final message is the declaration.
 When you also write the body, put that body under the declaration.
 
-This repo cannot prove a function with generated inputs.
-The check is the `ppcdis.py` listing against the C++.
-A game check belongs to the port docs.
+Read the listing to write the function.
+Prove a written body with the decomp build.
+The `decomp-build` skill is that procedure.
 
 Copy this list into TodoWrite before step 1.
 Keep exactly one item `in_progress`.
 Mark an item `completed` only when that step's done line is true.
-Cancel `Write the body` unless the parent asked for the body.
+Cancel `Write the body` and `Check the body` unless the parent asked for the body.
 
 - [ ] Resolve the address, the symbol, and the parameters
 - [ ] Describe what the function does
 - [ ] Put the declaration in `vendor/decomp`
 - [ ] Write the body
+- [ ] Check the body
 - [ ] Commit the function, then the gitlink
 
 1. Resolve the address, the symbol, and the parameters.
@@ -70,12 +71,25 @@ Cancel `Write the body` unless the parent asked for the body.
    Put `// Address: 0xXXXXXXXX` on the line above the definition.
    Done when the parent did not ask for the body, or the full function is in `vendor/decomp`.
 
-5. Commit that function in `vendor/decomp`, then commit the gitlink in this repo.
+5. Check the body only when you wrote it.
+   Follow the `decomp-build` skill for this function.
+   Set `NSMBU_DECOMP_FUNCS` to this address.
+   `tools/run/scripted-run.sh` starts `build/debug/nsmbu`.
+   Start `build/decomp-debug/nsmbu` for the decomp boot.
+   When `tools/decomp_build/drop.txt` names this source, say that the body did not run.
+   That report completes this step.
+   Done when the two traces match.
+   When they differ, name the first step that differs.
+   Then fix the body and run this step again.
+   When the compile fails, fix the body and run this step again.
+
+6. Commit that function in `vendor/decomp`, then commit the gitlink in this repo.
    Use `Declare <symbol>.` when you wrote only the declaration.
    Use `Decompile <symbol>.` when you wrote the body.
    Stage only the files for this function.
    Then stage only the gitlink.
    Stage no other path.
+   Run this step after the check, or after you cancel the check.
    Stop after the gitlink commit.
    Do not push.
    Done when both commits exist and the final message is the declaration, plus the body when you wrote it.
@@ -84,3 +98,5 @@ Parallel workers follow the same steps.
 One worker takes one function.
 One worker owns a shared header.
 Leave a header that another worker owns.
+The decomp build is shared.
+One worker runs that check.
