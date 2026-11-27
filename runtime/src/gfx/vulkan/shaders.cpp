@@ -30,9 +30,7 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
-#include <deque>
 #include <mutex>
-#include <functional>
 #include <future>
 #include <unordered_map>
 
@@ -683,130 +681,7 @@ void start_shader_cache_load() {
     diskLoadStarted = true;
 }
 
-struct TranslationSnap {
-    std::array<uint32_t, gx2::kNumRegs> regs{};
-    std::vector<uint8_t> program;
-    LatteFetchShader fetch;
-    std::vector<std::vector<LatteParsedFetchShaderAttribute>> attributes;
-    bool hasFetch = false;
-    TranslationSnap(const uint32_t* sourceRegs, uint32_t address, uint32_t size, const LatteFetchShader* sourceFetch) {
-        std::copy_n(sourceRegs, regs.size(), regs.begin());
-        const auto* bytes = static_cast<const uint8_t*>(ppc_ptr(address));
-        program.assign(bytes, bytes + size);
-        if (!sourceFetch) return;
-        hasFetch = true;
-        fetch.key = sourceFetch->key;
-        fetch.attributeBufferMask = sourceFetch->attributeBufferMask;
-        fetch.vkPipelineHashFragment = sourceFetch->vkPipelineHashFragment;
-        fetch.mtlFetchVertexManually = sourceFetch->mtlFetchVertexManually;
-        fetch.m_cacheHash = sourceFetch->m_cacheHash;
-        fetch.m_isRegistered = false;
-        attributes.reserve(sourceFetch->bufferGroups.size() + sourceFetch->bufferGroupsInvalid.size());
-        auto copyGroups = [&](const auto& source, auto& destination) {
-            destination.reserve(source.size());
-            for (const auto& group : source) {
-                if (group.attribCount < 0 || (group.attribCount && !group.attrib))
-                    throw std::runtime_error("invalid fetch translation snapshot");
-                attributes.emplace_back();
-                auto& owned = attributes.back();
-                if (group.attribCount) owned.assign(group.attrib, group.attrib + group.attribCount);
-                destination.push_back(group);
-                destination.back().attrib = owned.data();
-            }
-        };
-        copyGroups(sourceFetch->bufferGroups, fetch.bufferGroups);
-        copyGroups(sourceFetch->bufferGroupsInvalid, fetch.bufferGroupsInvalid);
-    }
-};
-struct TranslationWorker {
-    std::mutex mutex;
-    std::condition_variable wake;
-    std::deque<std::function<void()>> queue;
-    std::thread thread;
-    bool stop = false;
-    bool joining = false;
-    void finish() {
-        std::thread joiningThread;
-        {
-            std::lock_guard lock(mutex);
-            if (thread.joinable() && thread.get_id() == std::this_thread::get_id())
-                throw std::logic_error("translation worker cannot join itself");
-            stop = true;
-            joining = true;
-            joiningThread = std::move(thread);
-        }
-        wake.notify_all();
-        if (joiningThread.joinable()) joiningThread.join();
-        std::lock_guard lock(mutex);
-        joining = false;
-        stop = false;
-    }
-    ~TranslationWorker() { finish(); }
-};
-TranslationWorker& translation_worker() {
-    static TranslationWorker value;
-    return value;
-}
-void translation_run(TranslationWorker& w) {
-    try { host::set_thread_name("Vulkan translate"); } catch (...) {}
-    for (;;) {
-        std::function<void()> job;
-        {
-            std::unique_lock lock(w.mutex);
-            w.wake.wait(lock, [&] { return w.stop || !w.queue.empty(); });
-            if (w.queue.empty()) return;
-            job = std::move(w.queue.front());
-            w.queue.pop_front();
-        }
-        if (job) job();
-    }
-}
-void submit_translation(std::function<void()> job) {
-    auto& w = translation_worker();
-    bool inlineJob = false;
-    {
-        std::lock_guard lock(w.mutex);
-        inlineJob = w.joining || (w.thread.joinable() && w.thread.get_id() == std::this_thread::get_id());
-        if (!inlineJob) {
-            if (!w.thread.joinable()) {
-                w.stop = false;
-                w.thread = std::thread(translation_run, std::ref(w));
-            }
-            w.queue.push_back(std::move(job));
-        }
-    }
-    if (inlineJob) job();
-    else w.wake.notify_one();
-}
-void finish_translation() { translation_worker().finish(); }
-bool decompile_off_thread(Shader& shader, const uint32_t* regs, bool vertex, LatteFetchShader* fetch,
-                          uint32_t address, uint32_t size, uint64_t base, const PsLink& link, uint64_t frame) {
-    if (frame == ~uint64_t{0} || !shader_jobs_async())
-        return decompile(shader, regs, vertex, fetch, address, size, base, true, link);
-    auto snap = std::make_shared<TranslationSnap>(regs, address, size, fetch);
-    auto promise = std::make_shared<std::promise<void>>();
-    auto done = promise->get_future();
-    submit_translation([&shader, snap, vertex, address, size, base, link, promise] {
-        try {
-            decompile(shader, snap->regs.data(), vertex, snap->hasFetch ? &snap->fetch : nullptr,
-                      address, size, base, true, link, snap->program.data());
-            promise->set_value();
-        } catch (...) {
-            promise->set_exception(std::current_exception());
-        }
-    });
-    std::exception_ptr presentationError;
-    while (done.wait_for(std::chrono::milliseconds(1)) != std::future_status::ready) {
-        if (!presentationError) try { gfxvk::present_while_shader_pending(); }
-        catch (...) { presentationError = std::current_exception(); }
-    }
-    done.get();
-    if (presentationError) std::rethrow_exception(presentationError);
-    return shader.dec && shader.error.empty();
-}
-
 void select_renderer() {
-    finish_translation();
     finish_shader_jobs();
     g_renderer = std::make_unique<VulkanRenderer>();
 }
@@ -1090,9 +965,9 @@ Shader* translate(const uint32_t* regs, bool vertex, LatteFetchShader* fetch, ui
     auto owned = std::make_unique<Shader>();
     Shader* shader = owned.get();
     shader->vertex = vertex;
-    const bool background = frame != ~uint64_t{0} && shader_jobs_async();
+    const bool background = frame != ~uint64_t{0};
     const auto started = std::chrono::steady_clock::now();
-    const bool decompiled = decompile_off_thread(*shader, regs, vertex, fetch, address, size, base, link, frame);
+    const bool decompiled = decompile(*shader, regs, vertex, fetch, address, size, base, true, link);
     const uint64_t decompileNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now() - started).count();
     ++stats.compiles;
