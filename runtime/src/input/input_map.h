@@ -66,6 +66,11 @@ FaceLayout face_layout(const Mapping& m);
 void apply_face_layout(Mapping& m, FaceLayout layout);
 const char* face_layout_label(FaceLayout l);
 int face_input(int action);
+// The physical button for this action in the position layout, ignoring the player's binding.
+int position_pad(int action);
+// Outside a course, the usual face buttons, D-pad, left stick, and Start also drive the menu actions.
+void set_menu_navigation(bool on);
+bool menu_navigation();
 
 std::vector<int> key_users(const Mapping& m, int code, int except = -1);
 std::vector<int> pad_users(const Mapping& m, int pad, int except = -1);

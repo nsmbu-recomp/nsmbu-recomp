@@ -405,6 +405,22 @@ static void test_touch_face() {
     CHECK(touch_face::sdl_button(kPadDRight) == 14 && touch_face::sdl_button(kPadLSUp) == -1);
 }
 
+static void test_menu_fallback() {
+    Mapping m = Mapping::defaults();
+    m.pad[kA] = kPadNone;
+    float v[kPadCount] = {};
+    v[position_pad(kA)] = 1;
+    CHECK(controller_state(m, v).buttons & input::kA);
+    m.pad[kA] = kPadLB;
+    set_menu_navigation(false);
+    v[position_pad(kA)] = 1;
+    v[kPadLB] = 0;
+    CHECK((controller_state(m, v).buttons & input::kA) == 0);
+    set_menu_navigation(true);
+    CHECK(controller_state(m, v).buttons & input::kA);
+    set_menu_navigation(false);
+}
+
 int main() {
     test_conflict_helpers();
     test_touch_face();
@@ -420,6 +436,7 @@ int main() {
     test_copy_controller();
     test_issue_9_multiplayer_bindings();
     test_deadzone();
+    test_menu_fallback();
     test_files();
     printf("input_map_test: %d passed, %d failed\n", g_pass, g_fail);
     return g_fail ? 1 : 0;

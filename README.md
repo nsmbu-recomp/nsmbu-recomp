@@ -20,8 +20,9 @@ The release includes the runtime, build tools, and installer.
 - **[On-screen controls](docs/features/on-screen-controls.md)** on Android and iOS.
 - **[Screenshots](docs/features/screenshots.md)** of the TV picture — <kbd>F10</kbd> by default.
 - **[Sound and language](docs/features/audio.md)** — volume, mute, and console language.
-- **[Gyro aiming](docs/features/gyro.md)** with supported controllers, a mouse, or the right stick.
-  Set the source, sensitivity, and recalibrate under Settings, then Controls, then Gyro.
+- **[Gyro aiming](docs/features/gyro.md)** with supported controllers, a mouse, the right stick, or the arrow keys.
+  Set the source and sensitivity under Settings, then Controls.
+  Tilt and recalibrate are rows in the Gyro Emulation group.
 
 Experimental — each has a page under [docs/features](docs/features/):
 

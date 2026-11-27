@@ -180,10 +180,20 @@ struct Ui {
     double options_since = -1;
     bool options_latched = false;
 
-    int cap_action = -1, cap_col = 0, cap_player = 0;
+    int cap_action = -1, cap_col = 0, cap_player = 0, cap_row = -1;
     bool cap_pad_released = false;
+    bool cap_commit = false;
     double cap_started = 0;
+    double cap_menu_hold = -1;
     std::string cap_note;
+    bool bind_keyboard = false;
+    int focus_row = -1;
+    bool reset_confirm = false;
+    bool exit_warn = false;
+    bool allow_close = false;
+    bool popup_block = false;
+    double dz_hold = -1;
+    double dz_step = -1;
 
     ss::SlotInfo slots[ss::kSlots + 1];
     crashrec::AutoInfo autos[crashrec::kAutoSlots + 1];
@@ -202,7 +212,6 @@ struct Ui {
     bool linearized = false;
     bool just_opened = false;
     int control_player = 0;
-    float options_height = 0;
 };
 Ui U;
 
@@ -452,10 +461,19 @@ void read_controller() {
 }
 
 void feed_gamepad(ImGuiIO& io, bool enabled, bool mouse_used) {
-    const int face[4] = {input_map::face_input(input_map::kA), input_map::face_input(input_map::kB),
-                         input_map::face_input(input_map::kX), input_map::face_input(input_map::kY)};
     std::copy(std::begin(U.prev), std::end(U.prev), std::begin(U.nav_prev));
     std::copy(std::begin(U.values), std::end(U.values), std::begin(U.nav_values));
+    // The bound confirm button and the position-layout button both navigate, so clearing a binding cannot trap the menu.
+    for (int i = 0; i < 4; i++) {
+        const int action = input_map::kA + i;
+        const int bound = input_map::face_input(action);
+        const int physical = input_map::position_pad(action);
+        if (bound <= 0 || physical <= 0) continue;
+        if (U.values[physical] > U.nav_values[bound]) U.nav_values[bound] = U.values[physical];
+        if (U.prev[physical] > U.nav_prev[bound]) U.nav_prev[bound] = U.prev[physical];
+    }
+    const int face[4] = {input_map::face_input(input_map::kA), input_map::face_input(input_map::kB),
+                         input_map::face_input(input_map::kX), input_map::face_input(input_map::kY)};
     U.gamepad_navigation.feed(io, U.nav_values, U.nav_prev, enabled, mouse_used, face);
 }
 
@@ -1264,25 +1282,34 @@ void tab_mods() {
 }
 
 enum { kColKey0, kColKey1, kColPad, kColAny };
+constexpr int kRecalAction = 1000;
 
-void start_capture(int a, int col) {
+void save_gyro(motion::Settings s);
+
+void start_capture(int a, int col, int row) {
     if (U.control_player > 0 && col != kColPad) col = kColPad;
     U.cap_action = a;
     U.cap_col = col;
     U.cap_player = U.control_player;
+    U.cap_row = row;
     U.cap_pad_released = false;
+    U.cap_commit = false;
     U.cap_started = now_s();
+    U.cap_menu_hold = -1;
     U.cap_note.clear();
     g_capture_key = -2;
     g_capturing_keys = col != kColPad;
 }
 
-void clear_binding(int a, int col) {
-    input_map::Mapping m = input_map::player(U.control_player);
-    if (col == kColPad) m.pad[a] = input_map::kPadNone;
-    else m.keys[a][col] = input_map::kNoKey;
-    input_map::set_player(U.control_player, m);
+void finish_capture(bool commit) {
+    U.cap_commit = commit;
+    U.cap_action = -1;
+    U.cap_menu_hold = -1;
+    g_capturing_keys = false;
+    g_wait_release = true;
 }
+
+bool stick_pad(int p) { return p >= input_map::kPadLSUp && p <= input_map::kPadRSRight; }
 
 void apply_capture() {
     if (U.cap_action < 0) return;
@@ -1291,45 +1318,76 @@ void apply_capture() {
     const int a = U.cap_action, colm = U.cap_col;
     int code = g_capture_key.exchange(-2);
     bool done = false;
+    bool commit = false;
+    auto store_pad = [&](int p) {
+        if (colm != kColPad && colm != kColAny) return;
+        if (a == kRecalAction) {
+            motion::Settings s = motion::settings();
+            s.recenter_pad = p;
+            save_gyro(s);
+        } else {
+            m.pad[a] = p;
+            input_map::set_player(U.cap_player, m);
+        }
+        commit = true;
+        done = true;
+    };
     if (code == -1) done = true;
     else if (code == -3) {
-        if (colm == kColPad) m.pad[a] = kPadNone;
-        else m.keys[a][colm == kColAny ? 0 : colm] = kNoKey;
-        input_map::set_player(U.cap_player, m);
+        if (a == kRecalAction) {
+            motion::Settings s = motion::settings();
+            if (colm == kColPad) s.recenter_pad = 0;
+            else if (colm == kColKey1) s.recenter_key2 = -1;
+            else s.recenter_key = -1;
+            save_gyro(s);
+        } else {
+            if (colm == kColPad) m.pad[a] = kPadNone;
+            else m.keys[a][colm == kColAny ? 0 : colm] = kNoKey;
+            input_map::set_player(U.cap_player, m);
+        }
         done = true;
     } else if (code >= 0 && colm != kColPad) {
         if (const char* r = input_map::reserved_key(code)) U.cap_note = std::string("That key is used for ") + r;
-        else {
+        else if (a == kRecalAction) {
+            motion::Settings s = motion::settings();
+            if (colm == kColKey1) s.recenter_key2 = code;
+            else s.recenter_key = code;
+            save_gyro(s);
+            done = true;
+            commit = true;
+        } else {
             m.keys[a][colm == kColAny ? 0 : colm] = code;
             input_map::set_player(U.cap_player, m);
             done = true;
+            commit = true;
         }
     }
     if (!done) {
-
         float values[kPadCount] = {};
         input::controller_values(U.cap_player, values);
         int pressed = -1;
         bool any = false;
         for (int p = 1; p < kPadCount; p++) {
-            any |= values[p] > 0.3f;
-            if (values[p] > 0.6f && pressed < 0) pressed = p;
+            const float release = stick_pad(p) ? 0.50f : 0.30f;
+            any |= values[p] > release;
+            const float need = stick_pad(p) ? 0.65f : 0.60f;
+            if (p == kPadMenu) continue;
+            if (values[p] > need && pressed < 0) pressed = p;
         }
         if (!U.cap_pad_released) U.cap_pad_released = !any;
-        else if (pressed > 0) {
-            if (colm == kColPad || colm == kColAny) {
-                m.pad[a] = pressed;
-                input_map::set_player(U.cap_player, m);
-            }
-            done = true;
+        else if (values[kPadMenu] > 0.5f) {
+            if (U.cap_menu_hold < 0) U.cap_menu_hold = now_s();
+            else if (now_s() - U.cap_menu_hold >= 1.5) done = true;
+        } else {
+            if (U.cap_menu_hold >= 0) {
+                const bool tap = now_s() - U.cap_menu_hold < 1.5;
+                U.cap_menu_hold = -1;
+                if (tap) store_pad(kPadMenu);
+            } else if (pressed > 0) store_pad(pressed);
         }
     }
     if (!done && now_s() - U.cap_started > 8) done = true;
-    if (done) {
-        U.cap_action = -1;
-        g_capturing_keys = false;
-        g_wait_release = true;
-    }
+    if (done) finish_capture(commit);
 }
 
 struct ControlRow {
@@ -1346,6 +1404,7 @@ struct ControlGroup {
 bool row_conflict(const input_map::Mapping& m, const ControlRow& row, bool keys) {
     for (int i = 0; i < row.count; i++) {
         const int a = row.actions[i];
+        if (a < 0 || a >= input_map::kActionCount) continue;
         if (keys ? input_map::has_conflict(m, a)
                  : m.pad[a] != input_map::kPadNone && !input_map::pad_users(m, m.pad[a], a).empty())
             return true;
@@ -1353,101 +1412,64 @@ bool row_conflict(const input_map::Mapping& m, const ControlRow& row, bool keys)
     return false;
 }
 
-bool next_free_slot(const input_map::Mapping& m, const ControlRow& row, bool keys, int& action, int& col) {
-    for (int i = 0; i < row.count; i++) {
-        const int a = row.actions[i];
-        if (keys) {
-            if (m.keys[a][0] == input_map::kNoKey) { action = a; col = kColKey0; return true; }
-            if (m.keys[a][1] == input_map::kNoKey) { action = a; col = kColKey1; return true; }
-        }
-        if (m.pad[a] == input_map::kPadNone) { action = a; col = kColPad; return true; }
+void clear_slot(int action, int col) {
+    if (action == kRecalAction) {
+        motion::Settings s = motion::settings();
+        if (col == kColPad) s.recenter_pad = 0;
+        else if (col == kColKey1) s.recenter_key2 = -1;
+        else s.recenter_key = -1;
+        save_gyro(s);
+        return;
     }
-    return false;
+    input_map::Mapping m = input_map::player(U.control_player);
+    if (col == kColPad) m.pad[action] = input_map::kPadNone;
+    else m.keys[action][col] = input_map::kNoKey;
+    input_map::set_player(U.control_player, m);
 }
 
-float chip_width(const char* text) {
-    return ImGui::CalcTextSize(text).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-}
-
-// One width per action slot (two keys, then the controller button) so matching chips share a column.
-struct ChipCols {
-    float slot[4][3] = {};
-};
-
-bool slot_set(const input_map::Mapping& m, int action, int kind, bool keys) {
-    if (kind == 0) return keys && m.keys[action][0] != input_map::kNoKey;
-    if (kind == 1) return keys && m.keys[action][1] != input_map::kNoKey;
-    return m.pad[action] != input_map::kPadNone;
-}
-
-std::string slot_text(const input_map::Mapping& m, int action, int kind) {
-    if (kind < 2) return input_map::key_label(m.keys[action][kind]);
-    return input_map::pad_label(m.pad[action]);
-}
-
-void measure_chips(const ControlGroup& group, const input_map::Mapping& m, bool keys, ChipCols& cols) {
-    cols = {};
-    for (int r = 0; r < group.count; r++) {
-        const ControlRow& row = group.rows[r];
-        for (int i = 0; i < row.count && i < 4; i++) {
-            const int a = row.actions[i];
-            for (int kind = 0; kind < 3; kind++) {
-                if (!slot_set(m, a, kind, keys)) continue;
-                cols.slot[i][kind] = std::max(cols.slot[i][kind], chip_width(slot_text(m, a, kind).c_str()));
-            }
-        }
+std::string slot_caption(const input_map::Mapping& m, int action, int col) {
+    if (U.cap_action == action && U.cap_col == col) return "...";
+    if (action == kRecalAction) {
+        const motion::Settings s = motion::settings();
+        if (col == kColKey0) return s.recenter_key < 0 ? "-" : input_map::key_label(s.recenter_key);
+        if (col == kColKey1) return s.recenter_key2 < 0 ? "-" : input_map::key_label(s.recenter_key2);
+        return s.recenter_pad > 0 ? input_map::pad_label(s.recenter_pad) : "-";
     }
+    if (col < 2) {
+        const int key = m.keys[action][col];
+        return key == input_map::kNoKey ? "-" : input_map::key_label(key);
+    }
+    return m.pad[action] == input_map::kPadNone ? "-" : input_map::pad_label(m.pad[action]);
 }
 
-bool place_chip(float x, float width, float line_y, const char* label) {
-    flow::next(width);
-    if (std::fabs(ImGui::GetCursorPosY() - line_y) < 1.0f) ImGui::SetCursorPosX(x);
-    return ImGui::Button(label, ImVec2(width, 0));
+void bind_slot(const input_map::Mapping& m, int action, int col, int index, int want_focus) {
+    ImGui::TableNextColumn();
+    ImGui::PushID(col);
+    if (want_focus == index && U.cap_col == col) ImGui::SetKeyboardFocusHere();
+    const std::string caption = slot_caption(m, action, col);
+    if (ImGui::Button(caption.c_str(), ImVec2(-1.0f, 0.0f)) && U.cap_action < 0) start_capture(action, col, index);
+    const bool clear = U.cap_action < 0 && (ImGui::IsItemClicked(ImGuiMouseButton_Right) ||
+                                            (ImGui::IsItemFocused() && (ImGui::IsKeyPressed(ImGuiKey_Delete, false) ||
+                                                                        ImGui::IsKeyPressed(ImGuiKey_GamepadFaceLeft, false))));
+    ImGui::PopID();
+    if (clear) clear_slot(action, col);
 }
 
-void binding_chip(const input_map::Mapping& m, int action, int col, float x, float width, float line_y) {
-    const bool capturing = U.cap_action == action && U.cap_col == col;
-    std::string label = capturing ? "..."
-                        : col < 2 ? input_map::key_label(m.keys[action][col])
-                                  : input_map::pad_label(m.pad[action]);
-    label += "##" + std::to_string(action) + ":" + std::to_string(col);
-    if (place_chip(x, width, line_y, label.c_str()) && U.cap_action < 0) start_capture(action, col);
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Right) ||
-        (ImGui::IsItemFocused() && U.cap_action < 0 &&
-         (ImGui::IsKeyPressed(ImGuiKey_Delete, false) || ImGui::IsKeyPressed(ImGuiKey_GamepadFaceLeft, false))))
-        clear_binding(action, col);
-}
-
-void control_row(const input_map::Mapping& m, const ControlRow& row, bool keys, const ChipCols& cols, float label_w) {
+void control_row(const input_map::Mapping& m, const ControlRow& row, bool keys, int index, int want_focus) {
+    const int action = row.actions[0];
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
     ImGui::AlignTextToFramePadding();
-    const float row_x = ImGui::GetCursorPosX();
-    const float line_y = ImGui::GetCursorPosY();
+    ImGui::PushID(action);
     if (row_conflict(m, row, keys)) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.62f, 0.20f, 1.0f));
     ImGui::TextUnformatted(row.label);
     if (row_conflict(m, row, keys)) ImGui::PopStyleColor();
-    const float gap = ImGui::GetStyle().ItemSpacing.x;
-    float x = row_x + label_w;
-    float add_x = x;
-    for (int i = 0; i < row.count && i < 4; i++) {
-        const int a = row.actions[i];
-        for (int kind = 0; kind < 3; kind++) {
-            const float w = cols.slot[i][kind];
-            if (w <= 0.0f) continue;
-            if (slot_set(m, a, kind, keys)) {
-                binding_chip(m, a, kind, x, w, line_y);
-                add_x = x + w + gap;
-            }
-            x += w + gap;
-        }
+    if (keys) {
+        bind_slot(m, action, kColKey0, index, want_focus);
+        bind_slot(m, action, kColKey1, index, want_focus);
     }
-    int action = -1, col = 0;
-    if (next_free_slot(m, row, keys, action, col)) {
-        const bool capturing = U.cap_action == action && U.cap_col == col;
-        const char* text = capturing ? "..." : "Add";
-        ImGui::PushID(row.label);
-        if (place_chip(add_x, chip_width("Add"), line_y, text) && U.cap_action < 0) start_capture(action, col);
-        ImGui::PopID();
-    }
+    bind_slot(m, action, kColPad, index, want_focus);
+    ImGui::PopID();
 }
 
 void save_gyro(motion::Settings s) {
@@ -1557,47 +1579,12 @@ void gyro_section() {
         }
         help("A Cemuhook server such as DS4Windows, BetterJoy, or a phone app. The usual address is 127.0.0.1 port 26760.");
     }
-    bool stick = g.stick;
-    if (check("Tilt with the right stick", stick, &stick)) {
-        g.stick = stick;
-        save_gyro(g);
-    }
-    help("Tilts the GamePad from the right stick when this controller sends no gyro. A controller that sends motion keeps using that.");
-    const char* pad_name = g.recenter_pad > 0 ? input_map::pad_label(g.recenter_pad) : "None";
-    ImGui::SetNextItemWidth(220);
-    if (ImGui::BeginCombo("Recalibrate button", pad_name)) {
-        for (int p = 0; p < input_map::kPadCount; p++) {
-            const char* name = p ? input_map::pad_label(p) : "None";
-            if (ImGui::Selectable(name, g.recenter_pad == p)) {
-                g.recenter_pad = p;
-                save_gyro(g);
-            }
-        }
-        ImGui::EndCombo();
-    }
-    const std::string key_name = g.recenter_key >= 0 ? input_map::key_label(g.recenter_key) : "None";
-    ImGui::SetNextItemWidth(220);
-    if (ImGui::BeginCombo("Recalibrate key", key_name.c_str())) {
-        if (ImGui::Selectable("None", g.recenter_key < 0)) {
-            g.recenter_key = -1;
-            save_gyro(g);
-        }
-        for (int k = 0; k < 256; k++) {
-            const std::string id = input_map::key_id(k);
-            if (id.empty() || id.rfind("Key", 0) == 0) continue;
-            if (ImGui::Selectable(input_map::key_label(k).c_str(), g.recenter_key == k)) {
-                g.recenter_key = k;
-                save_gyro(g);
-            }
-        }
-        ImGui::EndCombo();
-    }
-    help("If the view drifts while the controller rests, recalibrate and set it down for a second.");
     if (ImGui::Button("Recalibrate now")) motion::recalibrate();
+    help("If the view drifts while the controller rests, recalibrate and set it down for a second.");
     note("%s", motion::status().c_str());
 }
 
-void controls_list(input_map::Mapping& m, float h, bool keys) {
+void controls_list(input_map::Mapping& m, bool keys) {
     using input_map::kA;
     using input_map::kB;
     using input_map::kX;
@@ -1609,55 +1596,71 @@ void controls_list(input_map::Mapping& m, float h, bool keys) {
     using input_map::kPlus;
     using input_map::kMinus;
     using input_map::kHome;
-    using input_map::kDUp;
-    using input_map::kDDown;
-    using input_map::kDLeft;
-    using input_map::kDRight;
     using input_map::kStickLClick;
     using input_map::kStickRClick;
     using input_map::kLUp;
     using input_map::kLDown;
     using input_map::kLLeft;
     using input_map::kLRight;
+    using input_map::kRUp;
+    using input_map::kRDown;
+    using input_map::kRLeft;
+    using input_map::kRRight;
     using input_map::kScreenshot;
     const ControlGroup groups[] = {
         {"Movement",
-         {{"Walk up", {kDUp, kLUp}, 2},
-          {"Walk left", {kDLeft, kLLeft}, 2},
-          {"Walk right", {kDRight, kLRight}, 2},
-          {"Crouch", {kDDown, kLDown}, 2}},
+         {          {"Walk up", {kLUp}, 1},
+          {"Walk left", {kLLeft}, 1},
+          {"Walk right", {kLRight}, 1},
+          {"Crouch", {kLDown}, 1}},
          4},
         {"Actions",
          {{"Jump, accept", {kA}, 1},
           {"Jump, back", {kB}, 1},
-          {"Run", {kX, kY}, 2},
-          {"Spin", {kL, kR}, 2},
-          {"Spin, tilt", {kZL, kZR}, 2},
-          {"Pause", {kPlus}, 1},
-          {"Bubble, zoom out", {kMinus}, 1}},
-         7},
+          {"Run", {kX}, 1},
+          {"Run", {kY}, 1},
+          {"Spin", {kL}, 1},
+          {"Spin", {kR}, 1},
+          {"Spin, tilt", {kZL}, 1},
+          {"Spin, tilt", {kZR}, 1}},
+         8},
         {"Misc",
-         {{"Settings", {kHome, kStickRClick}, 2},
+         {{"Pause", {kPlus}, 1},
+          {"Bubble, zoom out", {kMinus}, 1},
+          {"Settings", {kHome}, 1},
+          {"Right stick press", {kStickRClick}, 1},
           {"Left stick press", {kStickLClick}, 1},
           {"Screenshot", {kScreenshot}, 1}},
-         3},
+         6},
+        {"Gyro Emulation",
+         {{"Tilt up", {kRUp}, 1},
+          {"Tilt down", {kRDown}, 1},
+          {"Tilt left", {kRLeft}, 1},
+          {"Tilt right", {kRRight}, 1},
+          {"Recalibrate", {kRecalAction}, 1}},
+         5},
     };
-    float label_w = 0.0f;
-    for (const ControlGroup& group : groups)
-        for (int i = 0; i < group.count; i++)
-            label_w = std::max(label_w, ImGui::CalcTextSize(group.rows[i].label).x);
-    label_w += ImGui::GetStyle().ItemSpacing.x;
-    const bool scroll = h > 1.0f;
-    if (scroll) ImGui::BeginChild("controls-groups", ImVec2(0, h), ImGuiChildFlags_None);
+    if (U.cap_commit) {
+        U.focus_row = U.cap_row + 1;
+        U.cap_commit = false;
+    }
+    const int want_focus = U.focus_row;
+    U.focus_row = -1;
+    int index = 0;
     for (const ControlGroup& group : groups) {
         heading(group.title);
-        ChipCols cols;
-        measure_chips(group, m, keys, cols);
-        for (int i = 0; i < group.count; i++) control_row(m, group.rows[i], keys, cols, label_w);
+        const int columns = keys ? 4 : 2;
+        if (!ImGui::BeginTable(group.title, columns, ImGuiTableFlags_SizingStretchSame)) continue;
+        ImGui::TableSetupColumn("action", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+        if (keys) {
+            ImGui::TableSetupColumn("key", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("key2", ImGuiTableColumnFlags_WidthStretch);
+        }
+        ImGui::TableSetupColumn("pad", ImGuiTableColumnFlags_WidthStretch);
+        for (int i = 0; i < group.count; i++) control_row(m, group.rows[i], keys, index++, want_focus);
+        ImGui::EndTable();
     }
-    heading("Gyro");
     gyro_section();
-    if (scroll) ImGui::EndChild();
 }
 
 void load_gyro() {
@@ -1674,6 +1677,74 @@ void load_gyro() {
     motion::set_settings(g);
 }
 
+void stick_view(const char* name, float x, float y, float deadzone, float size) {
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    ImGui::Dummy(ImVec2(size, size + ImGui::GetTextLineHeight()));
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    const ImVec2 center(origin.x + size * 0.5f, origin.y + size * 0.5f);
+    const float radius = size * 0.5f - 3.0f;
+    const ImU32 fill = ImGui::GetColorU32(ImGuiCol_FrameBg);
+    const ImU32 edge = ImGui::GetColorU32(ImGuiCol_Border);
+    const ImU32 quiet = ImGui::GetColorU32(ImGuiCol_TextDisabled);
+    const ImU32 live = ImGui::GetColorU32(ImGuiCol_SliderGrab);
+    draw->AddCircleFilled(center, radius, fill, 32);
+    draw->AddCircle(center, radius, edge, 32, 1.5f);
+    if (deadzone > 0.01f) draw->AddCircle(center, radius * deadzone, quiet, 32, 1.0f);
+    draw->AddLine(ImVec2(center.x - 5.0f, center.y), ImVec2(center.x + 5.0f, center.y), quiet);
+    draw->AddLine(ImVec2(center.x, center.y - 5.0f), ImVec2(center.x, center.y + 5.0f), quiet);
+    const float mag = std::sqrt(x * x + y * y);
+    float dx = x, dy = y;
+    if (mag > 1.0f) {
+        dx /= mag;
+        dy /= mag;
+    }
+    const ImVec2 dot(center.x + dx * radius, center.y + dy * radius);
+    draw->AddCircleFilled(dot, 4.0f, mag > deadzone ? live : quiet, 12);
+    const ImVec2 label = ImGui::CalcTextSize(name);
+    draw->AddText(ImVec2(center.x - label.x * 0.5f, origin.y + size), ImGui::GetColorU32(ImGuiCol_Text), name);
+}
+
+void trigger_view(const char* name, float value, float height) {
+    const float width = ImGui::GetFrameHeight();
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    ImGui::Dummy(ImVec2(width, height));
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    const float bar = height - ImGui::GetTextLineHeight();
+    const ImU32 fill = ImGui::GetColorU32(ImGuiCol_FrameBg);
+    const ImU32 live = ImGui::GetColorU32(ImGuiCol_SliderGrab);
+    draw->AddRectFilled(origin, ImVec2(origin.x + width, origin.y + bar), fill, 4.0f);
+    const float amount = std::clamp(value, 0.0f, 1.0f) * bar;
+    if (amount > 0.5f)
+        draw->AddRectFilled(ImVec2(origin.x, origin.y + bar - amount), ImVec2(origin.x + width, origin.y + bar), live, 4.0f);
+    const ImVec2 label = ImGui::CalcTextSize(name);
+    draw->AddText(ImVec2(origin.x + (width - label.x) * 0.5f, origin.y + bar), ImGui::GetColorU32(ImGuiCol_Text), name);
+}
+
+void analog_view(int player, float deadzone) {
+    float raw[input_map::kPadCount] = {};
+    input::controller_values(player, raw);
+    const float size = ImGui::GetFrameHeight() * 2.4f;
+    const float gap = ImGui::GetStyle().ItemSpacing.x;
+    using input_map::kPadLSRight;
+    using input_map::kPadLSLeft;
+    using input_map::kPadLSDown;
+    using input_map::kPadLSUp;
+    using input_map::kPadRSRight;
+    using input_map::kPadRSLeft;
+    using input_map::kPadRSDown;
+    using input_map::kPadRSUp;
+    using input_map::kPadLT;
+    using input_map::kPadRT;
+    stick_view("Left", raw[kPadLSRight] - raw[kPadLSLeft], raw[kPadLSDown] - raw[kPadLSUp], deadzone, size);
+    ImGui::SameLine(0.0f, gap);
+    stick_view("Right", raw[kPadRSRight] - raw[kPadRSLeft], raw[kPadRSDown] - raw[kPadRSUp], deadzone, size);
+    ImGui::SameLine(0.0f, gap * 2.0f);
+    trigger_view("L", raw[kPadLT], size + ImGui::GetTextLineHeight());
+    ImGui::SameLine(0.0f, gap);
+    trigger_view("R", raw[kPadRT], size + ImGui::GetTextLineHeight());
+    help("The ring on each stick is the dead zone. The dot lights up once the stick moves past it. L and R are the triggers.");
+}
+
 void tab_controls() {
     bool v;
     const bool pro = input::pro_controller();
@@ -1681,9 +1752,21 @@ void tab_controls() {
     const int p = std::clamp(U.control_player, 0, input_map::kPlayers - 1);
     input_map::Mapping m = input_map::player(p);
 
-    if (ImGui::Button("Copy to other players")) input_map::copy_controller(p);
-    help("Copies this player's controller buttons, stick dead zone, and up/down invert to the other players once. "
-         "The keyboard stays with Player 1. Pick another player to change that controller.");
+    const float space = ImGui::GetStyle().ItemSpacing.x;
+    const float stick = ImGui::GetFrameHeight() * 2.4f;
+    const float preview_w = stick * 2.0f + ImGui::GetFrameHeight() * 2.0f + space * 4.0f;
+    const float content_w = ImGui::GetContentRegionAvail().x;
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    ImGui::SetCursorScreenPos(ImVec2(origin.x + content_w - preview_w, origin.y));
+    ImGui::BeginGroup();
+    analog_view(p, m.deadzone);
+    ImGui::EndGroup();
+    const float preview_bottom = ImGui::GetItemRectMax().y;
+    ImGui::SetCursorScreenPos(origin);
+    ImGui::BeginChild("controls-header", ImVec2(std::max(220.0f, content_w - preview_w - space), 0.0f),
+                      ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_NavFlattened,
+                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoBackground);
+
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted("Player");
     for (int i = 0; i < input_map::kPlayers; i++) {
@@ -1693,7 +1776,7 @@ void tab_controls() {
         ImGui::SameLine();
 #endif
         if (radio(std::to_string(i + 1).c_str(), p == i)) U.control_player = i;
-        if (i == 0) help("The keyboard plays as Player 1.");
+        if (i == 0) help("The keyboard plays as Player 1. Each row is a key, a second key, and a controller button. A dash is an empty slot.");
     }
     {
         const auto devices = input::controllers();
@@ -1742,16 +1825,14 @@ void tab_controls() {
 #endif
     if (radio("Wii U Pro Controller", pro))
         hostui::post([] { hostui::set_pro_controller(true); hostui::set("proController", "1"); });
+    ImGui::EndChild();
+    ImGui::SetCursorScreenPos(ImVec2(origin.x, std::max(ImGui::GetItemRectMax().y, preview_bottom) + space));
+
+    const bool keys = p == 0;
 
     std::string status;
     ImVec4 sc(0.70f, 0.78f, 0.84f, 1.0f);
-    if (U.cap_action >= 0) {
-        sc = ImVec4(1.0f, 0.85f, 0.35f, 1.0f);
-        status = std::string(input_map::action_label(U.cap_action)) + ": " +
-                 (U.cap_col == kColPad   ? "press a controller button or stick direction (Esc cancels)"
-                  : U.cap_col == kColAny ? "press a key or a controller button (Esc cancels, Backspace clears)"
-                                         : "press a key (Esc cancels, Backspace clears)");
-    } else if (!U.cap_note.empty()) {
+    if (!U.cap_note.empty() && U.cap_action < 0) {
         status = U.cap_note;
     } else {
         int conflicts = 0;
@@ -1764,22 +1845,18 @@ void tab_controls() {
         if (conflicts) {
             sc = ImVec4(1.0f, 0.62f, 0.20f, 1.0f);
             status = std::to_string(conflicts) + " input(s) are bound to more than one action (orange).";
-        } else {
-            status = "Click Add or a binding. Right-click or Delete clears it. Changes are saved to controls.json.";
         }
     }
-    const float bottom = ImGui::GetTextLineHeightWithSpacing() + std::max(U.options_height, ImGui::GetFrameHeightWithSpacing() * 2) + 4;
-#ifdef __ANDROID__
-    const float list_h = 0.0f;
-#else
-    const ImVec2 avail = ImGui::GetContentRegionAvail();
-    const float list_h = std::max(0.0f, avail.y - bottom);
-#endif
-    controls_list(m, list_h, p == 0);
-    ImGui::PushStyleColor(ImGuiCol_Text, sc);
-    ImGui::TextUnformatted(status.c_str());
-    ImGui::PopStyleColor();
-    const float options_top = ImGui::GetCursorPosY();
+    controls_list(m, keys);
+    if (!status.empty()) {
+        ImGui::PushStyleColor(ImGuiCol_Text, sc);
+        ImGui::TextUnformatted(status.c_str());
+        ImGui::PopStyleColor();
+    }
+    if (U.gamepad_navigation.controller_active())
+        ImGui::TextUnformatted("South rebind    West clear    North reset    East back");
+    else
+        ImGui::TextUnformatted("Enter or click rebinds. Delete or right-click clears. Esc goes back.");
     float dz = m.deadzone * 100.0f;
 #ifdef __ANDROID__
     const float gap = 24.0f;
@@ -1792,11 +1869,26 @@ void tab_controls() {
         m.deadzone = std::clamp(dz / 100.0f, 0.0f, 0.9f);
         input_map::set_player(p, m);
     }
-#ifdef __ANDROID__
-    flow::next(flow::check("Invert right stick up/down"), gap);
-#else
-    ImGui::SameLine(0, 24);
-#endif
+    if (ImGui::IsItemFocused() && U.gamepad_navigation.controller_active() && U.cap_action < 0) {
+        int dir = 0;
+        if (U.values[input_map::kPadDLeft] > 0.5f || U.values[input_map::kPadLSLeft] > 0.5f) dir = -1;
+        if (U.values[input_map::kPadDRight] > 0.5f || U.values[input_map::kPadLSRight] > 0.5f) dir = 1;
+        if (dir == 0) {
+            U.dz_hold = U.dz_step = -1;
+        } else {
+            const double now = now_s();
+            if (U.dz_hold < 0) U.dz_hold = now;
+            const double held = now - U.dz_hold;
+            const double interval = held > 0.30 ? 0.08 : 10.0;
+            if (U.dz_step < 0 || (held > 0.30 && now - U.dz_step >= interval)) {
+                const float step = held > 0.45 ? 5.0f : 1.0f;
+                dz = std::clamp(dz + dir * step, 0.0f, 90.0f);
+                m.deadzone = dz / 100.0f;
+                input_map::set_player(p, m);
+                U.dz_step = now;
+            }
+        }
+    }
     if (check("Invert right stick up/down", m.invert_camera_y, &v)) {
         m.invert_camera_y = v;
         input_map::set_player(p, m);
@@ -1814,11 +1906,22 @@ void tab_controls() {
     help(input::has_rumble() ? "Controller vibration when the game asks for it. Off keeps the motors still."
                              : "Controller vibration: this host does not drive controller motors yet.");
 #ifdef __ANDROID__
+    flow::next(flow::button("Copy to other players"), gap);
+#else
+    ImGui::SameLine(0, 24);
+#endif
+    if (ImGui::Button("Copy to other players")) input_map::copy_controller(p);
+    help("Copies this player's controller buttons, stick dead zone, and up/down invert to the other players once. "
+         "The keyboard stays with Player 1. Pick another player to change that controller.");
+#ifdef __ANDROID__
     flow::next(flow::button("Reset to defaults"), gap);
 #else
     ImGui::SameLine(0, 24);
 #endif
-    if (ImGui::Button("Reset to defaults")) input_map::set_player(p, input_map::Mapping::defaults());
+    if (ImGui::Button("Reset to defaults")) U.reset_confirm = true;
+    if (U.cap_action < 0 && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId) &&
+        ImGui::IsKeyPressed(ImGuiKey_GamepadFaceUp, false))
+        U.reset_confirm = true;
 #ifdef __ANDROID__
     heading("Touch controls");
     if (check("On-screen controls", touch_buttons::controls.load(), &v))
@@ -1861,7 +1964,6 @@ void tab_controls() {
                          "No controller motor: also while the connected controller has no motor."
                        : "Set by NSMBU_PHONE_RUMBLE for this start.");
 #endif
-    U.options_height = ImGui::GetCursorPosY() - options_top;
 }
 
 int saved_language() {
@@ -1881,6 +1983,90 @@ void choose_language(int language) {
 void ask_restart(const char* why) {
     U.restart_why = why && *why ? why : "settings";
     U.restart_confirm = true;
+}
+
+void rebind_popup() {
+    if (U.cap_action >= 0) ImGui::OpenPopup("##rebind");
+    const ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    if (!ImGui::BeginPopupModal("##rebind", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) return;
+    if (U.cap_action < 0) {
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
+    ImGui::Text("Rebinding: %s", input_map::action_label(U.cap_action));
+    ImGui::TextUnformatted(U.cap_col == kColPad ? "Press a controller button, or move a stick most of the way."
+                                               : "Press a key.");
+    ImGui::TextUnformatted("Hold Start for 1.5 seconds to cancel, or press Esc.");
+    if (U.cap_menu_hold >= 0) ImGui::TextUnformatted("Holding Start...");
+    if (!U.cap_note.empty()) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.62f, 0.20f, 1.0f));
+        ImGui::TextUnformatted(U.cap_note.c_str());
+        ImGui::PopStyleColor();
+    }
+    ImGui::EndPopup();
+}
+
+void reset_popup() {
+    if (!U.reset_confirm) return;
+    ImGui::OpenPopup("Reset controls?###reset-controls");
+    const ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    if (!ImGui::BeginPopupModal("Reset controls?###reset-controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
+    ImGui::TextUnformatted("Reset this player's controls to the defaults?");
+    ImGui::SetKeyboardFocusHere();
+    if (ImGui::Button("Keep", ImVec2(140, 0)) || ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false) ||
+        ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+        U.reset_confirm = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Reset", ImVec2(140, 0))) {
+        input_map::set_player(U.control_player, input_map::Mapping::defaults());
+        U.reset_confirm = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+}
+
+bool missing_menu_buttons() {
+    for (int i = 0; i < input_map::kPlayers; i++) {
+        const input_map::Mapping m = input_map::player(i);
+        const bool keys = i == 0;
+        auto bound = [&](int a) {
+            if (m.pad[a] != input_map::kPadNone) return true;
+            return keys && (m.keys[a][0] != input_map::kNoKey || m.keys[a][1] != input_map::kNoKey);
+        };
+        if (!bound(input_map::kA) || !bound(input_map::kB)) return true;
+    }
+    return false;
+}
+
+void exit_popup() {
+    if (!U.exit_warn) return;
+    ImGui::OpenPopup("Leave controls?###leave-controls");
+    const ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    if (!ImGui::BeginPopupModal("Leave controls?###leave-controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
+    ImGui::TextUnformatted("Jump, accept or Jump, back has no button. Leave anyway?");
+    const bool armed = !U.popup_block;
+    U.popup_block = false;
+    ImGui::SetKeyboardFocusHere();
+    const bool stay = ImGui::Button("Stay", ImVec2(140, 0));
+    if (armed && (stay || ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false) ||
+                  ImGui::IsKeyPressed(ImGuiKey_Escape, false))) {
+        U.exit_warn = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Leave", ImVec2(140, 0))) {
+        U.exit_warn = false;
+        U.allow_close = true;
+        ImGui::CloseCurrentPopup();
+        set_open(false);
+    }
+    ImGui::EndPopup();
 }
 
 void restart_confirm() {
@@ -2452,13 +2638,18 @@ void settings_window() {
 #endif
         ImGui::PopItemWidth();
         restart_confirm();
+        rebind_popup();
+        reset_popup();
+        exit_popup();
     }
     ImGui::End();
 
     if (!open) set_open(false);
-    if (U.cap_action < 0 && controller_pressed(input_map::face_input(input_map::kB)) && !g_pad_b_used &&
-        !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId))
-        set_open(false);
+    if (U.cap_action < 0 && !g_pad_b_used && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId)) {
+        const int back = input_map::face_input(input_map::kB);
+        const int physical = input_map::position_pad(input_map::kB);
+        if (controller_pressed(back) || (physical != back && controller_pressed(physical))) set_open(false);
+    }
     g_pad_b_used = false;
 }
 
@@ -2475,6 +2666,12 @@ bool wants_text_input() {
     return ImGui::GetIO().WantTextInput;
 }
 void set_open(bool open) {
+    if (!open && g_open.load(std::memory_order_relaxed) && !U.allow_close && missing_menu_buttons()) {
+        U.exit_warn = true;
+        U.popup_block = true;
+        return;
+    }
+    U.allow_close = false;
     if (g_open.exchange(open) == open) return;
     for (auto& k : g_held_keys) k = false;
     input::release_keys();

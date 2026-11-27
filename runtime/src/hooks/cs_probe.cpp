@@ -7,6 +7,7 @@
 #include "guest_addr.h"
 #include "gfx/display_modes.h"
 #include "input/input.h"
+#include "input/input_map.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -704,6 +705,7 @@ extern "C" void hook_02994164(Cpu* c) {
     else if (factory == GC(0x0202B86C))
         LOG("[scene] CourseSelect from save (controller %s)", input::pro_controller() ? "Pro" : "GamePad");
     nsmbu_note_scene_src(c->r[4], factory);
+    input_map::set_menu_navigation(factory != GC(0x0202B4C8));
     f_02994164_orig(c);
     mods::packages::scene_change(factory);
 }

@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Tilt platforms follow the Gyro Emulation bindings.
+  A centered stick or no arrow key holds the platform level.
+  Left and right lean it.
 - At frame rates above 60, the ground stays with the camera between frames.
 - A second controller joins as the next player.
   It no longer moves Player 1, and the game sees it when you pick two players (#68, #76).
@@ -18,14 +21,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   The controller pictures and the Nintendo or Xbox face-button choice are gone.
 - Copy to other players copies one player's controller onto the others once.
   Each player can then use a different layout.
+  The button sits beside Reset to defaults.
 - Each player has a controller list.
   Pick which connected controller that player uses.
 - Controls groups Movement, Actions, and Misc.
-  Walking and the D-pad share a row.
-- Binding buttons line up in columns.
+  The D-pad is not listed.
+  The controller D-pad and the 1, 2, 3, and 4 keys still move.
+- The left stick moves through the settings menu the same way the D-pad does.
+- Each control is a row of three buttons: a key, a second key, and the controller button.
+  An empty slot shows a dash.
+- The Controls tab shows the live left stick, right stick, and triggers in the top right.
+  The ring on each stick is the dead zone.
+- Rebinding waits in a prompt.
+  A tap of Back does not cancel it.
+  Hold Start to cancel.
+  A stick has to move most of the way before it binds.
+- Clearing Jump, accept or Jump, back asks before the menu closes.
+  Outside a course, the usual face buttons, D-pad, left stick, and Start still move through menus.
 - Gyro settings are on the Controls tab.
-  Pick the source, turn axis, sensitivity, Cemuhook server, and recalibrate there.
-- The right stick can tilt the GamePad when the controller has no gyro.
+  Pick the source, turn axis, sensitivity, and Cemuhook server there.
+  Tilt up, down, left, and right are bindings in the Gyro Emulation group.
+  The arrow keys and the right stick set the GamePad tilt when the controller sends no gyro.
+  The center is level.
+  Recalibrate is a binding in the Gyro Emulation group too.
 - Face buttons read as a letter, a PlayStation shape, and a position, such as A / Cross / South.
 - Cheats start off.
   Turn them on with Enable cheats on the Cheats tab.

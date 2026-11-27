@@ -226,6 +226,18 @@ int face_input(int action) {
     return kFaceByPosition[action - kA];
 }
 
+int position_pad(int action) {
+    if (action < kA || action >= kActionCount) return kPadNone;
+    if (action <= kY) return kFaceByPosition[action - kA];
+    return Mapping::defaults().pad[action];
+}
+
+namespace {
+std::atomic<bool> g_menu_navigation{false};
+}
+void set_menu_navigation(bool on) { g_menu_navigation.store(on); }
+bool menu_navigation() { return g_menu_navigation.load(); }
+
 std::vector<int> key_users(const Mapping& m, int code, int except) {
     std::vector<int> v;
     if (code == kNoKey) return v;
@@ -333,6 +345,27 @@ input::PadState controller_state(const Mapping& m, const float values[kPadCount]
     apply_deadzone(s.lx, s.ly, dz);
     apply_deadzone(s.rx, s.ry, dz);
     if (m.invert_camera_y) s.ry = -s.ry;
+    const bool menu = menu_navigation();
+    auto fallback = [&](int action, int physical) {
+        if (physical <= kPadNone || physical >= kPadCount) return;
+        if (!menu && m.pad[action] != kPadNone) return;
+        if (values[physical] > 0.5f && action_bit(action)) s.buttons |= action_bit(action);
+    };
+    for (int a = kA; a <= kY; a++) fallback(a, position_pad(a));
+    fallback(kPlus, kPadMenu);
+    fallback(kDUp, kPadDUp);
+    fallback(kDDown, kPadDDown);
+    fallback(kDLeft, kPadDLeft);
+    fallback(kDRight, kPadDRight);
+    const bool stick_unbound = m.pad[kLUp] == kPadNone && m.pad[kLDown] == kPadNone && m.pad[kLLeft] == kPadNone &&
+                               m.pad[kLRight] == kPadNone;
+    if (menu || stick_unbound) {
+        float lx = values[kPadLSRight] - values[kPadLSLeft];
+        float ly = values[kPadLSUp] - values[kPadLSDown];
+        apply_deadzone(lx, ly, dz);
+        if (stick_unbound || std::fabs(lx) > std::fabs(s.lx)) s.lx = lx;
+        if (stick_unbound || std::fabs(ly) > std::fabs(s.ly)) s.ly = ly;
+    }
     return s;
 }
 

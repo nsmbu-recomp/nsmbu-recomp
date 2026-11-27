@@ -45,22 +45,26 @@ The same Gyro section sets:
   How far one point of mouse movement turns the controller, before sensitivity applies.
 - **Cemuhook** server, port, and controller slot (1 to 4).
   These fields appear when the source is Cemuhook.
-- **Tilt with the right stick.**
-  When the controller sends no gyro, the right stick tilts the GamePad instead.
+- **Gyro Emulation.**
+  Tilt up, down, left, and right use the same key and controller columns as the other controls.
+  The arrow keys are the default keys, and the right stick is the default controller binding.
+  The stick position sets the tilt, and the center is level.
+  Holding one of them tilts the GamePad when the controller sends no gyro.
+  Tilt platforms follow the same left and right angle.
   A controller that is sending motion keeps using that gyro.
-  The stick directions are not listed as separate bindings.
-- **Recalibrate button**, **Recalibrate key**, and **Recalibrate now**.
+  Clear the four tilt rows to use the right stick as a stick again.
+- **Recalibrate** is a row in that group, with two keys and a controller button, plus **Recalibrate now**.
   If the view drifts while the controller rests, recalibrate and put it down for a second.
   The gyro's offset is learnt anew.
   The view itself never needs recentering: the game only follows the motion.
-  The binding is saved as `gyro.recenterPad` and `gyro.recenterKey`.
+  The binding is saved as `gyro.recenterPad`, `gyro.recenterKey`, and `gyro.recenterKey2`.
 
 Changes are saved with the other settings (`gyro.*` in `settings.ini`, or `display.plist` on the macOS app).
 The game's own Options, then Gyro switch (on by default in the game) still decides whether the game uses the motion.
 The game ignores that motion while the right stick is pushed outside a 0.1 dead zone.
 A drifting stick does that too.
 See Troubleshooting.
-Tilt with the right stick is the exception: while it is driving the tilt, the stick is not also sent as a stick.
+While a tilt binding is driving the GamePad, that stick or those arrow keys are not also sent as a stick.
 
 Why off by default: the gyro moves the first-person camera with every hand movement, which surprises players who never asked for it, and a controller lying on a desk works fine either way.
 The `[gyro]` log lines say when a connected controller has a gyro.
