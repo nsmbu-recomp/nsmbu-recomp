@@ -694,7 +694,13 @@ void update(){
  {static bool plus=false;const bool now=(states[0].buttons&input::kPlus)!=0;if(now&&!plus&&!overlay::blocks_input())gfx::display_plus_pressed();plus=now;}
  std::lock_guard lk(g_mu);std::copy(std::begin(v),std::end(v),g_values);
  for(int i=0;i<input::kMaxPlayers;i++){std::copy(std::begin(pv[i]),std::end(pv[i]),g_player_values[i]);g_pads[i]=states[i];}
- if(!overlay::blocks_input()&&!env::NO_HOST_INPUT()){motion::poll_recalibrate(v,g_keys);screenshot::poll_controller(v);}
+ if(!overlay::blocks_input()&&!env::NO_HOST_INPUT()){
+  bool tilt=false;
+  const input_map::Mapping tilt_map=input_map::player(0);
+  for(int a=input_map::kRUp;a<=input_map::kRRight;++a)
+    if(tilt_map.pad[a]!=input_map::kPadNone||tilt_map.keys[a][0]>=0||tilt_map.keys[a][1]>=0) tilt=true;
+  motion::set_tilt_bound(tilt);
+  motion::poll_recalibrate(v,g_keys);screenshot::poll_controller(v);}
 }
 void prompt_text(const std::u16string& initial,int max_len,std::function<void(bool,std::u16string)> done){std::lock_guard lk(g_mu);g_initial=initial;g_pending_max_len=std::max(0,max_len);if(g_initial.size()>(size_t)g_pending_max_len)g_initial.resize(g_pending_max_len);g_pending=std::move(done);}
 

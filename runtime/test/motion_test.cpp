@@ -64,8 +64,10 @@ using motion::kRollAxis;
 using motion::kYawAxis;
 using motion::mouse_drives_gyro;
 using motion::mouse_motion;
+using motion::platform_tilt;
 using motion::poll_recalibrate;
 using motion::recalibrate;
+using motion::set_tilt_bound;
 using motion::right_stick;
 using motion::set_aiming;
 using motion::set_settings;
@@ -215,6 +217,29 @@ static void test_game_reading() {
     t.invert_y = true;
     Aim a = t.apply({1, 1});
     assert(a.yaw == 2.0f && a.pitch == -0.5f);
+
+    VirtualPad level;
+    const VpadMotion flat = level.vpad();
+    assert(close_to(flat.acc.x, 0, 0.02f) && close_to(flat.acc.y, 0, 0.02f));
+    assert(close_to(std::fabs(flat.acc.z), 1, 0.02f));
+    assert(close_to(flat.acc_xy[0], 0, 0.02f) && close_to(flat.acc_xy[1], 0, 0.02f));
+    level.set_tilt(-0.5f, 0, 1.0f / 60);
+    const VpadMotion leaned = level.vpad();
+    assert(leaned.acc.x > 0.2f);
+    level.set_tilt(0, 0, 1.0f / 60);
+    const VpadMotion back = level.vpad();
+    assert(close_to(back.acc.x, 0, 0.02f) && close_to(back.acc.y, 0, 0.02f));
+
+    set_tilt_bound(true);
+    right_stick(0, 0);
+    int16_t angle = 99;
+    assert(platform_tilt(angle) && angle == 0);
+    right_stick(1, 0);
+    assert(platform_tilt(angle) && angle > 1000);
+    right_stick(-1, 0);
+    assert(platform_tilt(angle) && angle < -1000);
+    set_tilt_bound(false);
+    assert(!platform_tilt(angle));
 }
 
 static void test_bias_and_noise() {

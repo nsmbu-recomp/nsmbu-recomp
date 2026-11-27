@@ -140,6 +140,25 @@ void VirtualPad::turn(float dt, Aim a) {
     }
 }
 
+void VirtualPad::set_tilt(float roll, float pitch, float dt) {
+    Quat q = Quat::axis_angle({1, 0, 0}, kPi / 2);
+    if (pitch != 0) q = q * Quat::axis_angle({1, 0, 0}, pitch);
+    if (roll != 0) q = q * Quat::axis_angle({0, 0, 1}, roll);
+    q.normalize();
+    q_ = q;
+    const Vec3 next = Vec3{pitch, roll, 0} * (-1.0f / kTwoPi);
+    angle_read_ = tilt_prev_;
+    angle_ = next;
+    tilt_prev_ = next;
+    if (dt > 0) {
+        last_rate_v_ = (angle_ - angle_read_) * (1.0f / dt);
+        window_ = dt;
+    } else {
+        last_rate_v_ = {};
+        window_ = 0;
+    }
+}
+
 VpadMotion VirtualPad::vpad() {
     VpadMotion m;
 
@@ -151,13 +170,20 @@ VpadMotion VirtualPad::vpad() {
     m.angle = angle_;
 
     Vec3 d = q_.unrotate({0, 0, 1});
-
-    m.acc = {-d.x, -d.y, d.z};
+    // The neutral pose has gravity along -Y. A flat GamePad reports it along +Z, so a centered stick is level.
+    const Vec3 raw{-d.x, -d.y, d.z};
+    m.acc = {raw.x, raw.z, -raw.y};
     m.acc_magnitude = m.acc.length();
     m.acc_variation = 0;
 
     float xy = std::sqrt(m.acc.x * m.acc.x + m.acc.y * m.acc.y);
-    if (xy > 0.1f) { m.acc_xy[0] = -m.acc.y / xy; m.acc_xy[1] = m.acc.x / xy; }
+    if (xy > 0.1f) {
+        m.acc_xy[0] = m.acc.x / xy;
+        m.acc_xy[1] = m.acc.y / xy;
+    } else {
+        m.acc_xy[0] = 0;
+        m.acc_xy[1] = 0;
+    }
 
     auto sw = [](Vec3 v) { return Vec3{v.x, v.z, v.y}; };
     m.dir[0] = sw(q_.rotate({1, 0, 0}));

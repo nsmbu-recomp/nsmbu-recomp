@@ -54,9 +54,10 @@ VpadMotion g_last;
 Clock::time_point g_last_read{}, g_read_log_at{};
 double g_last_game_time = -1;
 Aim g_read_aim;
-float g_recalibrate_prev[2] = {};
+float g_recalibrate_prev[3] = {};
 
 bool g_stick_out = false, g_stick_logged = false;
+bool g_tilt_bound = false;
 float g_stick_x = 0, g_stick_y = 0;
 Clock::time_point g_stick_since{};
 
@@ -189,6 +190,7 @@ std::string value_of(const Settings& s, const std::string& k) {
     if (k == "gyro.dsuSlot") return std::to_string(s.dsu_slot);
     if (k == "gyro.recenterPad") return std::to_string(s.recenter_pad);
     if (k == "gyro.recenterKey") return std::to_string(s.recenter_key);
+    if (k == "gyro.recenterKey2") return std::to_string(s.recenter_key2);
     if (k == "gyro.stick") return s.stick ? "1" : "0";
     return {};
 }
@@ -216,6 +218,7 @@ void from_kv(Settings& s, const std::string& k, const std::string& v) {
     else if (k == "gyro.dsuSlot") s.dsu_slot = (int)num(0, 3, 0);
     else if (k == "gyro.recenterPad") s.recenter_pad = (int)num(0, 64, 0);
     else if (k == "gyro.recenterKey") s.recenter_key = (int)num(-1, 255, -1);
+    else if (k == "gyro.recenterKey2") s.recenter_key2 = (int)num(-1, 255, -1);
     else if (k == "gyro.stick") s.stick = v == "1";
 }
 void upgrade_from_first_release(Settings& s) {
@@ -323,16 +326,19 @@ void recalibrate() {
 }
 
 void poll_recalibrate(const float* pad, const bool* keys) {
-    int p, k;
+    int p, k, k2;
     {
         std::lock_guard lk(g_mu);
         if (g_settings.source == kOff) return;
         p = g_settings.recenter_pad;
         k = g_settings.recenter_key;
+        k2 = g_settings.recenter_key2;
     }
-    float now[2] = {p > 0 && pad ? pad[p] : 0.0f, k >= 0 && k < 256 && keys && keys[k] ? 1.0f : 0.0f};
+    float now[3] = {p > 0 && pad ? pad[p] : 0.0f,
+                    k >= 0 && k < 256 && keys && keys[k] ? 1.0f : 0.0f,
+                    k2 >= 0 && k2 < 256 && keys && keys[k2] ? 1.0f : 0.0f};
     bool press = false;
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 3; i++) {
         if (now[i] > 0.5f && g_recalibrate_prev[i] <= 0.5f) press = true;
         g_recalibrate_prev[i] = now[i];
     }
@@ -341,7 +347,7 @@ void poll_recalibrate(const float* pad, const bool* keys) {
 
 bool drives_gamepad() {
     std::lock_guard lk(g_mu);
-    return g_settings.source != kOff || g_settings.stick || !test_turns().empty();
+    return g_settings.source != kOff || g_settings.stick || g_tilt_bound || !test_turns().empty();
 }
 
 static bool gyro_live_locked(std::chrono::steady_clock::time_point now) {
@@ -351,12 +357,26 @@ static bool gyro_live_locked(std::chrono::steady_clock::time_point now) {
 }
 
 static bool stick_tilt_locked(std::chrono::steady_clock::time_point now) {
-    return g_settings.stick && g_settings.source != kMouse && g_settings.source != kCemuhook && !gyro_live_locked(now);
+    return (g_settings.stick || g_tilt_bound) && g_settings.source != kMouse && g_settings.source != kCemuhook && !gyro_live_locked(now);
 }
 
 bool stick_drives_tilt() {
     std::lock_guard lk(g_mu);
     return stick_tilt_locked(Clock::now());
+}
+
+bool platform_tilt(int16_t& angle) {
+    std::lock_guard lk(g_mu);
+    if (g_settings.source == kMouse || g_settings.source == kCemuhook) return false;
+    if (!g_settings.stick && !g_tilt_bound) return false;
+    const float x = std::clamp(g_settings.tuning.apply({g_stick_x, 0}).yaw, -1.0f, 1.0f);
+    angle = (int16_t)std::lround(x * 16384.0f);
+    return true;
+}
+
+void set_tilt_bound(bool on) {
+    std::lock_guard lk(g_mu);
+    g_tilt_bound = on;
 }
 
 void right_stick(float x, float y) {
@@ -406,12 +426,16 @@ VpadMotion vpad(bool repeat) {
             log_msg("[gyro] no motion from %s for 1 s (the window lost focus, or the controller stopped sending)",
                     device_name(g_active).c_str());
         }
-    } else if (stick_tilt_locked(now)) {
-        constexpr float kFullStickDegPerSec = 180.0f;
-        const float scale = kFullStickDegPerSec * step / kRadToDeg;
-        aim = g_settings.tuning.apply({g_stick_x * scale, g_stick_y * scale});
     }
-    g_pad.turn(step, aim);
+    bool tilted = false;
+    if (stick_tilt_locked(now)) {
+        constexpr float kFullStickDeg = 80.0f;
+        const Aim tilt = g_settings.tuning.apply(
+            {g_stick_x * kFullStickDeg / kRadToDeg, g_stick_y * kFullStickDeg / kRadToDeg});
+        g_pad.set_tilt(-tilt.yaw, tilt.pitch, step);
+        tilted = true;
+    }
+    if (!tilted) g_pad.turn(step, aim);
     g_read_aim = g_read_aim + aim;
     if (g_log && g_settings.source != kOff && secs(now - g_read_log_at) >= 0.5) {
         const double span = g_read_log_at.time_since_epoch().count() ? secs(now - g_read_log_at) : 0.5;
@@ -445,7 +469,9 @@ std::string status() {
                                   : "No connected controller has a gyro (or this host cannot read it).";
     }
     case kMouse: return (g_aiming ? "The game aims: the mouse turns the GamePad." : "Mouse gyro waits for the game to aim.") + stick;
-    default: return "Gyro off: the GamePad lies still.";
+    default:
+        return (g_tilt_bound || g_settings.stick) ? "Gyro off. The tilt bindings turn the GamePad."
+                                                 : "Gyro off: the GamePad lies still.";
     }
 }
 

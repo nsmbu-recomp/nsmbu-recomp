@@ -104,13 +104,15 @@ class VirtualPad {
 public:
     VirtualPad();
     void turn(float dt, Aim a);
+    // Roll and pitch are radians from the flat pose. The center is level.
+    void set_tilt(float roll, float pitch, float dt);
 
     VpadMotion vpad();
     Quat orientation() const { return q_; }
 
 private:
     Quat q_;
-    Vec3 angle_, angle_read_, last_rate_v_;
+    Vec3 angle_, angle_read_, last_rate_v_, tilt_prev_;
     double window_ = 0;
 };
 

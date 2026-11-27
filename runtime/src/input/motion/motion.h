@@ -23,6 +23,7 @@ struct Settings {
 
     int recenter_pad = 0;
     int recenter_key = -1;
+    int recenter_key2 = -1;
     bool stick = false;
     bool operator==(const Settings&) const = default;
 };
@@ -31,7 +32,7 @@ std::string to_ini(const Settings& s);
 void from_kv(Settings& s, const std::string& key, const std::string& value);
 const char* const kKeys[] = {"gyro.source", "gyro.axis", "gyro.sensitivityX", "gyro.sensitivityY", "gyro.invertX",
                              "gyro.invertY", "gyro.mouseDegrees", "gyro.dsuHost", "gyro.dsuPort", "gyro.dsuSlot",
-                             "gyro.recenterPad", "gyro.recenterKey", "gyro.stick"};
+                             "gyro.recenterPad", "gyro.recenterKey", "gyro.recenterKey2", "gyro.stick"};
 std::string value_of(const Settings& s, const std::string& key);
 
 void upgrade_from_first_release(Settings& s);
@@ -63,6 +64,13 @@ VpadMotion vpad(bool repeat);
 bool drives_gamepad();
 
 bool stick_drives_tilt();
+
+// The tilt platforms read one signed angle. While the tilt bindings are on, this is that angle
+// from the right stick and the arrow keys. The center is 0, which is level.
+bool platform_tilt(int16_t& angle);
+
+// True while the Gyro rows in Controls have a key or a controller button.
+void set_tilt_bound(bool on);
 
 void right_stick(float x, float y);
 
