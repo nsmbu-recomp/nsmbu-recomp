@@ -1,4 +1,3 @@
-#include "overlay/controls_view.h"
 #include "overlay/mobile_ui.h"
 
 #include <cmath>
@@ -26,11 +25,6 @@ int main() {
     check(handheld.control_mm(440) >= 10.0f, "android settings control height");
     check(handheld.scale > tablet.scale, "android settings larger than tablet automatic");
     check(std::fabs(mobile_ui::desktop_scale(2.0f, 1504) - 2.0f) < 1e-5f, "desktop hidpi");
-    const float short_page = overlay::controls_fit_scale(1060.0f, 200.0f);
-    check(short_page * overlay::kControlsRefH <= 200.5f, "short controls page fits");
-    check(short_page < 0.55f, "short controls page can scale below the old floor");
-    check(std::fabs(overlay::controls_fit_scale(1060.0f, 460.0f) - 1.0f) < 1e-4f, "controls reference scale");
-    check(std::fabs(overlay::controls_fit_scale(1060.0f, 380.0f) - 1.0f) < 1e-4f, "controls height reference");
     std::printf("mobile_ui_test: %d passed, %d failed\n", g_pass, g_fail);
     return g_fail ? 1 : 0;
 }

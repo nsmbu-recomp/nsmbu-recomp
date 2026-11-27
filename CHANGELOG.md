@@ -14,6 +14,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Controls is a list of what each button does, such as jump or run.
+  The controller pictures and the Nintendo or Xbox face-button choice are gone.
+- Copy to other players copies one player's controller onto the others once.
+  Each player can then use a different layout.
+- Each player has a controller list.
+  Pick which connected controller that player uses.
+- Controls groups Movement, Actions, and Misc.
+  Walking and the D-pad share a row.
+- Binding buttons line up in columns.
+- Gyro settings are on the Controls tab.
+  Pick the source, turn axis, sensitivity, Cemuhook server, and recalibrate there.
+- The right stick can tilt the GamePad when the controller has no gyro.
+- Face buttons read as a letter, a PlayStation shape, and a position, such as A / Cross / South.
 - Cheats start off.
   Turn them on with Enable cheats on the Cheats tab.
 - RecompLauncher setup asks for the disc key as its own file.

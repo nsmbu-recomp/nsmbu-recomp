@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <vector>
 
 namespace input {
 
@@ -38,6 +39,13 @@ void host_controller_values(float* v);
 void host_controller_values(int player, float* v);
 bool controller_connected(int player);
 std::string controller_name(int player);
+struct ControllerDevice {
+    uint32_t id = 0;
+    std::string name;
+    int player = -1;
+};
+std::vector<ControllerDevice> controllers();
+void assign_controller(int player, uint32_t id);
 void held_keys(bool* keys);
 
 void prompt_text(const std::u16string& initial, int max_len,

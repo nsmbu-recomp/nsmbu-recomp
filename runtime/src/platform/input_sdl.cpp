@@ -374,6 +374,40 @@ static int free_slot_locked(){
  for(int i=0;i<input::kMaxPlayers;i++)if(!g_slot[i])return i;
  return -1;
 }
+std::vector<ControllerDevice> controllers(){
+ std::lock_guard lk(g_pads_mu);
+ std::vector<ControllerDevice> out;
+ for(auto [id,pad]:g_controllers){
+  ControllerDevice d;
+  d.id=(uint32_t)id;
+  const char* name=SDL_GetGamepadName(pad);
+  d.name=name&&name[0]?name:"Controller";
+  d.player=slot_of_locked(id);
+  out.push_back(std::move(d));
+ }
+ std::sort(out.begin(),out.end(),[](const ControllerDevice& a,const ControllerDevice& b){return a.id<b.id;});
+ return out;
+}
+void assign_controller(int player,uint32_t id){
+ if(player<0||player>=input::kMaxPlayers)return;
+ std::lock_guard lk(g_pads_mu);
+ if(!id){
+  g_slot[player]=0;g_slot_name[player].clear();
+  LOG("[input] player %d: no controller",player+1);
+  return;
+ }
+ auto it=g_controllers.find((SDL_JoystickID)id);
+ if(it==g_controllers.end())return;
+ const int other=slot_of_locked((SDL_JoystickID)id);
+ if(other==player)return;
+ const SDL_JoystickID mine=g_slot[player];
+ const std::string myname=g_slot_name[player];
+ const char* name=SDL_GetGamepadName(it->second);
+ g_slot[player]=(SDL_JoystickID)id;
+ g_slot_name[player]=name?name:"";
+ if(other>=0){g_slot[other]=mine;g_slot_name[other]=myname;}
+ LOG("[input] player %d: %s",player+1,g_slot_name[player].c_str());
+}
 static void open_controller(SDL_JoystickID id){
 #ifdef __ANDROID__
  if(!SDL_IsJoystickVirtual(id))phone_rumble::last_input_touch=false;

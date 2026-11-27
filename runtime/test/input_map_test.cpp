@@ -266,6 +266,36 @@ static void test_players() {
     set_config(Config::defaults(), false);
 }
 
+static void test_copy_controller() {
+    set_config(Config::defaults(), false);
+    set_sync_players(false, 0, false);
+    Mapping src = player(1);
+    src.pad[kA] = kPadX;
+    src.pad[kB] = kPadY;
+    src.deadzone = 0.4f;
+    src.invert_camera_y = true;
+    src.keys[kA][0] = kVK_ANSI_Z;
+    set_player(1, src, false);
+    const int kept_key = player(0).keys[kA][0];
+    copy_controller(1, false);
+    CHECK(!sync_players());
+    CHECK(player(1).keys[kA][0] == kVK_ANSI_Z);
+    for (int i = 0; i < kPlayers; i++) {
+        if (i == 1) continue;
+        CHECK(player(i).pad[kA] == kPadX);
+        CHECK(player(i).pad[kB] == kPadY);
+        CHECK(std::fabs(player(i).deadzone - 0.4f) < 1e-6f);
+        CHECK(player(i).invert_camera_y);
+        CHECK(player(i).keys[kA][0] == kept_key);
+    }
+    Mapping edited = player(2);
+    edited.pad[kA] = kPadLB;
+    set_player(2, edited, false);
+    CHECK(player(2).pad[kA] == kPadLB);
+    CHECK(player(1).pad[kA] == kPadX);
+    set_config(Config::defaults(), false);
+}
+
 static void test_issue_9_multiplayer_bindings() {
     Config c = Config::defaults();
     c.sync = false;
@@ -387,6 +417,7 @@ int main() {
     test_json_partial_and_bad();
     test_config_json();
     test_players();
+    test_copy_controller();
     test_issue_9_multiplayer_bindings();
     test_deadzone();
     test_files();

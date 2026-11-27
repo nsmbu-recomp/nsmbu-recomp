@@ -52,7 +52,7 @@ Closed-issue coverage outside playtests:
 - [#45](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/45) Boost Rush Mii draw — `ctest -R mii_draw`.
 - [#46](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/46) Android setup without `_multiprocessing` — `python3 recomp/test_pool.py`.
 - [#53](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/53), [#54](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/54), and [#67](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/67) base-disc setup — `python3 recomp/test_builds.py` `test_base_disc_stock_hud_hook`.
-- [#55](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/55) settings Controls tab on a short window — `ctest -R mobile_ui` (`controls_fit_scale`).
+- [#55](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/55) settings Controls tab on a short window — the controller picture is gone, so the tab is the binding list.
 - [#60](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/60) and [#42](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/42) old Intel title-screen path — `ctest -R rendering_path` (needs a Vulkan build).
 - [#63](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/63) Vulkan 1.1 without dynamic rendering — the same `rendering_path` test.
 - [#64](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/64) logic rate near 60 — playtest `logic-rate-120`.

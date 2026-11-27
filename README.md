@@ -20,7 +20,8 @@ The release includes the runtime, build tools, and installer.
 - **[On-screen controls](docs/features/on-screen-controls.md)** on Android and iOS.
 - **[Screenshots](docs/features/screenshots.md)** of the TV picture — <kbd>F10</kbd> by default.
 - **[Sound and language](docs/features/audio.md)** — volume, mute, and console language.
-- **[Gyro aiming](docs/features/gyro.md)** with supported controllers.
+- **[Gyro aiming](docs/features/gyro.md)** with supported controllers, a mouse, or the right stick.
+  Set the source, sensitivity, and recalibrate under Settings, then Controls, then Gyro.
 
 Experimental — each has a page under [docs/features](docs/features/):
 
@@ -148,9 +149,7 @@ Build from source, CLI commands, and developer docs are in [CONTRIBUTING.md](CON
 ## Notes
 
 This repository was forked from the [Wind Waker HD recompilation](https://github.com/ZeldaWWHDRecomp/ZeldaWWHDRecomp).
-
 The Collision Viewer is based on the collision viewer from [Tsuru](https://github.com/Zenith-Team/Tsuru).
-
 The headers and the decompilation are from [aboood40091/NSMBU-Headers](https://github.com/aboood40091/NSMBU-Headers).
 
 > [!NOTE]

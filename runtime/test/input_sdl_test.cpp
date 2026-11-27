@@ -207,6 +207,21 @@ int main(){
   SDL_UpdateJoysticks();
   input::update();
   assert(input::read(0).buttons==0&&input::read(1).buttons==0);
+  uint32_t id0=0,id1=0;
+  for(const auto& d:input::controllers()){
+   if(d.player==0)id0=d.id;
+   if(d.player==1)id1=d.id;
+  }
+  assert(id0&&id1);
+  input::assign_controller(0,id1);
+  int now0=-1,now1=-1;
+  for(const auto& d:input::controllers()){
+   if(d.id==id0)now0=d.player;
+   if(d.id==id1)now1=d.player;
+  }
+  assert(now1==0&&now0==1);
+  input::assign_controller(0,0);
+  assert(!input::controller_connected(0)&&input::controller_connected(1));
   input_map::set_config(input_map::Config::defaults(),false);
   SDL_DetachVirtualJoystick(pad2);
   for(SDL_Event e;SDL_PollEvent(&e);)input::handle_event(e);

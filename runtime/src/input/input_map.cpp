@@ -23,23 +23,26 @@ namespace input_map {
 namespace {
 struct ActionInfo { const char* id; const char* label; uint32_t bit; };
 const ActionInfo kActions[kActionCount] = {
-    {"A", "A", input::kA}, {"B", "B", input::kB}, {"X", "X", input::kX}, {"Y", "Y", input::kY},
-    {"L", "L", input::kL}, {"R", "R", input::kR}, {"ZL", "ZL", input::kZL}, {"ZR", "ZR", input::kZR},
-    {"Plus", "+ (Start)", input::kPlus}, {"Minus", "− (Select)", input::kMinus}, {"Home", "Home", input::kHome},
-    {"DpadUp", "D-pad ↑", input::kUp}, {"DpadDown", "D-pad ↓", input::kDown},
-    {"DpadLeft", "D-pad ←", input::kLeft}, {"DpadRight", "D-pad →", input::kRight},
-    {"LeftStickClick", "Left stick click", input::kStickL}, {"RightStickClick", "Right stick click", input::kStickR},
-    {"LeftStickUp", "Left stick ↑ (move)", 0}, {"LeftStickDown", "Left stick ↓ (move)", 0},
-    {"LeftStickLeft", "Left stick ← (move)", 0}, {"LeftStickRight", "Left stick → (move)", 0},
-    {"RightStickUp", "Right stick ↑ (camera)", 0}, {"RightStickDown", "Right stick ↓ (camera)", 0},
-    {"RightStickLeft", "Right stick ← (camera)", 0}, {"RightStickRight", "Right stick → (camera)", 0},
-    {"Screenshot", "Screenshot (app)", 0},
+    {"A", "Jump, accept", input::kA}, {"B", "Jump, back", input::kB},
+    {"X", "Run", input::kX}, {"Y", "Run", input::kY},
+    {"L", "Spin, map", input::kL}, {"R", "Spin", input::kR},
+    {"ZL", "Spin, tilt", input::kZL}, {"ZR", "Spin, tilt", input::kZR},
+    {"Plus", "Pause", input::kPlus}, {"Minus", "Bubble, zoom out", input::kMinus},
+    {"Home", "Settings", input::kHome},
+    {"DpadUp", "Walk up", input::kUp}, {"DpadDown", "Crouch", input::kDown},
+    {"DpadLeft", "Walk left", input::kLeft}, {"DpadRight", "Walk right", input::kRight},
+    {"LeftStickClick", "Left stick press", input::kStickL}, {"RightStickClick", "Settings", input::kStickR},
+    {"LeftStickUp", "Walk up", 0}, {"LeftStickDown", "Crouch", 0},
+    {"LeftStickLeft", "Walk left", 0}, {"LeftStickRight", "Walk right", 0},
+    {"RightStickUp", "Right stick up", 0}, {"RightStickDown", "Right stick down", 0},
+    {"RightStickLeft", "Right stick left", 0}, {"RightStickRight", "Right stick right", 0},
+    {"Screenshot", "Screenshot", 0},
 };
 
 struct PadInfo { const char* id; const char* label; };
 const PadInfo kPads[kPadCount] = {
     {"", ""},
-    {"A", "A / Cross (bottom)"}, {"B", "B / Circle (right)"}, {"X", "X / Square (left)"}, {"Y", "Y / Triangle (top)"},
+    {"A", "A / Cross / South"}, {"B", "B / Circle / East"}, {"X", "X / Square / West"}, {"Y", "Y / Triangle / North"},
     {"LeftShoulder", "LB / L1"}, {"RightShoulder", "RB / R1"}, {"LeftTrigger", "LT / L2"}, {"RightTrigger", "RT / R2"},
     {"Menu", "Menu / Options"}, {"Options", "View / Share"}, {"Home", "Home / Guide"},
     {"LeftStickButton", "Left stick click"}, {"RightStickButton", "Right stick click"},
@@ -720,6 +723,24 @@ void set_sync_players(bool on, int source, bool save) {
             for (auto& p : g_config.players) p = m;
         }
         g_config.sync = on;
+    }
+    g_gen++;
+    if (save && !save_config_file(default_path(), config()))
+        fprintf(stderr, "[input] could not save controls to %s\n", default_path().c_str());
+}
+
+void copy_controller(int source, bool save) {
+    source = std::clamp(source, 0, kPlayers - 1);
+    {
+        std::lock_guard<std::mutex> lk(g_mu);
+        const Mapping from = g_config.players[source];
+        for (int i = 0; i < kPlayers; i++) {
+            if (i == source) continue;
+            g_config.players[i].pad = from.pad;
+            g_config.players[i].deadzone = from.deadzone;
+            g_config.players[i].invert_camera_y = from.invert_camera_y;
+        }
+        g_config.sync = false;
     }
     g_gen++;
     if (save && !save_config_file(default_path(), config()))

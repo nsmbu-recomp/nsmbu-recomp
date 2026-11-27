@@ -98,6 +98,7 @@ Mapping player(int index);
 void set_player(int index, const Mapping& m, bool save = true);
 bool sync_players();
 void set_sync_players(bool on, int source = 0, bool save = true);
+void copy_controller(int source, bool save = true);
 Config config();
 void set_config(const Config& c, bool save = true);
 uint32_t generation();
