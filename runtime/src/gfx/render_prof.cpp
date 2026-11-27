@@ -22,6 +22,13 @@
 #include <windows.h>
 #else
 #include <time.h>
+#include <dirent.h>
+#include <dlfcn.h>
+#include <pthread.h>
+#include <signal.h>
+#include <sys/syscall.h>
+#include <sys/uio.h>
+#include <thread>
 #endif
 
 #include "core/runtime.h"
@@ -227,16 +234,264 @@ static std::string reg_name(uint32_t r) {
     return buf;
 }
 
+#ifndef _WIN32
+namespace {
+
+struct HitchOpen {
+    uint64_t ns = 0;
+    uint64_t gen = 0;
+};
+struct HitchSnap {
+    uint64_t opNs[kOps]{};
+    uint64_t opCount[kOps]{};
+    uint64_t opTimed[kOps]{};
+    uint64_t phaseNs[kDrawPhases]{};
+    uint64_t waitNs[kWaits]{};
+    uint64_t waitCount[kWaits]{};
+    uint64_t idleNs = 0;
+    uint64_t syncNs[kSyncs]{};
+    uint64_t syncCount[kSyncs]{};
+    uint64_t cpu = 0;
+    bool valid = false;
+};
+struct HitchSlot {
+    pid_t tid = 0;
+    int n = 0;
+    void* ip[12]{};
+    std::atomic<int> ready{0};
+};
+
+std::mutex g_hitchMu;
+HitchOpen g_hitchOpen;
+HitchSnap g_hitchSnap;
+HitchSlot g_hitchSlots[96];
+std::atomic<int> g_hitchCollect{0};
+std::atomic<int> g_hitchCount{0};
+std::atomic<int> g_hitchWatchTid{0};
+
+double hitch_limit_ms() {
+    static const double ms = env::LOG_SLOW_SWAP.real_or(0);
+    return ms;
+}
+
+bool hitch_read_frame(uintptr_t fp, uintptr_t pair[2]) {
+    iovec local{pair, sizeof(uintptr_t) * 2};
+    iovec remote{reinterpret_cast<void*>(fp), sizeof(uintptr_t) * 2};
+    return syscall(SYS_process_vm_readv, getpid(), &local, 1UL, &remote, 1UL, 0UL) == (ssize_t)(sizeof(uintptr_t) * 2);
+}
+
+int hitch_walk(void** ips, int max) {
+    uintptr_t fp = (uintptr_t)__builtin_frame_address(0);
+    int n = 0;
+    for (int i = 0; i < 24 && n < max; i++) {
+        uintptr_t pair[2]{};
+        if (!fp || !hitch_read_frame(fp, pair)) break;
+        if (pair[1] > 0x10000) ips[n++] = (void*)pair[1];
+        uintptr_t next = pair[0];
+        if (next <= fp || next - fp > 2u * 1024u * 1024u || (next & 7u)) break;
+        fp = next;
+    }
+    return n;
+}
+
+void hitch_signal(int) {
+    if (!g_hitchCollect.load(std::memory_order_relaxed)) return;
+    int i = g_hitchCount.fetch_add(1, std::memory_order_relaxed);
+    if (i < 0 || i >= (int)(sizeof g_hitchSlots / sizeof g_hitchSlots[0])) return;
+    HitchSlot& slot = g_hitchSlots[i];
+    slot.tid = (pid_t)syscall(SYS_gettid);
+    slot.n = hitch_walk(slot.ip, (int)(sizeof slot.ip / sizeof slot.ip[0]));
+    slot.ready.store(1, std::memory_order_release);
+}
+
+void hitch_log_stacks(double intoMs) {
+    g_hitchCount.store(0, std::memory_order_relaxed);
+    for (auto& slot : g_hitchSlots) slot.ready.store(0, std::memory_order_relaxed);
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+    g_hitchCollect.store(1, std::memory_order_release);
+    const int self = g_hitchWatchTid.load(std::memory_order_relaxed);
+    DIR* dir = opendir("/proc/self/task");
+    if (dir) {
+        while (dirent* ent = readdir(dir)) {
+            int tid = atoi(ent->d_name);
+            if (tid <= 0 || tid == self) continue;
+            syscall(SYS_tgkill, getpid(), tid, SIGPROF);
+        }
+        closedir(dir);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(40));
+    g_hitchCollect.store(0, std::memory_order_release);
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+    const int n = g_hitchCount.load(std::memory_order_acquire);
+    const int slots = (int)(sizeof g_hitchSlots / sizeof g_hitchSlots[0]);
+    for (int i = 0; i < n && i < slots; i++) {
+        if (!g_hitchSlots[i].ready.load(std::memory_order_acquire)) continue;
+        const HitchSlot& slot = g_hitchSlots[i];
+        char comm[64] = "?";
+        char path[80];
+        snprintf(path, sizeof path, "/proc/self/task/%d/comm", (int)slot.tid);
+        if (FILE* f = fopen(path, "re")) {
+            if (fgets(comm, sizeof comm, f)) {
+                size_t len = strlen(comm);
+                if (len && comm[len - 1] == '\n') comm[len - 1] = 0;
+            }
+            fclose(f);
+        }
+        char state = '?';
+        snprintf(path, sizeof path, "/proc/self/task/%d/stat", (int)slot.tid);
+        if (FILE* f = fopen(path, "re")) {
+            char buf[512];
+            if (fgets(buf, sizeof buf, f)) {
+                if (char* rp = strrchr(buf, ')'))
+                    if (rp[1] == ' ' && rp[2]) state = rp[2];
+            }
+            fclose(f);
+        }
+        LOG("[hitch] stack %.0f ms into frame, tid %d %s state %c", intoMs, (int)slot.tid, comm, state);
+        for (int f = 0; f < slot.n; f++) {
+            Dl_info info{};
+            if (!dladdr(slot.ip[f], &info) || !info.dli_fbase) continue;
+            const char* file = info.dli_fname ? info.dli_fname : "?";
+            if (const char* slash = strrchr(file, '/')) file = slash + 1;
+            unsigned long off = (unsigned long)((uintptr_t)slot.ip[f] - (uintptr_t)info.dli_fbase);
+            if (info.dli_sname && (strstr(info.dli_sname, "hitch_signal") || strstr(info.dli_sname, "hitch_walk") ||
+                                   strstr(info.dli_sname, "hitch_read_frame")))
+                continue;
+            if (info.dli_sname) LOG("[hitch]   %s+0x%lx %s", file, off, info.dli_sname);
+            else LOG("[hitch]   %s+0x%lx", file, off);
+        }
+    }
+}
+
+void hitch_loop(double limit) {
+    pthread_setname_np(pthread_self(), "hitch watch");
+    g_hitchWatchTid.store((int)syscall(SYS_gettid), std::memory_order_relaxed);
+    uint64_t sampledGen = 0;
+    for (;;) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        HitchOpen open;
+        {
+            std::lock_guard<std::mutex> lk(g_hitchMu);
+            open = g_hitchOpen;
+        }
+        if (!open.ns || open.gen == sampledGen) continue;
+        const double into = (now_ns() - open.ns) / 1e6;
+        if (into <= limit) continue;
+        sampledGen = open.gen;
+        hitch_log_stacks(into);
+    }
+}
+
+void hitch_ensure(double limit) {
+    static std::once_flag once;
+    std::call_once(once, [limit] {
+        struct sigaction sa{};
+        sa.sa_handler = hitch_signal;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = SA_RESTART;
+        sigaction(SIGPROF, &sa, nullptr);
+        std::thread([limit] { hitch_loop(limit); }).detach();
+        LOG("[hitch] capturing frames slower than %.0f ms", limit);
+    });
+}
+
+void hitch_append(std::string& out, const char* name, double ms) {
+    if (ms < 0.5) return;
+    char buf[64];
+    snprintf(buf, sizeof buf, " %s %.1f", name, ms);
+    out += buf;
+}
+
+void hitch_close(uint64_t t) {
+    const double limit = hitch_limit_ms();
+    if (limit <= 0) return;
+    hitch_ensure(limit);
+    HitchOpen open;
+    {
+        std::lock_guard<std::mutex> lk(g_hitchMu);
+        open = g_hitchOpen;
+        g_hitchOpen.ns = 0;
+        g_hitchOpen.gen++;
+    }
+    if (!open.ns || !g_hitchSnap.valid) return;
+    const double ms = (t - open.ns) / 1e6;
+    if (ms <= limit) return;
+    const double cpu = g_hitchSnap.cpu ? (thread_cpu_ns() - g_hitchSnap.cpu) / 1e6 : 0;
+    static const char* opNames[kOps] = {"regs", "draw", "clear", "copy", "scan", "invalidate", "flush", "drawdone", "swap", "other"};
+    static const char* phaseNames[kDrawPhases] = {"shader", "indices", "targets", "pipeline", "uniforms", "textures",
+                                                  "descriptors", "pass", "record", "vertex", "submit"};
+    static const char* waitNames[kWaits] = {"gpu", "acquire", "present"};
+    static const char* syncNames[kSyncs] = {"DrawDone", "CopySurface", "flip", "other"};
+    static const char* upNames[kUploadKinds] = {"other", "vertex", "index", "ubo", "uniforms", "texture"};
+    std::string ops, phases, waits, syncs, ups;
+    for (int i = 0; i < kOps; i++) {
+        const uint64_t dNs = W.opNs[i] - g_hitchSnap.opNs[i];
+        const uint64_t dTimed = W.opTimed[i] - g_hitchSnap.opTimed[i];
+        const uint64_t dCount = W.opCount[i] - g_hitchSnap.opCount[i];
+        const double opMs = dTimed ? dNs / 1e6 * ((double)dCount / (double)dTimed) : 0;
+        hitch_append(ops, opNames[i], opMs);
+    }
+    for (int i = 0; i < kDrawPhases; i++)
+        hitch_append(phases, phaseNames[i], (W.phaseNs[i] - g_hitchSnap.phaseNs[i]) / 1e6);
+    for (int i = 0; i < kWaits; i++)
+        hitch_append(waits, waitNames[i], (W.waitNs[i] - g_hitchSnap.waitNs[i]) / 1e6);
+    for (int i = 0; i < kSyncs; i++) {
+        uint64_t ns = syncNs[i].load(std::memory_order_relaxed);
+        hitch_append(syncs, syncNames[i], (ns - g_hitchSnap.syncNs[i]) / 1e6);
+    }
+    for (int i = 0; i < kUploadKinds; i++)
+        hitch_append(ups, upNames[i], frameUpload[i] / 1048576.0);
+    LOG("[hitch] %.1f ms wall, render cpu %.1f, idle %.1f | ops%s | phases%s | waits%s | sync%s | upload MiB%s", ms, cpu,
+        (W.idleNs - g_hitchSnap.idleNs) / 1e6, ops.empty() ? " -" : ops.c_str(), phases.empty() ? " -" : phases.c_str(),
+        waits.empty() ? " -" : waits.c_str(), syncs.empty() ? " -" : syncs.c_str(), ups.empty() ? " -" : ups.c_str());
+}
+
+void hitch_open(uint64_t t) {
+    if (hitch_limit_ms() <= 0) return;
+    for (int i = 0; i < kOps; i++) {
+        g_hitchSnap.opNs[i] = W.opNs[i];
+        g_hitchSnap.opCount[i] = W.opCount[i];
+        g_hitchSnap.opTimed[i] = W.opTimed[i];
+    }
+    for (int i = 0; i < kDrawPhases; i++) g_hitchSnap.phaseNs[i] = W.phaseNs[i];
+    for (int i = 0; i < kWaits; i++) {
+        g_hitchSnap.waitNs[i] = W.waitNs[i];
+        g_hitchSnap.waitCount[i] = W.waitCount[i];
+    }
+    g_hitchSnap.idleNs = W.idleNs;
+    for (int i = 0; i < kSyncs; i++) {
+        g_hitchSnap.syncNs[i] = syncNs[i].load(std::memory_order_relaxed);
+        g_hitchSnap.syncCount[i] = syncCount[i].load(std::memory_order_relaxed);
+    }
+    g_hitchSnap.cpu = thread_cpu_ns();
+    g_hitchSnap.valid = true;
+    std::lock_guard<std::mutex> lk(g_hitchMu);
+    g_hitchOpen.ns = t;
+}
+
+} // namespace
+#else
+namespace {
+void hitch_close(uint64_t) {}
+void hitch_open(uint64_t) {}
+} // namespace
+#endif
+
 void frame_end(bool hold) {
     perf::render_frame();
-    if (!enabled()) return;
     const uint64_t t = now_ns();
+    hitch_close(t);
+    if (!enabled()) {
+        hitch_open(t);
+        return;
+    }
     if (!windowStart) {
         windowStart = t;
         cpuStart = thread_cpu_ns();
         stepsStart = interp::logic_steps();
         for (auto& v : frameUpload) v = 0;
         for (auto& r : reads) r.clear();
+        hitch_open(now_ns());
         return;
     }
     W.frames++;
@@ -255,7 +510,10 @@ void frame_end(bool hold) {
     }
     for (auto& v : frameUpload) v = 0;
     g_track_unique = (++frameCounter % 16) == 0;
-    if (W.frames < 120) return;
+    if (W.frames < 120) {
+        hitch_open(now_ns());
+        return;
+    }
 
     const double frames = (double)W.frames, wallMs = (t - windowStart) / 1e6;
     const uint64_t cpu = thread_cpu_ns(), steps = interp::logic_steps();
@@ -404,6 +662,7 @@ void frame_end(bool hold) {
     windowStart = t;
     cpuStart = cpu;
     stepsStart = steps;
+    hitch_open(now_ns());
 }
 
 }
