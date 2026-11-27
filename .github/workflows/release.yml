@@ -813,6 +813,9 @@ jobs:
 
       - name: Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          # Validated on a clean tree above. The native build fetches SDL3 with its own wrapper jar.
+          validate-wrappers: false
 
       - name: Release APK, signed with the project's key
         env:
