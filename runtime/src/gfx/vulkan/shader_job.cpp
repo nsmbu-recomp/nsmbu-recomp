@@ -1,6 +1,5 @@
 #include "shader_job.h"
 #include "shaders.h"
-#include "settings.h"
 #include "platform/host.h"
 #include <chrono>
 #include <condition_variable>
@@ -82,7 +81,6 @@ void run(Worker& w) {
 }
 std::mutex pipelineMutex;
 }
-bool shader_jobs_async() { return async_shaders_enabled(); }
 bool enqueue_spirv_compile(const std::string& source, bool vertex, std::shared_ptr<SpirvCompile> done) {
     if (!done) return true;
     auto& w = worker();
