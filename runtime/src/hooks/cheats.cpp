@@ -9,7 +9,7 @@
 namespace cheats {
 namespace {
 
-std::atomic<bool> g_enabled{true};
+std::atomic<bool> g_enabled{false};
 std::atomic<bool> g_lives{false};
 std::atomic<bool> g_star{false};
 std::atomic<int> g_power_req{-1};

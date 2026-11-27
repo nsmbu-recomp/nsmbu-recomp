@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Cheats start off.
+  Turn them on with Enable cheats on the Cheats tab.
+
 ## [0.11.1] - 2026-11-27
 
 ### Changed
