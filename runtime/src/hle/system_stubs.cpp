@@ -163,6 +163,7 @@ HLE(vpad, VPADRead) {
     input::PadState p = repeat ? last_p : crashrec::read(0);
     last_p = p;
     if (!repeat) motion::right_stick(p.rx, p.ry);
+    if (!repeat && motion::stick_drives_tilt()) p.rx = p.ry = 0;
     if (!repeat) p.buttons |= mods::pad_inject::active(interp::logic_steps());
     uint32_t hold = p.buttons;
     auto stick_dirs = [&](float x, float y, uint32_t up, uint32_t down, uint32_t left, uint32_t right) {

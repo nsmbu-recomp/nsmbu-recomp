@@ -23,6 +23,7 @@ struct Settings {
 
     int recenter_pad = 0;
     int recenter_key = -1;
+    bool stick = false;
     bool operator==(const Settings&) const = default;
 };
 
@@ -30,7 +31,7 @@ std::string to_ini(const Settings& s);
 void from_kv(Settings& s, const std::string& key, const std::string& value);
 const char* const kKeys[] = {"gyro.source", "gyro.axis", "gyro.sensitivityX", "gyro.sensitivityY", "gyro.invertX",
                              "gyro.invertY", "gyro.mouseDegrees", "gyro.dsuHost", "gyro.dsuPort", "gyro.dsuSlot",
-                             "gyro.recenterPad", "gyro.recenterKey"};
+                             "gyro.recenterPad", "gyro.recenterKey", "gyro.stick"};
 std::string value_of(const Settings& s, const std::string& key);
 
 void upgrade_from_first_release(Settings& s);
@@ -60,6 +61,8 @@ void poll_recalibrate(const float* pad_values, const bool* keys);
 VpadMotion vpad(bool repeat);
 
 bool drives_gamepad();
+
+bool stick_drives_tilt();
 
 void right_stick(float x, float y);
 
