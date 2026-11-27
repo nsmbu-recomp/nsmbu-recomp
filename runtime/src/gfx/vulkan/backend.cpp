@@ -2325,7 +2325,14 @@ static void init_device(std::vector<const char *> extensions,
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
 
   const bool vulkan12 = deviceApi >= VK_API_VERSION_1_2;
+  const bool vulkan13 = deviceApi >= VK_API_VERSION_1_3;
+  VkPhysicalDeviceVulkan13Features available13{
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
   void **tail = &features.pNext;
+  if (vulkan13) {
+    *tail = &available13;
+    tail = &available13.pNext;
+  }
   if (vulkan12) {
     *tail = &available12;
     tail = &available12.pNext;
@@ -2374,12 +2381,22 @@ static void init_device(std::vector<const char *> extensions,
   VkPhysicalDeviceDynamicRenderingFeaturesKHR fdr{
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR};
   f13.dynamicRendering = fdr.dynamicRendering = VK_TRUE;
+  f13.pipelineCreationCacheControl =
+      vulkan13 ? available13.pipelineCreationCacheControl : VK_FALSE;
+  R.pipelineCompileControl = f13.pipelineCreationCacheControl == VK_TRUE;
   void *chain = nullptr;
   if (R.renderPasses) tail = &chain;
   else {
     chain = R.dynamicRenderingKHR ? static_cast<void *>(&fdr) : &f13;
     tail = R.dynamicRenderingKHR ? &fdr.pNext : &f13.pNext;
   }
+  if (R.pipelineCompileControl && chain != static_cast<void *>(&f13)) {
+    f13.dynamicRendering = VK_FALSE;
+    *tail = &f13;
+    tail = &f13.pNext;
+  }
+  if (R.pipelineCompileControl)
+    LOG("[vulkan] a new graphics pipeline compiles beside the frame");
   if (vulkan12) {
     *tail = &enabled12;
     tail = &enabled12.pNext;
@@ -2600,6 +2617,7 @@ void init() {
 }
 #endif
 void save_renderer_caches() {
+  finish_deferred_pipelines();
   vk::finish_shader_jobs();
   vk::publish_finished_shaders(0);
   reset_feedback_images();

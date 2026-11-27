@@ -27,7 +27,6 @@ Experimental — each has a page under [docs/features](docs/features/):
 - **[Higher frame rates](docs/features/frame-rate.md)** — Settings → Graphics.
 - **[Wider or taller picture](docs/features/aspect-ratio.md)** — Settings → Display.
 - **[Internal resolution and image filters](docs/features/internal-resolution.md)**.
-- **[Async shader compile](docs/features/async-shaders.md)**.
 
 ### Controls
 

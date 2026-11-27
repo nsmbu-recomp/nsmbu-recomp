@@ -77,6 +77,7 @@ struct Renderer {
  bool computeQueue=false;
  bool dynamicRenderingKHR=false;
  bool renderPasses=false;
+ bool pipelineCompileControl=false;
  bool attachmentViewUsage=false;
  bool portabilitySubset=false,imageViewSwizzle=true,imageViewReinterpretation=true;
  bool imageView2DOn3DImage=true;
@@ -204,6 +205,7 @@ Surface* depth_target(const uint32_t*,uint32_t* slice=nullptr);
 Surface* surface_from_color_buffer(uint32_t,uint32_t* firstSlice=nullptr,uint32_t* numSlices=nullptr);
 Surface* surface_from_depth_buffer(uint32_t,uint32_t* firstSlice=nullptr,uint32_t* numSlices=nullptr);
 Surface* sampled_texture(const uint32_t*,bool);
+void finish_deferred_pipelines();
 void upload_surface(Surface*);
 void resample(Surface*,Surface*,uint32_t slices,float uMax=1,float vMax=1,uint32_t dstW=0,uint32_t dstH=0);
 

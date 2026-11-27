@@ -12,10 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Removed
 
+- Settings → Graphics no longer has Async shader compile.
 - The debug settings no longer reload a course when its file changes.
 
 ### Fixed
 
+- A new shader or graphics pipeline no longer freezes the picture while it compiles.
+  That draw appears once the compile finishes.
 - After you leave a course, the world map no longer pins Mario to that course.
 
 ## [0.11.0] - 2026-11-25

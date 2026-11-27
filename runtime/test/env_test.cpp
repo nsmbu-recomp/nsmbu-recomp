@@ -54,8 +54,6 @@ int main() {
 #endif
     env::unset(env::RECORD_INPUT);
 
-    env::unset(env::VK_ASYNC_SHADERS);
-    check(!env::VK_ASYNC_SHADERS.present(), "issue 57 async shader compile stays off");
     env::unset(env::VK_PRESENT_MODE);
     check(!env::VK_PRESENT_MODE.present(), "issue 59 present mode is not forced");
 

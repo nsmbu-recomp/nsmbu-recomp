@@ -33,9 +33,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <condition_variable>
+#include <deque>
+#include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include "core/env.h"
 extern "C" uint64_t g_shader_state_gen;
 using namespace Latte;
@@ -711,9 +717,155 @@ bool pipeline_lookaside_enabled() {
   }();
   return enabled;
 }
+struct DeferredPipeline {
+  PipelineKey key{};
+  Pipeline pipeline;
+  uint64_t vsKey = 0, psKey = 0;
+  VkShaderModule modules[2]{};
+  VkPipelineShaderStageCreateInfo stages[2]{};
+  std::vector<VkVertexInputBindingDescription> bindings;
+  std::vector<VkVertexInputAttributeDescription> attributes;
+  VkPipelineVertexInputStateCreateInfo vi{
+      VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+  VkPipelineInputAssemblyStateCreateInfo ia{
+      VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
+  VkPipelineViewportStateCreateInfo vp{
+      VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+  VkPipelineRasterizationStateCreateInfo rs{
+      VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
+  VkPipelineMultisampleStateCreateInfo ms{
+      VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
+  VkPipelineDepthStencilStateCreateInfo ds{
+      VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+  std::vector<VkPipelineColorBlendAttachmentState> blends;
+  VkPipelineColorBlendStateCreateInfo bs{
+      VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+  std::vector<VkDynamicState> dyn;
+  VkPipelineDynamicStateCreateInfo dy{
+      VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+  std::array<VkFormat, 8> formats{};
+  uint32_t ncolor = 0;
+  VkPipelineRenderingCreateInfo rc{
+      VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
+  VkGraphicsPipelineCreateInfo ci{
+      VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+  VkPipeline result = VK_NULL_HANDLE;
+  VkResult status = VK_NOT_READY;
+
+  void relink() {
+    vi.vertexBindingDescriptionCount = uint32_t(bindings.size());
+    vi.pVertexBindingDescriptions = bindings.data();
+    vi.vertexAttributeDescriptionCount = uint32_t(attributes.size());
+    vi.pVertexAttributeDescriptions = attributes.data();
+    bs.attachmentCount = uint32_t(blends.size());
+    bs.pAttachments = blends.data();
+    dy.dynamicStateCount = uint32_t(dyn.size());
+    dy.pDynamicStates = dyn.data();
+    rc.colorAttachmentCount = ncolor;
+    rc.pColorAttachmentFormats = formats.data();
+    ci.pStages = stages;
+    ci.pVertexInputState = &vi;
+    ci.pInputAssemblyState = &ia;
+    ci.pViewportState = &vp;
+    ci.pRasterizationState = &rs;
+    ci.pMultisampleState = &ms;
+    ci.pDepthStencilState = &ds;
+    ci.pColorBlendState = &bs;
+    ci.pDynamicState = &dy;
+    ci.flags = 0;
+    ci.pNext = R.renderPasses ? nullptr : static_cast<void *>(&rc);
+  }
+};
+
+std::mutex g_pipeMu;
+std::condition_variable g_pipeWake;
+std::deque<std::shared_ptr<DeferredPipeline>> g_pipeQueue;
+std::vector<std::shared_ptr<DeferredPipeline>> g_pipeDone;
+std::unordered_set<PipelineKey, PipelineKeyHash> g_pipePending;
+int g_pipeInFlight = 0;
+bool g_pipeStop = false;
+std::thread g_pipeThread;
+
+void adopt_deferred_pipelines() {
+  std::vector<std::shared_ptr<DeferredPipeline>> done;
+  {
+    std::lock_guard lock(g_pipeMu);
+    done.swap(g_pipeDone);
+  }
+  for (auto &job : done) {
+    g_pipePending.erase(job->key);
+    Pipeline p = std::move(job->pipeline);
+    p.pipeline = job->status == VK_SUCCESS ? job->result : VK_NULL_HANDLE;
+    if (job->status != VK_SUCCESS && job->status != VK_ERROR_OUT_OF_HOST_MEMORY &&
+        job->status != VK_ERROR_OUT_OF_DEVICE_MEMORY &&
+        job->status != VK_ERROR_DEVICE_LOST) {
+      p.pipeline = VK_NULL_HANDLE;
+      LOG("[vulkan] graphics pipeline failed (Vulkan result %d): vs %016llX ps %016llX; its draws are skipped",
+          int(job->status), (unsigned long long)job->vsKey, (unsigned long long)job->psKey);
+    } else {
+      vk_check(job->status, "graphics pipeline");
+      if (p.pipeline) {
+        R.pipelineCacheDirty = true;
+        R.pipelineCacheChangedFrame = R.frame;
+      }
+    }
+    ++R.pipelineCreates;
+    pipelines.emplace(job->key, std::move(p));
+  }
+}
+
+bool pipeline_compile_busy() {
+  std::lock_guard lock(g_pipeMu);
+  return g_pipeInFlight != 0 || !g_pipeQueue.empty();
+}
+
+void pipeline_compile_worker() {
+  host::set_thread_name("Vulkan pipeline");
+  for (;;) {
+    std::shared_ptr<DeferredPipeline> job;
+    {
+      std::unique_lock lock(g_pipeMu);
+      g_pipeWake.wait(lock, [] { return g_pipeStop || !g_pipeQueue.empty(); });
+      if (g_pipeQueue.empty()) return;
+      job = std::move(g_pipeQueue.front());
+      g_pipeQueue.pop_front();
+      ++g_pipeInFlight;
+    }
+    job->status = vk::create_graphics_pipelines(R.device, R.pipelineCache, 1, &job->ci,
+                                                nullptr, &job->result);
+    for (auto module : job->modules)
+      if (module) vkDestroyShaderModule(R.device, module, nullptr);
+    job->modules[0] = job->modules[1] = VK_NULL_HANDLE;
+    {
+      std::lock_guard lock(g_pipeMu);
+      --g_pipeInFlight;
+      g_pipeDone.push_back(std::move(job));
+    }
+  }
+}
+
+void enqueue_deferred_pipeline(std::shared_ptr<DeferredPipeline> job) {
+  job->relink();
+  {
+    std::lock_guard lock(g_pipeMu);
+    g_pipePending.insert(job->key);
+    g_pipeQueue.push_back(std::move(job));
+    if (!g_pipeThread.joinable())
+      g_pipeThread = std::thread(pipeline_compile_worker);
+  }
+  g_pipeWake.notify_one();
+}
+
+Pipeline &pipeline_not_ready() {
+  static Pipeline missing;
+  missing = {};
+  return missing;
+}
+
 Pipeline &pipeline(const uint32_t *r, vk::Shader *vs, vk::Shader *ps,
                    LatteFetchShader *fs, VkPrimitiveTopology topology,
                    const std::array<Surface *, 8> &colors, Surface *depth) {
+  adopt_deferred_pipelines();
   if(preparation_stats_enabled())++R.cpuPreparation.pipelineLookups;
   const PipelineKey key = pipeline_key(r, vs, ps, fs, topology, colors, depth);
   std::array<VkFormat, 8> formats{};
@@ -747,6 +899,8 @@ Pipeline &pipeline(const uint32_t *r, vk::Shader *vs, vk::Shader *ps,
   if(preparation_stats_enabled())++R.cpuPreparation.pipelineMapLookups;
   if (auto it = pipelines.find(key); it != pipelines.end())
     return remember(it->second);
+  if (g_pipePending.contains(key))
+    return pipeline_not_ready();
   Pipeline p;
   vk::Shader *shaders[] = {vs, ps};
   uint32_t uniformBindings = 0;
@@ -1071,12 +1225,49 @@ Pipeline &pipeline(const uint32_t *r, vk::Shader *vs, vk::Shader *ps,
   ci.pColorBlendState = &bs;
   ci.pDynamicState = &dy;
   ci.layout = p.layout;
-  const auto pipelineStarted = std::chrono::steady_clock::now();
-  const VkResult result = vk::create_graphics_pipelines(R.device, R.pipelineCache, 1, &ci,
-                                                        nullptr, &p.pipeline);
-  R.pipelineCreateNs += std::chrono::duration_cast<std::chrono::nanoseconds>(
-      std::chrono::steady_clock::now() - pipelineStarted).count();
-  ++R.pipelineCreates;
+  const bool deferCompile = R.pipelineCompileControl && pipeline_compile_busy();
+  VkResult result = VK_SUCCESS;
+  if (!deferCompile) {
+    if (R.pipelineCompileControl)
+      ci.flags |= VK_PIPELINE_CREATE_FAIL_ON_PIPELINE_COMPILE_REQUIRED_BIT;
+    const auto pipelineStarted = std::chrono::steady_clock::now();
+    result = vk::create_graphics_pipelines(R.device, R.pipelineCache, 1, &ci,
+                                           nullptr, &p.pipeline);
+    R.pipelineCreateNs += std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now() - pipelineStarted).count();
+    if (result != VK_PIPELINE_COMPILE_REQUIRED)
+      ++R.pipelineCreates;
+  }
+  if (deferCompile || result == VK_PIPELINE_COMPILE_REQUIRED) {
+    auto job = std::make_shared<DeferredPipeline>();
+    job->key = key;
+    job->vsKey = vs->key;
+    job->psKey = ps->key;
+    job->pipeline = std::move(p);
+    job->modules[0] = modules[0];
+    job->modules[1] = modules[1];
+    job->stages[0] = stages[0];
+    job->stages[1] = stages[1];
+    job->bindings = std::move(bindings);
+    job->attributes = std::move(attributes);
+    job->vi = vi;
+    job->ia = ia;
+    job->vp = vp;
+    job->rs = rs;
+    job->ms = ms;
+    job->ds = ds;
+    job->blends.assign(cb.begin(), cb.begin() + ncolor);
+    job->bs = bs;
+    job->dyn.assign(dyn.begin(), dyn.begin() + dynCount);
+    job->dy = dy;
+    job->formats = formats;
+    job->ncolor = ncolor;
+    job->rc = rc;
+    job->ci = ci;
+    job->ci.renderPass = ci.renderPass;
+    enqueue_deferred_pipeline(std::move(job));
+    return pipeline_not_ready();
+  }
   for (auto m : modules)
     vkDestroyShaderModule(R.device, m, nullptr);
   if (result != VK_SUCCESS && result != VK_ERROR_OUT_OF_HOST_MEMORY &&
@@ -2110,6 +2301,16 @@ StageResources bind_stage(const uint32_t *r, vk::Shader *sh,
   return out;
 }
 }
+void finish_deferred_pipelines() {
+  {
+    std::lock_guard lock(g_pipeMu);
+    g_pipeStop = true;
+  }
+  g_pipeWake.notify_all();
+  if (g_pipeThread.joinable()) g_pipeThread.join();
+  adopt_deferred_pipelines();
+  g_pipeStop = false;
+}
 void reset_feedback_images() { reset_feedback_scratch(); }
 UploadSlice vertex_window_smoke_snapshot(uint32_t binding,uint32_t address,
     uint32_t reservation,uint32_t windowOffset,uint32_t windowLength,
@@ -2149,10 +2350,10 @@ void draw(const uint32_t *r, uint32_t prim, uint32_t count, uint32_t indexType,
   if (!fs)
     throw std::runtime_error("missing Vulkan fetch shader");
   auto *vs = vk::translate(r, true, fs, fsKey, R.frame, g_shader_state_gen);
-  if (vs && vs->compiling()) vk::wait_shader(*vs, R.frame);
+  if (vs && vs->compiling()) return;
   auto *ps = vk::translate(r, false, fs, fsKey, R.frame, g_shader_state_gen,
                            vs && vs->ready() ? vs : nullptr);
-  if (ps && ps->compiling()) vk::wait_shader(*ps, R.frame);
+  if (ps && ps->compiling()) return;
   rprof::mark(rprof::kShader);
   if (!vs || !vs->ready() || !ps || !ps->ready())
     throw std::runtime_error("Vulkan shader translation failed: " +

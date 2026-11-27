@@ -71,9 +71,7 @@ Closed-issue coverage outside playtests:
 - [#34](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/34) dedicated GPU over Intel — `ctest -R gpu_choice`.
 - [#43](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/43) 1.5x tile matrix stays non-zero — `ctest -R aspect_view`.
 - [#44](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/44) map hold skips the extra shadow draw — `ctest -R interp_pacing` (`test_issue_44_map_shadow_draw`).
-- [#57](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/57) async shader compile stays off — `ctest -R '^env$'`.
-  The check locks that default.
-- [#59](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/59) present mode stays unset — the same `env` test.
+- [#59](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/59) present mode stays unset — `ctest -R '^env$'`.
   `kPresentFifo` stays the vsync default.
 - [#66](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/66) one recompile job stays one — `python3 recomp/test_pool.py` `test_issue_66_one_job_stays_one`.
 - [#72](https://github.com/nsmbu-recomp/nsmbu-recomp/issues/72) controller gyro uses the pad sensors — `ctest -R '^motion$'`.
