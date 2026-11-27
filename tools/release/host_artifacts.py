@@ -322,8 +322,8 @@ def ensure_vulkan_headers(env):
     return root
 
 
-def drop_linker_depfile_detection():
-    info = os.path.join(BUILD_DIR, "CMakeFiles")
+def drop_linker_depfile_detection(build_dir=None):
+    info = os.path.join(build_dir or BUILD_DIR, "CMakeFiles")
     if not os.path.isdir(info):
         return
     for dirpath, _, filenames in os.walk(info):
@@ -338,11 +338,13 @@ def drop_linker_depfile_detection():
             os.remove(path)
 
 
-def run_build(version, sdl_prefix, vulkan_root, vulkan_lib):
-    os.makedirs(GEN_STUB, exist_ok=True)
+def run_build(version, sdl_prefix, vulkan_root, vulkan_lib, build_dir=None, gen_stub=None):
+    build_dir = build_dir or BUILD_DIR
+    gen_stub = gen_stub or GEN_STUB
+    os.makedirs(gen_stub, exist_ok=True)
     log("generating stub game code")
-    subprocess.run([sys.executable, os.path.join(ROOT, "recomp", "stubgen.py"), GEN_STUB], cwd=ROOT, check=True)
-    drop_linker_depfile_detection()
+    subprocess.run([sys.executable, os.path.join(ROOT, "recomp", "stubgen.py"), gen_stub], cwd=ROOT, check=True)
+    drop_linker_depfile_detection(build_dir)
     env = os.environ.copy()
     env["ZIG_GLOBAL_CACHE_DIR"] = ZIG_CACHE
     os.makedirs(ZIG_CACHE, exist_ok=True)
@@ -351,12 +353,12 @@ def run_build(version, sdl_prefix, vulkan_root, vulkan_lib):
         "-S",
         ROOT,
         "-B",
-        BUILD_DIR,
+        build_dir,
         "-G",
         "Ninja",
         "-DCMAKE_BUILD_TYPE=Release",
         "-DNSMBU_VERSION=" + version,
-        "-DGEN_DIR=" + GEN_STUB,
+        "-DGEN_DIR=" + gen_stub,
         "-DCMAKE_C_COMPILER=" + os.path.join(ZBIN, "zcc"),
         "-DCMAKE_CXX_COMPILER=" + os.path.join(ZBIN, "zcxx"),
         "-DCMAKE_AR=" + os.path.join(ZBIN, "zar"),
@@ -369,10 +371,10 @@ def run_build(version, sdl_prefix, vulkan_root, vulkan_lib):
         "-DCMAKE_C_LINKER_DEPFILE_SUPPORTED=FALSE",
         "-DCMAKE_CXX_LINKER_DEPFILE_SUPPORTED=FALSE",
     ]
-    log("configuring Release build in %s" % BUILD_DIR)
+    log("configuring Release build in %s" % build_dir)
     subprocess.run(cmake_args, cwd=ROOT, env=env, check=True)
     log("compiling the game and setup GUI (this is the long step)")
-    subprocess.run(["cmake", "--build", BUILD_DIR], cwd=ROOT, env=env, check=True)
+    subprocess.run(["cmake", "--build", build_dir], cwd=ROOT, env=env, check=True)
     log("Release build finished")
 
 

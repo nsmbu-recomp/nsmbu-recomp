@@ -139,7 +139,23 @@ def ensure_worktree(commit):
     )
 
 
+def release_gates(tree):
+    print("pre-push: release workflow guards", file=sys.stderr)
+    subprocess.run(
+        [sys.executable, os.path.join(tree, "tools", "release", "test_release_guards.py")],
+        cwd=tree,
+        check=True,
+    )
+    print("pre-push: zig release compile", file=sys.stderr)
+    subprocess.run(
+        [sys.executable, os.path.join(tree, "tools", "release", "zig_gate.py")],
+        cwd=tree,
+        check=True,
+    )
+
+
 def configure_and_test(tree):
+    release_gates(tree)
     libdir = build.libstdcxx_libdir()
     if not libdir:
         reject("Clang needs a libstdc++ dev package")
