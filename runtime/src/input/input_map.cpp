@@ -347,8 +347,8 @@ input::PadState controller_state(const Mapping& m, const float values[kPadCount]
     if (m.invert_camera_y) s.ry = -s.ry;
     const bool menu = menu_navigation();
     auto fallback = [&](int action, int physical) {
+        if (!menu) return;
         if (physical <= kPadNone || physical >= kPadCount) return;
-        if (!menu && m.pad[action] != kPadNone) return;
         if (values[physical] > 0.5f && action_bit(action)) s.buttons |= action_bit(action);
     };
     for (int a = kA; a <= kY; a++) fallback(a, position_pad(a));

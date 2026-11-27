@@ -410,6 +410,9 @@ static void test_menu_fallback() {
     m.pad[kA] = kPadNone;
     float v[kPadCount] = {};
     v[position_pad(kA)] = 1;
+    set_menu_navigation(false);
+    CHECK((controller_state(m, v).buttons & input::kA) == 0);
+    set_menu_navigation(true);
     CHECK(controller_state(m, v).buttons & input::kA);
     m.pad[kA] = kPadLB;
     set_menu_navigation(false);
