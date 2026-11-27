@@ -393,9 +393,24 @@ static void open_controller(SDL_JoystickID id){
   }
  }
 #endif
- if(auto* pad=SDL_OpenGamepad(id)){g_controllers[id]=pad;
+ if(auto* pad=SDL_OpenGamepad(id)){
+  if(SDL_Joystick* joy=SDL_GetGamepadJoystick(pad)){
+   const char* serial=SDL_GetJoystickSerial(joy);
+   const Uint16 vendor=SDL_GetGamepadVendor(pad),product=SDL_GetGamepadProduct(pad);
+   if(serial&&serial[0])for(auto& other:g_controllers){
+    SDL_Joystick* ojoy=SDL_GetGamepadJoystick(other.second);
+    const char* oserial=ojoy?SDL_GetJoystickSerial(ojoy):nullptr;
+    if(oserial&&!std::strcmp(serial,oserial)&&SDL_GetGamepadVendor(other.second)==vendor&&SDL_GetGamepadProduct(other.second)==product){
+     LOG("[input] ignored a second connection of %s (same serial)",SDL_GetGamepadName(pad)?SDL_GetGamepadName(pad):"a controller");
+     SDL_CloseGamepad(pad);return;
+    }
+   }
+  }
+  g_controllers[id]=pad;
   const int slot=free_slot_locked();
-  if(slot>=0){g_slot[slot]=id;const char* name=SDL_GetGamepadName(pad);g_slot_name[slot]=name?name:"";}
+  const char* name=SDL_GetGamepadName(pad);
+  if(slot>=0){g_slot[slot]=id;g_slot_name[slot]=name?name:"";LOG("[input] controller %d: %s",slot+1,name?name:"?");}
+  else LOG("[input] controller not assigned (four players already): %s",name?name:"?");
 #ifdef __ANDROID__
   LOG("[input] controller connected: %s (id %u, vendor %04X, product %04X, type %d)",SDL_GetGamepadName(pad)?SDL_GetGamepadName(pad):"?",(unsigned)id,
       SDL_GetGamepadVendor(pad),SDL_GetGamepadProduct(pad),(int)SDL_GetGamepadType(pad));
@@ -407,12 +422,24 @@ static void open_controller(SDL_JoystickID id){
   if(SDL_RumbleGamepad(pad,0,0,0))g_rumble_controllers.insert(id);
   if(g_sensors_on)set_sensors_locked(pad,true);}
 }
+static void promote_joystick(SDL_JoystickID id){
+ if(SDL_IsGamepad(id)){open_controller(id);return;}
+ if(SDL_GetJoystickTypeForID(id)!=SDL_JOYSTICK_TYPE_GAMEPAD)return;
+ SDL_GUID guid=SDL_GetJoystickGUIDForID(id);
+ char text[33];SDL_GUIDToString(guid,text,sizeof text);
+ std::string name=SDL_GetJoystickNameForID(id)?SDL_GetJoystickNameForID(id):"controller";
+ for(char& c:name)if(c==',')c=' ';
+ const std::string mapping=std::string(text)+","+name+",a:b0,b:b1,x:b2,y:b3,back:b6,start:b7,leftstick:b8,rightstick:b9,leftshoulder:b4,rightshoulder:b5,dpup:h0.1,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,leftx:a0,lefty:a1,rightx:a2,righty:a3,lefttrigger:a4,righttrigger:a5,";
+ if(SDL_AddGamepadMapping(mapping.c_str())<0){LOG("[input] could not map %s as a gamepad: %s",name.c_str(),SDL_GetError());return;}
+ LOG("[input] %s has no gamepad layout; using a standard one",name.c_str());
+ open_controller(id);
+}
 void init(){
  input_map::load_startup();
 
  if(!env::NO_CONTROLLERS()) {
   if(!SDL_InitSubSystem(SDL_INIT_GAMEPAD)){LOG("[input] SDL gamepad initialization: %s",SDL_GetError());return;}
-  int count=0;auto* ids=SDL_GetGamepads(&count);for(int i=0;i<count;i++)open_controller(ids[i]);SDL_free(ids);
+  int count=0;auto* ids=SDL_GetJoysticks(&count);for(int i=0;i<count;i++)promote_joystick(ids[i]);SDL_free(ids);
   SDL_AddEventWatch(rumble_quit_watch,nullptr);
   atexit(stop_rumble_now);
   std::thread(rumble_watchdog).detach();
@@ -511,6 +538,7 @@ void handle_event(const SDL_Event& event){
 #endif
  if(overlay::captures())mods::update_mouse();
  else if(mods::handle_mouse_event(event))return;
+ if(event.type==SDL_EVENT_JOYSTICK_ADDED&&!env::NO_CONTROLLERS())promote_joystick(event.jdevice.which);
  if(event.type==SDL_EVENT_GAMEPAD_ADDED&&!env::NO_CONTROLLERS())open_controller(event.gdevice.which);
  if(event.type==SDL_EVENT_GAMEPAD_REMOVED){std::lock_guard lk(g_pads_mu);auto i=g_controllers.find(event.gdevice.which);if(i!=g_controllers.end()){SDL_CloseGamepad(i->second);g_controllers.erase(i);}const int slot=slot_of_locked(event.gdevice.which);if(slot>=0){g_slot[slot]=0;g_slot_name[slot].clear();}g_rumble_controllers.erase(event.gdevice.which);g_rumble_sent.erase(event.gdevice.which);g_accel.erase(event.gdevice.which);g_sensor_seen.erase(event.gdevice.which);g_sensor_kick.erase(event.gdevice.which);motion::controller_gone(event.gdevice.which);}
  if(event.type==SDL_EVENT_GAMEPAD_SENSOR_UPDATE){g_sensor_seen[event.gsensor.which]=SDL_GetTicks();if(!env::NO_HOST_INPUT()&&!overlay::blocks_input())sensor_event(event.gsensor);return;}

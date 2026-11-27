@@ -2,6 +2,7 @@
 
 #include "crash/crashrec.h"
 #include "core/runtime.h"
+#include "hle/pad_players.h"
 #include "input/input.h"
 #include "../input/motion/motion.h"
 #include "input/rumble.h"
@@ -15,8 +16,7 @@ constexpr int32_t kKpadErrNone = 0, kKpadErrNoController = -2;
 constexpr uint8_t kDevURCC = 31, kDevNone = 253, kFormatURCC = 22;
 
 int player_for_channel(uint32_t chan) {
-    if (input::pro_controller()) return chan < (uint32_t)input::kMaxPlayers ? (int)chan : -1;
-    return chan + 1 < (uint32_t)input::kMaxPlayers ? (int)chan + 1 : -1;
+    return kpad_player(chan, gamepad_is_player_one());
 }
 
 bool connected(uint32_t chan) {

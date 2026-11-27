@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- A second controller joins as the next player.
+  It no longer moves Player 1, and the game sees it when you pick two players (#68, #76).
+
 ### Changed
 
 - Cheats start off.
