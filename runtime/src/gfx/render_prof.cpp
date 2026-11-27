@@ -30,6 +30,7 @@
 #include <sys/syscall.h>
 #include <sys/uio.h>
 #include <thread>
+#include <unistd.h>
 #endif
 #endif
 
