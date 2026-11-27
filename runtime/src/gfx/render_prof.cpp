@@ -22,6 +22,7 @@
 #include <windows.h>
 #else
 #include <time.h>
+#if defined(__linux__) && !defined(__ANDROID__)
 #include <dirent.h>
 #include <dlfcn.h>
 #include <pthread.h>
@@ -29,6 +30,7 @@
 #include <sys/syscall.h>
 #include <sys/uio.h>
 #include <thread>
+#endif
 #endif
 
 #include "core/runtime.h"
@@ -234,7 +236,7 @@ static std::string reg_name(uint32_t r) {
     return buf;
 }
 
-#ifndef _WIN32
+#if defined(__linux__) && !defined(__ANDROID__)
 namespace {
 
 struct HitchOpen {
