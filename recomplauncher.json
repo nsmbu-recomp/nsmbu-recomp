@@ -6,7 +6,7 @@
   "inputs": [
     {
       "id": "game",
-      "label": "Your copy of New Super Mario Bros. U for Wii U. A Cemu archive (.wua) needs no keys. A disc image (.wud, .wux, or a raw .iso) needs its disc key as a file named like the image with .key next to it, and the Wii U common key. Or the extracted game folder (code, content, and meta). This is the game, not the New Super Luigi U add-on.",
+      "label": "Your copy of New Super Mario Bros. U for Wii U. A Cemu archive (.wua) needs no keys. A disc image (.wud, .wux, or a raw .iso) needs its disc key and the Wii U common key. Or the extracted game folder (code, content, and meta). This is the game, not the New Super Luigi U add-on.",
       "formats": [
         { "type": "file", "extensions": ["wua"] },
         { "type": "folder" },
@@ -31,6 +31,12 @@
       "label": "Wii U common key. Needed for a .wud, .wux, or raw .iso. Not needed for a .wua or an extracted folder.",
       "role": "key",
       "shared": "wiiu.common-key"
+    },
+    {
+      "id": "disc-key",
+      "label": "Disc key for a .wud, .wux, or raw .iso. A .key file, 16 raw bytes, 32 hex digits, or a Cemu keys.txt. Skip this for a .wua or an extracted folder. If you skip it, a .key file named like the image next to it is used.",
+      "optional": true,
+      "formats": [{ "type": "file" }]
     },
     {
       "id": "update",
@@ -64,6 +70,7 @@
       "--data-dir",
       "{install}/data",
       "--image={input:game}",
+      "--disc-key={input:disc-key}",
       "--common-key={input:common}",
       "--update-dir={input:update}",
       "--dlc-dir={input:luigi}"

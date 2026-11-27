@@ -1158,6 +1158,15 @@ class Issue84(unittest.TestCase):
             self.assertGreater(row["size"], 0)
             self.assertRegex(row["crc32"], r"^[0-9a-fA-F]{8}$")
 
+    def test_disc_key_is_an_optional_setup_file(self):
+        root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        with open(os.path.join(root, "recomplauncher.json"), encoding="utf-8") as f:
+            doc = json.load(f)
+        disc = next(item for item in doc["inputs"] if item["id"] == "disc-key")
+        self.assertTrue(disc["optional"])
+        self.assertEqual(disc["formats"], [{"type": "file"}])
+        self.assertIn("--disc-key={input:disc-key}", doc["prepare"]["args"])
+
 
 class NonInteractive(unittest.TestCase):
     def test_ui_refuses_to_prompt(self):

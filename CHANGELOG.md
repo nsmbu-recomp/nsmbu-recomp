@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Cheats start off.
   Turn them on with Enable cheats on the Cheats tab.
+- RecompLauncher setup asks for the disc key as its own file.
+  Pick a key with any file name.
+  Skip it for a .wua or an extracted folder.
+  A .key file named like the image is still used when you skip it.
 
 ## [0.11.1] - 2026-11-27
 
