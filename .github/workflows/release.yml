@@ -512,6 +512,7 @@ jobs:
           unzip -q "$T/ccache.zip" -d "$T/ccache-pkg"
           cp "$T/ccache-pkg"/ccache-*/ccache.exe "$T/ccache.exe"
           echo "CCACHE=$T/ccache.exe" >> "$GITHUB_ENV"
+          echo "$T" >> "$GITHUB_PATH"
           "$T/ccache.exe" --version
 
       - name: Vulkan headers and import library
@@ -535,17 +536,21 @@ jobs:
       - name: Build runtime (Release, Vulkan + SDL3) with llvm-mingw against placeholder guest code
         run: |
           python recomp/stubgen.py build/gen-stub
-          "$CCACHE" -z
+          launcher=()
+          if [[ "${{ matrix.arch }}" != arm64 ]]; then
+            "$CCACHE" -z
+            launcher=(-DCMAKE_C_COMPILER_LAUNCHER="$CCACHE" -DCMAKE_CXX_COMPILER_LAUNCHER="$CCACHE")
+          fi
           cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DNSMBU_VERSION="$VERSION" -DGEN_DIR="$(cygpath -m "$PWD/build/gen-stub")" \
             -DCMAKE_C_COMPILER="$LLVM_MINGW/bin/$TRIPLE-clang.exe" \
             -DCMAKE_CXX_COMPILER="$LLVM_MINGW/bin/$TRIPLE-clang++.exe" \
             -DCMAKE_RC_COMPILER="$LLVM_MINGW/bin/$TRIPLE-windres.exe" \
-            -DCMAKE_C_COMPILER_LAUNCHER="$CCACHE" -DCMAKE_CXX_COMPILER_LAUNCHER="$CCACHE" \
+            "${launcher[@]}" \
             -DCMAKE_EXE_LINKER_FLAGS=-static -DNSMBU_BUNDLED_DEPS=ON -DNSMBU_SETUP_GUI=ON \
             -DCMAKE_PREFIX_PATH="$SDL3_PREFIX" \
             -DVulkan_INCLUDE_DIR="$VULKAN_DIR/include" -DVulkan_LIBRARY="$VULKAN_DIR/libvulkan-1.a"
           ninja -C build/rel -d keeprsp
-          "$CCACHE" -s
+          if [[ "${{ matrix.arch }}" != arm64 ]]; then "$CCACHE" -s; fi
 
       - name: Unit tests
         run: |
