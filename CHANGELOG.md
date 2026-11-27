@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- At frame rates above 60, the ground stays with the camera between frames.
 - A second controller joins as the next player.
   It no longer moves Player 1, and the game sees it when you pick two players (#68, #76).
 

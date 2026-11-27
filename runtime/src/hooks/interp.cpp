@@ -953,12 +953,7 @@ void apply_hold_camera(Cpu* c, bool publish_tiles = false, bool restore = true) 
 
 void finish_open_camera(Cpu* c) {
     const uint32_t r = renderer_instance();
-    if (r) {
-        g_publish_tiles = true;
-        publish_tile_matrix(c, r);
-        g_publish_tiles = false;
-        if (g_box_open) apply_box(c, r, g_live_box);
-    }
+    if (r && g_box_open) apply_box(c, r, g_live_box);
     g_box_open = false;
 }
 
@@ -1794,7 +1789,7 @@ extern "C" void hook_029C4FE4(Cpu* c) {
         if (g_wake_skip || g_skip_map_draw) return;
         const uint32_t self = c->r[3];
         const bool course = course_play_active() && blend_enabled();
-        if (course) apply_hold_camera(c, false, false);
+        if (course) apply_hold_camera(c, true, false);
         c->r[3] = self;
         float grass_dx = 0.f, grass_dy = 0.f;
         if (course && g_hold) baked_grass_delta(grass_dx, grass_dy);
