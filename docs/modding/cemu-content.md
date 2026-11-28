@@ -1,8 +1,8 @@
 # Native Cemu content packs (levels and file replacements)
 
-Status: **not installed**.
-The manager installs Cemu graphics and shader packs only.
-File-only level packs are rejected.
+Status: **installed**.
+Drop Cemu file-only level packs into the mods folder; the Mods tab detects them on scan.
+Graphics and shader packs stay on `kind: cemu` ([cemu.md](cemu.md)).
 This covers large Cemu file-only packs that replace game content (levels, actors, layouts, sound).
 An example is a pack such as Cloudy SMBU 2: a pack root with `rules.txt`, a `content/` tree, and optional Cemu `meta/` title art.
 

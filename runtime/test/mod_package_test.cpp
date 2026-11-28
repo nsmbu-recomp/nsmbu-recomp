@@ -60,10 +60,11 @@ int main(int argc, char** argv) {
     std::ofstream(migrate/"manifest.json")<<R"({"format_version":1,"id":"content.migrate","name":"Migrate","version":"1.0.0","game_id":"nsmbu-usa","kind":"content","content_dir":"content"})";
     initialize();
     std::string error;
-    {auto v=view("content.migrate");assert(!v.compatible&&v.reason.find("Content mods are not supported")!=std::string::npos);
+    {auto v=view("content.migrate");assert(v.compatible&&v.kind=="content"&&v.restart_required);
         std::ifstream mf(migrate/"manifest.json");std::string text{std::istreambuf_iterator<char>(mf),{}};
         assert(text.find("\"kind\":\"content\"")!=std::string::npos);}
-    assert(remove("content.migrate",error));
+    assert(enable("content.migrate",true,error));assert(view("content.migrate").pending_restart);
+    assert(enable("content.migrate",false,error));assert(remove("content.migrate",error));
     auto cemu_package=[&](const char* id, const char* extra) {
         auto path=root/id;fs::create_directories(path);
         std::ofstream(path/"rules.txt")<<("[Definition]\nname="+std::string(id)+"\ntitleIds=0005000010101d00\nversion=4\n[Preset]\nname=Normal\n$scale=1\n[Preset]\nname=Double\n$scale=2\n[TextureRedefine]\nwidth=1280\nheight=720\noverwriteWidth=1280*$scale\n");
@@ -81,8 +82,7 @@ int main(int argc, char** argv) {
             {"native","Native mods are not supported"},
             {"guest","Guest mods are not supported"},
             {"settings","Settings mods are not supported"},
-            {"lua","Unsupported mod kind"},
-            {"content","Content mods are not supported"}}){
+            {"lua","Unsupported mod kind"}}){
         auto rejected_kind=root/(std::string("rejected-")+kind);fs::create_directories(rejected_kind);
         std::ofstream(rejected_kind/"manifest.json")<<"{\"format_version\":1,\"id\":\"rejected-"<<kind<<"\",\"name\":\"Rejected\",\"version\":\"1.0.0\",\"game_id\":\"nsmbu-usa\",\"kind\":\""<<kind<<"\"}";
         assert(!install(rejected_kind.string(),error));
@@ -141,27 +141,32 @@ int main(int argc, char** argv) {
     assert(!enable(list().at(0).id,true,error));assert(remove(list().at(0).id,error));
     auto legacy=root/"LegacyModel";fs::create_directories(legacy/"content"/"Object");
     std::ofstream(legacy/"content"/"Object"/"test.arc")<<"synthetic model archive";
-    assert(!install(legacy.string(),error));
-    assert(error.find("Only Cemu graphics packs can be installed")!=std::string::npos);
+    assert(install(legacy.string(),error));
+    assert(list().back().kind=="content"&&list().back().restart_required);
+    assert(enable(list().back().id,false,error));assert(remove(list().back().id,error));
     auto loose=root/"permanent_3d.pack";std::ofstream(loose)<<"SARCsynthetic-fixture";
-    assert(!install(loose.string(),error));
+    assert(install(loose.string(),error));
+    assert(list().back().kind=="content");
+    assert(enable(list().back().id,false,error));assert(remove(list().back().id,error));
     auto game=root/"game";fs::create_directories(game/"content"/"Common"/"Layout");
     std::ofstream(game/"content"/"Common"/"Layout"/"Title_00.szs")<<"original";
     mods::content::set_game_root(game);
     auto translation=root/"FanTranslation";fs::create_directories(translation);
     std::ofstream(translation/"permanent_2d_EuEnglish.pack")<<"SARCsynthetic translation";
-    assert(!install(translation.string(),error));
+    assert(install(translation.string(),error));
+    assert(list().back().kind=="content");
+    assert(enable(list().back().id,false,error));assert(remove(list().back().id,error));
     mods::content::set_game_root({});
     auto invalid=root/"CodeMod";fs::create_directories(invalid/"content");std::ofstream(invalid/"content"/"dummy")<<"fixture";std::ofstream(invalid/"patches.txt")<<"code";
     assert(!install(invalid.string(),error));
-    assert(error.find("Only Cemu graphics packs can be installed")!=std::string::npos);
+    assert(error.find("unsupported code patches or shaders")!=std::string::npos);
 
     auto cloudy=root/"storage"/"mods"/"Cloudy Level Pack";
     fs::create_directories(cloudy/"content"/"Common"/"Course");
     std::ofstream(cloudy/"content"/"Common"/"Course"/"1-1.szs")<<"level";
     std::ofstream(cloudy/"rules.txt")<<"[Definition]\nname = Cloudy Level Pack\ntitleIds = 0005000010101C00,0005000010101D00\ndescription = Test level pack\nversion = 6\n";
     assert(refresh(error));
-    {auto v=view("Cloudy Level Pack");assert(!v.compatible);assert(v.reason.find("Only Cemu graphics packs can be installed")!=std::string::npos);}
+    {auto v=view("content.cloudy-level-pack");assert(v.compatible&&v.kind=="content"&&v.name=="Cloudy Level Pack");}
     fs::remove_all(cloudy);
 
     auto large_dir=root/"LargeFile";fs::create_directories(large_dir/"content");

@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Cemu content packs (such as level replacements) work again.
+  Drop a folder with `rules.txt` and a `content/` tree into the mods folder, enable it in the Mods tab, then restart.
 - Walk up is now called Climb.
 - Jump, Run, and Spin are each one line.
   Both jump buttons, both run buttons, and the shoulder buttons sit on that line.
