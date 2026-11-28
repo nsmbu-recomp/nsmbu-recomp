@@ -944,7 +944,7 @@ void present_camera(Cpu* c, uint32_t r, const float* live, uint32_t mgr, uint32_
 
 void apply_hold_camera(Cpu* c, bool publish_tiles = false, bool restore = true) {
     remember_area();
-    if (!course_play_active() || !g_cam_cur_valid) return;
+    if (!course_play_active() || !g_cam_cur_valid || !area_layers_ready()) return;
     const uint32_t r = renderer_instance();
     if (!r) return;
     float cur[4];
