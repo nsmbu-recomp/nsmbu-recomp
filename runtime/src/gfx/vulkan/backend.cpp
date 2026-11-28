@@ -1781,6 +1781,9 @@ void swap() {
   }
   set_present_plan(nullptr);
   if (g_presented) render::note_host_present();
+  vk::publish_finished_shaders(R.frame + 1);
+  if (vk::shaders_compiling() || pipeline_compile_busy())
+    render::hold_repeat();
   service_screenshots();
   std::atomic_ref<uint64_t>(R.frame).fetch_add(1);
   R.completed = R.frame;

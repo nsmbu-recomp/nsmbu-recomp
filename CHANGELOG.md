@@ -67,6 +67,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - When the picture updates faster than 60 times a second, the ground stays under Mario.
   It no longer slides away from him.
 - Entering a pipe, finishing a level, or dying in Boost Rush no longer closes the game when the picture updates faster than 60 times a second (#92, #93).
+- The opening story cinematics on Android no longer sit on a black screen for a long time on the first run while new shaders compile (#83).
+  The last picture stays up until the new shaders are ready.
 - Plug in a second controller and it joins as the next player.
   It no longer moves Player 1.
   The game uses it when you play with two people (#68, #76).

@@ -6,6 +6,7 @@
 
 namespace gfxvk {
 void present_while_shader_pending();
+bool pipeline_compile_busy();
 namespace vk {
 struct SpirvCompile;
 bool enqueue_spirv_compile(const std::string& source, bool vertex, std::shared_ptr<SpirvCompile> done);

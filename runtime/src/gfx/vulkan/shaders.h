@@ -56,6 +56,7 @@ struct Shader {
 void collect_shader(Shader& shader, uint64_t frame);
 void wait_shader(Shader& shader, uint64_t frame);
 void publish_finished_shaders(uint64_t frame);
+bool shaders_compiling();
 void select_renderer();
 
 LatteFetchShader* get_fetch_shader(const uint32_t* regs, uint64_t* keyOut, uint64_t frame = ~uint64_t{0});

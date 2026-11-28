@@ -1071,6 +1071,8 @@ void publish_finished_shaders(uint64_t frame) {
     poll_pending_shaders(frame);
 }
 
+bool shaders_compiling() { return !pendingShaderRecords.empty(); }
+
 namespace {
 using DiskSnapshot = std::vector<std::pair<uint64_t,DiskShader>>;
 struct DiskSaveResult { uint64_t revision=0, bytes=0, ns=0; bool saved=false; };

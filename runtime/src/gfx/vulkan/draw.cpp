@@ -2311,6 +2311,12 @@ void finish_deferred_pipelines() {
   adopt_deferred_pipelines();
   g_pipeStop = false;
 }
+
+bool pipeline_compile_busy() {
+  std::lock_guard lock(g_pipeMu);
+  return g_pipeInFlight != 0 || !g_pipeQueue.empty();
+}
+
 void reset_feedback_images() { reset_feedback_scratch(); }
 UploadSlice vertex_window_smoke_snapshot(uint32_t binding,uint32_t address,
     uint32_t reservation,uint32_t windowOffset,uint32_t windowLength,
