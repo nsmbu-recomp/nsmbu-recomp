@@ -39,8 +39,10 @@ It also leaves that box in place for `calcView` and for every other draw.
 Those draws use positions that were computed on the logic step.
 The picture then jitters, because the camera sample and the positions are no longer the same step.
 `calcForAreaTask` stores the projection on the 3D layer at `+0x48`.
-Calling it when that layer pointer is null writes guest address `0x48` and the process crashes.
-That is what happened when the box was applied outside the game's own camera update.
+The TV slot is layer 9 and the GamePad slot is layer `0x17`.
+Calling it when either pointer is null writes guest address `0x48` and the process crashes.
+The port skips that call while either slot is missing.
+That happens on a pipe or a level exit, when the box is applied outside the game's own camera update.
 
 ## What the port does
 

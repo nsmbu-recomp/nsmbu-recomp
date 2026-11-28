@@ -1,5 +1,6 @@
 #include "hooks/cheats.h"
 #include "hooks/interp.h"
+#include "hooks/interp_area.h"
 #include "mods/packages.h"
 
 #include <algorithm>
@@ -289,8 +290,18 @@ bool cam_cut(const float* a, const float* b) {
     return d > kCut;
 }
 
+bool area_layers_ready() {
+    const uint32_t lyr = ld32(GD(0x101E8A2C));
+    if (!lyr || !wwatch::readable(lyr + 0xDA8, 8)) return false;
+    const uint32_t count = ld32(lyr + 0xDA8);
+    const uint32_t buf = ld32(lyr + 0xDAC);
+    if (!buf || !wwatch::readable(buf, 0x18 * 4)) return false;
+    return area_camera_layers_ready(count, ld32(buf + 9 * 4), ld32(buf + 0x17 * 4));
+}
+
 void apply_box(Cpu* c, uint32_t r, const float* b) {
     write_box(r, b);
+    if (!area_layers_ready()) return;
     c->r[3] = r;
     f_024FA76C(c);
 }

@@ -58,6 +58,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   Push left or right to lean it.
 - When the picture updates faster than 60 times a second, the ground stays under Mario.
   It no longer slides away from him.
+- Entering a pipe or finishing a level no longer closes the game when the picture updates faster than 60 times a second (#93).
 - Plug in a second controller and it joins as the next player.
   It no longer moves Player 1.
   The game uses it when you play with two people (#68, #76).
