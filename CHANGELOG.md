@@ -11,8 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Cemu content packs (such as level replacements) work again.
   Drop a folder with `rules.txt` and a `content/` tree into the mods folder, enable it in the Mods tab, then restart.
 - Walk up is now called Climb.
-- Jump, Run, and Spin are each one line.
-  Both jump buttons, both run buttons, and the shoulder buttons sit on that line.
+- Jump, Run, and Spin are each one line, the same as the other controls.
+  The other button for that move still works.
 - On Controls, each action has its own line, such as Climb or Pause.
   The lines are grouped under Movement, Actions, Misc, and Gyro Emulation.
   Each line has two keyboard keys and one controller button.
@@ -29,6 +29,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   It copies this player's controller setup to the others one time.
   The keyboard stays with Player 1.
 - Each player can choose which controller they use.
+- On Controls, only Player 1 can be the Wii U GamePad.
+  Players 2–4 always use Pro Controllers.
+- The GamePad / Pro Controller choice sits at the bottom of Controls.
+  Player 1 defaults to the Wii U GamePad.
 - In Settings, the left stick moves the highlight the same way the D-pad does.
 - When you change a control, the game waits for the new key or button.
   A quick tap of Back does not cancel this.
@@ -55,6 +59,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Reset to defaults is on the screen, so you can press it.
+  Confirming that question puts this player's controls back to the defaults.
 - Platforms that you tilt now follow your tilt controls.
   When you are not pushing the stick or holding an arrow key, the platform sits flat.
   Push left or right to lean it.
