@@ -34,7 +34,7 @@ static void test_defaults() {
     struct { int code; uint32_t bit; } old[] = {
         {kVK_ANSI_K, input::kA}, {kVK_Space, input::kA}, {kVK_ANSI_J, input::kB}, {kVK_ANSI_L, input::kX},
         {kVK_Shift, input::kY}, {kVK_ANSI_Q, input::kL}, {kVK_ANSI_E, input::kR},
-        {kVK_Control, input::kZR}, {kVK_Return, input::kPlus}, {kVK_Tab, input::kMinus}, {kVK_ANSI_H, input::kHome},
+        {kVK_Control, input::kZR}, {kVK_Return, input::kPlus}, {kVK_ANSI_H, input::kHome},
         {kVK_ANSI_1, input::kUp}, {kVK_ANSI_2, input::kDown}, {kVK_ANSI_3, input::kLeft}, {kVK_ANSI_4, input::kRight},
         {kVK_ANSI_X, input::kStickL}, {kVK_ANSI_V, input::kStickR},
     };
@@ -48,6 +48,7 @@ static void test_defaults() {
     s = press(m, {kVK_UpArrow, kVK_RightArrow});
     CHECK(s.rx == 1 && s.ry == 1);
     CHECK(press(m, {kVK_ANSI_Z}).buttons == 0);
+    CHECK(press(m, {kVK_Tab}).buttons == 0);
 
     CHECK(m.keys[kScreenshot][0] == kVK_F10 && m.pad[kScreenshot] == kPadNone);
     CHECK(press(m, {kVK_F10}).buttons == 0 && press(m, {kVK_F10}).lx == 0);

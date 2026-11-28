@@ -23,16 +23,16 @@ namespace input_map {
 namespace {
 struct ActionInfo { const char* id; const char* label; uint32_t bit; };
 const ActionInfo kActions[kActionCount] = {
-    {"A", "Jump, accept", input::kA}, {"B", "Jump, back", input::kB},
+    {"A", "Jump", input::kA}, {"B", "Jump", input::kB},
     {"X", "Run", input::kX}, {"Y", "Run", input::kY},
-    {"L", "Spin, map", input::kL}, {"R", "Spin", input::kR},
-    {"ZL", "Spin, tilt", input::kZL}, {"ZR", "Spin, tilt", input::kZR},
+    {"L", "Spin", input::kL}, {"R", "Spin", input::kR},
+    {"ZL", "Spin", input::kZL}, {"ZR", "Spin", input::kZR},
     {"Plus", "Pause", input::kPlus}, {"Minus", "Bubble, zoom out", input::kMinus},
     {"Home", "Settings", input::kHome},
-    {"DpadUp", "Walk up", input::kUp}, {"DpadDown", "Crouch", input::kDown},
+    {"DpadUp", "Climb", input::kUp}, {"DpadDown", "Crouch", input::kDown},
     {"DpadLeft", "Walk left", input::kLeft}, {"DpadRight", "Walk right", input::kRight},
     {"LeftStickClick", "Left stick press", input::kStickL}, {"RightStickClick", "Settings", input::kStickR},
-    {"LeftStickUp", "Walk up", 0}, {"LeftStickDown", "Crouch", 0},
+    {"LeftStickUp", "Climb", 0}, {"LeftStickDown", "Crouch", 0},
     {"LeftStickLeft", "Walk left", 0}, {"LeftStickRight", "Walk right", 0},
     {"RightStickUp", "Right stick up", 0}, {"RightStickDown", "Right stick down", 0},
     {"RightStickLeft", "Right stick left", 0}, {"RightStickRight", "Right stick right", 0},
@@ -172,7 +172,7 @@ Mapping Mapping::defaults() {
     auto key = [&](int a, int k0, int k1 = kNoKey) { m.keys[a] = {k0, k1}; };
     key(kA, kVK_ANSI_K, kVK_Space); key(kB, kVK_ANSI_J); key(kX, kVK_ANSI_L); key(kY, kVK_Shift);
     key(kL, kVK_ANSI_Q); key(kR, kVK_ANSI_E); key(kZR, kVK_Control);
-    key(kPlus, kVK_Return); key(kMinus, kVK_Tab); key(kHome, kVK_ANSI_H);
+    key(kPlus, kVK_Return); key(kHome, kVK_ANSI_H);
     key(kDUp, kVK_ANSI_1); key(kDDown, kVK_ANSI_2); key(kDLeft, kVK_ANSI_3); key(kDRight, kVK_ANSI_4);
     key(kStickLClick, kVK_ANSI_X); key(kStickRClick, kVK_ANSI_V);
     key(kLUp, kVK_ANSI_W); key(kLDown, kVK_ANSI_S); key(kLLeft, kVK_ANSI_A); key(kLRight, kVK_ANSI_D);
@@ -584,6 +584,8 @@ void mapping_from_json(const Json& root, Mapping& out, std::string& warn) {
             m.deadzone = std::clamp((float)d->n, 0.0f, 0.9f);
         if (const Json* i = op->get("invert_camera_y"); i && i->type == Json::Bool) m.invert_camera_y = i->b;
     }
+    for (int& k : m.keys[kMinus])
+        if (k == kVK_Tab) k = kNoKey;
     out = m;
 }
 

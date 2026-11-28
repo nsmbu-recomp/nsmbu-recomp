@@ -8,12 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- On Controls, each action has its own line, such as Jump or Pause.
+- Walk up is now called Climb.
+- Jump, Run, and Spin are each one line.
+  Both jump buttons, both run buttons, and the shoulder buttons sit on that line.
+- On Controls, each action has its own line, such as Climb or Pause.
   The lines are grouped under Movement, Actions, Misc, and Gyro Emulation.
   Each line has two keyboard keys and one controller button.
   A dash means that spot is empty.
 - The D-pad is not on this list.
   You can still move with the D-pad, and with the 1, 2, 3, and 4 keys.
+- The left stick click is not on this list.
+  The X key still presses it.
+- The right stick click is named Settings.
+- Bubble, zoom out is not on this list.
 - A live view of your sticks and shoulder triggers sits at the top right.
   The circle on a stick shows how far you must push it before the game reacts.
 - Copy to other players sits next to Reset to defaults.

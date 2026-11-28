@@ -33,7 +33,7 @@ int main() {
     keys[kVK_Return] = true;
     check(!keyboard_start_select(m, keys), "start key only");
     keys[kVK_Tab] = true;
-    check(keyboard_start_select(m, keys), "start and select keys");
+    check(!keyboard_start_select(m, keys), "tab is not bubble");
 
     std::printf("controller_shortcuts_test: %d passed, %d failed\n", g_pass, g_fail);
     return g_fail ? 1 : 0;

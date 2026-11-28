@@ -1394,6 +1394,7 @@ struct ControlRow {
     const char* label;
     int actions[4];
     int count;
+    const char* tip = nullptr;
 };
 struct ControlGroup {
     const char* title;
@@ -1455,6 +1456,51 @@ void bind_slot(const input_map::Mapping& m, int action, int col, int index, int 
     if (clear) clear_slot(action, col);
 }
 
+void bind_chip(const input_map::Mapping& m, int action, int col, int index, int want_focus, float cell_right, bool& lined) {
+    const std::string caption = slot_caption(m, action, col);
+    const ImVec2 pad = ImGui::GetStyle().FramePadding;
+    float w = ImGui::CalcTextSize(caption.c_str()).x + pad.x * 2.0f;
+    const float min_w = ImGui::GetFrameHeight() * 2.0f;
+    if (w < min_w) w = min_w;
+    if (lined) {
+        const float spacing = ImGui::GetStyle().ItemSpacing.x;
+        if (ImGui::GetItemRectMax().x + spacing + w <= cell_right) ImGui::SameLine(0, spacing);
+    }
+    ImGui::PushID(action);
+    ImGui::PushID(col);
+    if (want_focus == index && U.cap_action == action && U.cap_col == col) ImGui::SetKeyboardFocusHere();
+    if (ImGui::Button(caption.c_str(), ImVec2(w, 0.0f)) && U.cap_action < 0) start_capture(action, col, index);
+    const bool clear = U.cap_action < 0 && (ImGui::IsItemClicked(ImGuiMouseButton_Right) ||
+                                            (ImGui::IsItemFocused() && (ImGui::IsKeyPressed(ImGuiKey_Delete, false) ||
+                                                                        ImGui::IsKeyPressed(ImGuiKey_GamepadFaceLeft, false))));
+    ImGui::PopID();
+    ImGui::PopID();
+    if (clear) clear_slot(action, col);
+    lined = true;
+}
+
+void bind_chips(const input_map::Mapping& m, const int* actions, int n, bool keys, int index, int want_focus) {
+    struct Slot { int action, col; };
+    Slot slots[8];
+    int count = 0;
+    if (keys) {
+        Slot empty{-1, -1};
+        for (int i = 0; i < n; i++) {
+            for (int col = 0; col < 2; col++) {
+                const bool bound = m.keys[actions[i]][col] != input_map::kNoKey;
+                if (bound && count < 8) slots[count++] = {actions[i], col};
+                else if (empty.action < 0) empty = {actions[i], col};
+            }
+        }
+        if (empty.action >= 0 && count < 8) slots[count++] = empty;
+    } else {
+        for (int i = 0; i < n && count < 8; i++) slots[count++] = {actions[i], kColPad};
+    }
+    const float cell_right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+    bool lined = false;
+    for (int i = 0; i < count; i++) bind_chip(m, slots[i].action, slots[i].col, index, want_focus, cell_right, lined);
+}
+
 void control_row(const input_map::Mapping& m, const ControlRow& row, bool keys, int index, int want_focus) {
     const int action = row.actions[0];
     ImGui::TableNextRow();
@@ -1464,11 +1510,21 @@ void control_row(const input_map::Mapping& m, const ControlRow& row, bool keys, 
     if (row_conflict(m, row, keys)) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.62f, 0.20f, 1.0f));
     ImGui::TextUnformatted(row.label);
     if (row_conflict(m, row, keys)) ImGui::PopStyleColor();
-    if (keys) {
-        bind_slot(m, action, kColKey0, index, want_focus);
-        bind_slot(m, action, kColKey1, index, want_focus);
+    if (row.tip) help(row.tip);
+    if (row.count > 1) {
+        if (keys) {
+            ImGui::TableNextColumn();
+            bind_chips(m, row.actions, row.count, true, index, want_focus);
+        }
+        ImGui::TableNextColumn();
+        bind_chips(m, row.actions, row.count, false, index, want_focus);
+    } else {
+        if (keys) {
+            bind_slot(m, action, kColKey0, index, want_focus);
+            bind_slot(m, action, kColKey1, index, want_focus);
+        }
+        bind_slot(m, action, kColPad, index, want_focus);
     }
-    bind_slot(m, action, kColPad, index, want_focus);
     ImGui::PopID();
 }
 
@@ -1594,9 +1650,7 @@ void controls_list(input_map::Mapping& m, bool keys) {
     using input_map::kZL;
     using input_map::kZR;
     using input_map::kPlus;
-    using input_map::kMinus;
     using input_map::kHome;
-    using input_map::kStickLClick;
     using input_map::kStickRClick;
     using input_map::kLUp;
     using input_map::kLDown;
@@ -1609,29 +1663,22 @@ void controls_list(input_map::Mapping& m, bool keys) {
     using input_map::kScreenshot;
     const ControlGroup groups[] = {
         {"Movement",
-         {          {"Walk up", {kLUp}, 1},
+         {          {"Climb", {kLUp}, 1},
           {"Walk left", {kLLeft}, 1},
           {"Walk right", {kLRight}, 1},
           {"Crouch", {kLDown}, 1}},
          4},
         {"Actions",
-         {{"Jump, accept", {kA}, 1},
-          {"Jump, back", {kB}, 1},
-          {"Run", {kX}, 1},
-          {"Run", {kY}, 1},
-          {"Spin", {kL}, 1},
-          {"Spin", {kR}, 1},
-          {"Spin, tilt", {kZL}, 1},
-          {"Spin, tilt", {kZR}, 1}},
-         8},
+         {{"Jump", {kA, kB}, 2, "Both buttons jump. In a menu, one accepts and the other goes back."},
+          {"Run", {kX, kY}, 2, nullptr},
+          {"Spin", {kL, kR, kZL, kZR}, 4, nullptr}},
+         3},
         {"Misc",
          {{"Pause", {kPlus}, 1},
-          {"Bubble, zoom out", {kMinus}, 1},
           {"Settings", {kHome}, 1},
-          {"Right stick press", {kStickRClick}, 1},
-          {"Left stick press", {kStickLClick}, 1},
+          {"Settings", {kStickRClick}, 1},
           {"Screenshot", {kScreenshot}, 1}},
-         6},
+         4},
         {"Gyro Emulation",
          {{"Tilt up", {kRUp}, 1},
           {"Tilt down", {kRDown}, 1},
@@ -1649,12 +1696,15 @@ void controls_list(input_map::Mapping& m, bool keys) {
     int index = 0;
     for (const ControlGroup& group : groups) {
         heading(group.title);
-        const int columns = keys ? 4 : 2;
+        const bool merged = group.count > 0 && group.rows[0].count > 1;
+        const int columns = keys ? (merged ? 3 : 4) : 2;
         if (!ImGui::BeginTable(group.title, columns, ImGuiTableFlags_SizingStretchSame)) continue;
         ImGui::TableSetupColumn("action", ImGuiTableColumnFlags_WidthFixed, 150.0f);
-        if (keys) {
+        if (keys && !merged) {
             ImGui::TableSetupColumn("key", ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableSetupColumn("key2", ImGuiTableColumnFlags_WidthStretch);
+        } else if (keys) {
+            ImGui::TableSetupColumn("keys", ImGuiTableColumnFlags_WidthStretch);
         }
         ImGui::TableSetupColumn("pad", ImGuiTableColumnFlags_WidthStretch);
         for (int i = 0; i < group.count; i++) control_row(m, group.rows[i], keys, index++, want_focus);
@@ -2049,7 +2099,7 @@ void exit_popup() {
     const ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
     if (!ImGui::BeginPopupModal("Leave controls?###leave-controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
-    ImGui::TextUnformatted("Jump, accept or Jump, back has no button. Leave anyway?");
+    ImGui::TextUnformatted("A jump button has nothing set. Leave anyway?");
     const bool armed = !U.popup_block;
     U.popup_block = false;
     ImGui::SetKeyboardFocusHere();
