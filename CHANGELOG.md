@@ -6,51 +6,54 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-### Fixed
-
-- Tilt platforms follow the Gyro Emulation bindings.
-  A centered stick or no arrow key holds the platform level.
-  Left and right lean it.
-- At frame rates above 60, the ground stays with the camera between frames.
-- A second controller joins as the next player.
-  It no longer moves Player 1, and the game sees it when you pick two players (#68, #76).
-
 ### Changed
 
-- Controls is a list of what each button does, such as jump or run.
-  The controller pictures and the Nintendo or Xbox face-button choice are gone.
-- Copy to other players copies one player's controller onto the others once.
-  Each player can then use a different layout.
-  The button sits beside Reset to defaults.
-- Each player has a controller list.
-  Pick which connected controller that player uses.
-- Controls groups Movement, Actions, and Misc.
-  The D-pad is not listed.
-  The controller D-pad and the 1, 2, 3, and 4 keys still move.
-- The left stick moves through the settings menu the same way the D-pad does.
-- Each control is a row of three buttons: a key, a second key, and the controller button.
-  An empty slot shows a dash.
-- The Controls tab shows the live left stick, right stick, and triggers in the top right.
-  The ring on each stick is the dead zone.
-- Rebinding waits in a prompt.
-  A tap of Back does not cancel it.
+- On Controls, each action has its own line, such as Jump or Pause.
+  The lines are grouped under Movement, Actions, Misc, and Gyro Emulation.
+  Each line has two keyboard keys and one controller button.
+  A dash means that spot is empty.
+- The D-pad is not on this list.
+  You can still move with the D-pad, and with the 1, 2, 3, and 4 keys.
+- A live view of your sticks and shoulder triggers sits at the top right.
+  The circle on a stick shows how far you must push it before the game reacts.
+- Copy to other players sits next to Reset to defaults.
+  It copies this player's controller setup to the others one time.
+  The keyboard stays with Player 1.
+- Each player can choose which controller they use.
+- In Settings, the left stick moves the highlight the same way the D-pad does.
+- When you change a control, the game waits for the new key or button.
+  A quick tap of Back does not cancel this.
   Hold Start to cancel.
-  A stick has to move most of the way before it binds.
-- Clearing Jump, accept or Jump, back asks before the menu closes.
-  Outside a course, the usual face buttons, D-pad, left stick, and Start still move through menus.
-- Gyro settings are on the Controls tab.
-  Pick the source, turn axis, sensitivity, and Cemuhook server there.
-  Tilt up, down, left, and right are bindings in the Gyro Emulation group.
-  The arrow keys and the right stick set the GamePad tilt when the controller sends no gyro.
-  The center is level.
-  Recalibrate is a binding in the Gyro Emulation group too.
-- Face buttons read as a letter, a PlayStation shape, and a position, such as A / Cross / South.
-- Cheats start off.
-  Turn them on with Enable cheats on the Cheats tab.
-- RecompLauncher setup asks for the disc key as its own file.
-  Pick a key with any file name.
-  Skip it for a .wua or an extracted folder.
-  A .key file named like the image is still used when you skip it.
+  Push a stick most of the way across to set that direction.
+- If you clear Jump, the game asks you before Settings closes.
+  Before you enter a level, the A, B, X, and Y buttons, the D-pad, the left stick, and Start still work in menus.
+- You can tilt the GamePad with the arrow keys or the right stick.
+  Set these under Gyro Emulation, next to Recalibrate.
+  When you let go, the tilt returns to flat.
+- A controller button shows its letter, its PlayStation shape, and where it sits.
+  For example: A / Cross / South.
+- Cheats are off the first time you play.
+  Turn them on with Enable cheats on the Cheats page.
+- Setup asks you to pick the key file for your game disc.
+  The file can have any name.
+  You can skip this if your game is one packed file, or a folder of game files.
+  If you skip it and a key file has the same name as your game, setup uses that key.
+
+### Removed
+
+- The pictures of the controller are gone from Controls.
+  The Nintendo or Xbox button-name choice is gone too.
+
+### Fixed
+
+- Platforms that you tilt now follow your tilt controls.
+  When you are not pushing the stick or holding an arrow key, the platform sits flat.
+  Push left or right to lean it.
+- When the picture updates faster than 60 times a second, the ground stays under Mario.
+  It no longer slides away from him.
+- Plug in a second controller and it joins as the next player.
+  It no longer moves Player 1.
+  The game uses it when you play with two people (#68, #76).
 
 ## [0.11.1] - 2026-11-27
 
