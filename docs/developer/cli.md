@@ -11,6 +11,8 @@ Agents talk to a running debug game with `--mcp`.
 ```bash
 just build
 just launch
+just replay tools/replay/1-1.replay
+just replay tools/replay/1-1.replay --uncapped
 just decomp
 just mcp --open 1-1
 ```
@@ -66,13 +68,22 @@ Start the game yourself.
 `session_close` is how you stop it.
 There is no second session id.
 
+## Replay
+
+`just replay tools/replay/1-1.replay` plays that file in the debug game.
+The same command with a bare name, `just replay 1-1`, uses `tools/replay/1-1.replay`.
+It sets `NSMBU_REPLAY_INPUT` to the file and opens the `course=` pack with `--open`.
+`--uncapped` sets `NSMBU_UNCAPPED=1`: one game step per picture and no frame cap.
+Other words go to `tools/run/launch.py`, as in `just replay 1-1 -- --mcp`.
+A file with no `course=` line needs `--open W-C`.
+
 ## Scripted boot
 
 `tools/run/scripted-run.sh` runs one hidden boot.
 Set `NSMBU_EXIT_AT_FRAME` or the script refuses.
 `NSMBU_PRESS` and `NSMBU_STICK` are the pad timeline.
 Course pad logs live in `tools/replay/`.
-Point `NSMBU_REPLAY_INPUT` at one of those files.
+`just replay` plays one of those files.
 
 ## Other Python tools
 

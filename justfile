@@ -19,6 +19,10 @@ sanitizer *args:
 launch *args:
     python3 tools/run/launch.py {{ args }}
 
+# Play a .replay file. --uncapped sets NSMBU_UNCAPPED=1 (fast forward, no frame cap).
+replay *args:
+    python3 tools/run/replay.py {{ args }}
+
 # Start the decomp-debug game. Same flags as launch. Example: just decomp -- --mcp
 decomp *args:
     python3 tools/run/launch.py --decomp {{ args }}

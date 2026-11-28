@@ -1,12 +1,12 @@
 ---
 name: cli
-description: "Build, launch, and script the native NSMBU executable with just. Use when running just build, just launch, just mcp, just game, just scripted, a warm build, or a dump switch. A live game is the debug executable with --mcp."
+description: "Build, launch, and script the native NSMBU executable with just. Use when running just build, just launch, just replay, just mcp, just game, just scripted, a warm build, or a dump switch. A live game is the debug executable with --mcp."
 ---
 
 # Native game
 
 There is no TypeScript CLI.
-`just` with no arguments lists the common commands (`build`, `launch`, `decomp`, `mcp`, `game`, `extract`, `recomp`, `scripted`).
+`just` with no arguments lists the common commands (`build`, `launch`, `replay`, `decomp`, `mcp`, `game`, `extract`, `recomp`, `scripted`).
 `just decomp` starts `build/decomp-debug/nsmbu`.
 `just decomp -- --mcp` is the muted MCP launch of that binary.
 Read `docs/developer/cli.md`.
@@ -49,4 +49,7 @@ The screenshot tool returns the PNG.
 
 `tools/run/scripted-run.sh` needs `NSMBU_EXIT_AT_FRAME`.
 Pad input is `NSMBU_PRESS` and `NSMBU_STICK` on the process.
-Course pad logs are `tools/replay/1-1.replay` and `tools/replay/2-1.replay`, played with `NSMBU_REPLAY_INPUT`.
+`just replay tools/replay/1-1.replay` plays that file and opens its `course=`.
+`just replay 1-1` is the same file.
+`--uncapped` sets `NSMBU_UNCAPPED=1`.
+Course pad logs are `tools/replay/1-1.replay` and `tools/replay/2-1.replay`.

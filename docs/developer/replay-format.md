@@ -3,7 +3,9 @@
 A `.replay` file in this repo is a plain text input log, not the game's binary `RPRH` replay.
 The course playtests point `NSMBU_REPLAY_INPUT` at the files under `tools/replay/`.
 `NSMBU_RECORD_INPUT` still writes the same format when that variable is set.
-There is no `nsmbu record` or `nsmbu replay` command.
+`just replay PATH` plays a file and opens its `course=` pack.
+`--uncapped` sets `NSMBU_UNCAPPED=1`.
+There is no `nsmbu record` command.
 
 The file holds initial config lines, then one line for each change of the pad state in a course.
 Lines are read with a 512-byte buffer, so keep each line below 511 bytes.
